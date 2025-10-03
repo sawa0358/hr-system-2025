@@ -32,10 +32,6 @@ export default function EmployeesPage() {
     setEvaluationOpen(true)
   }
 
-  const handleRefresh = () => {
-    setRefreshTrigger(prev => prev + 1)
-  }
-
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
@@ -57,20 +53,11 @@ export default function EmployeesPage() {
         <EmployeeFilters />
 
         <div className="mt-6">
-          <EmployeeTable 
-            onEmployeeClick={handleEmployeeClick} 
-            onEvaluationClick={handleEvaluationClick}
-            refreshTrigger={refreshTrigger}
-          />
+          <EmployeeTable onEmployeeClick={handleEmployeeClick} onEvaluationClick={handleEvaluationClick} />
         </div>
       </div>
 
-      <EmployeeDetailDialog 
-        open={detailOpen} 
-        onOpenChange={setDetailOpen} 
-        employee={selectedEmployee}
-        onRefresh={handleRefresh}
-      />
+      <EmployeeDetailDialog open={detailOpen} onOpenChange={setDetailOpen} employee={selectedEmployee} />
 
       {evaluationEmployee && (
         <EvaluationDetailDialog open={evaluationOpen} onOpenChange={setEvaluationOpen} employee={evaluationEmployee} />

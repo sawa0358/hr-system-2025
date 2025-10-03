@@ -57,20 +57,11 @@ export default function EmployeesPage() {
         <EmployeeFilters />
 
         <div className="mt-6">
-          <EmployeeTable 
-            onEmployeeClick={handleEmployeeClick} 
-            onEvaluationClick={handleEvaluationClick}
-            refreshTrigger={refreshTrigger}
-          />
+          <EmployeeTable onEmployeeClick={handleEmployeeClick} onEvaluationClick={handleEvaluationClick} />
         </div>
       </div>
 
-      <EmployeeDetailDialog 
-        open={detailOpen} 
-        onOpenChange={setDetailOpen} 
-        employee={selectedEmployee}
-        onRefresh={handleRefresh}
-      />
+      <EmployeeDetailDialog open={detailOpen} onOpenChange={setDetailOpen} employee={selectedEmployee} />
 
       {evaluationEmployee && (
         <EvaluationDetailDialog open={evaluationOpen} onOpenChange={setEvaluationOpen} employee={evaluationEmployee} />

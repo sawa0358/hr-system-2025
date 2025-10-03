@@ -36,7 +36,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     }
 
     fetchEmployees()
-  }, [refreshTrigger])
+  }, [])
 
   const getStatusBadge = (status: string) => {
     switch (status) {

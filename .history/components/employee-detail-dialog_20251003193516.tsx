@@ -75,8 +75,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     name: employee?.name || '',
     email: employee?.email || '',
     phone: employee?.phone || '',
-    phoneInternal: employee?.phoneInternal || '',
-    phoneMobile: employee?.phoneMobile || '',
     department: employee?.department || '',
     position: employee?.position || '',
     organization: employee?.organization || '株式会社テックイノベーション',
@@ -88,10 +86,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     myNumber: employee?.myNumber || '',
     employeeType: employee?.employeeType || 'employee',
     employeeNumber: employee?.employeeNumber || '',
-    userId: employee?.userId || '',
-    url: employee?.url || '',
-    address: employee?.address || '',
-    selfIntroduction: employee?.selfIntroduction || '',
   })
 
   // 社員データが変更された時にフォームデータを更新
@@ -101,8 +95,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         name: employee.name || '',
         email: employee.email || '',
         phone: employee.phone || '',
-        phoneInternal: employee.phoneInternal || '',
-        phoneMobile: employee.phoneMobile || '',
         department: employee.department || '',
         position: employee.position || '',
         organization: employee.organization || '株式会社テックイノベーション',
@@ -114,10 +106,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: employee.myNumber || '',
         employeeType: employee.employeeType || 'employee',
         employeeNumber: employee.employeeNumber || '',
-        userId: employee.userId || '',
-        url: employee.url || '',
-        address: employee.address || '',
-        selfIntroduction: employee.selfIntroduction || '',
       })
     } else {
       // 新規登録の場合はフォームをリセット
@@ -125,8 +113,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         name: '',
         email: '',
         phone: '',
-        phoneInternal: '',
-        phoneMobile: '',
         department: '',
         position: '',
         organization: '株式会社テックイノベーション',
@@ -138,10 +124,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: '',
         employeeType: 'employee',
         employeeNumber: '',
-        userId: '',
-        url: '',
-        address: '',
-        selfIntroduction: '',
       })
     }
   }, [employee])
@@ -159,7 +141,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [showAddFamilyForm, setShowAddFamilyForm] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
@@ -289,8 +270,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         address: '',
         myNumber: ''
       })
-      // フォームを閉じる
-      setShowAddFamilyForm(false)
     }
   }
 
@@ -642,12 +621,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>ユーザーID</Label>
-                    <Input 
-                      placeholder="半角の英数字とのみ使用できます" 
-                      value={formData.userId}
-                      onChange={(e) => setFormData({...formData, userId: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input placeholder="半角の英数字とのみ使用できます" disabled={!canEditProfile} />
                   </div>
                 </div>
 
@@ -865,12 +839,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>URL</Label>
-                    <Input 
-                      type="url" 
-                      value={formData.url}
-                      onChange={(e) => setFormData({...formData, url: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="url" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -887,8 +856,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="space-y-2">
                     <Label>住所</Label>
                     <Input 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
                       disabled={!canEditProfile} 
                       style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
                     />
@@ -903,12 +870,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>自己紹介</Label>
-                    <Textarea 
-                      rows={3} 
-                      value={formData.selfIntroduction}
-                      onChange={(e) => setFormData({...formData, selfIntroduction: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Textarea rows={3} disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -966,12 +928,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(内線)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneInternal}
-                      onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -987,12 +944,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(携帯)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneMobile}
-                      onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1015,13 +967,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                     <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
                   </div>
                   {canEditProfile && (
-                    <Button 
-                      onClick={() => {
-                        // 家族を追加フォームを表示/非表示する
-                        setShowAddFamilyForm(!showAddFamilyForm)
-                      }} 
-                      size="sm"
-                    >
+                    <Button onClick={handleAddFamilyMember} size="sm">
                       <Plus className="w-4 h-4 mr-2" />
                       家族を追加
                     </Button>
@@ -1029,7 +975,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 </div>
 
                 {/* 家族構成追加フォーム */}
-                {canEditProfile && showAddFamilyForm && (
+                {canEditProfile && (
                   <div className="border rounded-lg p-4 bg-slate-50">
                     <h4 className="font-medium mb-3">新しい家族を追加</h4>
                     <div className="grid grid-cols-2 gap-3">
@@ -1095,23 +1041,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       />
                       <Label className="text-xs">別居</Label>
                     </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button 
-                        onClick={handleAddFamilyMember} 
-                        size="sm" 
-                        disabled={!newFamilyMember.name || !newFamilyMember.relationship}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        家族を追加
-                      </Button>
-                      <Button 
-                        onClick={() => setShowAddFamilyForm(false)} 
-                        size="sm" 
-                        variant="outline"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
+                    <Button 
+                      onClick={handleAddFamilyMember} 
+                      size="sm" 
+                      className="mt-3"
+                      disabled={!newFamilyMember.name || !newFamilyMember.relationship}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      家族を追加
+                    </Button>
                   </div>
                 )}
 

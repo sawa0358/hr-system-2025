@@ -887,8 +887,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="space-y-2">
                     <Label>住所</Label>
                     <Input 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
                       disabled={!canEditProfile} 
                       style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
                     />
@@ -903,12 +901,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>自己紹介</Label>
-                    <Textarea 
-                      rows={3} 
-                      value={formData.selfIntroduction}
-                      onChange={(e) => setFormData({...formData, selfIntroduction: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Textarea rows={3} disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -966,12 +959,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(内線)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneInternal}
-                      onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -987,12 +975,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(携帯)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneMobile}
-                      onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">

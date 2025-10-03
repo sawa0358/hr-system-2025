@@ -34,41 +34,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 雇用形態のバリデーション
-    const validEmployeeTypes = ['employee', 'contractor'];
-    if (body.employeeType && !validEmployeeTypes.includes(body.employeeType)) {
-      return NextResponse.json(
-        { error: '雇用形態は employee または contractor のみ有効です' },
-        { status: 400 }
-      );
-    }
-
-    // メールアドレスの重複チェック
-    if (body.email) {
-      const existingEmail = await prisma.employee.findUnique({
-        where: { email: body.email }
-      });
-      if (existingEmail) {
-        return NextResponse.json(
-          { error: 'このメールアドレスは既に使用されています' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 社員番号の重複チェック
-    if (body.employeeNumber) {
-      const existingEmployeeNumber = await prisma.employee.findUnique({
-        where: { employeeNumber: body.employeeNumber }
-      });
-      if (existingEmployeeNumber) {
-        return NextResponse.json(
-          { error: 'この社員番号は既に使用されています' },
-          { status: 400 }
-        );
-      }
-    }
-
     // 社員IDの生成（入力された社員番号を使用）
     const employeeId = body.employeeNumber || `EMP-${Date.now()}`;
 
@@ -76,7 +41,7 @@ export async function POST(request: NextRequest) {
     const employee = await prisma.employee.create({
       data: {
         employeeId,
-        employeeNumber: body.employeeNumber || employeeId,
+        employeeNumber: employeeId,
         employeeType: body.employeeType || 'employee',
         name: body.name,
         email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,

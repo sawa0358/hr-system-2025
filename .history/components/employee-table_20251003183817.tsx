@@ -11,10 +11,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 interface EmployeeTableProps {
   onEmployeeClick?: (employee: any) => void
   onEvaluationClick?: (employee: any) => void
-  refreshTrigger?: number
 }
 
-export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger }: EmployeeTableProps) {
+export function EmployeeTable({ onEmployeeClick, onEvaluationClick }: EmployeeTableProps) {
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -36,7 +35,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     }
 
     fetchEmployees()
-  }, [refreshTrigger])
+  }, [])
 
   const getStatusBadge = (status: string) => {
     switch (status) {

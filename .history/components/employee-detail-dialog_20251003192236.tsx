@@ -75,8 +75,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     name: employee?.name || '',
     email: employee?.email || '',
     phone: employee?.phone || '',
-    phoneInternal: employee?.phoneInternal || '',
-    phoneMobile: employee?.phoneMobile || '',
     department: employee?.department || '',
     position: employee?.position || '',
     organization: employee?.organization || '株式会社テックイノベーション',
@@ -88,10 +86,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     myNumber: employee?.myNumber || '',
     employeeType: employee?.employeeType || 'employee',
     employeeNumber: employee?.employeeNumber || '',
-    userId: employee?.userId || '',
-    url: employee?.url || '',
-    address: employee?.address || '',
-    selfIntroduction: employee?.selfIntroduction || '',
   })
 
   // 社員データが変更された時にフォームデータを更新
@@ -101,8 +95,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         name: employee.name || '',
         email: employee.email || '',
         phone: employee.phone || '',
-        phoneInternal: employee.phoneInternal || '',
-        phoneMobile: employee.phoneMobile || '',
         department: employee.department || '',
         position: employee.position || '',
         organization: employee.organization || '株式会社テックイノベーション',
@@ -114,10 +106,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: employee.myNumber || '',
         employeeType: employee.employeeType || 'employee',
         employeeNumber: employee.employeeNumber || '',
-        userId: employee.userId || '',
-        url: employee.url || '',
-        address: employee.address || '',
-        selfIntroduction: employee.selfIntroduction || '',
       })
     } else {
       // 新規登録の場合はフォームをリセット
@@ -125,8 +113,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         name: '',
         email: '',
         phone: '',
-        phoneInternal: '',
-        phoneMobile: '',
         department: '',
         position: '',
         organization: '株式会社テックイノベーション',
@@ -138,28 +124,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: '',
         employeeType: 'employee',
         employeeNumber: '',
-        userId: '',
-        url: '',
-        address: '',
-        selfIntroduction: '',
       })
     }
   }, [employee])
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(employee?.familyMembers || [])
-  const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({
-    name: '',
-    relationship: '',
-    phone: '',
-    birthday: '',
-    livingSeparately: false,
-    address: '',
-    myNumber: ''
-  })
   const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
-  const [files, setFiles] = useState<File[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-  const [showAddFamilyForm, setShowAddFamilyForm] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
@@ -221,11 +191,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       }
     } catch (error) {
       console.error('保存エラー:', error)
-      if (error.message) {
-        alert(`保存に失敗しました: ${error.message}`)
-      } else {
-        alert('保存に失敗しました')
-      }
+      alert('保存に失敗しました')
     } finally {
       setSaving(false)
     }
@@ -264,81 +230,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     } finally {
       setDeleting(false)
     }
-  }
-
-  // 家族構成の管理
-  const handleAddFamilyMember = () => {
-    if (newFamilyMember.name && newFamilyMember.relationship) {
-      const member: FamilyMember = {
-        id: `family-${Date.now()}`,
-        name: newFamilyMember.name,
-        relationship: newFamilyMember.relationship,
-        phone: newFamilyMember.phone || '',
-        birthday: newFamilyMember.birthday || '',
-        livingSeparately: newFamilyMember.livingSeparately || false,
-        address: newFamilyMember.address || '',
-        myNumber: newFamilyMember.myNumber || ''
-      }
-      setFamilyMembers([...familyMembers, member])
-      setNewFamilyMember({
-        name: '',
-        relationship: '',
-        phone: '',
-        birthday: '',
-        livingSeparately: false,
-        address: '',
-        myNumber: ''
-      })
-      // フォームを閉じる
-      setShowAddFamilyForm(false)
-    }
-  }
-
-  const handleRemoveFamilyMember = (id: string) => {
-    setFamilyMembers(familyMembers.filter(member => member.id !== id))
-  }
-
-  // ファイル管理
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files
-    if (selectedFiles) {
-      setFiles([...files, ...Array.from(selectedFiles)])
-    }
-  }
-
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (event: React.DragEvent) => {
-    event.preventDefault()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault()
-    setIsDragging(false)
-    
-    const droppedFiles = event.dataTransfer.files
-    if (droppedFiles) {
-      setFiles([...files, ...Array.from(droppedFiles)])
-    }
-  }
-
-  const handleRemoveFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index))
-  }
-
-  const handleDownloadFile = (file: File) => {
-    const url = URL.createObjectURL(file)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = file.name
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
   }
 
   const [privacySettings, setPrivacySettings] = useState({
@@ -642,12 +533,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>ユーザーID</Label>
-                    <Input 
-                      placeholder="半角の英数字とのみ使用できます" 
-                      value={formData.userId}
-                      onChange={(e) => setFormData({...formData, userId: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input placeholder="半角の英数字とのみ使用できます" disabled={!canEditProfile} />
                   </div>
                 </div>
 
@@ -865,12 +751,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>URL</Label>
-                    <Input 
-                      type="url" 
-                      value={formData.url}
-                      onChange={(e) => setFormData({...formData, url: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="url" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -887,8 +768,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="space-y-2">
                     <Label>住所</Label>
                     <Input 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
                       disabled={!canEditProfile} 
                       style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
                     />
@@ -903,12 +782,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>自己紹介</Label>
-                    <Textarea 
-                      rows={3} 
-                      value={formData.selfIntroduction}
-                      onChange={(e) => setFormData({...formData, selfIntroduction: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Textarea rows={3} disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -966,12 +840,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(内線)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneInternal}
-                      onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -987,12 +856,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号(携帯)</Label>
-                    <Input 
-                      type="tel" 
-                      value={formData.phoneMobile}
-                      onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
+                    <Input type="tel" disabled={!canEditProfile} />
                   </div>
                   {canEditProfile && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1015,105 +879,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                     <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
                   </div>
                   {canEditProfile && (
-                    <Button 
-                      onClick={() => {
-                        // 家族を追加フォームを表示/非表示する
-                        setShowAddFamilyForm(!showAddFamilyForm)
-                      }} 
-                      size="sm"
-                    >
+                    <Button onClick={addFamilyMember} size="sm">
                       <Plus className="w-4 h-4 mr-2" />
                       家族を追加
                     </Button>
                   )}
                 </div>
-
-                {/* 家族構成追加フォーム */}
-                {canEditProfile && showAddFamilyForm && (
-                  <div className="border rounded-lg p-4 bg-slate-50">
-                    <h4 className="font-medium mb-3">新しい家族を追加</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">氏名</Label>
-                        <Input
-                          value={newFamilyMember.name || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, name: e.target.value})}
-                          placeholder="氏名を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">続柄</Label>
-                        <Input
-                          value={newFamilyMember.relationship || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, relationship: e.target.value})}
-                          placeholder="続柄を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">電話番号</Label>
-                        <Input
-                          value={newFamilyMember.phone || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, phone: e.target.value})}
-                          placeholder="電話番号を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">生年月日</Label>
-                        <Input
-                          type="date"
-                          value={newFamilyMember.birthday || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, birthday: e.target.value})}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">住所</Label>
-                        <Input
-                          value={newFamilyMember.address || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, address: e.target.value})}
-                          placeholder="住所を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">マイナンバー</Label>
-                        <Input
-                          value={newFamilyMember.myNumber || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, myNumber: e.target.value})}
-                          placeholder="マイナンバーを入力"
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Switch
-                        checked={newFamilyMember.livingSeparately || false}
-                        onCheckedChange={(checked) => setNewFamilyMember({...newFamilyMember, livingSeparately: checked})}
-                      />
-                      <Label className="text-xs">別居</Label>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button 
-                        onClick={handleAddFamilyMember} 
-                        size="sm" 
-                        disabled={!newFamilyMember.name || !newFamilyMember.relationship}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        家族を追加
-                      </Button>
-                      <Button 
-                        onClick={() => setShowAddFamilyForm(false)} 
-                        size="sm" 
-                        variant="outline"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 {familyMembers.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">家族情報が登録されていません</div>
@@ -1127,7 +898,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleRemoveFamilyMember(member.id)}
+                              onClick={() => setFamilyMembers(familyMembers.filter((m) => m.id !== member.id))}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -1238,28 +1009,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   {folders.map((folder) => (
                     <TabsContent key={folder} value={folder} className="space-y-4">
                       {canEditProfile && (
-                        <div 
-                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                            isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-300'
-                          }`}
-                          onDragOver={handleDragOver}
-                          onDragLeave={handleDragLeave}
-                          onDrop={handleDrop}
-                        >
+                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center">
                           <Upload className="w-12 h-12 mx-auto mb-4 text-slate-400" />
                           <p className="text-sm text-slate-600 mb-2">ファイルをドラッグ&ドロップ</p>
                           <p className="text-xs text-slate-500 mb-4">PDF、画像、テキスト、Word、Excel、CSVに対応</p>
-                          <input
-                            type="file"
-                            multiple
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            id="file-upload"
-                          />
-                          <Button 
-                            variant="outline"
-                            onClick={() => document.getElementById('file-upload')?.click()}
-                          >
+                          <Button variant="outline">
                             <Upload className="w-4 h-4 mr-2" />
                             ファイルを選択
                           </Button>
@@ -1268,46 +1022,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
 
                       <div className="space-y-2">
                         <p className="text-sm font-medium">アップロード済みファイル</p>
-                        {files.length === 0 ? (
-                          <div className="text-sm text-slate-500">ファイルがありません</div>
-                        ) : (
-                          <div className="space-y-2">
-                            {files.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                <div 
-                                  className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded p-1 flex-1"
-                                  onClick={() => handleDownloadFile(file)}
-                                >
-                                  <Folder className="w-4 h-4 text-slate-400" />
-                                  <span className="text-sm">{file.name}</span>
-                                  <span className="text-xs text-slate-500">
-                                    ({(file.size / 1024).toFixed(1)} KB)
-                                  </span>
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDownloadFile(file)}
-                                    title="ダウンロード"
-                                  >
-                                    <Upload className="w-4 h-4" />
-                                  </Button>
-                                  {canEditProfile && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRemoveFile(index)}
-                                      title="削除"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div className="text-sm text-slate-500">ファイルがありません</div>
                       </div>
                     </TabsContent>
                   ))}

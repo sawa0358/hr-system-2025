@@ -29,30 +29,14 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
     setError("")
     setIsLoading(true)
 
-    try {
-      // データベースから社員情報を取得
-      const response = await fetch('/api/employees')
-      if (response.ok) {
-        const employees = await response.json()
-        const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
-        
-        if (employee) {
-          onLoginSuccess(employee, rememberMe)
-        } else {
-          setError("名前またはパスワードが正しくありません")
-        }
-      } else {
-        // フォールバック: モックデータを使用
-        const employee = mockEmployees.find((emp) => emp.name === name && emp.password === password)
-        if (employee) {
-          onLoginSuccess(employee, rememberMe)
-        } else {
-          setError("名前またはパスワードが正しくありません")
-        }
-      }
-    } catch (error) {
-      console.error('ログインエラー:', error)
-      setError("ログインに失敗しました")
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const employee = mockEmployees.find((emp) => emp.name === name && emp.password === password)
+
+    if (employee) {
+      onLoginSuccess(employee, rememberMe)
+    } else {
+      setError("名前またはパスワードが正しくありません")
     }
 
     setIsLoading(false)

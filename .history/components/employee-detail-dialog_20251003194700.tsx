@@ -887,8 +887,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="space-y-2">
                     <Label>住所</Label>
                     <Input 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
                       disabled={!canEditProfile} 
                       style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
                     />

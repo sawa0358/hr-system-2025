@@ -1,0 +1,69 @@
+{
+  "name": "hr-management-system",
+  "description": "人事管理システム - 社員情報、勤怠、評価、給与、タスク管理を統合したWebアプリケーション",
+  "repository": "https://github.com/your-username/hr-management-system",
+  "logo": "https://via.placeholder.com/150x150/3b82f6/ffffff?text=HR",
+  "keywords": [
+    "hr",
+    "management",
+    "employee",
+    "attendance",
+    "payroll",
+    "evaluation",
+    "nextjs",
+    "prisma",
+    "typescript"
+  ],
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "Node.js環境",
+      "value": "production"
+    },
+    "DATABASE_URL": {
+      "description": "PostgreSQLデータベースURL",
+      "required": true
+    },
+    "AWS_ACCESS_KEY_ID": {
+      "description": "AWSアクセスキーID",
+      "required": true
+    },
+    "AWS_SECRET_ACCESS_KEY": {
+      "description": "AWSシークレットアクセスキー",
+      "required": true
+    },
+    "AWS_REGION": {
+      "description": "AWSリージョン",
+      "value": "ap-northeast-1"
+    },
+    "AWS_S3_BUCKET_NAME": {
+      "description": "S3バケット名",
+      "required": true
+    },
+    "NEXTAUTH_SECRET": {
+      "description": "NextAuth.jsシークレットキー",
+      "generator": "secret"
+    },
+    "NEXTAUTH_URL": {
+      "description": "アプリケーションURL",
+      "value": "https://your-app-name.herokuapp.com"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini",
+      "as": "DATABASE"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+}

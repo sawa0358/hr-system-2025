@@ -1,0 +1,206 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ユーザーロール
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  manager
+  hr
+  admin
+}
+
+// 社員ステータス
+enum EmployeeStatus {
+  active
+  leave
+  retired
+}
+
+// 社員タイプ
+enum EmployeeType {
+  employee
+  contractor
+}
+
+// 社員テーブル
+model Employee {
+  id            String         @id @default(cuid())
+  employeeId    String         @unique
+  employeeNumber String        @unique
+  employeeType  EmployeeType
+  name          String
+  email         String         @unique
+  phone         String?
+  department    String
+  position      String
+  organization  String
+  team          String?
+  joinDate      DateTime
+  status        EmployeeStatus @default(active)
+  password      String
+  role          UserRole
+  myNumber      String?        // マイナンバー（権限のあるユーザーのみ）
+  
+  // リレーション
+  evaluations   Evaluation[]
+  tasks         Task[]
+  attendance    Attendance[]
+  payroll       Payroll[]
+  files         File[]
+  folders       Folder[]
+  activityLogs  ActivityLog[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("employees")
+}
+
+// 評価テーブル
+model Evaluation {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  period        String   // "2024年度 Q4"
+  evaluator     String   // 評価者名
+  status        String   // "completed", "in-progress", "pending"
+  overallScore  Float?
+  deadline      DateTime
+  scores        Json?    // 評価項目とスコア
+  comments      String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("evaluations")
+}
+
+// タスクテーブル
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  assigneeId  String?
+  assignee    Employee? @relation(fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  priority    String   // "low", "medium", "high"
+  status      String   // "todo", "in-progress", "review", "done"
+  labels      Json?    // ラベル情報
+  checklists  Json?    // チェックリスト
+  members     Json?    // メンバー情報
+  cardColor   String?
+  comments    Int      @default(0)
+  attachments Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("tasks")
+}
+
+// 勤怠テーブル
+model Attendance {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  date        DateTime
+  clockIn     DateTime?
+  clockOut    DateTime?
+  breakTime   Int?      // 休憩時間（分）
+  overtime    Int?      // 残業時間（分）
+  status      String    // "present", "absent", "late", "early_leave"
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("attendance")
+}
+
+// 給与テーブル
+model Payroll {
+  id                String   @id @default(cuid())
+  employeeId        String
+  employee          Employee @relation(fields: [employeeId], references: [id])
+  period            String   // "2025年1月"
+  baseSalary        Int
+  allowances        Int
+  deductions        Int
+  overtime          Int
+  netPay            Int
+  status            String   // "draft", "pending", "paid"
+  overtimeHours     Int?
+  allowanceBreakdown Json?  // 手当内訳
+  deductionBreakdown Json?   // 控除内訳
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("payroll")
+}
+
+// ファイルテーブル
+model File {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  filePath    String
+  fileSize    Int
+  mimeType    String
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  category    String   // "evaluation", "payroll", "attendance", "task"
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id])
+  isPublic    Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("files")
+}
+
+// フォルダテーブル
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  parentId    String?
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children    Folder[] @relation("FolderHierarchy")
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  category    String   // "evaluation", "payroll", "attendance", "task"
+  files       File[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("folders")
+}
+
+// アクティビティログテーブル
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      Employee @relation(fields: [userId], references: [id])
+  userName  String
+  action    String
+  module    String
+  details   String
+  metadata  Json?
+  
+  createdAt DateTime @default(now())
+  
+  @@map("activity_logs")
+}

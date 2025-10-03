@@ -1,0 +1,69 @@
+"use client"
+
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+
+interface AuthContextType {
+  currentUser: any | null
+  isAuthenticated: boolean
+  login: (employee: any, rememberMe: boolean) => void
+  logout: () => void
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<any | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const savedUser = localStorage.getItem("currentUser")
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser)
+        setCurrentUser(user)
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error("[v0] Failed to parse saved user:", error)
+        localStorage.removeItem("currentUser")
+      }
+    }
+    setIsLoading(false)
+  }, [])
+
+  const login = (employee: any, rememberMe: boolean) => {
+    setCurrentUser(employee)
+    setIsAuthenticated(true)
+
+    if (rememberMe) {
+      localStorage.setItem("currentUser", JSON.stringify(employee))
+    }
+  }
+
+  const logout = () => {
+    setCurrentUser(null)
+    setIsAuthenticated(false)
+    localStorage.removeItem("currentUser")
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">読み込み中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout }}>{children}</AuthContext.Provider>
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider")
+  }
+  return context
+}

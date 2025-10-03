@@ -1,0 +1,347 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ユーザーロール
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  manager
+  hr
+  admin
+}
+
+// 社員ステータス
+enum EmployeeStatus {
+  active
+  leave
+  retired
+}
+
+// 社員タイプ
+enum EmployeeType {
+  employee
+  contractor
+}
+
+// 勤怠ステータス
+enum AttendanceStatus {
+  present
+  absent
+  late
+  early_leave
+  vacation
+  sick_leave
+}
+
+// タスクステータス
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  done
+  cancelled
+}
+
+// タスク優先度
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+// 給与ステータス
+enum PayrollStatus {
+  draft
+  pending
+  approved
+  paid
+  cancelled
+}
+
+// 社員テーブル（改善版）
+model Employee {
+  id            String         @id @default(cuid())
+  employeeId    String         @unique
+  employeeNumber String        @unique
+  employeeType  EmployeeType
+  name          String
+  email         String         @unique
+  phone         String?
+  department    String
+  position      String
+  organization  String
+  team          String?
+  joinDate      DateTime
+  status        EmployeeStatus @default(active)
+  password      String
+  role          UserRole
+  myNumber      String?        // マイナンバー（権限のあるユーザーのみ）
+  
+  // 追加フィールド
+  avatar        String?        // プロフィール画像
+  emergencyContact String?     // 緊急連絡先
+  address       String?       // 住所
+  birthDate     DateTime?     // 生年月日
+  gender        String?       // 性別
+  nationality   String?       // 国籍
+  
+  // リレーション
+  evaluations   Evaluation[]
+  tasks         Task[]
+  attendance    Attendance[]
+  payroll       Payroll[]
+  files         File[]
+  folders       Folder[]
+  activityLogs  ActivityLog[]
+  leaveRequests LeaveRequest[]
+  
+  // 自己参照（上司・部下関係）
+  managerId     String?
+  manager       Employee? @relation("EmployeeHierarchy", fields: [managerId], references: [id])
+  subordinates  Employee[] @relation("EmployeeHierarchy")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("employees")
+}
+
+// 評価テーブル（改善版）
+model Evaluation {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  period        String   // "2024年度 Q4"
+  evaluatorId   String   // 評価者ID
+  evaluator     Employee @relation("EvaluationEvaluator", fields: [evaluatorId], references: [id])
+  status        String   // "completed", "in-progress", "pending"
+  overallScore  Float?
+  deadline      DateTime
+  scores        Json?    // 評価項目とスコア
+  comments      String?
+  goals         Json?    // 目標設定
+  achievements  Json?    // 達成状況
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("evaluations")
+}
+
+// タスクテーブル（改善版）
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  assigneeId  String?
+  assignee    Employee?    @relation(fields: [assigneeId], references: [id])
+  dueDate     DateTime?
+  priority    TaskPriority @default(medium)
+  status      TaskStatus   @default(todo)
+  labels      Json?        // ラベル情報
+  checklists  Json?        // チェックリスト
+  members     Json?        // メンバー情報
+  cardColor   String?
+  comments    Int          @default(0)
+  attachments Int          @default(0)
+  
+  // 追加フィールド
+  projectId   String?      // プロジェクトID
+  category    String?      // カテゴリ
+  estimatedHours Int?      // 見積もり時間
+  actualHours    Int?      // 実際の時間
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("tasks")
+}
+
+// 勤怠テーブル（改善版）
+model Attendance {
+  id          String           @id @default(cuid())
+  employeeId  String
+  employee    Employee         @relation(fields: [employeeId], references: [id])
+  date        DateTime
+  clockIn     DateTime?
+  clockOut    DateTime?
+  breakTime   Int?             // 休憩時間（分）
+  overtime    Int?             // 残業時間（分）
+  status      AttendanceStatus @default(present)
+  notes       String?
+  
+  // 追加フィールド
+  workLocation String?         // 勤務場所
+  isRemote     Boolean @default(false) // リモートワーク
+  approvedBy   String?         // 承認者ID
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("attendance")
+}
+
+// 給与テーブル（改善版）
+model Payroll {
+  id                String        @id @default(cuid())
+  employeeId        String
+  employee          Employee      @relation(fields: [employeeId], references: [id])
+  period            String        // "2025年1月"
+  baseSalary        Int
+  allowances        Int
+  deductions        Int
+  overtime          Int
+  netPay            Int
+  status            PayrollStatus @default(draft)
+  overtimeHours     Int?
+  allowanceBreakdown Json?        // 手当内訳
+  deductionBreakdown Json?        // 控除内訳
+  
+  // 追加フィールド
+  bonus             Int?         // ボーナス
+  commission        Int?         // コミッション
+  taxWithholding    Int?         // 源泉徴収税
+  socialInsurance   Int?         // 社会保険料
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("payroll")
+}
+
+// ファイルテーブル（改善版）
+model File {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  filePath    String
+  fileSize    Int
+  mimeType    String
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  category    String   // "evaluation", "payroll", "attendance", "task"
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id])
+  isPublic    Boolean  @default(false)
+  
+  // 追加フィールド
+  description String?  // ファイル説明
+  tags        Json?    // タグ
+  version     Int @default(1) // バージョン
+  isEncrypted Boolean @default(false) // 暗号化フラグ
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("files")
+}
+
+// フォルダテーブル（改善版）
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  parentId    String?
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children    Folder[] @relation("FolderHierarchy")
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  category    String   // "evaluation", "payroll", "attendance", "task"
+  files       File[]
+  
+  // 追加フィールド
+  description String?  // フォルダ説明
+  isShared    Boolean @default(false) // 共有フォルダ
+  permissions Json?    // 権限設定
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("folders")
+}
+
+// アクティビティログテーブル（改善版）
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      Employee @relation(fields: [userId], references: [id])
+  userName  String
+  action    String
+  module    String
+  details   String
+  metadata  Json?
+  
+  // 追加フィールド
+  ipAddress String?  // IPアドレス
+  userAgent String?  // ユーザーエージェント
+  severity  String @default("info") // ログレベル
+  
+  createdAt DateTime @default(now())
+  
+  @@map("activity_logs")
+}
+
+// 休暇申請テーブル（新規追加）
+model LeaveRequest {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  leaveType   String   // "vacation", "sick", "personal", "maternity", "paternity"
+  reason      String?
+  status      String   // "pending", "approved", "rejected"
+  approvedBy  String?  // 承認者ID
+  comments    String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("leave_requests")
+}
+
+// プロジェクトテーブル（新規追加）
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String   // "planning", "active", "completed", "cancelled"
+  managerId   String?  // プロジェクトマネージャーID
+  budget      Int?     // 予算
+  client      String?  // クライアント
+  
+  // リレーション
+  tasks       Task[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("projects")
+}
+
+// 通知テーブル（新規追加）
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   // "info", "warning", "error", "success"
+  isRead    Boolean @default(false)
+  data      Json?    // 追加データ
+  
+  createdAt DateTime @default(now())
+  
+  @@map("notifications")
+}

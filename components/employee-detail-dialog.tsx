@@ -98,9 +98,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
   })
 
-  // 社員データが変更された時にフォームデータを更新（初回のみ）
+  // 社員データが変更された時にフォームデータを更新
   React.useEffect(() => {
-    if (employee && !formData.name) { // フォームデータが空の場合のみ初期化
+    if (employee) { // employeeが変更されたら常に更新
       setFormData({
         name: employee.name || '',
         email: employee.email || '',
@@ -1265,22 +1265,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   )}
                 </div>
 
-                <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
-                  <div className="space-y-2">
-                    <Label>住所</Label>
-                    <Input 
-                      value={formData.address}
-                      onChange={(e) => setFormData({...formData, address: e.target.value})}
-                      disabled={!canEditProfile} 
-                      style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
-                    />
-                    {!(isOwnProfile || isAdminOrHR) && (
-                      <div className="text-sm text-slate-500 p-2 bg-slate-50 rounded">
-                        住所情報は本人または管理者・総務のみ閲覧可能です
-                      </div>
-                    )}
+                {(isOwnProfile || isAdminOrHR) && (
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
+                    <div className="space-y-2">
+                      <Label>住所</Label>
+                      <Input 
+                        value={formData.address}
+                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                        disabled={!canEditProfile}
+                        placeholder="住所を入力"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
@@ -1389,23 +1386,23 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
               </div>
             </div>
 
-            {canViewFamily && (
+            {canViewFamily && (isOwnProfile || isAdminOrHR) && (
               <div className="space-y-4">
-                <div className="border-b pb-2 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold">家族構成</h3>
-                    <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
+                  <div className="border-b pb-2 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold">家族構成</h3>
+                      <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
+                    </div>
+                    {canEditProfile && (
+                      <Button 
+                        onClick={addFamilyMember}
+                        size="sm"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        家族を追加
+                      </Button>
+                    )}
                   </div>
-                  {canEditProfile && (
-                    <Button 
-                      onClick={addFamilyMember}
-                      size="sm"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      家族を追加
-                    </Button>
-                  )}
-                </div>
 
 
                 {familyMembers.length === 0 ? (
@@ -1579,7 +1576,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              )}
             )}
 
             {canViewFiles && (

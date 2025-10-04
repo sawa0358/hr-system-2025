@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,56 +40,57 @@ interface EvaluationDetailDialogProps {
 }
 
 export function EvaluationDetailDialog({ employee, open, onOpenChange }: EvaluationDetailDialogProps) {
-  const [folders, setFolders] = useState<FolderTab[]>([
-    {
-      id: "folder-1",
-      name: "2024年度",
-      files: [
-        {
-          id: "file-1",
-          name: "Q1目標設定.xlsx",
-          type: "excel",
-          uploadDate: "2024-04-01",
-          size: "45KB",
-        },
-        {
-          id: "file-2",
-          name: "Q2評価シート.xlsx",
-          type: "excel",
-          uploadDate: "2024-07-01",
-          size: "52KB",
-        },
-      ],
-    },
-    {
-      id: "folder-2",
-      name: "2025年度",
-      files: [
-        {
-          id: "file-3",
-          name: "年間目標.xlsx",
-          type: "excel",
-          uploadDate: "2025-01-05",
-          size: "48KB",
-        },
-      ],
-    },
-  ])
-  const [activeFolder, setActiveFolder] = useState(folders[0].id)
+  const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
+  const [currentFolder, setCurrentFolder] = useState("基本情報")
+  const [loading, setLoading] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const [isAddingFolder, setIsAddingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
-  const [isDragging, setIsDragging] = useState(false)
   const [viewingFile, setViewingFile] = useState<EvaluationFile | null>(null)
+
+  // ファイルデータを取得
+  useEffect(() => {
+    if (open && employee.id) {
+      fetchEvaluationFiles()
+    }
+  }, [open, employee.id])
+
+  const [files, setFiles] = useState<EvaluationFile[]>([])
+
+  const fetchEvaluationFiles = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/files/employee/${employee.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        const fileList: EvaluationFile[] = data.map((file: any) => ({
+          id: file.id,
+          name: file.originalName,
+          type: file.type || 'excel',
+          uploadDate: new Date(file.createdAt).toISOString().split('T')[0],
+          size: formatFileSize(file.size)
+        }))
+        setFiles(fileList)
+      }
+    } catch (error) {
+      console.error('ファイル取得エラー:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
 
   const handleAddFolder = () => {
     if (newFolderName.trim()) {
-      const newFolder: FolderTab = {
-        id: `folder-${Date.now()}`,
-        name: newFolderName,
-        files: [],
-      }
-      setFolders([...folders, newFolder])
-      setActiveFolder(newFolder.id)
+      setFolders([...folders, newFolderName])
+      setCurrentFolder(newFolderName)
       setNewFolderName("")
       setIsAddingFolder(false)
     }
@@ -112,34 +113,112 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
     handleFileUpload(files)
   }
 
-  const handleFileUpload = (files: File[]) => {
-    const currentFolder = folders.find((f) => f.id === activeFolder)
-    if (!currentFolder) return
+  const handleFileUpload = async (files: File[]) => {
+    setLoading(true)
+    try {
+      for (const file of files) {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('employeeId', employee.id)
+        formData.append('folder', 'evaluation') // 考課表用のフォルダ
 
-    const newFiles: EvaluationFile[] = files.map((file) => ({
-      id: `file-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      type: file.name.endsWith(".xlsx") || file.name.endsWith(".xls") ? "excel" : "other",
-      uploadDate: new Date().toISOString().split("T")[0],
-      size: `${Math.round(file.size / 1024)}KB`,
-    }))
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          headers: {
+            'x-employee-id': employee.id,
+          },
+          body: formData,
+        })
 
-    setFolders(
-      folders.map((folder) =>
-        folder.id === activeFolder ? { ...folder, files: [...folder.files, ...newFiles] } : folder,
-      ),
-    )
+        if (response.ok) {
+          const result = await response.json()
+          console.log('ファイルアップロード成功:', result)
+        } else {
+          console.error('ファイルアップロードエラー:', await response.text())
+        }
+      }
+      
+      // アップロード後にファイル一覧を再取得
+      await fetchEvaluationFiles()
+    } catch (error) {
+      console.error('ファイルアップロードエラー:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteFile = (fileId: string) => {
-    setFolders(
-      folders.map((folder) =>
-        folder.id === activeFolder ? { ...folder, files: folder.files.filter((f) => f.id !== fileId) } : folder,
-      ),
-    )
+  const handleDeleteFile = async (fileId: string) => {
+    try {
+      console.log('削除開始:', { fileId, employeeId: employee.id })
+      const response = await fetch(`/api/files/${fileId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'x-employee-id': employee.id,
+        },
+      })
+
+      if (response.ok) {
+        console.log('ファイル削除成功')
+        // 削除後にファイル一覧を再取得
+        await fetchEvaluationFiles()
+      } else {
+        const errorText = await response.text()
+        console.error('ファイル削除エラー:', response.status, errorText)
+      }
+    } catch (error) {
+      console.error('ファイル削除エラー:', error)
+    }
   }
 
-  const currentFolder = folders.find((f) => f.id === activeFolder)
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
+    try {
+      console.log('ダウンロード開始:', { fileId, fileName, employeeId: employee.id })
+      const response = await fetch(`/api/files/${fileId}/download`, {
+        headers: {
+          'x-employee-id': employee.id,
+        },
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        console.log('ダウンロード成功')
+      } else {
+        const errorText = await response.text()
+        console.error('ファイルダウンロードエラー:', response.status, errorText)
+      }
+    } catch (error) {
+      console.error('ファイルダウンロードエラー:', error)
+    }
+  }
+
+  const handlePreviewFile = async (fileId: string) => {
+    try {
+      const response = await fetch(`/api/files/${fileId}/download`, {
+        headers: {
+          'x-employee-id': employee.id,
+        },
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        window.open(url, '_blank')
+        // プレビュー後はURLを解放しない（新しいタブで開くため）
+      } else {
+        console.error('ファイルプレビューエラー:', await response.text())
+      }
+    } catch (error) {
+      console.error('ファイルプレビューエラー:', error)
+    }
+  }
 
   return (
     <>
@@ -162,12 +241,12 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           </DialogHeader>
 
           <div className="mt-6">
-            <Tabs value={activeFolder} onValueChange={setActiveFolder}>
+            <Tabs value={currentFolder} onValueChange={setCurrentFolder}>
               <div className="flex items-center gap-2 mb-4">
                 <TabsList className="flex-1 justify-start overflow-x-auto">
                   {folders.map((folder) => (
-                    <TabsTrigger key={folder.id} value={folder.id}>
-                      {folder.name}
+                    <TabsTrigger key={folder} value={folder}>
+                      {folder}
                     </TabsTrigger>
                   ))}
                 </TabsList>
@@ -204,7 +283,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
               </div>
 
               {folders.map((folder) => (
-                <TabsContent key={folder.id} value={folder.id} className="space-y-4">
+                <TabsContent key={folder} value={folder} className="space-y-4">
                   {/* Drag & Drop Upload Area */}
                   <div
                     className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
@@ -238,10 +317,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                   </div>
 
                   {/* File List */}
-                  {folder.files.length > 0 && (
+                  {files.length > 0 && (
                     <div className="space-y-2">
                       <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
-                      {folder.files.map((file) => (
+                      {files.map((file) => (
                         <Card key={file.id} className="border-slate-200">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">
@@ -255,13 +334,28 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" onClick={() => setViewingFile(file)}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handlePreviewFile(file.id)}
+                                  title="プレビュー"
+                                >
                                   <Eye className="w-4 h-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDownloadFile(file.id, file.name)}
+                                  title="ダウンロード"
+                                >
                                   <Download className="w-4 h-4" />
                                 </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleDeleteFile(file.id)}>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => handleDeleteFile(file.id)}
+                                  title="削除"
+                                >
                                   <Trash2 className="w-4 h-4 text-red-600" />
                                 </Button>
                               </div>

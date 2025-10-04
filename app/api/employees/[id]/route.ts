@@ -57,6 +57,11 @@ export async function PUT(
         }
       });
       if (existingEmail) {
+        console.log('メールアドレス重複エラー:', {
+          email: body.email,
+          existingId: existingEmail.id,
+          currentId: params.id
+        });
         return NextResponse.json(
           { error: 'このメールアドレスは既に使用されています' },
           { status: 400 }

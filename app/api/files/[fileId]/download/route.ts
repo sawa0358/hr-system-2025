@@ -8,6 +8,15 @@ export async function GET(
   { params }: { params: { fileId: string } }
 ) {
   try {
+    // 認証チェック
+    const employeeId = request.headers.get('x-employee-id');
+    if (!employeeId) {
+      return NextResponse.json(
+        { error: '認証が必要です' },
+        { status: 401 }
+      );
+    }
+
     // ファイル情報を取得
     const file = await prisma.file.findUnique({
       where: { id: params.fileId }
@@ -17,6 +26,14 @@ export async function GET(
       return NextResponse.json(
         { error: 'ファイルが見つかりません' },
         { status: 404 }
+      );
+    }
+
+    // ファイルの所有者チェック
+    if (file.employeeId !== employeeId) {
+      return NextResponse.json(
+        { error: 'このファイルにアクセスする権限がありません' },
+        { status: 403 }
       );
     }
 
@@ -34,7 +51,9 @@ export async function GET(
     // レスポンスヘッダーを設定
     const headers = new Headers();
     headers.set('Content-Type', file.mimeType);
-    headers.set('Content-Disposition', `attachment; filename="${file.originalName}"`);
+    // ファイル名をURLエンコードして日本語対応
+    const encodedFileName = encodeURIComponent(file.originalName);
+    headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodedFileName}`);
     headers.set('Content-Length', file.fileSize.toString());
 
     return new NextResponse(fileBuffer as BodyInit, {

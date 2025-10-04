@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface EmployeeFiltersProps {
@@ -60,6 +61,14 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
       })
     }
   }, [searchQuery, department, status, employeeType, position])
+
+  const handleClearFilters = () => {
+    setSearchQuery("")
+    setDepartment("all")
+    setStatus("active")
+    setEmployeeType("all")
+    setPosition("all")
+  }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -121,6 +130,16 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
             <SelectItem value="retired">退職</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button 
+          onClick={handleClearFilters}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <X className="w-4 h-4" />
+          クリア
+        </Button>
       </div>
     </div>
   )

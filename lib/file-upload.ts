@@ -63,7 +63,7 @@ export async function handleFileUpload(
     const fileName = `${timestamp}_${file.name}`;
     
     // ローカルファイルシステムに保存
-    const uploadDir = join(process.cwd(), 'uploads', employeeId, category);
+    const uploadDir = join(process.cwd(), 'uploads', employeeId, category || 'general');
     
     // ディレクトリが存在しない場合は作成
     if (!existsSync(uploadDir)) {
@@ -81,9 +81,11 @@ export async function handleFileUpload(
         filePath: filePath,
         fileSize: file.size,
         mimeType: file.type,
-        employeeId,
-        category,
+        category: category || 'general',
         folderName: folder || null,
+        employee: {
+          connect: { id: employeeId }
+        }
       },
     });
 

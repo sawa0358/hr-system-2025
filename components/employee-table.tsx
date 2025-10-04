@@ -12,10 +12,18 @@ interface EmployeeTableProps {
   onEmployeeClick?: (employee: any) => void
   onEvaluationClick?: (employee: any) => void
   refreshTrigger?: number
+  filters?: {
+    searchQuery: string
+    department: string
+    status: string
+    employeeType: string
+    position: string
+  }
 }
 
-export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger }: EmployeeTableProps) {
+export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters }: EmployeeTableProps) {
   const [employees, setEmployees] = useState<any[]>([])
+  const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -37,6 +45,55 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
 
     fetchEmployees()
   }, [refreshTrigger])
+
+  // フィルター適用
+  useEffect(() => {
+    if (!filters) {
+      setFilteredEmployees(employees)
+      return
+    }
+
+    let filtered = employees
+
+    // フリーワード検索（表示されているテキストデータを参照）
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase()
+      filtered = filtered.filter(employee => {
+        const searchableText = [
+          employee.name,
+          employee.employeeNumber || employee.employeeId,
+          employee.department,
+          employee.position,
+          employee.email,
+          employee.phone
+        ].join(' ').toLowerCase()
+        
+        return searchableText.includes(query)
+      })
+    }
+
+    // 雇用形態フィルター
+    if (filters.employeeType !== 'all') {
+      filtered = filtered.filter(employee => employee.employeeType === filters.employeeType)
+    }
+
+    // 部署フィルター
+    if (filters.department !== 'all') {
+      filtered = filtered.filter(employee => employee.department === filters.department)
+    }
+
+    // 役職フィルター
+    if (filters.position !== 'all') {
+      filtered = filtered.filter(employee => employee.position === filters.position)
+    }
+
+    // ステータスフィルター
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(employee => employee.status === filters.status)
+    }
+
+    setFilteredEmployees(filtered)
+  }, [employees, filters])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -91,7 +148,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
           </TableRow>
         </TableHeader>
         <TableBody>
-          {employees.map((employee) => (
+          {filteredEmployees.map((employee) => (
             <TableRow
               key={employee.id}
               className="hover:bg-slate-50 cursor-pointer"

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, AlertCircle } from "lucide-react"
 import { mockEmployees } from "@/lib/mock-data"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 
 interface LoginModalProps {
   open: boolean
@@ -60,7 +60,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-md" hideCloseButton>
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center">

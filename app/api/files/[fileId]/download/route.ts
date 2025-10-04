@@ -37,7 +37,7 @@ export async function GET(
     headers.set('Content-Disposition', `attachment; filename="${file.originalName}"`);
     headers.set('Content-Length', file.fileSize.toString());
 
-    return new NextResponse(fileBuffer, {
+    return new NextResponse(fileBuffer as BodyInit, {
       status: 200,
       headers,
     });

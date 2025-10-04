@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { EmployeeTable } from "@/components/employee-table"
 import { EmployeeFilters } from "@/components/employee-filters"
 import { ExportMenu } from "@/components/export-menu"
@@ -9,13 +9,35 @@ import { EvaluationDetailDialog } from "@/components/evaluation-detail-dialog"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { LoginModal } from "@/components/login-modal"
 
 export default function EmployeesPage() {
+  const { currentUser, isAuthenticated, login } = useAuth()
+  const [showLoginModal, setShowLoginModal] = useState(false)
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true)
+    } else {
+      setShowLoginModal(false)
+    }
+  }, [isAuthenticated])
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [evaluationOpen, setEvaluationOpen] = useState(false)
   const [evaluationEmployee, setEvaluationEmployee] = useState(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [filters, setFilters] = useState({
+    searchQuery: "",
+    department: "all",
+    status: "active",
+    employeeType: "all",
+    position: "all"
+  })
+
+  // 管理者・総務権限のチェック
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
   const handleAddEmployee = () => {
     setSelectedEmployee(null)
@@ -48,6 +70,32 @@ export default function EmployeesPage() {
     setRefreshTrigger(prev => prev + 1)
   }
 
+  const handleFiltersChange = useCallback((newFilters: any) => {
+    setFilters(newFilters)
+  }, [])
+
+  const handleLoginSuccess = (employee: any, rememberMe: boolean) => {
+    // 認証コンテキストのlogin関数を呼び出し
+    login(employee, rememberMe)
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">読み込み中...</p>
+          </div>
+        </div>
+        <LoginModal 
+          open={showLoginModal} 
+          onLoginSuccess={handleLoginSuccess} 
+        />
+      </>
+    )
+  }
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
@@ -56,23 +104,26 @@ export default function EmployeesPage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">社員情報</h1>
             <p className="text-slate-600">社員の基本情報を管理(デフォルト: 在籍中のみ表示)</p>
           </div>
-          <div className="flex gap-3">
-            <AIAskButton context="社員情報" />
-            <ExportMenu />
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddEmployee}>
-              <Plus className="w-4 h-4 mr-2" />
-              新規登録
-            </Button>
-          </div>
+          {isAdminOrHR && (
+            <div className="flex gap-3">
+              <AIAskButton context="社員情報" />
+              <ExportMenu />
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddEmployee}>
+                <Plus className="w-4 h-4 mr-2" />
+                新規登録
+              </Button>
+            </div>
+          )}
         </div>
 
-        <EmployeeFilters />
+        <EmployeeFilters onFiltersChange={handleFiltersChange} />
 
         <div className="mt-6">
           <EmployeeTable 
             onEmployeeClick={handleEmployeeClick} 
             onEvaluationClick={handleEvaluationClick}
             refreshTrigger={refreshTrigger}
+            filters={filters}
           />
         </div>
       </div>
@@ -87,6 +138,11 @@ export default function EmployeesPage() {
       {evaluationEmployee && (
         <EvaluationDetailDialog open={evaluationOpen} onOpenChange={setEvaluationOpen} employee={evaluationEmployee} />
       )}
+
+      <LoginModal 
+        open={showLoginModal} 
+        onLoginSuccess={handleLoginSuccess} 
+      />
     </main>
   )
 }

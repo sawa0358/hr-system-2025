@@ -52,15 +52,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   console.log('Employee Detail Dialog - employee.id:', employee?.id)
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
-  const canViewProfile = isOwnProfile || permissions.viewSubordinateProfiles || permissions.viewAllProfiles || isAdminOrHR
+  const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = isOwnProfile
-    ? permissions.editOwnProfile
-    : permissions.editSubordinateProfiles || permissions.editAllProfiles || isAdminOrHR
+    ? permissions.permissions.editOwnProfile
+    : permissions.permissions.editSubordinateProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
-  const canViewUserInfo = permissions.viewAllProfiles || permissions.editAllProfiles || isAdminOrHR
-  const canEditUserInfo = permissions.editAllProfiles || isAdminOrHR
-  const canViewFamily = isOwnProfile || permissions.viewAllProfiles || isAdminOrHR
-  const canViewFiles = permissions.viewAllProfiles || isAdminOrHR
+  const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
+  const canEditUserInfo = permissions.permissions.editAllProfiles || isAdminOrHR
+  const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
+  const canViewFiles = permissions.permissions.viewAllProfiles || isAdminOrHR
   
   // デバッグ用：権限チェック結果をコンソールに出力
   console.log('Permission Check Results:', {
@@ -339,7 +339,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       }
     } catch (error) {
       console.error('保存エラー:', error)
-      if (error.message) {
+      if (error instanceof Error && error.message) {
         alert(`保存に失敗しました: ${error.message}`)
       } else {
         alert('保存に失敗しました')
@@ -901,6 +901,23 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditUserInfo && !isNewEmployee} 
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>ステータス</Label>
+                    <Select 
+                      value={formData.status} 
+                      onValueChange={(value) => setFormData({...formData, status: value})}
+                      disabled={!canEditUserInfo && !isNewEmployee}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">在籍中</SelectItem>
+                        <SelectItem value="leave">休職中</SelectItem>
+                        <SelectItem value="retired">退職</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             )}
@@ -1000,10 +1017,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           </div>
                           <div className="flex items-center gap-2">
                             <Input
-                              placeholder="3文字まで"
+                              placeholder="何文字でもOK"
                               value={avatarText}
                               onChange={(e) => {
-                                const text = e.target.value.slice(0, 3)
+                                const text = e.target.value
                                 setAvatarText(text)
                                 if (text) {
                                   setSelectedAvatarFile(null) // 文字入力時は画像をクリア
@@ -1015,7 +1032,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                               }}
                               className="w-20 h-8 text-sm"
                             />
-                            <span className="text-xs text-slate-500">または文字</span>
+                            <span className="text-xs text-slate-500">または文字（表示は3文字）</span>
                           </div>
                         </div>
                       )}
@@ -1163,12 +1180,29 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>役職</Label>
-                    {canEditProfile && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setPositions([...positions, ""])}>
-                        <Plus className="w-4 h-4 mr-1" />
-                        追加
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {canEditProfile && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            // 役職管理ダイアログを開く（部署管理と同じ機能）
+                            // 現在は部署管理と同じ機能として実装
+                            setIsDepartmentManagerOpen(true)
+                          }}
+                        >
+                          <Settings className="w-4 h-4 mr-1" />
+                          役職管理
+                        </Button>
+                      )}
+                      {canEditProfile && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setPositions([...positions, ""])}>
+                          <Plus className="w-4 h-4 mr-1" />
+                          追加
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   {positions.map((pos, index) => (
                     <div key={index} className="grid grid-cols-[1fr_auto] gap-4 items-center">
@@ -1717,7 +1751,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
           </div>
 
           <div className="flex justify-between items-center mt-6 pt-6 border-t">
-            {permissions.suspendUsers && (
+            {permissions.permissions.suspendUsers && (
               <Button variant="destructive" onClick={() => onOpenChange(false)}>
                 ユーザーを停止する
               </Button>

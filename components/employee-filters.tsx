@@ -1,24 +1,74 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-export function EmployeeFilters() {
+interface EmployeeFiltersProps {
+  onFiltersChange?: (filters: {
+    searchQuery: string
+    department: string
+    status: string
+    employeeType: string
+    position: string
+  }) => void
+}
+
+export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
   const [employeeType, setEmployeeType] = useState("all")
+  const [position, setPosition] = useState("all")
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
+  const [availablePositions, setAvailablePositions] = useState<string[]>([])
+
+  // 部署と役職の一覧を取得
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const employees = await response.json()
+          
+          // 部署の一覧を取得（重複を除去）
+          const departments = [...new Set(employees.map((emp: any) => emp.department).filter(Boolean))] as string[]
+          setAvailableDepartments(departments)
+          
+          // 役職の一覧を取得（重複を除去）
+          const positions = [...new Set(employees.map((emp: any) => emp.position).filter(Boolean))] as string[]
+          setAvailablePositions(positions)
+        }
+      } catch (error) {
+        console.error('フィルターオプションの取得エラー:', error)
+      }
+    }
+
+    fetchFilterOptions()
+  }, [])
+
+  // フィルター変更時に親コンポーネントに通知
+  useEffect(() => {
+    if (onFiltersChange) {
+      onFiltersChange({
+        searchQuery,
+        department,
+        status,
+        employeeType,
+        position
+      })
+    }
+  }, [searchQuery, department, status, employeeType, position])
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             type="text"
-            placeholder="社員名、社員番号で検索..."
+            placeholder="社員名、社員番号、部署、役職で検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -30,9 +80,9 @@ export function EmployeeFilters() {
             <SelectValue placeholder="雇用形態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">全て</SelectItem>
-            <SelectItem value="employee">社員</SelectItem>
-            <SelectItem value="contractor">外注</SelectItem>
+            <SelectItem value="all">雇用形態</SelectItem>
+            <SelectItem value="employee">正社員</SelectItem>
+            <SelectItem value="contractor">契約社員</SelectItem>
           </SelectContent>
         </Select>
 
@@ -42,11 +92,21 @@ export function EmployeeFilters() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部署</SelectItem>
-            <SelectItem value="engineering">エンジニアリング</SelectItem>
-            <SelectItem value="sales">営業</SelectItem>
-            <SelectItem value="marketing">マーケティング</SelectItem>
-            <SelectItem value="hr">人事</SelectItem>
-            <SelectItem value="finance">経理</SelectItem>
+            {availableDepartments.map((dept) => (
+              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={position} onValueChange={setPosition}>
+          <SelectTrigger>
+            <SelectValue placeholder="役職" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全役職</SelectItem>
+            {availablePositions.map((pos) => (
+              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
       success: true,
       employee
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('社員作成エラー:', error);
     
     // ユニーク制約エラーの場合

@@ -154,7 +154,7 @@ export async function PUT(
       success: true,
       employee: updatedEmployee
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('社員更新エラー:', error);
     console.error('エラーの詳細:', {
       name: error.name,

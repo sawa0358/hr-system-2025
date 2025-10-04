@@ -48,12 +48,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   console.log('Current User:', currentUser)
   console.log('Is Admin or HR:', isAdminOrHR)
   console.log('Is New Employee:', isNewEmployee)
+  console.log('Employee Detail Dialog - employee:', employee)
+  console.log('Employee Detail Dialog - employee.id:', employee?.id)
+  console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
   const canViewProfile = isOwnProfile || permissions.viewSubordinateProfiles || permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = isOwnProfile
     ? permissions.editOwnProfile
     : permissions.editSubordinateProfiles || permissions.editAllProfiles || isAdminOrHR
-  const canViewMyNumber = permissions.viewMyNumber || isAdminOrHR
+  const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.viewAllProfiles || permissions.editAllProfiles || isAdminOrHR
   const canEditUserInfo = permissions.editAllProfiles || isAdminOrHR
   const canViewFamily = isOwnProfile || permissions.viewAllProfiles || isAdminOrHR
@@ -92,11 +95,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     url: employee?.url || '',
     address: employee?.address || '',
     selfIntroduction: employee?.selfIntroduction || '',
+    birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
   })
 
-  // 社員データが変更された時にフォームデータを更新
+  // 社員データが変更された時にフォームデータを更新（初回のみ）
   React.useEffect(() => {
-    if (employee) {
+    if (employee && !formData.name) { // フォームデータが空の場合のみ初期化
       setFormData({
         name: employee.name || '',
         email: employee.email || '',
@@ -118,26 +122,78 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         url: employee.url || '',
         address: employee.address || '',
         selfIntroduction: employee.selfIntroduction || '',
+        birthDate: employee.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
       })
       
-      // 家族データも更新
+      // アバター関連の初期化（employeeデータから復元）
+      setAvatarText('')
+      setSelectedAvatarFile(null)
+      
+      // 画像データをローカルストレージから復元
+      if (typeof window !== 'undefined') {
+        const savedAvatarText = localStorage.getItem(`employee-avatar-text-${employee.id}`)
+        if (savedAvatarText) {
+          setAvatarText(savedAvatarText)
+        }
+        // ファイルは復元できないので、nullのまま
+        setSelectedAvatarFile(null)
+      }
+      
+      // 家族データも更新（初回のみ）
       if (employee.familyMembers && employee.familyMembers.length > 0) {
         setFamilyMembers(employee.familyMembers)
       } else {
-        setFamilyMembers([
-          {
-            id: 'family-1',
-            name: '',
-            relationship: '',
-            phone: '',
-            birthday: '',
-            livingSeparately: false,
-            address: '',
-            myNumber: ''
-          }
-        ])
+        setFamilyMembers([])
       }
-    } else {
+      
+      // 家族構成データをローカルストレージから復元
+      if (typeof window !== 'undefined') {
+        const savedFamilyMembers = localStorage.getItem(`employee-family-members-${employee.id}`)
+        if (savedFamilyMembers) {
+          try {
+            const parsedFamilyMembers = JSON.parse(savedFamilyMembers)
+            if (Array.isArray(parsedFamilyMembers)) {
+              setFamilyMembers(parsedFamilyMembers)
+            }
+          } catch (error) {
+            console.error('家族構成データの復元エラー:', error)
+          }
+        }
+      }
+      
+      // システム使用状態を設定
+      setSystemUsageEnabled(employee.role ? true : false)
+      
+      // 組織、部署、役職の配列を設定
+      setOrganizations(employee.organization ? [employee.organization] : [""])
+      setDepartments(employee.department ? [employee.department] : [""])
+      setPositions(employee.position ? [employee.position] : [""])
+      
+      // フォルダ情報も初期化
+      if (typeof window !== 'undefined') {
+        // 古いデータをクリア（データベース再作成時のID変更対応）
+        const oldKeys = Object.keys(localStorage).filter(key => 
+          key.startsWith('employee-folders-') && !key.includes(employee.id)
+        )
+        oldKeys.forEach(key => {
+          console.log('古いローカルストレージキーを削除:', key)
+          localStorage.removeItem(key)
+        })
+        
+        const savedFolders = localStorage.getItem(`employee-folders-${employee.id}`)
+        if (savedFolders) {
+          const parsedFolders = JSON.parse(savedFolders)
+          setFolders(parsedFolders)
+          setCurrentFolder(parsedFolders[0] || "基本情報")
+        } else {
+          setFolders(["基本情報", "契約書類", "評価資料"])
+          setCurrentFolder("基本情報")
+        }
+      }
+      
+      // アップロード済みファイルを取得
+      fetchUploadedFiles(employee.id)
+    } else if (!employee) {
       // 新規登録の場合はフォームをリセット
       setFormData({
         name: '',
@@ -160,27 +216,28 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         url: '',
         address: '',
         selfIntroduction: '',
+        birthDate: '',
       })
+      setSystemUsageEnabled(false)
+      setOrganizations([""])
+      setDepartments([""])
+      setPositions([""])
+      if (typeof window !== 'undefined') {
+        // 新規登録時は古いフォルダデータをクリア
+        const oldKeys = Object.keys(localStorage).filter(key => 
+          key.startsWith('employee-folders-')
+        )
+        oldKeys.forEach(key => {
+          console.log('新規登録時：古いローカルストレージキーを削除:', key)
+          localStorage.removeItem(key)
+        })
+      }
+      setFolders(["基本情報", "契約書類", "評価資料"])
+      setCurrentFolder("基本情報")
     }
   }, [employee])
 
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => {
-    if (employee?.familyMembers && employee.familyMembers.length > 0) {
-      return employee.familyMembers
-    }
-    return [
-      {
-        id: 'family-1',
-        name: '',
-        relationship: '',
-        phone: '',
-        birthday: '',
-        livingSeparately: false,
-        address: '',
-        myNumber: ''
-      }
-    ]
-  })
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [folders, setFolders] = useState<string[]>(() => {
     // ローカルストレージからフォルダ情報を取得
     if (typeof window !== 'undefined') {
@@ -192,6 +249,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     return ["基本情報", "契約書類", "評価資料"]
   })
   const [files, setFiles] = useState<File[]>([])
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
@@ -203,6 +262,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   } | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [avatarText, setAvatarText] = useState('')
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null)
+  const [currentFolder, setCurrentFolder] = useState('')
 
   // 保存処理
   const handleSave = async () => {
@@ -217,6 +279,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       console.log('権限が不足しています')
       return
     }
+
+    // 古いIDを検出して警告
+    if (employee?.id && employee.id.includes('cmganegqz')) {
+      console.error('古いIDが検出されました:', employee.id)
+      alert('ページを再読み込みしてください。古いデータが検出されました。')
+      window.location.reload()
+      return
+    }
     
     setSaving(true)
     try {
@@ -224,6 +294,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       const method = isNewEmployee ? 'POST' : 'PUT'
       
       console.log('API呼び出し:', { url, method, formData })
+      console.log('送信するbirthDate:', formData.birthDate)
       
       const response = await fetch(url, {
         method,
@@ -315,7 +386,46 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
 
 
   const handleRemoveFamilyMember = (id: string) => {
-    setFamilyMembers(familyMembers.filter(member => member.id !== id))
+    const newFamilyMembers = familyMembers.filter(member => member.id !== id)
+    setFamilyMembers(newFamilyMembers)
+    
+    // ローカルストレージに保存
+    if (employee?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(newFamilyMembers))
+    }
+  }
+
+  // 家族構成データを更新してローカルストレージに保存する共通関数
+  const updateFamilyMembersAndSave = (updatedMembers: FamilyMember[]) => {
+    setFamilyMembers(updatedMembers)
+    
+    // ローカルストレージに保存
+    if (employee?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(updatedMembers))
+    }
+  }
+
+  // アップロード済みファイルを取得
+  const fetchUploadedFiles = async (employeeId: string) => {
+    if (!employeeId) return
+    
+    console.log('アップロード済みファイルを取得中:', employeeId)
+    setLoadingFiles(true)
+    try {
+      const response = await fetch(`/api/files/employee/${employeeId}`)
+      console.log('ファイル取得レスポンス:', response.status)
+      if (response.ok) {
+        const files = await response.json()
+        console.log('取得したファイル一覧:', files)
+        setUploadedFiles(files)
+      } else {
+        console.error('ファイル取得失敗:', response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error('ファイル取得エラー:', error)
+    } finally {
+      setLoadingFiles(false)
+    }
   }
 
   // ファイル管理
@@ -323,18 +433,32 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     const selectedFiles = event.target.files
     if (selectedFiles) {
       const newFiles = Array.from(selectedFiles)
+      console.log('選択されたファイル:', newFiles.map(f => f.name))
+      
+      // 一時的にローカルファイルリストに追加（アップロード中表示用）
+      setFiles([...files, ...newFiles])
       
       // 各ファイルをアップロード
       for (const file of newFiles) {
         try {
+          console.log('ファイルアップロード開始:', file.name)
+          
+          // 新規登録の場合はアップロードをスキップ
+          if (!employee?.id) {
+            console.log('新規登録のため、ファイルアップロードをスキップ')
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+            continue
+          }
+          
           const formData = new FormData()
           formData.append('file', file)
           formData.append('category', 'employee')
+          formData.append('folder', currentFolder)
           
           const response = await fetch('/api/files/upload', {
             method: 'POST',
             headers: {
-              'x-employee-id': employee?.id || 'new'
+              'x-employee-id': employee.id
             },
             body: formData
           })
@@ -342,16 +466,34 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
           if (response.ok) {
             const result = await response.json()
             console.log('ファイルアップロード成功:', result)
+            
+            // アップロード成功したファイルをローカルリストから削除
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+            
+            // アップロード済みファイルリストを再取得
+            if (employee?.id) {
+              console.log('アップロード済みファイルリストを再取得中...')
+              // 少し遅延してからファイルリストを再取得（アップロード完了を確実にするため）
+              setTimeout(() => {
+                fetchUploadedFiles(employee.id)
+              }, 500)
+            }
           } else {
-            console.error('ファイルアップロード失敗:', await response.text())
+            const errorText = await response.text()
+            console.error('ファイルアップロード失敗:', response.status, errorText)
+            // エラーの場合もローカルリストから削除
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
           }
         } catch (error) {
           console.error('ファイルアップロードエラー:', error)
+          // エラーの場合もローカルリストから削除
+          setFiles(prevFiles => prevFiles.filter(f => f !== file))
         }
       }
-      
-      setFiles([...files, ...newFiles])
     }
+    
+    // ファイル入力欄をリセット
+    event.target.value = ''
   }
 
   const handleDragOver = (event: React.DragEvent) => {
@@ -364,13 +506,65 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     setIsDragging(false)
   }
 
-  const handleDrop = (event: React.DragEvent) => {
+  const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault()
     setIsDragging(false)
     
     const droppedFiles = event.dataTransfer.files
     if (droppedFiles) {
-      setFiles([...files, ...Array.from(droppedFiles)])
+      const newFiles = Array.from(droppedFiles)
+      
+      // 一時的にローカルファイルリストに追加（アップロード中表示用）
+      setFiles([...files, ...newFiles])
+      
+      // 各ファイルをアップロード
+      for (const file of newFiles) {
+        try {
+          // 新規登録の場合はアップロードをスキップ
+          if (!employee?.id) {
+            console.log('新規登録のため、ファイルアップロードをスキップ')
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+            continue
+          }
+          
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('category', 'employee')
+          formData.append('folder', currentFolder)
+          
+          const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: {
+              'x-employee-id': employee.id
+            },
+            body: formData
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            console.log('ファイルアップロード成功:', result)
+            
+            // アップロード成功したファイルをローカルリストから削除
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+            
+            // アップロード済みファイルリストを再取得
+            if (employee?.id) {
+              // 少し遅延してからファイルリストを再取得（アップロード完了を確実にするため）
+              setTimeout(() => {
+                fetchUploadedFiles(employee.id)
+              }, 500)
+            }
+          } else {
+            console.error('ファイルアップロード失敗:', await response.text())
+            // エラーの場合もローカルリストから削除
+            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+          }
+        } catch (error) {
+          console.error('ファイルアップロードエラー:', error)
+          // エラーの場合もローカルリストから削除
+          setFiles(prevFiles => prevFiles.filter(f => f !== file))
+        }
+      }
     }
   }
 
@@ -416,7 +610,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     { value: "employee", label: "正社員" },
     { value: "contractor", label: "契約社員" }
   ])
-  const [systemUsageEnabled, setSystemUsageEnabled] = useState(employee?.role ? true : false)
+  const [systemUsageEnabled, setSystemUsageEnabled] = useState(() => {
+    return employee?.role ? true : false
+  })
   const [userPermission, setUserPermission] = useState<string>("general")
 
   const [isDepartmentManagerOpen, setIsDepartmentManagerOpen] = useState(false)
@@ -443,13 +639,36 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       address: "",
       myNumber: "",
     }
-    setFamilyMembers([...familyMembers, newMember])
+    const newFamilyMembers = [...familyMembers, newMember]
+    setFamilyMembers(newFamilyMembers)
+    
+    // ローカルストレージに保存
+    if (employee?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(newFamilyMembers))
+    }
   }
 
   const addFolder = () => {
     const folderName = prompt("フォルダ名を入力してください")
     if (folderName) {
       const newFolders = [...folders, folderName]
+      setFolders(newFolders)
+      
+      // ローカルストレージに保存
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`employee-folders-${employee?.id || 'new'}`, JSON.stringify(newFolders))
+      }
+    }
+  }
+
+  const removeFolder = (folderName: string) => {
+    if (folders.length <= 1) {
+      alert("最低1つのフォルダが必要です")
+      return
+    }
+    
+    if (confirm(`フォルダ「${folderName}」を削除しますか？`)) {
+      const newFolders = folders.filter(f => f !== folderName)
       setFolders(newFolders)
       
       // ローカルストレージに保存
@@ -527,9 +746,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       <div className="flex items-center gap-2">
                         <Input
                           type={showEmployeeMyNumber ? "text" : "password"}
-                          defaultValue="123456789012"
+                          value={formData.myNumber}
+                          onChange={(e) => setFormData({...formData, myNumber: e.target.value})}
+                          placeholder="マイナンバー（12桁）"
                           className="font-mono"
-                          disabled={!showEmployeeMyNumber}
+                          disabled={!showEmployeeMyNumber || !canEditUserInfo}
                         />
                         <Button
                           variant="outline"
@@ -543,6 +764,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       <p className="text-xs text-slate-500">※ 表示するにはログインパスワードの入力が必要です</p>
                     </div>
                   )}
+                  <div className="col-span-2 space-y-2">
+                    <Label>生年月日</Label>
+                    <Input 
+                      type="date" 
+                      value={formData.birthDate}
+                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                      disabled={!canEditUserInfo && !isNewEmployee} 
+                    />
+                  </div>
                   {(canEditUserInfo || isAdminOrHR) && (
                     <>
                       <div className="col-span-2 space-y-3 border-t pt-4">
@@ -553,7 +783,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           </div>
                           <Switch
                             checked={systemUsageEnabled}
-                            onCheckedChange={setSystemUsageEnabled}
+                            onCheckedChange={(checked) => {
+                              setSystemUsageEnabled(checked)
+                              if (!checked) {
+                                setFormData({...formData, role: ''})
+                              } else {
+                                setFormData({...formData, role: formData.role || 'general'})
+                              }
+                            }}
                             className="data-[state=checked]:bg-blue-600"
                           />
                         </div>
@@ -714,26 +951,78 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="space-y-2">
                     <Label>画像</Label>
                     <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center">
-                        <span className="text-2xl">{employee?.name?.[0] || "?"}</span>
+                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
+                        {selectedAvatarFile ? (
+                          <img 
+                            src={URL.createObjectURL(selectedAvatarFile)} 
+                            alt="プロフィール画像" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : avatarText ? (
+                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 3)}</span>
+                        ) : employee?.avatar ? (
+                          <img 
+                            src={employee.avatar} 
+                            alt={employee?.name || "プロフィール画像"} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-2xl">{employee?.name?.[0] || "?"}</span>
+                        )}
                       </div>
                       {canEditProfile && (
-                        <Button variant="outline" size="sm">
-                          画像を選択
-                        </Button>
+                        <div className="space-y-2">
+                          <div>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file) {
+                                  setSelectedAvatarFile(file)
+                                  setAvatarText('') // 画像選択時は文字をクリア
+                                  // ローカルストレージからもテキストをクリア
+                                  if (employee?.id && typeof window !== 'undefined') {
+                                    localStorage.removeItem(`employee-avatar-text-${employee.id}`)
+                                  }
+                                }
+                              }}
+                              className="hidden"
+                              id="avatar-upload"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => document.getElementById('avatar-upload')?.click()}
+                            >
+                              画像を選択
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              placeholder="3文字まで"
+                              value={avatarText}
+                              onChange={(e) => {
+                                const text = e.target.value.slice(0, 3)
+                                setAvatarText(text)
+                                if (text) {
+                                  setSelectedAvatarFile(null) // 文字入力時は画像をクリア
+                                }
+                                // ローカルストレージに保存
+                                if (employee?.id && typeof window !== 'undefined') {
+                                  localStorage.setItem(`employee-avatar-text-${employee.id}`, text)
+                                }
+                              }}
+                              className="w-20 h-8 text-sm"
+                            />
+                            <span className="text-xs text-slate-500">または文字</span>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {canEditProfile && (
-                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                      <Switch id={`contact-${employee?.id}`} disabled={!canEditProfile} />
-                      <Label htmlFor={`contact-${employee?.id}`}>コンタクト検索の対象にする</Label>
-                    </div>
-                  </div>
-                )}
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1086,7 +1375,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
 
 
                 {familyMembers.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">家族情報が登録されていません</div>
+                  <div className="text-center py-8 text-slate-500">
+                    <p>家族情報が登録されていません</p>
+                    {canEditProfile && (
+                      <Button 
+                        onClick={addFamilyMember}
+                        size="sm"
+                        className="mt-2"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        家族を追加
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {familyMembers.map((member, index) => (
@@ -1112,7 +1413,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                 const updatedMembers = familyMembers.map(m => 
                                   m.id === member.id ? { ...m, name: e.target.value } : m
                                 )
-                                setFamilyMembers(updatedMembers)
+                                updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="氏名" 
                               disabled={!canEditProfile} 
@@ -1126,7 +1427,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                 const updatedMembers = familyMembers.map(m => 
                                   m.id === member.id ? { ...m, relationship: value } : m
                                 )
-                                setFamilyMembers(updatedMembers)
+                                updateFamilyMembersAndSave(updatedMembers)
                               }}
                               disabled={!canEditProfile}
                             >
@@ -1151,7 +1452,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                 const updatedMembers = familyMembers.map(m => 
                                   m.id === member.id ? { ...m, phone: e.target.value } : m
                                 )
-                                setFamilyMembers(updatedMembers)
+                                updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="電話番号" 
                               disabled={!canEditProfile} 
@@ -1166,7 +1467,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                 const updatedMembers = familyMembers.map(m => 
                                   m.id === member.id ? { ...m, birthday: e.target.value } : m
                                 )
-                                setFamilyMembers(updatedMembers)
+                                updateFamilyMembersAndSave(updatedMembers)
                               }}
                               disabled={!canEditProfile} 
                             />
@@ -1185,7 +1486,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                     const updatedMembers = familyMembers.map(m => 
                                       m.id === member.id ? { ...m, myNumber: e.target.value } : m
                                     )
-                                    setFamilyMembers(updatedMembers)
+                                    updateFamilyMembersAndSave(updatedMembers)
                                   }}
                                   placeholder="マイナンバー（12桁）"
                                   className="font-mono"
@@ -1215,7 +1516,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                   const updatedMembers = familyMembers.map(m => 
                                     m.id === member.id ? { ...m, livingSeparately: checked } : m
                                   )
-                                  setFamilyMembers(updatedMembers)
+                                  updateFamilyMembersAndSave(updatedMembers)
                                 }}
                                 disabled={!canEditProfile} 
                               />
@@ -1227,7 +1528,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                 const updatedMembers = familyMembers.map(m => 
                                   m.id === member.id ? { ...m, address: e.target.value } : m
                                 )
-                                setFamilyMembers(updatedMembers)
+                                updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="別居の場合は住所を入力" 
                               disabled={!canEditProfile}
@@ -1259,13 +1560,28 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   )}
                 </div>
 
-                <Tabs defaultValue={folders[0]} className="w-full">
+                <Tabs defaultValue={folders[0]} className="w-full" onValueChange={setCurrentFolder}>
                   <TabsList className="w-full justify-start overflow-x-auto">
                     {folders.map((folder) => (
-                      <TabsTrigger key={folder} value={folder}>
-                        <Folder className="w-4 h-4 mr-2" />
-                        {folder}
-                      </TabsTrigger>
+                      <div key={folder} className="flex items-center">
+                        <TabsTrigger value={folder} className="flex items-center">
+                          <Folder className="w-4 h-4 mr-2" />
+                          {folder}
+                        </TabsTrigger>
+                        {canEditProfile && folders.length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeFolder(folder)
+                            }}
+                            className="ml-1 h-6 w-6 p-0 text-slate-400 hover:text-red-500"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
                     ))}
                   </TabsList>
 
@@ -1302,27 +1618,62 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
 
                       <div className="space-y-2">
                         <p className="text-sm font-medium">アップロード済みファイル</p>
-                        {files.length === 0 ? (
+                        {loadingFiles ? (
+                          <div className="text-sm text-slate-500">ファイルを読み込み中...</div>
+                        ) : files.length === 0 && uploadedFiles.filter(file => file.folderName === currentFolder).length === 0 ? (
                           <div className="text-sm text-slate-500">ファイルがありません</div>
                         ) : (
                           <div className="space-y-2">
+                            {/* ローカルファイル（アップロード中） */}
                             {files.map((file, index) => (
-                              <div key={index} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                              <div key={`local-${index}`} className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200">
+                                <div className="flex items-center gap-2 flex-1">
+                                  <Folder className="w-4 h-4 text-blue-400" />
+                                  <span className="text-sm">{file.name}</span>
+                                  <span className="text-xs text-blue-600">
+                                    ({(file.size / 1024).toFixed(1)} KB) - アップロード中...
+                                  </span>
+                                </div>
+                                <div className="flex gap-1">
+                                  {canEditProfile && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveFile(index)}
+                                      title="キャンセル"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* アップロード済みファイル（現在のフォルダのみ） */}
+                            {uploadedFiles
+                              .filter(file => file.folderName === currentFolder)
+                              .map((file, index) => (
+                              <div key={`uploaded-${file.id}`} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                                 <div 
                                   className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded p-1 flex-1"
-                                  onClick={() => handleDownloadFile(file)}
+                                  onClick={() => {
+                                    // アップロード済みファイルのダウンロード処理
+                                    window.open(`/api/files/${file.id}/download`, '_blank')
+                                  }}
                                 >
                                   <Folder className="w-4 h-4 text-slate-400" />
-                                  <span className="text-sm">{file.name}</span>
+                                  <span className="text-sm">{file.originalName || file.filename || 'Unknown File'}</span>
                                   <span className="text-xs text-slate-500">
-                                    ({(file.size / 1024).toFixed(1)} KB)
+                                    ({file.fileSize && typeof file.fileSize === 'number' ? (file.fileSize / 1024).toFixed(1) : '0'} KB)
                                   </span>
                                 </div>
                                 <div className="flex gap-1">
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleDownloadFile(file)}
+                                    onClick={() => {
+                                      window.open(`/api/files/${file.id}/download`, '_blank')
+                                    }}
                                     title="ダウンロード"
                                   >
                                     <Upload className="w-4 h-4" />
@@ -1331,7 +1682,22 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                     <Button
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => handleRemoveFile(index)}
+                                      onClick={async () => {
+                                        // アップロード済みファイルの削除処理
+                                        try {
+                                          const response = await fetch(`/api/files/${file.id}/delete`, {
+                                            method: 'DELETE'
+                                          })
+                                          if (response.ok) {
+                                            // ファイルリストを再取得
+                                            if (employee?.id) {
+                                              fetchUploadedFiles(employee.id)
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('ファイル削除エラー:', error)
+                                        }
+                                      }}
                                       title="削除"
                                     >
                                       <X className="w-4 h-4" />
@@ -1387,6 +1753,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         open={isVerificationDialogOpen}
         onOpenChange={setIsVerificationDialogOpen}
         onVerified={handleVerificationSuccess}
+        currentUser={currentUser}
       />
 
       <DepartmentManagerDialog

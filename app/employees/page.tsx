@@ -23,6 +23,18 @@ export default function EmployeesPage() {
   }
 
   const handleEmployeeClick = (employee: any) => {
+    console.log('社員クリック:', employee)
+    console.log('社員ID:', employee?.id)
+    console.log('社員名:', employee?.name)
+    
+    // 古いIDを検出して警告
+    if (employee?.id && employee.id.includes('cmganegqz')) {
+      console.error('古いIDが検出されました:', employee.id)
+      alert('ページを再読み込みしてください。古いデータが検出されました。')
+      window.location.reload()
+      return
+    }
+    
     setSelectedEmployee(employee)
     setDetailOpen(true)
   }

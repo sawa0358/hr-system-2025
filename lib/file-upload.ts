@@ -11,8 +11,7 @@ export interface FileUploadData {
   mimeType: string;
   category: string;
   employeeId: string;
-  folderId?: string;
-  description?: string;
+  folder?: string;
 }
 
 /**
@@ -26,8 +25,7 @@ export async function handleFileUpload(
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const category = formData.get('category') as string;
-    const folderId = formData.get('folderId') as string;
-    const description = formData.get('description') as string;
+    const folder = formData.get('folder') as string;
 
     if (!file) {
       return { success: false, error: 'ファイルが選択されていません' };
@@ -85,8 +83,7 @@ export async function handleFileUpload(
         mimeType: file.type,
         employeeId,
         category,
-        folderId: folderId || null,
-        description: description || null,
+        folderName: folder || null,
       },
     });
 
@@ -182,14 +179,14 @@ export async function handleFileDelete(
 export async function getFilesByCategory(
   employeeId: string,
   category: string,
-  folderId?: string
+  folder?: string
 ) {
   try {
     const files = await prisma.file.findMany({
       where: {
         employeeId,
         category,
-        folderId: folderId || null,
+        folderName: folder || null,
       },
       orderBy: {
         createdAt: 'desc',

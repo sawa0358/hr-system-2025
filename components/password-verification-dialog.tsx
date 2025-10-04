@@ -11,15 +11,16 @@ interface PasswordVerificationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onVerified: () => void
+  currentUser?: any
 }
 
-export function PasswordVerificationDialog({ open, onOpenChange, onVerified }: PasswordVerificationDialogProps) {
+export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser }: PasswordVerificationDialogProps) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
 
   const handleVerify = () => {
-    // In a real application, this would verify against the user's actual password
-    if (password === "admin123") {
+    // 現在のユーザーのパスワードと照合
+    if (currentUser && password === currentUser.password) {
       onVerified()
       onOpenChange(false)
       setPassword("")

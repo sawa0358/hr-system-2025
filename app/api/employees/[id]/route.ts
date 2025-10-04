@@ -35,7 +35,18 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 古いIDを検出
+    if (params.id.includes('cmganegqz')) {
+      console.error('古いIDが検出されました:', params.id)
+      return NextResponse.json(
+        { error: '古いデータが検出されました。ページを再読み込みしてください。' },
+        { status: 400 }
+      )
+    }
+    
     const body = await request.json();
+    console.log('PUT request body:', body);
+    console.log('birthDate value:', body.birthDate);
     
     // メールアドレスの重複チェック（自分以外）
     if (body.email) {
@@ -92,6 +103,18 @@ export async function PUT(
         selfIntroduction: body.selfIntroduction,
         phoneInternal: body.phoneInternal,
         phoneMobile: body.phoneMobile,
+        birthDate: (() => {
+          if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
+            return null;
+          }
+          try {
+            const date = new Date(body.birthDate);
+            return isNaN(date.getTime()) ? null : date;
+          } catch (error) {
+            console.error('birthDate parsing error:', error);
+            return null;
+          }
+        })(),
       }
     });
 
@@ -133,6 +156,12 @@ export async function PUT(
     });
   } catch (error) {
     console.error('社員更新エラー:', error);
+    console.error('エラーの詳細:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
     
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -146,7 +175,7 @@ export async function PUT(
     console.error('詳細エラー:', errorMessage);
     
     return NextResponse.json(
-      { error: errorMessage },
+      { error: errorMessage, details: error },
       { status: 500 }
     );
   }

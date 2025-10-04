@@ -57,6 +57,7 @@ model Employee {
   selfIntroduction String?     // 自己紹介
   phoneInternal String?        // 電話番号（内線）
   phoneMobile   String?        // 電話番号（携帯）
+  birthDate     DateTime?      // 生年月日
   
   // リレーション
   evaluations   Evaluation[]
@@ -189,6 +190,7 @@ model File {
   category    String   // "evaluation", "payroll", "attendance", "task"
   folderId    String?
   folder      Folder?  @relation(fields: [folderId], references: [id])
+  folderName  String?  // フォルダ名（文字列）
   isPublic    Boolean  @default(false)
   
   createdAt   DateTime @default(now())

@@ -96,6 +96,18 @@ export async function POST(request: NextRequest) {
         selfIntroduction: body.selfIntroduction || null,
         phoneInternal: body.phoneInternal || null,
         phoneMobile: body.phoneMobile || null,
+        birthDate: (() => {
+          if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
+            return null;
+          }
+          try {
+            const date = new Date(body.birthDate);
+            return isNaN(date.getTime()) ? null : date;
+          } catch (error) {
+            console.error('birthDate parsing error:', error);
+            return null;
+          }
+        })(),
       }
     });
 

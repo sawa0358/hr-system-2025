@@ -26,3 +26,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /lib/generated/prisma
+
+# history files
+.history/
+
+# uploads directory
+uploads/
+
+# database
+prisma/dev.db

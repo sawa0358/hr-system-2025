@@ -51,6 +51,12 @@ model Employee {
   password      String
   role          UserRole
   myNumber      String?        // マイナンバー（権限のあるユーザーのみ）
+  userId        String?        // ユーザーID
+  url           String?        // URL
+  address       String?        // 住所
+  selfIntroduction String?     // 自己紹介
+  phoneInternal String?        // 電話番号（内線）
+  phoneMobile   String?        // 電話番号（携帯）
   
   // リレーション
   evaluations   Evaluation[]
@@ -60,11 +66,31 @@ model Employee {
   files         File[]
   folders       Folder[]
   activityLogs  ActivityLog[]
+  familyMembers FamilyMember[]
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
   @@map("employees")
+}
+
+// 家族構成テーブル
+model FamilyMember {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name          String
+  relationship  String
+  phone         String?
+  birthday      String?
+  livingSeparately Boolean @default(false)
+  address       String?
+  myNumber      String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("family_members")
 }
 
 // 評価テーブル

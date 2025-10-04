@@ -7,7 +7,10 @@ export async function GET(
 ) {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        familyMembers: true
+      }
     });
 
     if (!employee) {
@@ -80,15 +83,53 @@ export async function PUT(
         status: body.status,
         password: body.password,
         role: body.role,
-        myNumber: body.myNumber,
+        myNumber: body.myNumber || null,
         employeeNumber: body.employeeNumber,
         employeeType: body.employeeType,
+        userId: body.userId,
+        url: body.url,
+        address: body.address,
+        selfIntroduction: body.selfIntroduction,
+        phoneInternal: body.phoneInternal,
+        phoneMobile: body.phoneMobile,
+      }
+    });
+
+    // 家族データの保存
+    if (body.familyMembers && Array.isArray(body.familyMembers)) {
+      // 既存の家族データを削除
+      await prisma.familyMember.deleteMany({
+        where: { employeeId: params.id }
+      });
+
+      // 新しい家族データを追加
+      if (body.familyMembers.length > 0) {
+        await prisma.familyMember.createMany({
+          data: body.familyMembers.map((member: any) => ({
+            employeeId: params.id,
+            name: member.name,
+            relationship: member.relationship,
+            phone: member.phone || null,
+            birthday: member.birthday || null,
+            livingSeparately: member.livingSeparately || false,
+            address: member.address || null,
+            myNumber: member.myNumber || null
+          }))
+        });
+      }
+    }
+
+    // 更新された社員データを家族情報と一緒に取得
+    const updatedEmployee = await prisma.employee.findUnique({
+      where: { id: params.id },
+      include: {
+        familyMembers: true
       }
     });
 
     return NextResponse.json({
       success: true,
-      employee
+      employee: updatedEmployee
     });
   } catch (error) {
     console.error('社員更新エラー:', error);
@@ -100,8 +141,12 @@ export async function PUT(
       );
     }
     
+    // より詳細なエラー情報を提供
+    const errorMessage = error.message || '社員の更新に失敗しました';
+    console.error('詳細エラー:', errorMessage);
+    
     return NextResponse.json(
-      { error: '社員の更新に失敗しました' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

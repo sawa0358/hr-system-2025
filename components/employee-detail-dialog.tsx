@@ -119,6 +119,24 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         address: employee.address || '',
         selfIntroduction: employee.selfIntroduction || '',
       })
+      
+      // 家族データも更新
+      if (employee.familyMembers && employee.familyMembers.length > 0) {
+        setFamilyMembers(employee.familyMembers)
+      } else {
+        setFamilyMembers([
+          {
+            id: 'family-1',
+            name: '',
+            relationship: '',
+            phone: '',
+            birthday: '',
+            livingSeparately: false,
+            address: '',
+            myNumber: ''
+          }
+        ])
+      }
     } else {
       // 新規登録の場合はフォームをリセット
       setFormData({
@@ -146,20 +164,35 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     }
   }, [employee])
 
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(employee?.familyMembers || [])
-  const [newFamilyMember, setNewFamilyMember] = useState<Partial<FamilyMember>>({
-    name: '',
-    relationship: '',
-    phone: '',
-    birthday: '',
-    livingSeparately: false,
-    address: '',
-    myNumber: ''
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => {
+    if (employee?.familyMembers && employee.familyMembers.length > 0) {
+      return employee.familyMembers
+    }
+    return [
+      {
+        id: 'family-1',
+        name: '',
+        relationship: '',
+        phone: '',
+        birthday: '',
+        livingSeparately: false,
+        address: '',
+        myNumber: ''
+      }
+    ]
   })
-  const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
+  const [folders, setFolders] = useState<string[]>(() => {
+    // ローカルストレージからフォルダ情報を取得
+    if (typeof window !== 'undefined') {
+      const savedFolders = localStorage.getItem(`employee-folders-${employee?.id || 'new'}`)
+      if (savedFolders) {
+        return JSON.parse(savedFolders)
+      }
+    }
+    return ["基本情報", "契約書類", "評価資料"]
+  })
   const [files, setFiles] = useState<File[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [showAddFamilyForm, setShowAddFamilyForm] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
@@ -197,7 +230,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          familyMembers: familyMembers,
+          // 配列フィールドも送信
+          organizations: organizations,
+          departments: departments,
+          positions: positions
+        }),
       })
 
       console.log('APIレスポンス:', response.status, response.statusText)
@@ -205,6 +245,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       if (response.ok) {
         const result = await response.json()
         console.log('保存成功:', result)
+        
+        // 家族データを更新
+        if (result.employee && result.employee.familyMembers) {
+          setFamilyMembers(result.employee.familyMembers)
+        }
+        
         onOpenChange(false)
         // リフレッシュを呼び出してテーブルを更新
         if (onRefresh) {
@@ -217,7 +263,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
       } else {
         const error = await response.json()
         console.error('保存エラー:', error)
-        alert(`保存に失敗しました: ${error.error}`)
+        console.error('レスポンス詳細:', response.status, response.statusText)
+        alert(`保存に失敗しました: ${error.error || '不明なエラーが発生しました'}`)
       }
     } catch (error) {
       console.error('保存エラー:', error)
@@ -266,43 +313,44 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     }
   }
 
-  // 家族構成の管理
-  const handleAddFamilyMember = () => {
-    if (newFamilyMember.name && newFamilyMember.relationship) {
-      const member: FamilyMember = {
-        id: `family-${Date.now()}`,
-        name: newFamilyMember.name,
-        relationship: newFamilyMember.relationship,
-        phone: newFamilyMember.phone || '',
-        birthday: newFamilyMember.birthday || '',
-        livingSeparately: newFamilyMember.livingSeparately || false,
-        address: newFamilyMember.address || '',
-        myNumber: newFamilyMember.myNumber || ''
-      }
-      setFamilyMembers([...familyMembers, member])
-      setNewFamilyMember({
-        name: '',
-        relationship: '',
-        phone: '',
-        birthday: '',
-        livingSeparately: false,
-        address: '',
-        myNumber: ''
-      })
-      // フォームを閉じる
-      setShowAddFamilyForm(false)
-    }
-  }
 
   const handleRemoveFamilyMember = (id: string) => {
     setFamilyMembers(familyMembers.filter(member => member.id !== id))
   }
 
   // ファイル管理
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files
     if (selectedFiles) {
-      setFiles([...files, ...Array.from(selectedFiles)])
+      const newFiles = Array.from(selectedFiles)
+      
+      // 各ファイルをアップロード
+      for (const file of newFiles) {
+        try {
+          const formData = new FormData()
+          formData.append('file', file)
+          formData.append('category', 'employee')
+          
+          const response = await fetch('/api/files/upload', {
+            method: 'POST',
+            headers: {
+              'x-employee-id': employee?.id || 'new'
+            },
+            body: formData
+          })
+          
+          if (response.ok) {
+            const result = await response.json()
+            console.log('ファイルアップロード成功:', result)
+          } else {
+            console.error('ファイルアップロード失敗:', await response.text())
+          }
+        } catch (error) {
+          console.error('ファイルアップロードエラー:', error)
+        }
+      }
+      
+      setFiles([...files, ...newFiles])
     }
   }
 
@@ -355,14 +403,20 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     mobilePhone: true,
   })
 
-  const [organizations, setOrganizations] = useState<string[]>([employee?.organization || ""])
-  const [departments, setDepartments] = useState<string[]>([employee?.department || ""])
-  const [positions, setPositions] = useState<string[]>([employee?.position || ""])
+  const [organizations, setOrganizations] = useState<string[]>(() => {
+    return employee?.organization ? [employee.organization] : [""]
+  })
+  const [departments, setDepartments] = useState<string[]>(() => {
+    return employee?.department ? [employee.department] : [""]
+  })
+  const [positions, setPositions] = useState<string[]>(() => {
+    return employee?.position ? [employee.position] : [""]
+  })
   const [employmentTypes, setEmploymentTypes] = useState([
     { value: "employee", label: "正社員" },
     { value: "contractor", label: "契約社員" }
   ])
-  const [systemUsageEnabled, setSystemUsageEnabled] = useState(false)
+  const [systemUsageEnabled, setSystemUsageEnabled] = useState(employee?.role ? true : false)
   const [userPermission, setUserPermission] = useState<string>("general")
 
   const [isDepartmentManagerOpen, setIsDepartmentManagerOpen] = useState(false)
@@ -379,24 +433,29 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   ])
 
   const addFamilyMember = () => {
-    setFamilyMembers([
-      ...familyMembers,
-      {
-        id: Date.now().toString(),
-        name: "",
-        relationship: "",
-        phone: "",
-        birthday: "",
-        livingSeparately: false,
-        myNumber: "",
-      },
-    ])
+    const newMember: FamilyMember = {
+      id: `family-${Date.now()}`,
+      name: "",
+      relationship: "",
+      phone: "",
+      birthday: "",
+      livingSeparately: false,
+      address: "",
+      myNumber: "",
+    }
+    setFamilyMembers([...familyMembers, newMember])
   }
 
   const addFolder = () => {
     const folderName = prompt("フォルダ名を入力してください")
     if (folderName) {
-      setFolders([...folders, folderName])
+      const newFolders = [...folders, folderName]
+      setFolders(newFolders)
+      
+      // ローカルストレージに保存
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`employee-folders-${employee?.id || 'new'}`, JSON.stringify(newFolders))
+      }
     }
   }
 
@@ -1016,10 +1075,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   </div>
                   {canEditProfile && (
                     <Button 
-                      onClick={() => {
-                        // 家族を追加フォームを表示/非表示する
-                        setShowAddFamilyForm(!showAddFamilyForm)
-                      }} 
+                      onClick={addFamilyMember}
                       size="sm"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -1028,92 +1084,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   )}
                 </div>
 
-                {/* 家族構成追加フォーム */}
-                {canEditProfile && showAddFamilyForm && (
-                  <div className="border rounded-lg p-4 bg-slate-50">
-                    <h4 className="font-medium mb-3">新しい家族を追加</h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs">氏名</Label>
-                        <Input
-                          value={newFamilyMember.name || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, name: e.target.value})}
-                          placeholder="氏名を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">続柄</Label>
-                        <Input
-                          value={newFamilyMember.relationship || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, relationship: e.target.value})}
-                          placeholder="続柄を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">電話番号</Label>
-                        <Input
-                          value={newFamilyMember.phone || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, phone: e.target.value})}
-                          placeholder="電話番号を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">生年月日</Label>
-                        <Input
-                          type="date"
-                          value={newFamilyMember.birthday || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, birthday: e.target.value})}
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">住所</Label>
-                        <Input
-                          value={newFamilyMember.address || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, address: e.target.value})}
-                          placeholder="住所を入力"
-                          className="text-sm"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs">マイナンバー</Label>
-                        <Input
-                          value={newFamilyMember.myNumber || ''}
-                          onChange={(e) => setNewFamilyMember({...newFamilyMember, myNumber: e.target.value})}
-                          placeholder="マイナンバーを入力"
-                          className="text-sm"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      <Switch
-                        checked={newFamilyMember.livingSeparately || false}
-                        onCheckedChange={(checked) => setNewFamilyMember({...newFamilyMember, livingSeparately: checked})}
-                      />
-                      <Label className="text-xs">別居</Label>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                      <Button 
-                        onClick={handleAddFamilyMember} 
-                        size="sm" 
-                        disabled={!newFamilyMember.name || !newFamilyMember.relationship}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        家族を追加
-                      </Button>
-                      <Button 
-                        onClick={() => setShowAddFamilyForm(false)} 
-                        size="sm" 
-                        variant="outline"
-                      >
-                        キャンセル
-                      </Button>
-                    </div>
-                  </div>
-                )}
 
                 {familyMembers.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">家族情報が登録されていません</div>
@@ -1136,11 +1106,30 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                         <div className="grid grid-cols-2 gap-3">
                           <div className="space-y-2">
                             <Label>氏名</Label>
-                            <Input placeholder="氏名" disabled={!canEditProfile} />
+                            <Input 
+                              value={member.name}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, name: e.target.value } : m
+                                )
+                                setFamilyMembers(updatedMembers)
+                              }}
+                              placeholder="氏名" 
+                              disabled={!canEditProfile} 
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label>続柄</Label>
-                            <Select disabled={!canEditProfile}>
+                            <Select 
+                              value={member.relationship}
+                              onValueChange={(value) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, relationship: value } : m
+                                )
+                                setFamilyMembers(updatedMembers)
+                              }}
+                              disabled={!canEditProfile}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder="選択" />
                               </SelectTrigger>
@@ -1155,11 +1144,32 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           </div>
                           <div className="space-y-2">
                             <Label>電話番号</Label>
-                            <Input type="tel" placeholder="電話番号" disabled={!canEditProfile} />
+                            <Input 
+                              type="tel" 
+                              value={member.phone}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, phone: e.target.value } : m
+                                )
+                                setFamilyMembers(updatedMembers)
+                              }}
+                              placeholder="電話番号" 
+                              disabled={!canEditProfile} 
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label>誕生日</Label>
-                            <Input type="date" disabled={!canEditProfile} />
+                            <Input 
+                              type="date" 
+                              value={member.birthday}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, birthday: e.target.value } : m
+                                )
+                                setFamilyMembers(updatedMembers)
+                              }}
+                              disabled={!canEditProfile} 
+                            />
                           </div>
                           {canViewMyNumber && (
                             <div className="col-span-2 space-y-2">
@@ -1170,6 +1180,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                               <div className="flex items-center gap-2">
                                 <Input
                                   type={showFamilyMyNumber[member.id] ? "text" : "password"}
+                                  value={member.myNumber || ''}
+                                  onChange={(e) => {
+                                    const updatedMembers = familyMembers.map(m => 
+                                      m.id === member.id ? { ...m, myNumber: e.target.value } : m
+                                    )
+                                    setFamilyMembers(updatedMembers)
+                                  }}
                                   placeholder="マイナンバー（12桁）"
                                   className="font-mono"
                                   disabled={!showFamilyMyNumber[member.id] || !canEditProfile}
@@ -1191,10 +1208,27 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           )}
                           <div className="col-span-2 space-y-2">
                             <div className="flex items-center gap-2">
-                              <Switch id={`separate-${member.id}`} disabled={!canEditProfile} />
+                              <Switch 
+                                id={`separate-${member.id}`} 
+                                checked={member.livingSeparately}
+                                onCheckedChange={(checked) => {
+                                  const updatedMembers = familyMembers.map(m => 
+                                    m.id === member.id ? { ...m, livingSeparately: checked } : m
+                                  )
+                                  setFamilyMembers(updatedMembers)
+                                }}
+                                disabled={!canEditProfile} 
+                              />
                               <Label htmlFor={`separate-${member.id}`}>別居</Label>
                             </div>
                             <Input 
+                              value={member.address || ''}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, address: e.target.value } : m
+                                )
+                                setFamilyMembers(updatedMembers)
+                              }}
                               placeholder="別居の場合は住所を入力" 
                               disabled={!canEditProfile}
                               style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}

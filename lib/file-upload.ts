@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
-import { uploadFileToS3, getSignedDownloadUrl, deleteFileFromS3 } from './s3-client';
 import { prisma } from './prisma';
+import { writeFile, unlink, mkdir } from 'fs/promises';
+import { join } from 'path';
+import { existsSync } from 'fs';
 
 export interface FileUploadData {
   filename: string;
@@ -62,25 +64,23 @@ export async function handleFileUpload(
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${file.name}`;
     
-    // S3にアップロード
-    const folderPath = `hr-system/${employeeId}/${category}`;
-    const uploadResult = await uploadFileToS3(
-      buffer,
-      fileName,
-      file.type,
-      folderPath
-    );
-
-    if (!uploadResult.success) {
-      return { success: false, error: uploadResult.error };
+    // ローカルファイルシステムに保存
+    const uploadDir = join(process.cwd(), 'uploads', employeeId, category);
+    
+    // ディレクトリが存在しない場合は作成
+    if (!existsSync(uploadDir)) {
+      await mkdir(uploadDir, { recursive: true });
     }
+    
+    const filePath = join(uploadDir, fileName);
+    await writeFile(filePath, buffer);
 
     // データベースにファイル情報を保存
     const fileRecord = await prisma.file.create({
       data: {
         filename: fileName,
         originalName: file.name,
-        filePath: uploadResult.filePath!,
+        filePath: filePath,
         fileSize: file.size,
         mimeType: file.type,
         employeeId,
@@ -120,14 +120,10 @@ export async function handleFileDownload(
       return { success: false, error: 'ファイルが見つかりません' };
     }
 
-    // 署名付きURLを生成（1時間有効）
-    const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
-
-    if (!downloadResult.success) {
-      return { success: false, error: downloadResult.error };
-    }
-
-    return { success: true, url: downloadResult.url };
+    // ローカルファイルのURLを生成
+    const fileUrl = `/api/files/download/${fileId}`;
+    
+    return { success: true, url: fileUrl };
   } catch (error) {
     console.error('ファイルダウンロードエラー:', error);
     return {
@@ -157,10 +153,12 @@ export async function handleFileDelete(
       return { success: false, error: 'ファイルが見つかりません' };
     }
 
-    // S3からファイルを削除
-    const deleteResult = await deleteFileFromS3(file.filePath);
-    if (!deleteResult.success) {
-      return { success: false, error: deleteResult.error };
+    // ローカルファイルを削除
+    try {
+      await unlink(file.filePath);
+    } catch (error) {
+      console.error('ファイル削除エラー:', error);
+      // ファイルが存在しない場合は無視
     }
 
     // データベースからファイル情報を削除

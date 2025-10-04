@@ -90,6 +90,12 @@ export async function POST(request: NextRequest) {
         password: body.password,
         role: body.role || 'general',
         myNumber: body.myNumber || null,
+        userId: body.userId || null,
+        url: body.url || null,
+        address: body.address || null,
+        selfIntroduction: body.selfIntroduction || null,
+        phoneInternal: body.phoneInternal || null,
+        phoneMobile: body.phoneMobile || null,
       }
     });
 

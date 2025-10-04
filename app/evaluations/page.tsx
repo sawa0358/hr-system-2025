@@ -4,14 +4,54 @@ import { ExportMenu } from "@/components/export-menu"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { mockEmployees } from "@/lib/mock-data"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { EvaluationDetailDialog } from "@/components/evaluation-detail-dialog"
+import { useAuth } from "@/lib/auth-context"
 
 export default function EvaluationsPage() {
+  const { currentUser } = useAuth()
   const [selectedEmployee, setSelectedEmployee] = useState<(typeof mockEmployees)[0] | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [employees, setEmployees] = useState<any[]>([])
 
-  const activeEmployees = mockEmployees.filter((emp) => emp.status === "active")
+  // 社員データを取得
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const data = await response.json()
+          setEmployees(data)
+        } else {
+          console.error('社員データの取得に失敗しました')
+          // フォールバック: モックデータを使用
+          setEmployees(mockEmployees)
+        }
+      } catch (error) {
+        console.error('社員データの取得エラー:', error)
+        // フォールバック: モックデータを使用
+        setEmployees(mockEmployees)
+      }
+    }
+
+    fetchEmployees()
+  }, [])
+
+  const activeEmployees = employees.filter((emp) => {
+    const isActive = emp.status === "active"
+    
+    // システム使用状態のフィルタリング
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    const isManager = currentUser?.role === 'manager'
+    
+    let matchesSystemStatus = true
+    if (!isAdminOrHR && !isManager) {
+      // 一般ユーザーはシステム使用ONの社員のみ表示
+      matchesSystemStatus = emp.role && emp.role !== ''
+    }
+
+    return isActive && matchesSystemStatus
+  })
 
   const handleEmployeeClick = (employee: (typeof mockEmployees)[0]) => {
     setSelectedEmployee(employee)

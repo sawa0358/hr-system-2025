@@ -37,6 +37,11 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
         const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
         
         if (employee) {
+          // システム使用状態をチェック（roleが設定されているかどうか）
+          if (!employee.role || employee.role === '') {
+            setError("このアカウントはシステム使用が無効になっています。管理者にお問い合わせください。")
+            return
+          }
           onLoginSuccess(employee, rememberMe)
         } else {
           setError("名前またはパスワードが正しくありません")
@@ -45,6 +50,11 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
         // フォールバック: モックデータを使用
         const employee = mockEmployees.find((emp) => emp.name === name && emp.password === password)
         if (employee) {
+          // システム使用状態をチェック（roleが設定されているかどうか）
+          if (!employee.role || employee.role === '') {
+            setError("このアカウントはシステム使用が無効になっています。管理者にお問い合わせください。")
+            return
+          }
           onLoginSuccess(employee, rememberMe)
         } else {
           setError("名前またはパスワードが正しくありません")

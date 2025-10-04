@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,7 +7,186 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ユーザーロール
+model Employee {
+  id               String         @id @default(cuid())
+  employeeId       String         @unique
+  employeeNumber   String         @unique
+  employeeType     EmployeeType
+  name             String
+  email            String         @unique
+  phone            String?
+  department       String
+  position         String
+  organization     String
+  team             String?
+  joinDate         DateTime
+  status           EmployeeStatus @default("active")
+  password         String
+  role             UserRole?
+  myNumber         String?
+  userId           String?
+  url              String?
+  address          String?
+  selfIntroduction String?
+  phoneInternal    String?
+  phoneMobile      String?
+  birthDate        DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  activityLogs     ActivityLog[]
+  attendance       Attendance[]
+  evaluations      Evaluation[]
+  familyMembers    FamilyMember[]
+  files            File[]
+  folders          Folder[]
+  payroll          Payroll[]
+  tasks            Task[]
+
+  @@map("employees")
+}
+
+model FamilyMember {
+  id               String   @id @default(cuid())
+  employeeId       String
+  name             String
+  relationship     String
+  phone            String?
+  birthday         String?
+  livingSeparately Boolean  @default(false)
+  address          String?
+  myNumber         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("family_members")
+}
+
+model Evaluation {
+  id           String   @id @default(cuid())
+  employeeId   String
+  period       String
+  evaluator    String
+  status       String
+  overallScore Float?
+  deadline     DateTime
+  scores       Json?
+  comments     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("evaluations")
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  assigneeId  String?
+  dueDate     DateTime?
+  priority    String
+  status      String
+  labels      Json?
+  checklists  Json?
+  members     Json?
+  cardColor   String?
+  comments    Int       @default(0)
+  attachments Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  assignee    Employee? @relation(fields: [assigneeId], references: [id])
+
+  @@map("tasks")
+}
+
+model Attendance {
+  id         String    @id @default(cuid())
+  employeeId String
+  date       DateTime
+  clockIn    DateTime?
+  clockOut   DateTime?
+  breakTime  Int?
+  overtime   Int?
+  status     String
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("attendance")
+}
+
+model Payroll {
+  id                 String   @id @default(cuid())
+  employeeId         String
+  period             String
+  baseSalary         Int
+  allowances         Int
+  deductions         Int
+  overtime           Int
+  netPay             Int
+  status             String
+  overtimeHours      Int?
+  allowanceBreakdown Json?
+  deductionBreakdown Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  employee           Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("payroll")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  filePath     String
+  fileSize     Int
+  mimeType     String
+  employeeId   String
+  category     String
+  folderId     String?
+  isPublic     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  folderName   String?
+  folder       Folder?  @relation(fields: [folderId], references: [id])
+  employee     Employee @relation(fields: [employeeId], references: [id])
+
+  @@map("files")
+}
+
+model Folder {
+  id         String   @id @default(cuid())
+  name       String
+  parentId   String?
+  employeeId String
+  category   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  files      File[]
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children   Folder[] @relation("FolderHierarchy")
+
+  @@map("folders")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  userName  String
+  action    String
+  module    String
+  details   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      Employee @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
 enum UserRole {
   viewer
   general
@@ -20,215 +196,13 @@ enum UserRole {
   admin
 }
 
-// 社員ステータス
 enum EmployeeStatus {
   active
   leave
   retired
 }
 
-// 社員タイプ
 enum EmployeeType {
   employee
   contractor
-}
-
-// 社員テーブル
-model Employee {
-  id            String         @id @default(cuid())
-  employeeId    String         @unique
-  employeeNumber String        @unique
-  employeeType  EmployeeType
-  name          String
-  email         String         @unique
-  phone         String?
-  department    String
-  position      String
-  organization  String
-  team          String?
-  joinDate      DateTime
-  status        EmployeeStatus @default(active)
-  password      String
-  role          UserRole
-  myNumber      String?        // マイナンバー（権限のあるユーザーのみ）
-  userId        String?        // ユーザーID
-  url           String?        // URL
-  address       String?        // 住所
-  selfIntroduction String?     // 自己紹介
-  phoneInternal String?        // 電話番号（内線）
-  phoneMobile   String?        // 電話番号（携帯）
-  birthDate     DateTime?      // 生年月日
-  
-  // リレーション
-  evaluations   Evaluation[]
-  tasks         Task[]
-  attendance    Attendance[]
-  payroll       Payroll[]
-  files         File[]
-  folders       Folder[]
-  activityLogs  ActivityLog[]
-  familyMembers FamilyMember[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("employees")
-}
-
-// 家族構成テーブル
-model FamilyMember {
-  id            String   @id @default(cuid())
-  employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name          String
-  relationship  String
-  phone         String?
-  birthday      String?
-  livingSeparately Boolean @default(false)
-  address       String?
-  myNumber      String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("family_members")
-}
-
-// 評価テーブル
-model Evaluation {
-  id            String   @id @default(cuid())
-  employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id])
-  period        String   // "2024年度 Q4"
-  evaluator     String   // 評価者名
-  status        String   // "completed", "in-progress", "pending"
-  overallScore  Float?
-  deadline      DateTime
-  scores        Json?    // 評価項目とスコア
-  comments      String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@map("evaluations")
-}
-
-// タスクテーブル
-model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  assigneeId  String?
-  assignee    Employee? @relation(fields: [assigneeId], references: [id])
-  dueDate     DateTime?
-  priority    String   // "low", "medium", "high"
-  status      String   // "todo", "in-progress", "review", "done"
-  labels      Json?    // ラベル情報
-  checklists  Json?    // チェックリスト
-  members     Json?    // メンバー情報
-  cardColor   String?
-  comments    Int      @default(0)
-  attachments Int      @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("tasks")
-}
-
-// 勤怠テーブル
-model Attendance {
-  id          String    @id @default(cuid())
-  employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id])
-  date        DateTime
-  clockIn     DateTime?
-  clockOut    DateTime?
-  breakTime   Int?      // 休憩時間（分）
-  overtime    Int?      // 残業時間（分）
-  status      String    // "present", "absent", "late", "early_leave"
-  notes       String?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("attendance")
-}
-
-// 給与テーブル
-model Payroll {
-  id                String   @id @default(cuid())
-  employeeId        String
-  employee          Employee @relation(fields: [employeeId], references: [id])
-  period            String   // "2025年1月"
-  baseSalary        Int
-  allowances        Int
-  deductions        Int
-  overtime          Int
-  netPay            Int
-  status            String   // "draft", "pending", "paid"
-  overtimeHours     Int?
-  allowanceBreakdown Json?  // 手当内訳
-  deductionBreakdown Json?   // 控除内訳
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  @@map("payroll")
-}
-
-// ファイルテーブル
-model File {
-  id          String   @id @default(cuid())
-  filename    String
-  originalName String
-  filePath    String
-  fileSize    Int
-  mimeType    String
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  category    String   // "evaluation", "payroll", "attendance", "task"
-  folderId    String?
-  folder      Folder?  @relation(fields: [folderId], references: [id])
-  folderName  String?  // フォルダ名（文字列）
-  isPublic    Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("files")
-}
-
-// フォルダテーブル
-model Folder {
-  id          String   @id @default(cuid())
-  name        String
-  parentId    String?
-  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children    Folder[] @relation("FolderHierarchy")
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  category    String   // "evaluation", "payroll", "attendance", "task"
-  files       File[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@map("folders")
-}
-
-// アクティビティログテーブル
-model ActivityLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      Employee @relation(fields: [userId], references: [id])
-  userName  String
-  action    String
-  module    String
-  details   String
-  metadata  Json?
-  
-  createdAt DateTime @default(now())
-  
-  @@map("activity_logs")
 }

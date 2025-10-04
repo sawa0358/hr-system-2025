@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,8 +10,10 @@ import { Search, Users, Upload, FileText } from "lucide-react"
 import { mockEmployees } from "@/lib/mock-data"
 import { AttendanceUploadDialog } from "@/components/attendance-upload-dialog"
 import { Button } from "@/components/ui/button"
+import { useAuth } from "@/lib/auth-context"
 
 export default function AttendancePage() {
+  const { currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
@@ -19,22 +21,56 @@ export default function AttendancePage() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isAllEmployeesMode, setIsAllEmployeesMode] = useState(false)
+  const [employees, setEmployees] = useState<any[]>([])
   const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[] }[]>([
     { id: "1", name: "共通テンプレート1", employees: [] },
     { id: "2", name: "共通テンプレート2", employees: [] },
   ])
 
-  const filteredEmployees = mockEmployees.filter((emp) => {
+  // 社員データを取得
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const data = await response.json()
+          setEmployees(data)
+        } else {
+          console.error('社員データの取得に失敗しました')
+          // フォールバック: モックデータを使用
+          setEmployees(mockEmployees)
+        }
+      } catch (error) {
+        console.error('社員データの取得エラー:', error)
+        // フォールバック: モックデータを使用
+        setEmployees(mockEmployees)
+      }
+    }
+
+    fetchEmployees()
+  }, [])
+
+  const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.employeeNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.department.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesDepartment = department === "all" || emp.department === department
     const matchesStatus = status === "all" || emp.status === status
     const matchesType = employeeType === "all" || emp.employeeType === employeeType
 
-    return matchesSearch && matchesDepartment && matchesStatus && matchesType
+    // システム使用状態のフィルタリング
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    const isManager = currentUser?.role === 'manager'
+    
+    let matchesSystemStatus = true
+    if (!isAdminOrHR && !isManager) {
+      // 一般ユーザーはシステム使用ONの社員のみ表示
+      matchesSystemStatus = emp.role && emp.role !== ''
+    }
+
+    return matchesSearch && matchesDepartment && matchesStatus && matchesType && matchesSystemStatus
   })
 
   const handleEmployeeClick = (employee: any) => {

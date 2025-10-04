@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
         password: body.password,
-        role: body.role || 'general',
+        role: body.role && body.role !== '' ? body.role : null,
         myNumber: body.myNumber || null,
         userId: body.userId || null,
         url: body.url || null,

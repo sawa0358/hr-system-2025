@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { MoreHorizontal, Mail, Phone, FileText } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useAuth } from "@/lib/auth-context"
 
 interface EmployeeTableProps {
   onEmployeeClick?: (employee: any) => void
@@ -22,6 +23,7 @@ interface EmployeeTableProps {
 }
 
 export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters }: EmployeeTableProps) {
+  const { currentUser } = useAuth()
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,6 +92,16 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     // ステータスフィルター
     if (filters.status !== 'all') {
       filtered = filtered.filter(employee => employee.status === filters.status)
+    }
+
+    // システム使用状態のフィルタリング
+    // 管理者・総務・マネージャー以外は、システムOFFの社員を非表示にする
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    const isManager = currentUser?.role === 'manager'
+    
+    if (!isAdminOrHR && !isManager) {
+      // 一般ユーザーはシステム使用ONの社員のみ表示
+      filtered = filtered.filter(employee => employee.role && employee.role !== '')
     }
 
     setFilteredEmployees(filtered)

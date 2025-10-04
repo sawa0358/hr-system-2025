@@ -98,7 +98,7 @@ export async function PUT(
         joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
         status: body.status,
         password: body.password,
-        role: body.role,
+        role: body.role && body.role !== '' ? body.role : null,
         myNumber: body.myNumber || null,
         employeeNumber: body.employeeNumber,
         employeeType: body.employeeType,

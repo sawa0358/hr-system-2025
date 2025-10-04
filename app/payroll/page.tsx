@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Users } from "lucide-react"
 import { mockEmployees } from "@/lib/mock-data"
 import { PayrollUploadDialog } from "@/components/payroll-upload-dialog"
+import { useAuth } from "@/lib/auth-context"
 
 export default function PayrollPage() {
+  const { currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
@@ -18,18 +20,52 @@ export default function PayrollPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isAllEmployeesMode, setIsAllEmployeesMode] = useState(false)
+  const [employees, setEmployees] = useState<any[]>([])
 
-  const filteredEmployees = mockEmployees.filter((emp) => {
+  // 社員データを取得
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const data = await response.json()
+          setEmployees(data)
+        } else {
+          console.error('社員データの取得に失敗しました')
+          // フォールバック: モックデータを使用
+          setEmployees(mockEmployees)
+        }
+      } catch (error) {
+        console.error('社員データの取得エラー:', error)
+        // フォールバック: モックデータを使用
+        setEmployees(mockEmployees)
+      }
+    }
+
+    fetchEmployees()
+  }, [])
+
+  const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
       emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employeeNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      emp.employeeNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.department.toLowerCase().includes(searchQuery.toLowerCase())
 
     const matchesDepartment = department === "all" || emp.department === department
     const matchesStatus = status === "all" || emp.status === status
     const matchesType = employeeType === "all" || emp.employeeType === employeeType
 
-    return matchesSearch && matchesDepartment && matchesStatus && matchesType
+    // システム使用状態のフィルタリング
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    const isManager = currentUser?.role === 'manager'
+    
+    let matchesSystemStatus = true
+    if (!isAdminOrHR && !isManager) {
+      // 一般ユーザーはシステム使用ONの社員のみ表示
+      matchesSystemStatus = emp.role && emp.role !== ''
+    }
+
+    return matchesSearch && matchesDepartment && matchesStatus && matchesType && matchesSystemStatus
   })
 
   const handleEmployeeClick = (employee: any) => {
@@ -44,9 +80,8 @@ export default function PayrollPage() {
     setIsUploadDialogOpen(true)
   }
 
-  // Mock user role - in real app, this would come from auth context
-  const userRole = "admin" // or "hr" or "employee"
-  const isAdminOrHR = userRole === "admin" || userRole === "hr"
+  // 現在のユーザーの権限を取得
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
   return (
     <main className="overflow-y-auto">

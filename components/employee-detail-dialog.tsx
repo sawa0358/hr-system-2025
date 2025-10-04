@@ -1688,9 +1688,24 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                               <div key={`uploaded-${file.id}`} className="flex items-center justify-between p-2 bg-slate-50 rounded">
                                 <div 
                                   className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded p-1 flex-1"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     // アップロード済みファイルのダウンロード処理
-                                    window.open(`/api/files/${file.id}/download`, '_blank')
+                                    try {
+                                      const response = await fetch(`/api/files/${file.id}/download`, {
+                                        headers: {
+                                          'x-employee-id': employee.id,
+                                        },
+                                      })
+                                      if (response.ok) {
+                                        const blob = await response.blob()
+                                        const url = window.URL.createObjectURL(blob)
+                                        window.open(url, '_blank')
+                                      } else {
+                                        console.error('ファイルダウンロードエラー:', await response.text())
+                                      }
+                                    } catch (error) {
+                                      console.error('ファイルダウンロードエラー:', error)
+                                    }
                                   }}
                                 >
                                   <Folder className="w-4 h-4 text-slate-400" />
@@ -1703,8 +1718,29 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => {
-                                      window.open(`/api/files/${file.id}/download`, '_blank')
+                                    onClick={async () => {
+                                      try {
+                                        const response = await fetch(`/api/files/${file.id}/download`, {
+                                          headers: {
+                                            'x-employee-id': employee.id,
+                                          },
+                                        })
+                                        if (response.ok) {
+                                          const blob = await response.blob()
+                                          const url = window.URL.createObjectURL(blob)
+                                          const a = document.createElement('a')
+                                          a.href = url
+                                          a.download = file.originalName || file.filename || 'download'
+                                          document.body.appendChild(a)
+                                          a.click()
+                                          window.URL.revokeObjectURL(url)
+                                          document.body.removeChild(a)
+                                        } else {
+                                          console.error('ファイルダウンロードエラー:', await response.text())
+                                        }
+                                      } catch (error) {
+                                        console.error('ファイルダウンロードエラー:', error)
+                                      }
                                     }}
                                     title="ダウンロード"
                                   >
@@ -1718,13 +1754,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                                         // アップロード済みファイルの削除処理
                                         try {
                                           const response = await fetch(`/api/files/${file.id}/delete`, {
-                                            method: 'DELETE'
+                                            method: 'DELETE',
+                                            headers: {
+                                              'x-employee-id': employee.id,
+                                            },
                                           })
                                           if (response.ok) {
                                             // ファイルリストを再取得
                                             if (employee?.id) {
                                               fetchUploadedFiles(employee.id)
                                             }
+                                          } else {
+                                            console.error('ファイル削除エラー:', await response.text())
                                           }
                                         } catch (error) {
                                           console.error('ファイル削除エラー:', error)

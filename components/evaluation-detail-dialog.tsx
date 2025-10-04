@@ -56,6 +56,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   }, [open, employee.id])
 
   const [files, setFiles] = useState<EvaluationFile[]>([])
+  const [filesByFolder, setFilesByFolder] = useState<Record<string, EvaluationFile[]>>({})
 
   const fetchEvaluationFiles = async () => {
     setLoading(true)
@@ -68,9 +69,17 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           name: file.originalName,
           type: file.type || 'excel',
           uploadDate: new Date(file.createdAt).toISOString().split('T')[0],
-          size: formatFileSize(file.size)
+          size: formatFileSize(file.size),
+          folderName: file.folderName || '基本情報'
         }))
         setFiles(fileList)
+        
+        // フォルダ別にファイルを分類
+        const filesByFolderMap: Record<string, EvaluationFile[]> = {}
+        folders.forEach(folder => {
+          filesByFolderMap[folder] = fileList.filter(file => file.folderName === folder)
+        })
+        setFilesByFolder(filesByFolderMap)
       }
     } catch (error) {
       console.error('ファイル取得エラー:', error)
@@ -105,15 +114,15 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
     setIsDragging(false)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent, folderName: string) => {
     e.preventDefault()
     setIsDragging(false)
     // Simulate file upload
     const files = Array.from(e.dataTransfer.files)
-    handleFileUpload(files)
+    handleFileUpload(files, folderName)
   }
 
-  const handleFileUpload = async (files: File[]) => {
+  const handleFileUpload = async (files: File[], folderName?: string) => {
     setLoading(true)
     try {
       for (const file of files) {
@@ -121,6 +130,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
         formData.append('file', file)
         formData.append('employeeId', employee.id)
         formData.append('folder', 'evaluation') // 考課表用のフォルダ
+        formData.append('folderName', folderName || currentFolder) // 現在のフォルダ名を指定
 
         const response = await fetch('/api/files/upload', {
           method: 'POST',
@@ -291,7 +301,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                     }`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
+                    onDrop={(e) => handleDrop(e, folder)}
                   >
                     <Upload className="w-12 h-12 mx-auto mb-4 text-slate-400" />
                     <p className="text-slate-600 mb-2">ファイルをドラッグ&ドロップ</p>
@@ -305,7 +315,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                         input.accept = ".xlsx,.xls,.pdf,.png,.jpg,.jpeg,.txt,.doc,.docx,.csv"
                         input.onchange = (e) => {
                           const files = Array.from((e.target as HTMLInputElement).files || [])
-                          handleFileUpload(files)
+                          handleFileUpload(files, folder)
                         }
                         input.click()
                       }}
@@ -317,10 +327,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                   </div>
 
                   {/* File List */}
-                  {files.length > 0 && (
+                  {filesByFolder[folder] && filesByFolder[folder].length > 0 && (
                     <div className="space-y-2">
                       <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
-                      {files.map((file) => (
+                      {filesByFolder[folder].map((file) => (
                         <Card key={file.id} className="border-slate-200">
                           <CardContent className="p-4">
                             <div className="flex items-center justify-between">

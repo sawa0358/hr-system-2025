@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileSpreadsheet, Download, Trash2, Eye, X } from "lucide-react"
+import { Plus, Upload, FileSpreadsheet, Download, Trash2, Eye, X, Edit } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { usePermissions } from "@/hooks/use-permissions"
 
 interface Employee {
   id: string
@@ -25,6 +26,7 @@ interface EvaluationFile {
   type: string
   uploadDate: string
   size: string
+  folderName?: string
 }
 
 interface FolderTab {
@@ -40,13 +42,19 @@ interface EvaluationDetailDialogProps {
 }
 
 export function EvaluationDetailDialog({ employee, open, onOpenChange }: EvaluationDetailDialogProps) {
+  const permissions = usePermissions()
   const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
   const [currentFolder, setCurrentFolder] = useState("基本情報")
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isAddingFolder, setIsAddingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
+  const [editingFolder, setEditingFolder] = useState<string | null>(null)
+  const [editingFolderName, setEditingFolderName] = useState("")
   const [viewingFile, setViewingFile] = useState<EvaluationFile | null>(null)
+  
+  // 管理者・総務権限チェック
+  const canManageFolders = permissions.role === 'admin' || permissions.role === 'hr'
 
   // ファイルデータを取得
   useEffect(() => {
@@ -102,6 +110,35 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
       setCurrentFolder(newFolderName)
       setNewFolderName("")
       setIsAddingFolder(false)
+    }
+  }
+
+  const handleEditFolder = (folderName: string) => {
+    setEditingFolder(folderName)
+    setEditingFolderName(folderName)
+  }
+
+  const handleSaveFolderEdit = () => {
+    if (editingFolderName.trim() && editingFolder) {
+      const newFolders = folders.map(folder => 
+        folder === editingFolder ? editingFolderName.trim() : folder
+      )
+      setFolders(newFolders)
+      if (currentFolder === editingFolder) {
+        setCurrentFolder(editingFolderName.trim())
+      }
+      setEditingFolder(null)
+      setEditingFolderName("")
+    }
+  }
+
+  const handleDeleteFolder = (folderName: string) => {
+    if (folders.length > 1) {
+      const newFolders = folders.filter(folder => folder !== folderName)
+      setFolders(newFolders)
+      if (currentFolder === folderName) {
+        setCurrentFolder(newFolders[0])
+      }
     }
   }
 
@@ -255,17 +292,71 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
               <div className="flex items-center gap-2 mb-4">
                 <TabsList className="flex-1 justify-start overflow-x-auto">
                   {folders.map((folder) => (
-                    <TabsTrigger key={folder} value={folder}>
-                      {folder}
-                    </TabsTrigger>
+                    <div key={folder} className="flex items-center">
+                      {editingFolder === folder ? (
+                        <div className="flex items-center gap-2 px-3 py-2">
+                          <Input
+                            value={editingFolderName}
+                            onChange={(e) => setEditingFolderName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSaveFolderEdit()}
+                            className="w-32 h-8"
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={handleSaveFolderEdit}>
+                            保存
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingFolder(null)
+                              setEditingFolderName("")
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <TabsTrigger value={folder} className="flex items-center">
+                          {folder}
+                          {filesByFolder[folder] && filesByFolder[folder].length > 0 && (
+                            <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                              {filesByFolder[folder].length}
+                            </span>
+                          )}
+                        </TabsTrigger>
+                      )}
+                      {canManageFolders && editingFolder !== folder && (
+                        <div className="flex items-center ml-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditFolder(folder)}
+                            className="h-6 w-6 p-0 text-slate-400 hover:text-blue-500"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          {folders.length > 1 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteFolder(folder)}
+                              className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </TabsList>
-                {!isAddingFolder ? (
+                {canManageFolders && !isAddingFolder ? (
                   <Button variant="outline" size="sm" onClick={() => setIsAddingFolder(true)}>
                     <Plus className="w-4 h-4 mr-1" />
                     フォルダ追加
                   </Button>
-                ) : (
+                ) : canManageFolders && (
                   <div className="flex items-center gap-2">
                     <Input
                       placeholder="フォルダ名"

@@ -53,9 +53,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
-  const canEditProfile = isOwnProfile
-    ? permissions.permissions.editOwnProfile
-    : permissions.permissions.editSubordinateProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
+  const canEditProfile = isAdminOrHR
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
   const canEditUserInfo = permissions.permissions.editAllProfiles || isAdminOrHR
@@ -925,7 +923,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
             <div className="space-y-4">
               <div className="border-b pb-2">
                 <h3 className="text-lg font-semibold">プロフィール情報</h3>
-                <p className="text-sm text-slate-600">
+                <p className="text-sm text-black">
                   プロフィール情報はシステム上で利用され、設定に応じて公開されます。
                 </p>
                 {!canEditProfile && <p className="text-sm text-amber-600 mt-1">※ 閲覧のみ可能です</p>}
@@ -941,7 +939,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.displayName}
@@ -1044,11 +1042,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label>組織名</Label>
-                    {canEditProfile && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
+                    {canEditProfile && isAdminOrHR && (
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
                         onClick={() => setOrganizations([...organizations, ""])}
                       >
                         <Plus className="w-4 h-4 mr-1" />
@@ -1080,7 +1078,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                             <X className="w-4 h-4" />
                           </Button>
                         )}
-                        {canEditProfile && (
+                        {canEditProfile && isAdminOrHR && (
                           <>
                             <Switch
                               checked={privacySettings.organization}
@@ -1111,11 +1109,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           部署管理
                         </Button>
                       )}
-                      {canEditProfile && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
+                      {canEditProfile && isAdminOrHR && (
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
                           onClick={() => setDepartments([...departments, ""])}
                         >
                           <Plus className="w-4 h-4 mr-1" />
@@ -1124,9 +1122,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    ※ 所属を選択すると、組織図の該当部署の最下層に自動的に追加されます
-                  </p>
+                  {isAdminOrHR && (
+                    <p className="text-xs text-slate-500">
+                      ※ 所属を選択すると、組織図の該当部署の最下層に自動的に追加されます
+                    </p>
+                  )}
                   {departments.map((dept, index) => (
                     <div key={index} className="grid grid-cols-[1fr_auto] gap-4 items-center">
                       <Select
@@ -1161,7 +1161,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                             <X className="w-4 h-4" />
                           </Button>
                         )}
-                        {canEditProfile && (
+                        {canEditProfile && isAdminOrHR && (
                           <>
                             <Switch
                               checked={privacySettings.department}
@@ -1181,7 +1181,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   <div className="flex items-center justify-between">
                     <Label>役職</Label>
                     <div className="flex gap-2">
-                      {canEditProfile && (
+                      {canEditProfile && isAdminOrHR && (
                         <Button
                           type="button"
                           variant="outline"
@@ -1196,7 +1196,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                           役職管理
                         </Button>
                       )}
-                      {canEditProfile && (
+                      {canEditProfile && isAdminOrHR && (
                         <Button type="button" variant="ghost" size="sm" onClick={() => setPositions([...positions, ""])}>
                           <Plus className="w-4 h-4 mr-1" />
                           追加
@@ -1228,7 +1228,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                             <X className="w-4 h-4" />
                           </Button>
                         )}
-                        {canEditProfile && (
+                        {canEditProfile && isAdminOrHR && (
                           <>
                             <Switch
                               checked={privacySettings.position}
@@ -1254,7 +1254,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.url}
@@ -1268,7 +1268,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 {(isOwnProfile || isAdminOrHR) && (
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                     <div className="space-y-2">
-                      <Label>住所</Label>
+                      <div className="flex items-center gap-2">
+                        <Label>住所</Label>
+                        {isOwnProfile && <span className="text-xs text-blue-600">あなただけに表示されています</span>}
+                      </div>
                       <Input 
                         value={formData.address}
                         onChange={(e) => setFormData({...formData, address: e.target.value})}
@@ -1279,26 +1282,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                   </div>
                 )}
 
-                <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
-                  <div className="space-y-2">
-                    <Label>自己紹介</Label>
-                    <Textarea 
-                      rows={3} 
-                      value={formData.selfIntroduction}
-                      onChange={(e) => setFormData({...formData, selfIntroduction: e.target.value})}
-                      disabled={!canEditProfile} 
-                    />
-                  </div>
-                  {canEditProfile && (
-                    <div className="flex items-center gap-2 pt-6">
-                      <Switch
-                        checked={privacySettings.bio}
-                        onCheckedChange={(checked) => setPrivacySettings({ ...privacySettings, bio: checked })}
-                      />
-                      <span className="text-sm text-slate-600">公開</span>
-                    </div>
-                  )}
-                </div>
 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
@@ -1310,7 +1293,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.email}
@@ -1331,7 +1314,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.workPhone}
@@ -1352,7 +1335,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.extension}
@@ -1373,7 +1356,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                       disabled={!canEditProfile} 
                     />
                   </div>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
                       <Switch
                         checked={privacySettings.mobilePhone}
@@ -1390,10 +1373,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
               <div className="space-y-4">
                   <div className="border-b pb-2 flex justify-between items-center">
                     <div>
-                      <h3 className="text-lg font-semibold">家族構成</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold">家族構成</h3>
+                        {isOwnProfile && <span className="text-xs text-blue-600">あなただけに表示されています</span>}
+                      </div>
                       <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
                     </div>
-                    {canEditProfile && (
+                    {canEditProfile && isAdminOrHR && (
                       <Button 
                         onClick={addFamilyMember}
                         size="sm"
@@ -1408,7 +1394,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                 {familyMembers.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">
                     <p>家族情報が登録されていません</p>
-                    {canEditProfile && (
+                    {canEditProfile && isAdminOrHR && (
                       <Button 
                         onClick={addFamilyMember}
                         size="sm"
@@ -1563,13 +1549,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                               }}
                               placeholder="別居の場合は住所を入力" 
                               disabled={!canEditProfile}
-                              style={{ display: (isOwnProfile || isAdminOrHR) ? 'block' : 'none' }}
                             />
-                            {!(isOwnProfile || isAdminOrHR) && (
-                              <div className="text-sm text-slate-500 p-2 bg-slate-50 rounded">
-                                住所情報は本人または管理者・総務のみ閲覧可能です
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -1584,7 +1564,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
               <div className="space-y-4">
                 <div className="border-b pb-2 flex justify-between items-center">
                   <h3 className="text-lg font-semibold">ファイル管理</h3>
-                  {canEditProfile && (
+                  {canEditProfile && isAdminOrHR && (
                     <Button onClick={addFolder} size="sm" variant="outline">
                       <Plus className="w-4 h-4 mr-2" />
                       フォルダ追加
@@ -1599,6 +1579,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                         <TabsTrigger value={folder} className="flex items-center">
                           <Folder className="w-4 h-4 mr-2" />
                           {folder}
+                          {uploadedFiles.filter(file => file.folderName === folder).length > 0 && (
+                            <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                              {uploadedFiles.filter(file => file.folderName === folder).length}
+                            </span>
+                          )}
                         </TabsTrigger>
                         {canEditProfile && folders.length > 1 && (
                           <Button

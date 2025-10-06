@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { OrganizationChart } from "@/components/organization-chart"
 import { ExportMenu } from "@/components/export-menu"
 import { EmployeeDetailDialog } from "@/components/employee-detail-dialog"
@@ -9,10 +9,18 @@ import { AIAskButton } from "@/components/ai-ask-button"
 export default function OrganizationPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const orgChartRef = useRef<{ refresh: () => void }>(null)
 
   const handleEmployeeClick = (employee: any) => {
     setSelectedEmployee(employee)
     setIsDialogOpen(true)
+  }
+
+  const handleOrgChartUpdate = () => {
+    // 組織図を更新
+    if (orgChartRef.current) {
+      orgChartRef.current.refresh()
+    }
   }
 
   return (
@@ -29,10 +37,15 @@ export default function OrganizationPage() {
           </div>
         </div>
 
-        <OrganizationChart onEmployeeClick={handleEmployeeClick} />
+        <OrganizationChart ref={orgChartRef} onEmployeeClick={handleEmployeeClick} />
       </div>
 
-      <EmployeeDetailDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} employee={selectedEmployee} />
+      <EmployeeDetailDialog 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen} 
+        employee={selectedEmployee}
+        onOrgChartUpdate={handleOrgChartUpdate}
+      />
     </main>
   )
 }

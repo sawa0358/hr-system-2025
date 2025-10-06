@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { organizationData } from "@/lib/mock-data"
-import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye } from "lucide-react"
+import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List } from "lucide-react"
 import {
   DndContext,
   type DragEndEvent,
@@ -20,6 +20,35 @@ import {
 } from "@dnd-kit/core"
 import { usePermissions } from "@/hooks/use-permissions"
 
+interface Employee {
+  id: string
+  employeeId: string
+  employeeNumber: string
+  employeeType: string
+  name: string
+  email: string
+  phone?: string
+  phoneInternal?: string
+  phoneMobile?: string
+  department: string
+  position: string
+  organization: string
+  team?: string
+  joinDate: string
+  status: string
+  password: string
+  role?: string
+  myNumber?: string
+  userId?: string
+  url?: string
+  address?: string
+  selfIntroduction?: string
+  birthDate?: string
+  showInOrgChart: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 interface OrgNode {
   id: string
   name: string
@@ -30,6 +59,7 @@ interface OrgNode {
   team?: string
   employeeCount?: number
   children?: OrgNode[]
+  employee?: Employee
 }
 
 interface OrgNodeCardProps {
@@ -40,6 +70,14 @@ interface OrgNodeCardProps {
   selectedNodeId?: string | null
   isDragging?: boolean
   canEdit?: boolean
+  isCompactMode?: boolean
+}
+
+interface UnassignedEmployeeCardProps {
+  employee: Employee
+  isCompactMode: boolean
+  onEmployeeClick?: (employee: OrgNode) => void
+  canEdit: boolean
 }
 
 function DraggableOrgNodeCard({
@@ -50,6 +88,7 @@ function DraggableOrgNodeCard({
   selectedNodeId,
   isDragging,
   canEdit = false,
+  isCompactMode = false,
 }: OrgNodeCardProps) {
   const hasChildren = node.children && node.children.length > 0
   const [departmentLabel, setDepartmentLabel] = useState(node.department)
@@ -109,12 +148,12 @@ function DraggableOrgNodeCard({
         onMouseLeave={() => setIsHovered(false)}
       >
         <Card
-          className={`w-48 border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+          className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
           } ${isDraggingThis ? "opacity-50" : ""} ${isOver ? "ring-2 ring-green-500 bg-green-50" : ""}`}
           onClick={() => onEmployeeClick?.(node)}
         >
-          <CardContent className="p-2">
+          <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
             <div className="flex flex-col gap-1 text-center">
               <div className="flex items-center gap-2">
                 {canEdit ? (
@@ -124,22 +163,32 @@ function DraggableOrgNodeCard({
                 ) : (
                   <div className="w-4 flex-shrink-0" />
                 )}
-                <Avatar className="w-8 h-8 flex-shrink-0">
+                <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                   <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
                     {node.name.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 text-left min-w-0">
-                  <h3 className="font-semibold text-sm text-slate-900 truncate">{node.name}</h3>
-                </div>
+                {!isCompactMode && (
+                  <div className="flex-1 text-left min-w-0">
+                    <h3 className="font-semibold text-sm text-slate-900 truncate">{node.name}</h3>
+                  </div>
+                )}
               </div>
-              {node.employeeNumber && (
-                <p className="text-xs text-slate-500 font-mono text-left pl-10">{node.employeeNumber}</p>
+              {isCompactMode ? (
+                <div className="text-left pl-8">
+                  <h3 className="font-semibold text-xs text-slate-900 truncate">{node.name}</h3>
+                </div>
+              ) : (
+                <>
+                  {node.employeeNumber && (
+                    <p className="text-xs text-slate-500 font-mono text-left pl-10">{node.employeeNumber}</p>
+                  )}
+                  {node.organization && (
+                    <p className="text-xs text-slate-600 truncate text-left pl-10">{node.organization}</p>
+                  )}
+                  <p className="text-xs text-slate-600 truncate text-left pl-10">{node.position}</p>
+                </>
               )}
-              {node.organization && (
-                <p className="text-xs text-slate-600 truncate text-left pl-10">{node.organization}</p>
-              )}
-              <p className="text-xs text-slate-600 truncate text-left pl-10">{node.position}</p>
             </div>
           </CardContent>
 
@@ -192,6 +241,7 @@ function DraggableOrgNodeCard({
                   onShowSubordinates={onShowSubordinates}
                   selectedNodeId={selectedNodeId}
                   canEdit={canEdit}
+                  isCompactMode={isCompactMode}
                 />
               </div>
             ))}
@@ -202,15 +252,81 @@ function DraggableOrgNodeCard({
   )
 }
 
+// 未配置社員カードコンポーネント
+function UnassignedEmployeeCard({
+  employee,
+  isCompactMode,
+  onEmployeeClick,
+  canEdit
+}: UnassignedEmployeeCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    isDragging: isDraggingThis,
+  } = useDraggable({
+    id: `unassigned-${employee.id}`,
+    data: { node: { ...employee, id: `unassigned-${employee.id}` } },
+    disabled: !canEdit,
+  })
+
+  return (
+    <Card
+      ref={setNodeRef}
+      className={`${isCompactMode ? 'w-full' : 'w-full'} border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+        isDraggingThis ? "opacity-50" : ""
+      }`}
+      onClick={() => onEmployeeClick?.({
+        id: employee.id,
+        name: employee.name,
+        position: employee.position,
+        department: employee.department,
+        employeeNumber: employee.employeeNumber,
+        organization: employee.organization,
+        team: employee.team,
+        employee: employee
+      })}
+    >
+      <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {canEdit ? (
+              <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-shrink-0">
+                <GripVertical className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+              </div>
+            ) : (
+              <div className="w-3 flex-shrink-0" />
+            )}
+            <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
+              <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">
+                {employee.name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 text-left min-w-0">
+              <h3 className={`${isCompactMode ? 'text-xs' : 'text-sm'} font-semibold text-slate-900 truncate`}>
+                {employee.name}
+              </h3>
+              {!isCompactMode && (
+                <p className="text-xs text-slate-600 truncate">{employee.position}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 interface OrganizationChartProps {
   onEmployeeClick?: (employee: OrgNode) => void
 }
 
-export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
+export const OrganizationChart = forwardRef<{ refresh: () => void }, OrganizationChartProps>(
+  ({ onEmployeeClick }, ref) => {
   const { permissions } = usePermissions()
   const canEdit = permissions.editOrgChart
 
-  const [zoom, setZoom] = useState(100)
+  const [zoom, setZoom] = useState(90)
   const [viewMode, setViewMode] = useState<"all" | "department">("all")
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [displayedTree, setDisplayedTree] = useState<OrgNode>(organizationData)
@@ -218,6 +334,120 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
   const [superiorLevels, setSuperiorLevels] = useState(0)
   const [showLevelControls, setShowLevelControls] = useState(false)
   const [activeNode, setActiveNode] = useState<OrgNode | null>(null)
+  const [employees, setEmployees] = useState<Employee[]>([])
+  const [unassignedEmployees, setUnassignedEmployees] = useState<Employee[]>([])
+  const [isCompactMode, setIsCompactMode] = useState(true)
+  const [showUnassignedArea, setShowUnassignedArea] = useState(false)
+  const [showUnassignedList, setShowUnassignedList] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  // 社員データを取得
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
+
+  // 外部から呼び出せるメソッドを定義
+  useImperativeHandle(ref, () => ({
+    refresh: fetchEmployees
+  }))
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/employees')
+      const data = await response.json()
+      setEmployees(data)
+      
+      // showInOrgChartがfalseの社員を未配置社員として設定
+      const unassigned = data.filter((emp: Employee) => !emp.showInOrgChart)
+      setUnassignedEmployees(unassigned)
+      
+      // 組織図を構築
+      const orgTree = buildOrgChartFromEmployees(data)
+      setDisplayedTree(orgTree)
+      
+      setLoading(false)
+    } catch (error) {
+      console.error('社員データの取得に失敗しました:', error)
+      setLoading(false)
+    }
+  }
+
+  // 社員データから組織図を構築
+  const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
+    const showInChartEmployees = employees.filter(emp => emp.showInOrgChart)
+    
+    if (showInChartEmployees.length === 0) {
+      return {
+        id: 'empty',
+        name: '組織図に表示する社員がいません',
+        position: '',
+        department: '',
+        children: []
+      }
+    }
+
+    // 部門ごとにグループ化
+    const departmentGroups = showInChartEmployees.reduce((acc, emp) => {
+      const dept = emp.department || '未設定部門'
+      if (!acc[dept]) {
+        acc[dept] = []
+      }
+      acc[dept].push(emp)
+      return acc
+    }, {} as Record<string, Employee[]>)
+
+    // 最初の部門をルートノードとして設定
+    const firstDept = Object.keys(departmentGroups)[0]
+    const firstDeptEmployees = departmentGroups[firstDept]
+    
+    if (firstDeptEmployees.length === 0) {
+      return {
+        id: 'empty',
+        name: '組織図に表示する社員がいません',
+        position: '',
+        department: '',
+        children: []
+      }
+    }
+
+    // 最初の社員をルートとして設定
+    const rootEmployee = firstDeptEmployees[0]
+    const rootNode: OrgNode = {
+      id: rootEmployee.id,
+      name: rootEmployee.name,
+      position: rootEmployee.position,
+      department: rootEmployee.department,
+      employeeNumber: rootEmployee.employeeNumber,
+      organization: rootEmployee.organization,
+      team: rootEmployee.team,
+      employee: rootEmployee,
+      children: []
+    }
+
+    // 残りの社員を子ノードとして追加
+    const otherEmployees = [
+      ...firstDeptEmployees.slice(1),
+      ...Object.entries(departmentGroups)
+        .filter(([dept]) => dept !== firstDept)
+        .flatMap(([, emps]) => emps)
+    ]
+
+    otherEmployees.forEach(emp => {
+      const childNode: OrgNode = {
+        id: emp.id,
+        name: emp.name,
+        position: emp.position,
+        department: emp.department,
+        employeeNumber: emp.employeeNumber,
+        organization: emp.organization,
+        team: emp.team,
+        employee: emp
+      }
+      rootNode.children!.push(childNode)
+    })
+
+    return rootNode
+  }
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))
   const handleZoomOut = () => setZoom(Math.max(zoom - 10, 50))
@@ -239,7 +469,7 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
     setActiveNode(node)
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveNode(null)
 
@@ -249,6 +479,18 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
     const targetNode = over.data.current?.node as OrgNode
 
     if (!draggedNode || !targetNode || draggedNode.id === targetNode.id) return
+
+    // 未配置エリアへのドロップの場合
+    if (over.id === 'unassigned-area') {
+      await moveEmployeeToUnassigned(draggedNode)
+      return
+    }
+
+    // 未配置社員から組織図へのドロップの場合
+    if (draggedNode.id.startsWith('unassigned-')) {
+      await moveEmployeeToOrgChart(draggedNode, targetNode)
+      return
+    }
 
     if (isDescendant(draggedNode, targetNode.id)) {
       alert("循環参照エラー: 配下の社員を上長にすることはできません")
@@ -267,6 +509,61 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
       const newTree = moveNode(displayedTree, draggedNode.id, targetNode.id)
       setDisplayedTree(newTree)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name}`)
+    }
+  }
+
+  // 社員を未配置エリアに移動
+  const moveEmployeeToUnassigned = async (node: OrgNode) => {
+    if (!node.employee) return
+
+    try {
+      const response = await fetch(`/api/employees/${node.employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...node.employee,
+          showInOrgChart: false
+        }),
+      })
+
+      if (response.ok) {
+        // 社員データを更新
+        await fetchEmployees()
+        console.log(`社員 ${node.name} を未配置エリアに移動しました`)
+      }
+    } catch (error) {
+      console.error('社員の移動に失敗しました:', error)
+    }
+  }
+
+  // 未配置社員を組織図に移動
+  const moveEmployeeToOrgChart = async (unassignedNode: OrgNode, targetNode: OrgNode) => {
+    const employeeId = unassignedNode.id.replace('unassigned-', '')
+    const employee = employees.find(emp => emp.id === employeeId)
+    
+    if (!employee) return
+
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...employee,
+          showInOrgChart: true
+        }),
+      })
+
+      if (response.ok) {
+        // 社員データを更新
+        await fetchEmployees()
+        console.log(`社員 ${employee.name} を組織図に移動しました`)
+      }
+    } catch (error) {
+      console.error('社員の移動に失敗しました:', error)
     }
   }
 
@@ -389,6 +686,21 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
               <Users className="w-4 h-4 mr-2" />
               表示階層設定
             </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowUnassignedArea(!showUnassignedArea)}
+            >
+              <List className="w-4 h-4 mr-2" />
+              未配置社員({unassignedEmployees.length})
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsCompactMode(!isCompactMode)}
+            >
+              {isCompactMode ? '詳細表示' : 'コンパクト表示'}
+            </Button>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 50}>
@@ -443,10 +755,40 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
         )}
 
         <div className="p-8 overflow-x-auto">
-          <div
-            className="min-w-max flex flex-col items-center justify-center transition-transform"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-          >
+          <div className="flex gap-4">
+            {/* 未配置社員エリア */}
+            {showUnassignedArea && (
+              <div className="flex-shrink-0">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-w-[200px]">
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">未配置社員</h4>
+                  <div
+                    id="unassigned-area"
+                    className="space-y-2 min-h-[100px] border-2 border-dashed border-slate-300 rounded-lg p-2"
+                  >
+                    {unassignedEmployees.map((emp) => (
+                      <UnassignedEmployeeCard
+                        key={emp.id}
+                        employee={emp}
+                        isCompactMode={isCompactMode}
+                        onEmployeeClick={onEmployeeClick}
+                        canEdit={canEdit}
+                      />
+                    ))}
+                    {unassignedEmployees.length === 0 && (
+                      <div className="text-center text-slate-500 text-sm py-4">
+                        未配置社員はありません
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* メインの組織図エリア */}
+            <div
+              className="min-w-max flex flex-col items-center justify-center transition-transform flex-1"
+              style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+            >
             {superiorsToDisplay.length > 0 && (
               <div className="mb-4">
                 <div className="flex flex-col items-center gap-2">
@@ -458,6 +800,7 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
                         onShowSubordinates={handleShowSubordinates}
                         selectedNodeId={null}
                         canEdit={canEdit}
+                        isCompactMode={isCompactMode}
                       />
                       {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 bg-slate-300 mx-auto my-2" />}
                     </div>
@@ -467,13 +810,21 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
               </div>
             )}
 
-            <DraggableOrgNodeCard
-              node={displayedTree}
-              onEmployeeClick={onEmployeeClick}
-              onShowSubordinates={handleShowSubordinates}
-              selectedNodeId={selectedNodeId}
-              canEdit={canEdit}
-            />
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="text-slate-500">読み込み中...</div>
+              </div>
+            ) : (
+              <DraggableOrgNodeCard
+                node={displayedTree}
+                onEmployeeClick={onEmployeeClick}
+                onShowSubordinates={handleShowSubordinates}
+                selectedNodeId={selectedNodeId}
+                canEdit={canEdit}
+                isCompactMode={isCompactMode}
+              />
+            )}
+            </div>
           </div>
         </div>
 
@@ -494,20 +845,28 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
 
       <DragOverlay>
         {activeNode ? (
-          <Card className="w-48 border-slate-200 shadow-lg opacity-90">
-            <CardContent className="p-2">
+          <Card className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-lg opacity-90`}>
+            <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
               <div className="flex flex-col gap-1 text-center">
                 <div className="flex items-center gap-2">
-                  <Avatar className="w-8 h-8 flex-shrink-0">
+                  <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                     <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
                       {activeNode.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 text-left min-w-0">
-                    <h3 className="font-semibold text-sm text-slate-900 truncate">{activeNode.name}</h3>
-                  </div>
+                  {!isCompactMode && (
+                    <div className="flex-1 text-left min-w-0">
+                      <h3 className="font-semibold text-sm text-slate-900 truncate">{activeNode.name}</h3>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-slate-600 truncate text-left pl-10">{activeNode.position}</p>
+                {isCompactMode ? (
+                  <div className="text-left pl-8">
+                    <h3 className="font-semibold text-xs text-slate-900 truncate">{activeNode.name}</h3>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-600 truncate text-left pl-10">{activeNode.position}</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -515,7 +874,9 @@ export function OrganizationChart({ onEmployeeClick }: OrganizationChartProps) {
       </DragOverlay>
     </DndContext>
   )
-}
+})
+
+OrganizationChart.displayName = 'OrganizationChart'
 
 function getSuperiors(nodeId: string, levels: number, tree: OrgNode): OrgNode[] {
   if (levels === 0) return []

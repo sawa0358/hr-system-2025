@@ -32,9 +32,10 @@ interface EmployeeDetailDialogProps {
   onOpenChange: (open: boolean) => void
   employee?: any
   onRefresh?: () => void
+  onOrgChartUpdate?: () => void
 }
 
-export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }: EmployeeDetailDialogProps) {
+export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, onOrgChartUpdate }: EmployeeDetailDialogProps) {
   const { currentUser } = useAuth()
   const permissions = usePermissions()
 
@@ -330,6 +331,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         // リフレッシュを呼び出してテーブルを更新
         if (onRefresh) {
           onRefresh()
+        }
+        // 組織図を更新
+        if (onOrgChartUpdate) {
+          onOrgChartUpdate()
         }
         // 新規登録の場合はページをリロード、編集の場合はリロードしない
         if (isNewEmployee) {

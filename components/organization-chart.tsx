@@ -91,6 +91,13 @@ interface TopDropZoneProps {
   onDrop: (draggedNode: OrgNode) => void
 }
 
+interface HorizontalDropZoneProps {
+  parentId: string
+  targetIndex: number
+  canEdit: boolean
+  onDrop: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void
+}
+
 // 組織図表示コンポーネント（TOP社員を除外）
 function DisplayOrgChartWithoutTop({
   node,
@@ -99,7 +106,8 @@ function DisplayOrgChartWithoutTop({
   selectedNodeId,
   canEdit,
   isCompactMode,
-}: OrgNodeCardProps) {
+  onHorizontalMove,
+}: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
   // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
   if (node.children && node.children.length > 0) {
     // 複数の子ノードがある場合は横並びで表示
@@ -117,9 +125,19 @@ function DisplayOrgChartWithoutTop({
                 selectedNodeId={selectedNodeId}
                 canEdit={canEdit}
                 isCompactMode={isCompactMode}
+                onHorizontalMove={onHorizontalMove}
               />
             </div>
           ))}
+          {/* 横ラインのドロップゾーンを追加 */}
+          {node.children.length > 1 && canEdit && (
+            <HorizontalDropZone
+              parentId={node.id}
+              targetIndex={0}
+              canEdit={canEdit}
+              onDrop={onHorizontalMove || (() => {})}
+            />
+          )}
         </div>
       )
     } else {
@@ -189,6 +207,36 @@ function TopDropZone({ canEdit, onDrop }: TopDropZoneProps) {
   )
 }
 
+// 横ライン用のドロップゾーンコンポーネント（並列移動用）
+function HorizontalDropZone({ parentId, targetIndex, canEdit, onDrop }: HorizontalDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `horizontal-drop-${parentId}-${targetIndex}`,
+    data: { 
+      type: 'horizontal-move',
+      parentId,
+      targetIndex 
+    },
+    disabled: !canEdit,
+  })
+
+  if (!canEdit) {
+    return null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`absolute top-0 left-0 right-0 h-2 transition-colors ${
+        isOver 
+          ? 'bg-green-400 opacity-80' 
+          : 'bg-transparent hover:bg-slate-200'
+      }`}
+      style={{ top: "-8px" }}
+      title={`並列移動: 位置 ${targetIndex + 1}`}
+    />
+  )
+}
+
 function DraggableOrgNodeCard({
   node,
   level = 0,
@@ -198,7 +246,8 @@ function DraggableOrgNodeCard({
   isDragging,
   canEdit = false,
   isCompactMode = false,
-}: OrgNodeCardProps) {
+  onHorizontalMove,
+}: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
   const hasChildren = node.children && node.children.length > 0
   const [departmentLabel, setDepartmentLabel] = useState(node.department)
   const [isEditingLabel, setIsEditingLabel] = useState(false)
@@ -351,9 +400,19 @@ function DraggableOrgNodeCard({
                   selectedNodeId={selectedNodeId}
                   canEdit={canEdit}
                   isCompactMode={isCompactMode}
+                  onHorizontalMove={onHorizontalMove}
                 />
               </div>
             ))}
+            {/* 横ラインのドロップゾーンを追加 */}
+            {node.children!.length > 1 && canEdit && (
+              <HorizontalDropZone
+                parentId={node.id}
+                targetIndex={0}
+                canEdit={canEdit}
+                onDrop={onHorizontalMove || (() => {})}
+              />
+            )}
           </div>
         </>
       )}
@@ -669,6 +728,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return
     }
 
+    // 横ラインのドロップゾーンへのドロップの場合（並列移動）
+    if (typeof over.id === 'string' && over.id.startsWith('horizontal-drop-')) {
+      const [, , parentId, targetIndexStr] = over.id.split('-')
+      const targetIndex = parseInt(targetIndexStr)
+      await handleHorizontalMove(draggedNode, targetIndex, parentId)
+      return
+    }
+
     // TOPドロップゾーンへのドロップの場合
     if (over.id === 'top-drop-zone') {
       await moveEmployeeToTop(draggedNode)
@@ -740,6 +807,22 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       // データベースに階層情報を保存
       await saveOrgChartHierarchy(draggedNode, targetNode)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name}`)
+    }
+  }
+
+  // 並列移動の処理
+  const handleHorizontalMove = async (draggedNode: OrgNode, targetIndex: number, parentId: string) => {
+    console.log('Handling horizontal move:', { draggedNode, targetIndex, parentId })
+    
+    // 同じ親を持つ子要素間での並列移動
+    const newTree = reorderSiblingsHorizontal(displayedTree, draggedNode.id, targetIndex, parentId)
+    if (newTree) {
+      setDisplayedTree(newTree)
+      console.log(`社員 ${draggedNode.name} を並列位置 ${targetIndex + 1} に移動しました`)
+      alert(`社員 ${draggedNode.name} を並列位置 ${targetIndex + 1} に移動しました`)
+    } else {
+      console.error('並列移動に失敗しました')
+      alert('並列移動に失敗しました')
     }
   }
 
@@ -990,6 +1073,37 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     return reorder(tree)
+  }
+
+  // 並列移動用の並び替え関数
+  const reorderSiblingsHorizontal = (tree: OrgNode, draggedId: string, targetIndex: number, parentId: string): OrgNode | null => {
+    const reorder = (node: OrgNode): OrgNode => {
+      if (!node.children) return node
+
+      // 指定された親ノードの場合
+      if (node.id === parentId) {
+        const draggedIndex = node.children.findIndex((child) => child.id === draggedId)
+        
+        if (draggedIndex !== -1) {
+          const newChildren = [...node.children]
+          const [draggedNode] = newChildren.splice(draggedIndex, 1)
+          
+          // ターゲット位置に挿入
+          newChildren.splice(targetIndex, 0, draggedNode)
+          
+          return { ...node, children: newChildren }
+        }
+      }
+
+      // Recursively check children
+      return {
+        ...node,
+        children: node.children.map((child) => reorder(child)),
+      }
+    }
+
+    const result = reorder(tree)
+    return result
   }
 
   const moveNode = (tree: OrgNode, draggedId: string, targetId: string): OrgNode => {
@@ -1255,6 +1369,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                   selectedNodeId={selectedNodeId}
                   canEdit={canEdit}
                   isCompactMode={isCompactMode}
+                  onHorizontalMove={handleHorizontalMove}
                 />
               </>
             )}

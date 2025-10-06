@@ -1556,8 +1556,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                     ))}
                   </div>
                 )}
-                </div>
-              )}
+              </div>
             )}
 
             {canViewFiles && (

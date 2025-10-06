@@ -80,6 +80,10 @@ interface UnassignedEmployeeCardProps {
   canEdit: boolean
 }
 
+interface UnassignedDropZoneProps {
+  children: React.ReactNode
+}
+
 function DraggableOrgNodeCard({
   node,
   level = 0,
@@ -143,14 +147,14 @@ function DraggableOrgNodeCard({
           setDragRef(node)
           setDropRef(node)
         }}
-        className="relative"
+        className={`relative ${isOver ? 'ring-2 ring-green-500 bg-green-50' : ''}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <Card
           className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
-          } ${isDraggingThis ? "opacity-50" : ""} ${isOver ? "ring-2 ring-green-500 bg-green-50" : ""}`}
+          } ${isDraggingThis ? "opacity-50" : ""}`}
           onClick={() => onEmployeeClick?.(node)}
         >
           <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
@@ -248,6 +252,27 @@ function DraggableOrgNodeCard({
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// 未配置エリアのドロップゾーンコンポーネント
+function UnassignedDropZone({ children }: UnassignedDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unassigned-area',
+    data: { node: null }
+  })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`space-y-2 min-h-[100px] border-2 border-dashed rounded-lg p-2 transition-colors ${
+        isOver 
+          ? 'border-green-400 bg-green-50' 
+          : 'border-slate-300'
+      }`}
+    >
+      {children}
     </div>
   )
 }
@@ -478,7 +503,9 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     const draggedNode = active.data.current?.node as OrgNode
     const targetNode = over.data.current?.node as OrgNode
 
-    if (!draggedNode || !targetNode || draggedNode.id === targetNode.id) return
+    console.log('Drag End Event:', { draggedNode, targetNode, overId: over.id })
+
+    if (!draggedNode) return
 
     // 未配置エリアへのドロップの場合
     if (over.id === 'unassigned-area') {
@@ -492,6 +519,9 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return
     }
 
+    // 組織図内での移動の場合
+    if (!targetNode || draggedNode.id === targetNode.id) return
+
     if (isDescendant(draggedNode, targetNode.id)) {
       alert("循環参照エラー: 配下の社員を上長にすることはできません")
       return
@@ -500,12 +530,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     const isSameParent = areSiblings(displayedTree, draggedNode.id, targetNode.id)
 
     if (isSameParent) {
-      // Horizontal reordering within same parent
-      const newTree = reorderSiblings(displayedTree, draggedNode.id, targetNode.id)
+      // 同じ親を持つ場合：横移動または縦移動を選択可能
+      // ドロップ位置に応じて判断（ここでは常に縦移動として処理）
+      const newTree = moveNodeAsChild(displayedTree, draggedNode.id, targetNode.id)
       setDisplayedTree(newTree)
-      console.log(`[v0] Reordered ${draggedNode.name} next to ${targetNode.name}`)
+      console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name} (same parent)`)
     } else {
-      // Vertical move to different parent
+      // 異なる親の場合：縦移動
       const newTree = moveNode(displayedTree, draggedNode.id, targetNode.id)
       setDisplayedTree(newTree)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name}`)
@@ -543,7 +574,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     const employeeId = unassignedNode.id.replace('unassigned-', '')
     const employee = employees.find(emp => emp.id === employeeId)
     
-    if (!employee) return
+    console.log('Moving employee to org chart:', { employeeId, employee, targetNode })
+    
+    if (!employee) {
+      console.error('Employee not found:', employeeId)
+      return
+    }
 
     try {
       const response = await fetch(`/api/employees/${employee.id}`, {
@@ -561,6 +597,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         // 社員データを更新
         await fetchEmployees()
         console.log(`社員 ${employee.name} を組織図に移動しました`)
+      } else {
+        console.error('Failed to update employee:', response.status)
       }
     } catch (error) {
       console.error('社員の移動に失敗しました:', error)
@@ -655,6 +693,49 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     let newTree = removeNode(tree)
     if (draggedNode) {
       newTree = addNode(newTree)
+    }
+
+    return newTree
+  }
+
+  // 同じ親を持つノードを子として移動（同じ階層での上下関係配置）
+  const moveNodeAsChild = (tree: OrgNode, draggedId: string, targetId: string): OrgNode => {
+    let draggedNode: OrgNode | null = null
+
+    const removeNode = (node: OrgNode): OrgNode => {
+      if (!node.children) return node
+
+      const draggedChild = node.children.find((child) => child.id === draggedId)
+      if (draggedChild) {
+        draggedNode = { ...draggedChild }
+        return {
+          ...node,
+          children: node.children.filter((child) => child.id !== draggedId),
+        }
+      }
+
+      return {
+        ...node,
+        children: node.children.map((child) => removeNode(child)),
+      }
+    }
+
+    const addNodeAsChild = (node: OrgNode): OrgNode => {
+      if (node.id === targetId && draggedNode) {
+        const newChildren = node.children ? [...node.children, draggedNode] : [draggedNode]
+        return { ...node, children: newChildren }
+      }
+
+      if (node.children) {
+        return { ...node, children: node.children.map((child) => addNodeAsChild(child)) }
+      }
+
+      return node
+    }
+
+    let newTree = removeNode(tree)
+    if (draggedNode) {
+      newTree = addNodeAsChild(newTree)
     }
 
     return newTree
@@ -761,10 +842,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               <div className="flex-shrink-0">
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-w-[200px]">
                   <h4 className="text-sm font-medium text-slate-700 mb-3">未配置社員</h4>
-                  <div
-                    id="unassigned-area"
-                    className="space-y-2 min-h-[100px] border-2 border-dashed border-slate-300 rounded-lg p-2"
-                  >
+                  <UnassignedDropZone>
                     {unassignedEmployees.map((emp) => (
                       <UnassignedEmployeeCard
                         key={emp.id}
@@ -779,7 +857,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                         未配置社員はありません
                       </div>
                     )}
-                  </div>
+                  </UnassignedDropZone>
                 </div>
               </div>
             )}

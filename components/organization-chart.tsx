@@ -127,17 +127,26 @@ function DisplayOrgChartWithoutTop({
                 isCompactMode={isCompactMode}
                 onHorizontalMove={onHorizontalMove}
               />
+              {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
+              {canEdit && (
+                <RightMoveDropZone
+                  parentId={node.id}
+                  targetIndex={index + 1}
+                  canEdit={canEdit}
+                  onDrop={onHorizontalMove || (() => {})}
+                />
+              )}
+              {/* 各社員間の横ラインにドロップゾーンを配置 */}
+              {index < node.children!.length - 1 && canEdit && (
+                <HorizontalDropZone
+                  parentId={node.id}
+                  targetIndex={index + 1}
+                  canEdit={canEdit}
+                  onDrop={onHorizontalMove || (() => {})}
+                />
+              )}
             </div>
           ))}
-          {/* 横ラインのドロップゾーンを追加 */}
-          {node.children.length > 1 && canEdit && (
-            <HorizontalDropZone
-              parentId={node.id}
-              targetIndex={0}
-              canEdit={canEdit}
-              onDrop={onHorizontalMove || (() => {})}
-            />
-          )}
         </div>
       )
     } else {
@@ -226,13 +235,51 @@ function HorizontalDropZone({ parentId, targetIndex, canEdit, onDrop }: Horizont
   return (
     <div
       ref={setNodeRef}
-      className={`absolute top-0 left-0 right-0 h-2 transition-colors ${
+      className={`absolute top-0 left-0 right-0 h-3 transition-all duration-200 ${
         isOver 
-          ? 'bg-green-400 opacity-80' 
-          : 'bg-transparent hover:bg-slate-200'
+          ? 'bg-green-400 opacity-90 border-2 border-green-500' 
+          : 'bg-transparent hover:bg-slate-300 hover:opacity-60'
       }`}
-      style={{ top: "-8px" }}
+      style={{ 
+        top: "-12px",
+        left: "-4px",
+        right: "-4px",
+        borderRadius: "4px"
+      }}
       title={`並列移動: 位置 ${targetIndex + 1}`}
+    />
+  )
+}
+
+// 右へ移動用のドロップゾーンコンポーネント
+function RightMoveDropZone({ parentId, targetIndex, canEdit, onDrop }: HorizontalDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `right-move-${parentId}-${targetIndex}`,
+    data: { 
+      type: 'right-move',
+      parentId,
+      targetIndex 
+    },
+    disabled: !canEdit,
+  })
+
+  if (!canEdit) {
+    return null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`absolute top-1/2 right-0 w-8 h-16 -translate-y-1/2 transition-all duration-200 ${
+        isOver 
+          ? 'bg-blue-400 opacity-90 border-2 border-blue-500' 
+          : 'bg-transparent hover:bg-blue-200 hover:opacity-60'
+      }`}
+      style={{ 
+        right: "-16px",
+        borderRadius: "8px"
+      }}
+      title={`右へ移動: 位置 ${targetIndex + 1}`}
     />
   )
 }
@@ -402,17 +449,26 @@ function DraggableOrgNodeCard({
                   isCompactMode={isCompactMode}
                   onHorizontalMove={onHorizontalMove}
                 />
+                {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
+                {canEdit && (
+                  <RightMoveDropZone
+                    parentId={node.id}
+                    targetIndex={index + 1}
+                    canEdit={canEdit}
+                    onDrop={onHorizontalMove || (() => {})}
+                  />
+                )}
+                {/* 各社員間の横ラインにドロップゾーンを配置 */}
+                {index < node.children!.length - 1 && canEdit && (
+                  <HorizontalDropZone
+                    parentId={node.id}
+                    targetIndex={index + 1}
+                    canEdit={canEdit}
+                    onDrop={onHorizontalMove || (() => {})}
+                  />
+                )}
               </div>
             ))}
-            {/* 横ラインのドロップゾーンを追加 */}
-            {node.children!.length > 1 && canEdit && (
-              <HorizontalDropZone
-                parentId={node.id}
-                targetIndex={0}
-                canEdit={canEdit}
-                onDrop={onHorizontalMove || (() => {})}
-              />
-            )}
           </div>
         </>
       )}
@@ -736,6 +792,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return
     }
 
+    // 右へ移動のドロップゾーンへのドロップの場合
+    if (typeof over.id === 'string' && over.id.startsWith('right-move-')) {
+      const [, , parentId, targetIndexStr] = over.id.split('-')
+      const targetIndex = parseInt(targetIndexStr)
+      await handleHorizontalMove(draggedNode, targetIndex, parentId)
+      return
+    }
+
     // TOPドロップゾーンへのドロップの場合
     if (over.id === 'top-drop-zone') {
       await moveEmployeeToTop(draggedNode)
@@ -819,7 +883,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     if (newTree) {
       setDisplayedTree(newTree)
       console.log(`社員 ${draggedNode.name} を並列位置 ${targetIndex + 1} に移動しました`)
-      alert(`社員 ${draggedNode.name} を並列位置 ${targetIndex + 1} に移動しました`)
+      // データベースに階層情報を保存
+      await saveOrgChartHierarchy(draggedNode, { id: parentId } as OrgNode)
     } else {
       console.error('並列移動に失敗しました')
       alert('並列移動に失敗しました')

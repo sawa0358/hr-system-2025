@@ -120,6 +120,7 @@ export async function PUT(
             return null;
           }
         })(),
+        showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
       }
     });
 

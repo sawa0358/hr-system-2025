@@ -89,11 +89,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
     myNumber: employee?.myNumber || '',
     employeeType: employee?.employeeType || 'employee',
     employeeNumber: employee?.employeeNumber || '',
+    employeeId: employee?.employeeId || '',
     userId: employee?.userId || '',
     url: employee?.url || '',
     address: employee?.address || '',
     selfIntroduction: employee?.selfIntroduction || '',
     birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
+    showInOrgChart: employee?.showInOrgChart ?? true,
   })
 
   // 社員データが変更された時にフォームデータを更新
@@ -116,11 +118,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: employee.myNumber || '',
         employeeType: employee.employeeType || 'employee',
         employeeNumber: employee.employeeNumber || '',
+        employeeId: employee.employeeId || '',
         userId: employee.userId || '',
         url: employee.url || '',
         address: employee.address || '',
         selfIntroduction: employee.selfIntroduction || '',
         birthDate: employee.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
+        showInOrgChart: employee.showInOrgChart ?? true,
       })
       
       // アバター関連の初期化（employeeデータから復元）
@@ -210,11 +214,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
         myNumber: '',
         employeeType: 'employee',
         employeeNumber: '',
+        employeeId: '',
         userId: '',
         url: '',
         address: '',
         selfIntroduction: '',
         birthDate: '',
+        showInOrgChart: true,
       })
       setSystemUsageEnabled(false)
       setOrganizations([""])
@@ -816,6 +822,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh }
                               <br />※ 総務権限：給与管理・社員情報の閲覧・編集可能
                               <br />※ 一般ユーザー：自分の情報とタスクのみ閲覧・編集可能
                             </p>
+                          </div>
+                        )}
+                        
+                        {/* 組織図表示設定 */}
+                        {isAdminOrHR && (
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <Label className="text-base">組織図に表示する</Label>
+                              <p className="text-xs text-slate-500">ONにすると組織図に表示されます</p>
+                            </div>
+                            <Switch
+                              checked={formData.showInOrgChart}
+                              onCheckedChange={(checked) => setFormData({...formData, showInOrgChart: checked})}
+                              className="data-[state=checked]:bg-blue-600"
+                            />
                           </div>
                         )}
                       </div>

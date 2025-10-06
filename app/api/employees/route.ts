@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
             return null;
           }
         })(),
+        showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
       }
     });
 

@@ -359,41 +359,35 @@ function DraggableOrgNodeCard({
           onClick={() => onEmployeeClick?.(node)}
         >
           <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
-            <div className="flex flex-col gap-1 text-center">
-              <div className="flex items-center gap-2">
-                {canEdit ? (
-                  <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-shrink-0">
-                    <GripVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                  </div>
-                ) : (
-                  <div className="w-4 flex-shrink-0" />
-                )}
-                <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                  <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                    {node.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                {!isCompactMode && (
-                  <div className="flex-1 text-left min-w-0">
-                    <h3 className="font-semibold text-sm text-slate-900 truncate">{node.name}</h3>
-                  </div>
-                )}
-              </div>
-              {isCompactMode ? (
-                <div className="text-left pl-8">
-                  <h3 className="font-semibold text-xs text-slate-900 truncate">{node.name}</h3>
+            <div className="flex items-center gap-2">
+              {canEdit ? (
+                <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-shrink-0">
+                  <GripVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
                 </div>
               ) : (
-                <>
-                  {node.employeeNumber && (
-                    <p className="text-xs text-slate-500 font-mono text-left pl-10">{node.employeeNumber}</p>
-                  )}
-                  {node.organization && (
-                    <p className="text-xs text-slate-600 truncate text-left pl-10">{node.organization}</p>
-                  )}
-                  <p className="text-xs text-slate-600 truncate text-left pl-10">{node.position}</p>
-                </>
+                <div className="w-4 flex-shrink-0" />
               )}
+              <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
+                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
+                  {node.name.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 text-left min-w-0">
+                <h3 className={`${isCompactMode ? 'text-xs' : 'text-sm'} font-semibold text-slate-900 truncate`}>
+                  {node.name}
+                </h3>
+                {!isCompactMode && (
+                  <>
+                    {node.employeeNumber && (
+                      <p className="text-xs text-slate-500 font-mono">{node.employeeNumber}</p>
+                    )}
+                    {node.organization && (
+                      <p className="text-xs text-slate-600 truncate">{node.organization}</p>
+                    )}
+                    <p className="text-xs text-slate-600 truncate">{node.position}</p>
+                  </>
+                )}
+              </div>
             </div>
           </CardContent>
 
@@ -1482,26 +1476,20 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         {activeNode ? (
           <Card className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-lg opacity-90`}>
             <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
-              <div className="flex flex-col gap-1 text-center">
-                <div className="flex items-center gap-2">
-                  <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                      {activeNode.name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+              <div className="flex items-center gap-2">
+                <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
+                  <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
+                    {activeNode.name.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 text-left min-w-0">
+                  <h3 className={`${isCompactMode ? 'text-xs' : 'text-sm'} font-semibold text-slate-900 truncate`}>
+                    {activeNode.name}
+                  </h3>
                   {!isCompactMode && (
-                    <div className="flex-1 text-left min-w-0">
-                      <h3 className="font-semibold text-sm text-slate-900 truncate">{activeNode.name}</h3>
-                    </div>
+                    <p className="text-xs text-slate-600 truncate">{activeNode.position}</p>
                   )}
                 </div>
-                {isCompactMode ? (
-                  <div className="text-left pl-8">
-                    <h3 className="font-semibold text-xs text-slate-900 truncate">{activeNode.name}</h3>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-600 truncate text-left pl-10">{activeNode.position}</p>
-                )}
               </div>
             </CardContent>
           </Card>

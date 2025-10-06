@@ -1418,24 +1418,45 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               </div>
             ) : (
               <>
-                {/* TOPドロップゾーン（管理者・総務のみ表示） */}
-                {(permissions.editAllProfiles || permissions.editOrgChart) && (
-                  <TopDropZone 
-                    canEdit={canEdit}
-                    onDrop={moveEmployeeToTop}
-                  />
+                {/* 配下表示時は自分のカードのみを表示 */}
+                {selectedNodeId ? (
+                  <div className="mb-4">
+                    <div className="flex flex-col items-center">
+                      <div className="text-sm text-slate-600 mb-2 font-medium">現在選択中の社員</div>
+                      <DraggableOrgNodeCard
+                        node={displayedTree}
+                        onEmployeeClick={onEmployeeClick}
+                        onShowSubordinates={handleShowSubordinates}
+                        selectedNodeId={selectedNodeId}
+                        canEdit={canEdit}
+                        isCompactMode={isCompactMode}
+                        onHorizontalMove={handleHorizontalMove}
+                      />
+                      <div className="w-0.5 h-8 bg-slate-300 my-2" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* TOPドロップゾーン（管理者・総務のみ表示） */}
+                    {(permissions.editAllProfiles || permissions.editOrgChart) && (
+                      <TopDropZone 
+                        canEdit={canEdit}
+                        onDrop={moveEmployeeToTop}
+                      />
+                    )}
+                    
+                    {/* 組織図の表示（「見えないTOP」を除外して表示） */}
+                    <DisplayOrgChartWithoutTop
+                      node={displayedTree}
+                      onEmployeeClick={onEmployeeClick}
+                      onShowSubordinates={handleShowSubordinates}
+                      selectedNodeId={selectedNodeId}
+                      canEdit={canEdit}
+                      isCompactMode={isCompactMode}
+                      onHorizontalMove={handleHorizontalMove}
+                    />
+                  </>
                 )}
-                
-                {/* 組織図の表示（「見えないTOP」を除外して表示） */}
-                <DisplayOrgChartWithoutTop
-                  node={displayedTree}
-                  onEmployeeClick={onEmployeeClick}
-                  onShowSubordinates={handleShowSubordinates}
-                  selectedNodeId={selectedNodeId}
-                  canEdit={canEdit}
-                  isCompactMode={isCompactMode}
-                  onHorizontalMove={handleHorizontalMove}
-                />
               </>
             )}
             </div>

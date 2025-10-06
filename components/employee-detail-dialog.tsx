@@ -312,7 +312,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           // 配列フィールドも送信
           organizations: organizations,
           departments: departments,
-          positions: positions
+          positions: positions,
+          // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
+          isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false
         }),
       })
 
@@ -714,6 +716,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          
           <DialogHeader>
             <DialogTitle className="text-2xl">ユーザー詳細</DialogTitle>
           </DialogHeader>
@@ -1801,7 +1804,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
           <div className="flex justify-between items-center mt-6 pt-6 border-t">
             {permissions.permissions.suspendUsers && (
-              <Button variant="destructive" onClick={() => onOpenChange(false)}>
+              <Button 
+                variant="destructive" 
+                onClick={() => onOpenChange(false)}
+                disabled={employee?.isInvisibleTop || employee?.employeeNumber === '000'}
+                className={(employee?.isInvisibleTop || employee?.employeeNumber === '000') ? "opacity-50 cursor-not-allowed" : ""}
+              >
                 ユーザーを停止する
               </Button>
             )}
@@ -1810,7 +1818,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <Button 
                   variant="destructive" 
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={deleting || employee?.isInvisibleTop || employee?.employeeNumber === '000'}
+                  className={(employee?.isInvisibleTop || employee?.employeeNumber === '000') ? "opacity-50 cursor-not-allowed" : ""}
                 >
                   {deleting ? '削除中...' : '削除'}
                 </Button>
@@ -1821,8 +1830,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               {(canEditUserInfo || isNewEmployee || isAdminOrHR) && (
                 <Button 
                   onClick={handleSave} 
-                  disabled={saving}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={saving || employee?.isInvisibleTop || employee?.employeeNumber === '000'}
+                  className={`${(employee?.isInvisibleTop || employee?.employeeNumber === '000') ? "opacity-50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
                 >
                   {saving ? '保存中...' : (isNewEmployee ? '新規登録' : '保存')}
                 </Button>

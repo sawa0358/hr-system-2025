@@ -43,6 +43,7 @@ model Employee {
   tasks            Task[]
   showInOrgChart   Boolean @default(true)
   parentEmployeeId String?
+  isInvisibleTop   Boolean @default(false)
 
   @@map("employees")
 }

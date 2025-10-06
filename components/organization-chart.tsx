@@ -86,6 +86,109 @@ interface UnassignedDropZoneProps {
   children: React.ReactNode
 }
 
+interface TopDropZoneProps {
+  canEdit: boolean
+  onDrop: (draggedNode: OrgNode) => void
+}
+
+// 組織図表示コンポーネント（TOP社員を除外）
+function DisplayOrgChartWithoutTop({
+  node,
+  onEmployeeClick,
+  onShowSubordinates,
+  selectedNodeId,
+  canEdit,
+  isCompactMode,
+}: OrgNodeCardProps) {
+  // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
+  if (node.children && node.children.length > 0) {
+    // 複数の子ノードがある場合は横並びで表示
+    if (node.children.length > 1) {
+      return (
+        <div className="flex gap-8 relative">
+          {node.children.map((child, index) => (
+            <div key={child.id} className="relative">
+              {node.children!.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+              <DraggableOrgNodeCard
+                node={child}
+                level={0}
+                onEmployeeClick={onEmployeeClick}
+                onShowSubordinates={onShowSubordinates}
+                selectedNodeId={selectedNodeId}
+                canEdit={canEdit}
+                isCompactMode={isCompactMode}
+              />
+            </div>
+          ))}
+        </div>
+      )
+    } else {
+      // 子ノードが1つの場合は縦に表示
+      return (
+        <DraggableOrgNodeCard
+          node={node.children[0]}
+          level={0}
+          onEmployeeClick={onEmployeeClick}
+          onShowSubordinates={onShowSubordinates}
+          selectedNodeId={selectedNodeId}
+          canEdit={canEdit}
+          isCompactMode={isCompactMode}
+        />
+      )
+    }
+  }
+
+  // 子ノードがない場合は空の表示
+  return (
+    <div className="text-center py-8">
+      <div className="text-slate-500">表示する社員がいません</div>
+    </div>
+  )
+}
+
+// TOP位置のドロップゾーンコンポーネント（極細・透明表示）
+function TopDropZone({ canEdit, onDrop }: TopDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'top-drop-zone',
+    data: { node: null },
+    disabled: !canEdit,
+  })
+
+  const handleDrop = (event: React.DragEvent) => {
+    event.preventDefault()
+    // ドラッグされたノードのデータを取得
+    const draggedData = event.dataTransfer.getData('application/json')
+    if (draggedData) {
+      const draggedNode = JSON.parse(draggedData) as OrgNode
+      onDrop(draggedNode)
+    }
+  }
+
+  if (!canEdit) {
+    return null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`w-full transition-colors mb-4 ${
+        isOver 
+          ? 'border-green-400 bg-green-50 border-2 border-dashed rounded' 
+          : 'border-slate-200 border border-dashed rounded bg-transparent'
+      }`}
+      onDrop={handleDrop}
+      onDragOver={(e) => e.preventDefault()}
+      style={{ 
+        height: '1px',
+        minHeight: '1px',
+        maxHeight: '1px',
+        opacity: isOver ? 1 : 0.3 // 通常時は薄く表示
+      }}
+      title="TOP位置にドロップ"
+    />
+  )
+}
+
 function DraggableOrgNodeCard({
   node,
   level = 0,
@@ -566,6 +669,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return
     }
 
+    // TOPドロップゾーンへのドロップの場合
+    if (over.id === 'top-drop-zone') {
+      await moveEmployeeToTop(draggedNode)
+      return
+    }
+
     // 未配置エリアへのドロップの場合
     if (over.id === 'unassigned-area') {
       await moveEmployeeToUnassigned(draggedNode)
@@ -631,6 +740,49 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       // データベースに階層情報を保存
       await saveOrgChartHierarchy(draggedNode, targetNode)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name}`)
+    }
+  }
+
+  // 社員をTOP位置に移動
+  const moveEmployeeToTop = async (node: OrgNode) => {
+    if (!node.employee) {
+      console.error('Node employee not found:', node)
+      return
+    }
+
+    try {
+      const updateData = {
+        ...node.employee,
+        parentEmployeeId: null
+      }
+      
+      console.log('Moving employee to top:', {
+        employeeId: node.employee.id,
+        employeeName: node.employee.name,
+        updateData
+      })
+
+      const response = await fetch(`/api/employees/${node.employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        // 社員データを更新
+        await fetchEmployees()
+        console.log(`社員 ${node.name} をTOP位置に移動しました`)
+        alert(`社員 ${node.name} をTOP位置に移動しました`)
+      } else {
+        const errorData = await response.text()
+        console.error('Failed to move employee to top:', response.status, errorData)
+        alert(`社員の移動に失敗しました: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('社員の移動に失敗しました:', error)
+      alert(`社員の移動に失敗しました: ${error}`)
     }
   }
 
@@ -1086,14 +1238,25 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                 <div className="text-slate-500">読み込み中...</div>
               </div>
             ) : (
-              <DraggableOrgNodeCard
-                node={displayedTree}
-                onEmployeeClick={onEmployeeClick}
-                onShowSubordinates={handleShowSubordinates}
-                selectedNodeId={selectedNodeId}
-                canEdit={canEdit}
-                isCompactMode={isCompactMode}
-              />
+              <>
+                {/* TOPドロップゾーン（管理者・総務のみ表示） */}
+                {(permissions.editAllProfiles || permissions.editOrgChart) && (
+                  <TopDropZone 
+                    canEdit={canEdit}
+                    onDrop={moveEmployeeToTop}
+                  />
+                )}
+                
+                {/* 組織図の表示（「見えないTOP」を除外して表示） */}
+                <DisplayOrgChartWithoutTop
+                  node={displayedTree}
+                  onEmployeeClick={onEmployeeClick}
+                  onShowSubordinates={handleShowSubordinates}
+                  selectedNodeId={selectedNodeId}
+                  canEdit={canEdit}
+                  isCompactMode={isCompactMode}
+                />
+              </>
             )}
             </div>
           </div>

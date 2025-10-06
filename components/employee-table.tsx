@@ -104,6 +104,13 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       filtered = filtered.filter(employee => employee.role && employee.role !== '')
     }
 
+    // ダミー社員（見えないTOP社員または社員番号000）の表示制限
+    // 管理者・総務以外は、見えないTOP社員または社員番号000を非表示にする
+    if (!isAdminOrHR) {
+      // 見えないTOP社員または社員番号000を除外
+      filtered = filtered.filter(employee => !employee.isInvisibleTop && employee.employeeNumber !== '000')
+    }
+
     setFilteredEmployees(filtered)
   }, [employees, filters])
 
@@ -163,8 +170,17 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
           {filteredEmployees.map((employee) => (
             <TableRow
               key={employee.id}
-              className="hover:bg-slate-50 cursor-pointer"
-              onClick={() => onEmployeeClick?.(employee)}
+              className={`hover:bg-slate-50 ${
+                (employee.isInvisibleTop || employee.employeeNumber === '000') 
+                  ? 'cursor-not-allowed opacity-60' 
+                  : 'cursor-pointer'
+              }`}
+              onClick={() => {
+                // 見えないTOPまたは社員番号000の場合はクリックを無効化
+                if (!employee.isInvisibleTop && employee.employeeNumber !== '000') {
+                  onEmployeeClick?.(employee)
+                }
+              }}
             >
               <TableCell>
                 <div className="space-y-1">
@@ -174,10 +190,17 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                   <Button
                     variant="outline"
                     size="sm"
-                    className="font-mono text-xs bg-transparent"
+                    className={`font-mono text-xs bg-transparent ${
+                      (employee.isInvisibleTop || employee.employeeNumber === '000')
+                        ? 'opacity-50 cursor-not-allowed'
+                        : ''
+                    }`}
+                    disabled={employee.isInvisibleTop || employee.employeeNumber === '000'}
                     onClick={(e) => {
                       e.stopPropagation()
-                      onEvaluationClick?.(employee)
+                      if (!employee.isInvisibleTop && employee.employeeNumber !== '000') {
+                        onEvaluationClick?.(employee)
+                      }
                     }}
                   >
                     <FileText className="w-3 h-3 mr-1" />
@@ -194,6 +217,17 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                   </Avatar>
                   <div>
                     <p className="font-medium text-slate-900">{employee.name}</p>
+                    {/* 「見えないTOP」社員または社員番号000のみ制限表示を追加 */}
+                    {(employee.isInvisibleTop || employee.employeeNumber === '000') && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-1 rounded">
+                          削除不可
+                        </span>
+                        <span className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-1 rounded">
+                          変更不可
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-1">
                       <span className="text-xs text-slate-500 flex items-center gap-1">
                         <Mail className="w-3 h-3" />
@@ -220,7 +254,17 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className={`h-8 w-8 ${
+                        (employee.isInvisibleTop || employee.employeeNumber === '000')
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                      }`}
+                      disabled={employee.isInvisibleTop || employee.employeeNumber === '000'}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <MoreHorizontal className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -233,25 +277,42 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                     >
                       詳細を見る
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEmployeeClick?.(employee)
-                      }}
-                    >
-                      編集
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEvaluationClick?.(employee)
-                      }}
-                    >
-                      人事考課表を開く
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
-                      削除
-                    </DropdownMenuItem>
+                    {/* 「見えないTOP」社員または社員番号000のみ編集・削除を無効化 */}
+                    {(employee.isInvisibleTop || employee.employeeNumber === '000') ? (
+                      <>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          編集（変更不可）
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          人事考課表を開く（変更不可）
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          削除（削除不可）
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEmployeeClick?.(employee)
+                          }}
+                        >
+                          編集
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onEvaluationClick?.(employee)
+                          }}
+                        >
+                          人事考課表を開く
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
+                          削除
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>

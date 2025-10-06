@@ -128,6 +128,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         showInOrgChart: employee.showInOrgChart ?? true,
       })
       
+      // パスワード表示状態をローカルストレージから復元（管理者・総務のみ）
+      if (isAdminOrHR && typeof window !== 'undefined') {
+        const savedShowPassword = localStorage.getItem(`employee-password-visible-${employee.id}`)
+        if (savedShowPassword === 'true') {
+          setShowPassword(true)
+        }
+      }
+      
       // アバター関連の初期化（employeeデータから復元）
       setAvatarText('')
       setSelectedAvatarFile(null)
@@ -258,6 +266,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [loadingFiles, setLoadingFiles] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
   const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false)
@@ -712,6 +721,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     setPendingMyNumberAction(null)
   }
 
+  // パスワード表示のトグル機能（管理者・総務のみ）
+  const handleTogglePassword = () => {
+    if (!isAdminOrHR) return
+    
+    const newShowPassword = !showPassword
+    setShowPassword(newShowPassword)
+    
+    // ローカルストレージに保存
+    if (employee?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`employee-password-visible-${employee.id}`, newShowPassword.toString())
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -856,10 +878,27 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           </div>
                         )}
                         {(changePassword || isNewEmployee) && (
-                          <div>
-                            <Label>パスワード <span className="text-red-500">*</span></Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label>パスワード <span className="text-red-500">*</span></Label>
+                              {isAdminOrHR && (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleTogglePassword}
+                                    className="flex items-center gap-1"
+                                  >
+                                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                    {showPassword ? '非表示' : '表示'}
+                                  </Button>
+                                  <span className="text-xs text-slate-500">管理者・総務のみ</span>
+                                </div>
+                              )}
+                            </div>
                             <Input 
-                              type="password" 
+                              type={showPassword ? "text" : "password"} 
                               value={formData.password}
                               onChange={(e) => setFormData({...formData, password: e.target.value})}
                               placeholder="半角の英字と数字を含む、4文字以上の文字列" 

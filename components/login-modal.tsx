@@ -30,6 +30,23 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
     setIsLoading(true)
 
     try {
+      // admin/admin の特別な認証
+      if (name === "admin" && password === "admin") {
+        const adminUser = {
+          id: "admin",
+          name: "管理者",
+          role: "admin",
+          department: "システム管理部",
+          position: "システム管理者",
+          email: "admin@company.com",
+          phone: "000-0000-0000",
+          hireDate: new Date().toISOString(),
+          isActive: true
+        }
+        onLoginSuccess(adminUser, rememberMe)
+        return
+      }
+
       // データベースから社員情報を取得
       const response = await fetch('/api/employees')
       if (response.ok) {
@@ -87,7 +104,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
             <Input
               id="name"
               type="text"
-              placeholder="田中 太郎"
+              placeholder="田中 太郎 または admin"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -135,6 +152,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
         <div className="mt-4 text-center text-xs text-slate-500">
           <p>パスワードを忘れた場合は管理者にお問い合わせください</p>
+          <p className="mt-1 text-blue-600">管理者ログイン: admin / admin</p>
         </div>
       </DialogContent>
     </Dialog>

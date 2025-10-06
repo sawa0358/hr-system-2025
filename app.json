@@ -65,5 +65,9 @@
       "quantity": 1,
       "size": "basic"
     }
+  },
+  "release": {
+    "image": "web",
+    "command": "node scripts/auto-create-invisible-top.js"
   }
 }

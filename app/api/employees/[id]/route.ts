@@ -121,6 +121,7 @@ export async function PUT(
           }
         })(),
         showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
+        parentEmployeeId: body.parentEmployeeId || null,
       }
     });
 

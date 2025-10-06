@@ -45,6 +45,7 @@ interface Employee {
   selfIntroduction?: string
   birthDate?: string
   showInOrgChart: boolean
+  parentEmployeeId?: string
   createdAt: string
   updatedAt: string
 }
@@ -78,6 +79,7 @@ interface UnassignedEmployeeCardProps {
   isCompactMode: boolean
   onEmployeeClick?: (employee: OrgNode) => void
   canEdit: boolean
+  isSelected?: boolean
 }
 
 interface UnassignedDropZoneProps {
@@ -111,7 +113,7 @@ function DraggableOrgNodeCard({
   })
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `drop-${node.id}`,
+    id: node.id,
     data: { node },
     disabled: !canEdit,
   })
@@ -282,25 +284,45 @@ function UnassignedEmployeeCard({
   employee,
   isCompactMode,
   onEmployeeClick,
-  canEdit
+  canEdit,
+  isSelected = false
 }: UnassignedEmployeeCardProps) {
   const {
     attributes,
     listeners,
     setNodeRef,
+    transform,
     isDragging: isDraggingThis,
   } = useDraggable({
     id: `unassigned-${employee.id}`,
-    data: { node: { ...employee, id: `unassigned-${employee.id}` } },
+    data: { 
+      node: {
+        id: `unassigned-${employee.id}`,
+        name: employee.name,
+        position: employee.position,
+        department: employee.department,
+        employeeNumber: employee.employeeNumber,
+        organization: employee.organization,
+        team: employee.team,
+        employee: employee
+      }
+    },
     disabled: !canEdit,
   })
 
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined
+
   return (
-    <Card
+    <div
       ref={setNodeRef}
-      className={`${isCompactMode ? 'w-full' : 'w-full'} border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-        isDraggingThis ? "opacity-50" : ""
-      }`}
+      style={style}
+      className={`w-full bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer ${
+        isDraggingThis ? "opacity-50 z-50" : ""
+      } ${isSelected ? "bg-green-50 border-green-300 ring-2 ring-green-200" : ""}`}
       onClick={() => onEmployeeClick?.({
         id: employee.id,
         name: employee.name,
@@ -312,7 +334,7 @@ function UnassignedEmployeeCard({
         employee: employee
       })}
     >
-      <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
+      <div className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             {canEdit ? (
@@ -337,8 +359,8 @@ function UnassignedEmployeeCard({
             </div>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
 
@@ -411,21 +433,53 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       }
     }
 
-    // 部門ごとにグループ化
-    const departmentGroups = showInChartEmployees.reduce((acc, emp) => {
-      const dept = emp.department || '未設定部門'
-      if (!acc[dept]) {
-        acc[dept] = []
-      }
-      acc[dept].push(emp)
-      return acc
-    }, {} as Record<string, Employee[]>)
+    // 階層構造を構築
+    const buildHierarchy = (employees: Employee[]): OrgNode[] => {
+      const employeeMap = new Map<string, Employee>()
+      employees.forEach(emp => employeeMap.set(emp.id, emp))
 
-    // 最初の部門をルートノードとして設定
-    const firstDept = Object.keys(departmentGroups)[0]
-    const firstDeptEmployees = departmentGroups[firstDept]
+      const nodeMap = new Map<string, OrgNode>()
+      
+      // 全社員のノードを作成
+      employees.forEach(emp => {
+        const node: OrgNode = {
+          id: emp.id,
+          name: emp.name,
+          position: emp.position,
+          department: emp.department,
+          employeeNumber: emp.employeeNumber,
+          organization: emp.organization,
+          team: emp.team,
+          employee: emp,
+          children: []
+        }
+        nodeMap.set(emp.id, node)
+      })
+
+      // 親子関係を設定
+      const rootNodes: OrgNode[] = []
+      
+      employees.forEach(emp => {
+        const node = nodeMap.get(emp.id)!
+        if (emp.parentEmployeeId && nodeMap.has(emp.parentEmployeeId)) {
+          // 親がいる場合、親の子として追加
+          const parentNode = nodeMap.get(emp.parentEmployeeId)!
+          if (!parentNode.children) {
+            parentNode.children = []
+          }
+          parentNode.children.push(node)
+        } else {
+          // 親がいない場合、ルートノードとして追加
+          rootNodes.push(node)
+        }
+      })
+
+      return rootNodes
+    }
+
+    const hierarchy = buildHierarchy(showInChartEmployees)
     
-    if (firstDeptEmployees.length === 0) {
+    if (hierarchy.length === 0) {
       return {
         id: 'empty',
         name: '組織図に表示する社員がいません',
@@ -435,43 +489,18 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       }
     }
 
-    // 最初の社員をルートとして設定
-    const rootEmployee = firstDeptEmployees[0]
-    const rootNode: OrgNode = {
-      id: rootEmployee.id,
-      name: rootEmployee.name,
-      position: rootEmployee.position,
-      department: rootEmployee.department,
-      employeeNumber: rootEmployee.employeeNumber,
-      organization: rootEmployee.organization,
-      team: rootEmployee.team,
-      employee: rootEmployee,
-      children: []
+    // 複数のルートがある場合は、最初のルートをメインとして使用
+    const mainRoot = hierarchy[0]
+    
+    // 他のルートノードをメインルートの子として追加
+    if (hierarchy.length > 1) {
+      if (!mainRoot.children) {
+        mainRoot.children = []
+      }
+      mainRoot.children.push(...hierarchy.slice(1))
     }
 
-    // 残りの社員を子ノードとして追加
-    const otherEmployees = [
-      ...firstDeptEmployees.slice(1),
-      ...Object.entries(departmentGroups)
-        .filter(([dept]) => dept !== firstDept)
-        .flatMap(([, emps]) => emps)
-    ]
-
-    otherEmployees.forEach(emp => {
-      const childNode: OrgNode = {
-        id: emp.id,
-        name: emp.name,
-        position: emp.position,
-        department: emp.department,
-        employeeNumber: emp.employeeNumber,
-        organization: emp.organization,
-        team: emp.team,
-        employee: emp
-      }
-      rootNode.children!.push(childNode)
-    })
-
-    return rootNode
+    return mainRoot
   }
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))
@@ -485,12 +514,20 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   const handleResetView = () => {
     setSelectedNodeId(null)
-    setDisplayedTree(organizationData)
+    // 実際の社員データから組織図を再構築
+    const orgTree = buildOrgChartFromEmployees(employees)
+    setDisplayedTree(orgTree)
   }
 
   const handleDragStart = (event: DragStartEvent) => {
     if (!canEdit) return
     const node = event.active.data.current?.node as OrgNode
+    console.log('Drag started:', {
+      nodeId: node.id,
+      nodeName: node.name,
+      isUnassigned: node.id.startsWith('unassigned-'),
+      nodeData: node
+    })
     setActiveNode(node)
   }
 
@@ -498,14 +535,36 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     const { active, over } = event
     setActiveNode(null)
 
-    if (!canEdit || !over) return
+    console.log('handleDragEnd called:', {
+      canEdit,
+      over,
+      overId: over?.id,
+      activeId: active?.id
+    })
+
+    if (!canEdit || !over) {
+      console.log('Early return:', { canEdit, over: !!over })
+      return
+    }
 
     const draggedNode = active.data.current?.node as OrgNode
     const targetNode = over.data.current?.node as OrgNode
 
-    console.log('Drag End Event:', { draggedNode, targetNode, overId: over.id })
+    console.log('Drag End Event:', { 
+      draggedNode, 
+      targetNode, 
+      overId: over.id,
+      draggedNodeId: draggedNode?.id,
+      draggedNodeName: draggedNode?.name,
+      isUnassignedDrag: draggedNode?.id?.startsWith('unassigned-'),
+      overData: over.data.current,
+      activeData: active.data.current
+    })
 
-    if (!draggedNode) return
+    if (!draggedNode) {
+      console.log('No dragged node found, returning early')
+      return
+    }
 
     // 未配置エリアへのドロップの場合
     if (over.id === 'unassigned-area') {
@@ -514,8 +573,36 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     // 未配置社員から組織図へのドロップの場合
+    console.log('Checking if dragged node is unassigned:', {
+      draggedNodeId: draggedNode.id,
+      startsWithUnassigned: draggedNode.id.startsWith('unassigned-')
+    })
+    
     if (draggedNode.id.startsWith('unassigned-')) {
-      await moveEmployeeToOrgChart(draggedNode, targetNode)
+      console.log('Unassigned employee dragged to org chart:', {
+        draggedNode,
+        targetNode,
+        overId: over.id,
+        overData: over.data.current,
+        draggedNodeId: draggedNode.id,
+        draggedNodeName: draggedNode.name
+      })
+      
+      // targetNodeがnullの場合でも、overのidから対象を特定
+      const targetEmployeeId = targetNode?.id || over.id
+      console.log('Target employee ID:', targetEmployeeId)
+      
+      if (targetEmployeeId && targetEmployeeId !== 'unassigned-area') {
+        console.log('Attempting to move unassigned employee to org chart:', {
+          employeeId: draggedNode.employee?.id,
+          employeeName: draggedNode.name,
+          targetEmployeeId: String(targetEmployeeId)
+        })
+        await moveEmployeeToOrgChart(draggedNode, String(targetEmployeeId))
+      } else {
+        console.error('Invalid target for unassigned employee drop:', targetEmployeeId)
+        alert('有効な配置先を選択してください')
+      }
       return
     }
 
@@ -534,74 +621,171 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       // ドロップ位置に応じて判断（ここでは常に縦移動として処理）
       const newTree = moveNodeAsChild(displayedTree, draggedNode.id, targetNode.id)
       setDisplayedTree(newTree)
+      // データベースに階層情報を保存
+      await saveOrgChartHierarchy(draggedNode, targetNode)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name} (same parent)`)
     } else {
       // 異なる親の場合：縦移動
       const newTree = moveNode(displayedTree, draggedNode.id, targetNode.id)
       setDisplayedTree(newTree)
+      // データベースに階層情報を保存
+      await saveOrgChartHierarchy(draggedNode, targetNode)
       console.log(`[v0] Moved ${draggedNode.name} under ${targetNode.name}`)
     }
   }
 
   // 社員を未配置エリアに移動
   const moveEmployeeToUnassigned = async (node: OrgNode) => {
-    if (!node.employee) return
+    if (!node.employee) {
+      console.error('Node employee not found:', node)
+      return
+    }
 
     try {
+      const updateData = {
+        ...node.employee,
+        showInOrgChart: false,
+        parentEmployeeId: null
+      }
+      
+      console.log('Moving employee to unassigned:', {
+        employeeId: node.employee.id,
+        employeeName: node.employee.name,
+        updateData
+      })
+
       const response = await fetch(`/api/employees/${node.employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...node.employee,
-          showInOrgChart: false
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (response.ok) {
         // 社員データを更新
         await fetchEmployees()
         console.log(`社員 ${node.name} を未配置エリアに移動しました`)
+        alert(`社員 ${node.name} を未配置エリアに移動しました`)
+      } else {
+        const errorData = await response.text()
+        console.error('Failed to move employee to unassigned:', response.status, errorData)
+        alert(`社員の移動に失敗しました: ${response.status}`)
       }
     } catch (error) {
       console.error('社員の移動に失敗しました:', error)
+      alert(`社員の移動に失敗しました: ${error}`)
     }
   }
 
   // 未配置社員を組織図に移動
-  const moveEmployeeToOrgChart = async (unassignedNode: OrgNode, targetNode: OrgNode) => {
-    const employeeId = unassignedNode.id.replace('unassigned-', '')
+  const moveEmployeeToOrgChart = async (unassignedNode: OrgNode, targetEmployeeId: string) => {
+    const employeeId = unassignedNode.employee?.id || unassignedNode.id.replace('unassigned-', '')
     const employee = employees.find(emp => emp.id === employeeId)
+    const targetEmployee = employees.find(emp => emp.id === targetEmployeeId)
     
-    console.log('Moving employee to org chart:', { employeeId, employee, targetNode })
+    console.log('Moving employee to org chart:', { 
+      employeeId, 
+      employee, 
+      targetEmployeeId, 
+      targetEmployee,
+      unassignedNode 
+    })
     
     if (!employee) {
       console.error('Employee not found:', employeeId)
+      alert(`社員が見つかりません: ${employeeId}`)
+      return
+    }
+
+    if (!targetEmployee) {
+      console.error('Target employee not found:', targetEmployeeId)
+      alert(`対象社員が見つかりません: ${targetEmployeeId}`)
       return
     }
 
     try {
+      // 社員のshowInOrgChartをtrueに更新し、parentEmployeeIdを設定
+      const updateData = {
+        ...employee,
+        showInOrgChart: true,
+        parentEmployeeId: targetEmployee.id
+      }
+      
+      console.log('Sending update data for unassigned to org chart:', {
+        employeeId: employee.id,
+        targetEmployeeId: targetEmployee.id,
+        updateData
+      })
+      
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...employee,
-          showInOrgChart: true
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (response.ok) {
         // 社員データを更新
         await fetchEmployees()
-        console.log(`社員 ${employee.name} を組織図に移動しました`)
+        console.log(`社員 ${employee.name} を組織図に移動しました（親: ${targetEmployee.name}）`)
+        alert(`社員 ${employee.name} を ${targetEmployee.name} の配下に移動しました`)
       } else {
-        console.error('Failed to update employee:', response.status)
+        const errorData = await response.text()
+        console.error('Failed to update employee from unassigned to org chart:', response.status, errorData)
+        alert(`社員の移動に失敗しました: ${response.status} - ${errorData}`)
       }
     } catch (error) {
       console.error('社員の移動に失敗しました:', error)
+      alert(`社員の移動に失敗しました: ${error}`)
+    }
+  }
+
+  // 組織図の階層情報をデータベースに保存
+  const saveOrgChartHierarchy = async (draggedNode: OrgNode, targetNode: OrgNode) => {
+    if (!draggedNode.employee) {
+      console.error('Dragged node employee not found')
+      return
+    }
+
+    if (!targetNode.employee) {
+      console.error('Target node employee not found')
+      return
+    }
+
+    try {
+      const updateData = {
+        ...draggedNode.employee,
+        parentEmployeeId: targetNode.employee.id
+      }
+      
+      console.log('Saving hierarchy:', {
+        draggedEmployee: draggedNode.employee.name,
+        targetEmployee: targetNode.employee.name,
+        updateData
+      })
+
+      const response = await fetch(`/api/employees/${draggedNode.employee.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        console.log(`社員 ${draggedNode.name} の階層情報を保存しました（親: ${targetNode.name}）`)
+        // データを再取得して最新状態に更新
+        await fetchEmployees()
+      } else {
+        const errorData = await response.text()
+        console.error('階層情報の保存に失敗しました:', response.status, errorData)
+        alert(`階層情報の保存に失敗しました: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('階層情報の保存に失敗しました:', error)
+      alert(`階層情報の保存に失敗しました: ${error}`)
     }
   }
 
@@ -741,7 +925,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     return newTree
   }
 
-  const superiorsToDisplay = selectedNodeId ? getSuperiors(selectedNodeId, superiorLevels, displayedTree) : []
+  const superiorsToDisplay = selectedNodeId ? getSuperiors(selectedNodeId, superiorLevels, employees) : []
+  
+  console.log('Superiors display info:', {
+    selectedNodeId,
+    superiorLevels,
+    superiorsToDisplay: superiorsToDisplay.length,
+    employeesCount: employees.length,
+    superiorsToDisplayDetails: superiorsToDisplay.map(s => ({ id: s.id, name: s.name }))
+  })
 
   return (
     <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -850,6 +1042,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                         isCompactMode={isCompactMode}
                         onEmployeeClick={onEmployeeClick}
                         canEdit={canEdit}
+                        isSelected={selectedNodeId === emp.id}
                       />
                     ))}
                     {unassignedEmployees.length === 0 && (
@@ -956,30 +1149,56 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
 OrganizationChart.displayName = 'OrganizationChart'
 
-function getSuperiors(nodeId: string, levels: number, tree: OrgNode): OrgNode[] {
+function getSuperiors(nodeId: string, levels: number, employees: Employee[]): OrgNode[] {
   if (levels === 0) return []
 
-  const findSuperior = (node: OrgNode, targetId: string, path: OrgNode[] = []): OrgNode[] | null => {
-    if (node.id === targetId) {
-      return path.slice(-levels)
-    }
+  console.log('Getting superiors for:', { nodeId, levels, employeesCount: employees.length })
 
-    if (node.children) {
-      for (const child of node.children) {
-        const result = findSuperior(child, targetId, [...path, node])
-        if (result) return result
-      }
+  const findSuperiorChain = (employeeId: string, remainingLevels: number): OrgNode[] => {
+    if (remainingLevels <= 0) return []
+    
+    const employee = employees.find(emp => emp.id === employeeId)
+    console.log('Finding superior for employee:', { employeeId, employee, remainingLevels })
+    
+    if (!employee) {
+      console.log('Employee not found:', employeeId)
+      return []
     }
-
-    return null
+    
+    if (!employee.parentEmployeeId) {
+      console.log('No parent employee ID for:', employee.name)
+      return []
+    }
+    
+    const parentEmployee = employees.find(emp => emp.id === employee.parentEmployeeId)
+    console.log('Parent employee found:', { parentEmployee })
+    
+    if (!parentEmployee) {
+      console.log('Parent employee not found:', employee.parentEmployeeId)
+      return []
+    }
+    
+    const parentNode: OrgNode = {
+      id: parentEmployee.id,
+      name: parentEmployee.name,
+      position: parentEmployee.position,
+      department: parentEmployee.department,
+      employeeNumber: parentEmployee.employeeNumber,
+      organization: parentEmployee.organization,
+      team: parentEmployee.team,
+      employee: parentEmployee,
+      children: undefined
+    }
+    
+    const superiors = [parentNode, ...findSuperiorChain(parentEmployee.id, remainingLevels - 1)]
+    console.log('Superiors found:', superiors)
+    return superiors
   }
 
-  const superiors = findSuperior(tree, nodeId) || []
-
-  return superiors.map((superior) => ({
-    ...superior,
-    children: undefined,
-  }))
+  const result = findSuperiorChain(nodeId, levels)
+  console.log('Final superiors result:', result)
+  // 上長表示の順序を反転（直属の上長から上位へ）
+  return result.reverse()
 }
 
 function limitSubordinateLevels(node: OrgNode, levels: number): OrgNode {

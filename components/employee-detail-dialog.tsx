@@ -1152,10 +1152,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   <div className="space-y-2">
                     <Label>表示名</Label>
                     <Input 
-                      value={formData.name} 
+                      value={privacySettings.displayName ? formData.name : '非公開'} 
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile || !privacySettings.displayName} 
                     />
+                    {!privacySettings.displayName && (
+                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                    )}
                   </div>
                   {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1526,10 +1529,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Label>メールアドレス</Label>
                     <Input 
                       type="email" 
-                      value={formData.email}
+                      value={privacySettings.email ? formData.email : '非公開'}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile || !privacySettings.email} 
                     />
+                    {!privacySettings.email && (
+                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                    )}
                   </div>
                   {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1547,10 +1553,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Label>電話番号(勤務先)</Label>
                     <Input 
                       type="tel" 
-                      value={formData.phone}
+                      value={privacySettings.workPhone ? formData.phone : '非公開'}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile || !privacySettings.workPhone} 
                     />
+                    {!privacySettings.workPhone && (
+                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                    )}
                   </div>
                   {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1568,10 +1577,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Label>電話番号(内線)</Label>
                     <Input 
                       type="tel" 
-                      value={formData.phoneInternal}
+                      value={privacySettings.extension ? formData.phoneInternal : '非公開'}
                       onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile || !privacySettings.extension} 
                     />
+                    {!privacySettings.extension && (
+                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                    )}
                   </div>
                   {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">
@@ -1589,10 +1601,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Label>電話番号(携帯)</Label>
                     <Input 
                       type="tel" 
-                      value={formData.phoneMobile}
+                      value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
                       onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile || !privacySettings.mobilePhone} 
                     />
+                    {!privacySettings.mobilePhone && (
+                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                    )}
                   </div>
                   {canEditProfile && isAdminOrHR && (
                     <div className="flex items-center gap-2 pt-6">

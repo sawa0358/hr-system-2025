@@ -570,36 +570,48 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                       </div>
                     )}
                     <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {employee.email}
-                      </span>
-                      <span className="text-xs text-slate-500 flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {employee.phone}
-                      </span>
+                      {employee.privacyEmail !== false && (
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          {employee.email}
+                        </span>
+                      )}
+                      {employee.privacyWorkPhone !== false && (
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Phone className="w-3 h-3" />
+                          {employee.phone}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               </TableCell>
               <TableCell>
                 <div className="text-sm text-slate-700">
-                  {(() => {
-                    const departments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
-                    return departments.slice(0, 2).map((dept: string, index: number) => (
-                      <div key={index}>{dept}</div>
-                    ))
-                  })()}
+                  {employee.privacyDepartment !== false ? (
+                    (() => {
+                      const departments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
+                      return departments.slice(0, 2).map((dept: string, index: number) => (
+                        <div key={index}>{dept}</div>
+                      ))
+                    })()
+                  ) : (
+                    <span className="text-slate-400 italic">非公開</span>
+                  )}
                 </div>
               </TableCell>
               <TableCell>
                 <div className="text-sm text-slate-700">
-                  {(() => {
-                    const positions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
-                    return positions.slice(0, 2).map((pos: string, index: number) => (
-                      <div key={index}>{pos}</div>
-                    ))
-                  })()}
+                  {employee.privacyPosition !== false ? (
+                    (() => {
+                      const positions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
+                      return positions.slice(0, 2).map((pos: string, index: number) => (
+                        <div key={index}>{pos}</div>
+                      ))
+                    })()
+                  ) : (
+                    <span className="text-slate-400 italic">非公開</span>
+                  )}
                 </div>
               </TableCell>
               <TableCell>

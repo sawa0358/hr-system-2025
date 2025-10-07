@@ -708,8 +708,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       const data = await response.json()
       setEmployees(data)
       
-      // showInOrgChartがfalseの社員を未配置社員として設定
-      const unassigned = data.filter((emp: Employee) => !emp.showInOrgChart)
+      // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
+      const unassigned = data.filter((emp: Employee) => 
+        !emp.showInOrgChart && 
+        !emp.isInvisibleTop && 
+        emp.employeeNumber !== '000'
+      )
       setUnassignedEmployees(unassigned)
       
       // 組織図を構築
@@ -726,12 +730,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
+  // 見えないTOP社員は除外するが、その子ノードは表示する
   const showInChartEmployees = employees.filter(emp =>
     emp.showInOrgChart &&
     emp.status !== 'leave' &&
     emp.status !== 'retired' &&
     emp.status !== 'suspended' &&
-    !emp.isSuspended
+    !emp.isSuspended &&
+    !emp.isInvisibleTop &&
+    emp.employeeNumber !== '000'
   )
     
     // デバッグログを追加
@@ -750,14 +757,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     // 階層構造を構築
-    const buildHierarchy = (employees: Employee[]): OrgNode[] => {
-      const employeeMap = new Map<string, Employee>()
-      employees.forEach(emp => employeeMap.set(emp.id, emp))
-
+    const buildHierarchy = (displayEmployees: Employee[], allEmployees: Employee[]): OrgNode[] => {
+      // 全社員のマップを作成（見えないTOP社員も含む）
+      const allEmployeeMap = new Map<string, Employee>()
+      allEmployees.forEach(emp => allEmployeeMap.set(emp.id, emp))
+      
       const nodeMap = new Map<string, OrgNode>()
       
-      // 全社員のノードを作成
-      employees.forEach(emp => {
+      // 表示対象社員のノードを作成
+      displayEmployees.forEach(emp => {
         const node: OrgNode = {
           id: emp.id,
           name: emp.name,
@@ -775,13 +783,26 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       // 親子関係を設定
       const rootNodes: OrgNode[] = []
       
-      employees.forEach(emp => {
+      displayEmployees.forEach(emp => {
         const node = nodeMap.get(emp.id)!
         console.log(`社員処理: ${emp.name} (${emp.role}), parentEmployeeId: ${emp.parentEmployeeId}`)
         
-        if (emp.parentEmployeeId && nodeMap.has(emp.parentEmployeeId)) {
+        // 親をチェック（見えないTOP社員も含む）
+        let parentNode: OrgNode | null = null
+        if (emp.parentEmployeeId) {
+          // 親が表示対象社員の場合は親の子として追加
+          if (nodeMap.has(emp.parentEmployeeId)) {
+            parentNode = nodeMap.get(emp.parentEmployeeId)!
+          } else {
+            // 親が見えないTOP社員の場合は、この社員をルートノードとして追加
+            console.log(`  → 親が見えないTOP社員のため、ルートノードとして追加: ${emp.name}`)
+            rootNodes.push(node)
+            return
+          }
+        }
+        
+        if (parentNode) {
           // 親がいる場合、親の子として追加
-          const parentNode = nodeMap.get(emp.parentEmployeeId)!
           if (!parentNode.children) {
             parentNode.children = []
           }
@@ -800,7 +821,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return rootNodes
     }
 
-    const hierarchy = buildHierarchy(showInChartEmployees)
+    const hierarchy = buildHierarchy(showInChartEmployees, employees)
     
     console.log('階層構築結果:', hierarchy.length, '個のルートノード')
     console.log('階層詳細:', hierarchy.map(h => ({ name: h.name, role: h.employee?.role })))

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
 import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 import { DepartmentManagerDialog } from "@/components/department-manager-dialog"
+import { PositionManagerDialog } from "@/components/position-manager-dialog"
 import { EmploymentTypeManagerDialog } from "@/components/employment-type-manager-dialog"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
@@ -181,10 +182,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       // システム使用状態を設定
       setSystemUsageEnabled(employee.role ? true : false)
       
-      // 組織、部署、役職の配列を設定
-      setOrganizations(employee.organization ? [employee.organization] : [""])
-      setDepartments(employee.department ? [employee.department] : [""])
-      setPositions(employee.position ? [employee.position] : [""])
+      // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
+      setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
+                      employee.organization ? [employee.organization] : [""])
+      setDepartments(employee.departments && employee.departments.length > 0 ? employee.departments : 
+                    employee.department ? [employee.department] : [""])
+      setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
+                  employee.position ? [employee.position] : [""])
       
       // フォルダ情報も初期化
       if (typeof window !== 'undefined') {
@@ -325,9 +329,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           ...formData,
           familyMembers: familyMembers,
           // 配列フィールドも送信
-          organizations: organizations,
-          departments: departments,
-          positions: positions,
+          organizations: organizations.filter(org => org.trim() !== ''),
+          departments: departments.filter(dept => dept.trim() !== ''),
+          positions: positions.filter(pos => pos.trim() !== ''),
           // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
           isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false
         }),
@@ -630,35 +634,73 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   })
 
   const [organizations, setOrganizations] = useState<string[]>(() => {
-    return employee?.organization ? [employee.organization] : [""]
+    return employee?.organizations && employee.organizations.length > 0 ? employee.organizations :
+           employee?.organization ? [employee.organization] : [""]
   })
   const [departments, setDepartments] = useState<string[]>(() => {
-    return employee?.department ? [employee.department] : [""]
+    return employee?.departments && employee.departments.length > 0 ? employee.departments :
+           employee?.department ? [employee.department] : [""]
   })
   const [positions, setPositions] = useState<string[]>(() => {
-    return employee?.position ? [employee.position] : [""]
+    return employee?.positions && employee.positions.length > 0 ? employee.positions :
+           employee?.position ? [employee.position] : [""]
   })
-  const [employmentTypes, setEmploymentTypes] = useState([
-    { value: "employee", label: "正社員" },
-    { value: "contractor", label: "契約社員" }
-  ])
+  const [employmentTypes, setEmploymentTypes] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('employment-types')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    }
+    return [
+      { value: "employee", label: "正社員" },
+      { value: "contractor", label: "契約社員" }
+    ]
+  })
   const [systemUsageEnabled, setSystemUsageEnabled] = useState(() => {
     return employee?.role ? true : false
   })
   const [userPermission, setUserPermission] = useState<string>("general")
 
   const [isDepartmentManagerOpen, setIsDepartmentManagerOpen] = useState(false)
+  const [isPositionManagerOpen, setIsPositionManagerOpen] = useState(false)
   const [isEmploymentTypeManagerOpen, setIsEmploymentTypeManagerOpen] = useState(false)
-  const [availableDepartments, setAvailableDepartments] = useState<string[]>([
-    "エンジニアリング",
-    "営業",
-    "マーケティング",
-    "人事",
-    "経理",
-    "総務",
-    "CS",
-    "品質保証",
-  ])
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('available-departments')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    }
+    return [
+      "エンジニアリング",
+      "営業",
+      "マーケティング",
+      "人事",
+      "経理",
+      "総務",
+      "CS",
+      "品質保証",
+    ]
+  })
+  const [availablePositions, setAvailablePositions] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('available-positions')
+      if (saved) {
+        return JSON.parse(saved)
+      }
+    }
+    return [
+      "代表取締役",
+      "取締役",
+      "部長",
+      "次長",
+      "課長",
+      "係長",
+      "主任",
+      "一般社員"
+    ]
+  })
 
   const addFamilyMember = () => {
     const newMember: FamilyMember = {
@@ -1266,11 +1308,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            // 役職管理ダイアログを開く（部署管理と同じ機能）
-                            // 現在は部署管理と同じ機能として実装
-                            setIsDepartmentManagerOpen(true)
-                          }}
+                          onClick={() => setIsPositionManagerOpen(true)}
                         >
                           <Settings className="w-4 h-4 mr-1" />
                           役職管理
@@ -1286,17 +1324,41 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
                   {positions.map((pos, index) => (
                     <div key={index} className="grid grid-cols-[1fr_auto] gap-4 items-center">
-                      <Input
-                        placeholder="役職"
-                        value={pos}
-                        onChange={(e) => {
-                          const newPos = [...positions]
-                          newPos[index] = e.target.value
-                          setPositions(newPos)
-                          setFormData({...formData, position: e.target.value})
-                        }}
-                        disabled={!canEditProfile}
-                      />
+                      <div className="flex gap-2">
+                        <Select
+                          value={availablePositions.includes(pos) ? pos : ""}
+                          onValueChange={(value) => {
+                            const newPos = [...positions]
+                            newPos[index] = value
+                            setPositions(newPos)
+                            setFormData({...formData, position: value})
+                          }}
+                          disabled={!canEditProfile}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="役職を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availablePositions.map((availablePos) => (
+                              <SelectItem key={availablePos} value={availablePos}>
+                                {availablePos}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          placeholder="自由記載"
+                          value={availablePositions.includes(pos) ? "" : pos}
+                          onChange={(e) => {
+                            const newPos = [...positions]
+                            newPos[index] = e.target.value
+                            setPositions(newPos)
+                            setFormData({...formData, position: e.target.value})
+                          }}
+                          disabled={!canEditProfile}
+                          className="flex-1"
+                        />
+                      </div>
                       <div className="flex items-center gap-2">
                         {canEditProfile && positions.length > 1 && (
                           <Button
@@ -1902,6 +1964,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         departments={availableDepartments}
         onDepartmentsChange={(newDepts) => {
           setAvailableDepartments(newDepts)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('available-departments', JSON.stringify(newDepts))
+          }
+        }}
+      />
+
+      <PositionManagerDialog
+        open={isPositionManagerOpen}
+        onOpenChange={setIsPositionManagerOpen}
+        positions={availablePositions}
+        onPositionsChange={(newPos) => {
+          setAvailablePositions(newPos)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('available-positions', JSON.stringify(newPos))
+          }
         }}
       />
 
@@ -1909,7 +1986,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         open={isEmploymentTypeManagerOpen}
         onOpenChange={setIsEmploymentTypeManagerOpen}
         employmentTypes={employmentTypes}
-        onEmploymentTypesChange={setEmploymentTypes}
+        onEmploymentTypesChange={(newTypes) => {
+          setEmploymentTypes(newTypes)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('employment-types', JSON.stringify(newTypes))
+          }
+        }}
       />
 
     </>

@@ -27,49 +27,84 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-
-  // 順序入れ替え関数
-  const moveEmployee = async (employeeId: string, direction: 'up' | 'down') => {
-    try {
-      const currentIndex = filteredEmployees.findIndex(emp => emp.id === employeeId)
-      if (currentIndex === -1) return
-
-      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-      if (newIndex < 0 || newIndex >= filteredEmployees.length) return
-
-      // 社員の順序を入れ替えるAPIを呼び出し
-      const response = await fetch(`/api/employees/${employeeId}/reorder`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          direction,
-          currentIndex,
-          newIndex
-        }),
-      })
-
-      if (response.ok) {
-        // 成功した場合はテーブルを再読み込み
-        const fetchEmployees = async () => {
-          try {
-            const response = await fetch('/api/employees')
-            if (response.ok) {
-              const data = await response.json()
-              setEmployees(data)
-            }
-          } catch (error) {
-            console.error('社員データの取得エラー:', error)
-          }
-        }
-        fetchEmployees()
-      } else {
-        console.error('順序入れ替えに失敗しました')
-      }
-    } catch (error) {
-      console.error('順序入れ替えエラー:', error)
+  const [customOrder, setCustomOrder] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('employee-custom-order')
+      return saved ? JSON.parse(saved) : []
     }
+    return []
+  })
+
+  // カスタム順序を適用するヘルパー関数
+  const applyCustomOrder = (employeeList: any[]) => {
+    if (customOrder.length === 0) return employeeList
+    
+    const orderedEmployees: any[] = []
+    const unorderedEmployees: any[] = []
+    
+    // カスタム順序に従って並べ替え
+    customOrder.forEach(employeeId => {
+      const employee = employeeList.find(emp => emp.id === employeeId)
+      if (employee) {
+        orderedEmployees.push(employee)
+      }
+    })
+    
+    // カスタム順序にない社員を末尾に追加
+    employeeList.forEach(employee => {
+      if (!customOrder.includes(employee.id)) {
+        unorderedEmployees.push(employee)
+      }
+    })
+    
+    return [...orderedEmployees, ...unorderedEmployees]
+  }
+
+  // 順序入れ替え関数（localStorageで永続化）
+  const moveEmployee = (employeeId: string, direction: 'up' | 'down') => {
+    const currentIndex = filteredEmployees.findIndex(emp => emp.id === employeeId)
+    if (currentIndex === -1) return
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+    if (newIndex < 0 || newIndex >= filteredEmployees.length) return
+
+    // フィルタリングされた社員の順序を入れ替える
+    const newFilteredEmployees = [...filteredEmployees]
+    const temp = newFilteredEmployees[currentIndex]
+    newFilteredEmployees[currentIndex] = newFilteredEmployees[newIndex]
+    newFilteredEmployees[newIndex] = temp
+    
+    // カスタム順序を更新
+    const newCustomOrder = [...customOrder]
+    const currentEmployeeId = filteredEmployees[currentIndex].id
+    const newEmployeeId = filteredEmployees[newIndex].id
+    
+    // カスタム順序に存在しない場合は追加
+    if (!newCustomOrder.includes(currentEmployeeId)) {
+      newCustomOrder.push(currentEmployeeId)
+    }
+    if (!newCustomOrder.includes(newEmployeeId)) {
+      newCustomOrder.push(newEmployeeId)
+    }
+    
+    // 順序を入れ替える
+    const currentOrderIndex = newCustomOrder.indexOf(currentEmployeeId)
+    const newOrderIndex = newCustomOrder.indexOf(newEmployeeId)
+    
+    if (currentOrderIndex !== -1 && newOrderIndex !== -1) {
+      [newCustomOrder[currentOrderIndex], newCustomOrder[newOrderIndex]] = 
+      [newCustomOrder[newOrderIndex], newCustomOrder[currentOrderIndex]]
+    }
+    
+    setCustomOrder(newCustomOrder)
+    
+    // localStorageに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('employee-custom-order', JSON.stringify(newCustomOrder))
+    }
+    
+    // フィルタリングされたリストを更新
+    setFilteredEmployees(newFilteredEmployees)
   }
 
   useEffect(() => {
@@ -118,15 +153,21 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       return true
     })
 
-    // フリーワード検索（表示されているテキストデータを参照）
+    // フリーワード検索（複数の組織名・部署・役職も含む）
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
       filtered = filtered.filter(employee => {
+        // 複数の組織名・部署・役職を配列として取得
+        const departments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
+        const positions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
+        const organizations = Array.isArray(employee.organizations) ? employee.organizations : [employee.organization]
+        
         const searchableText = [
           employee.name,
           employee.employeeNumber || employee.employeeId,
-          employee.department,
-          employee.position,
+          ...departments,
+          ...positions,
+          ...organizations,
           employee.email,
           employee.phone
         ].join(' ').toLowerCase()
@@ -140,14 +181,20 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       filtered = filtered.filter(employee => employee.employeeType === filters.employeeType)
     }
 
-    // 部署フィルター
+    // 部署フィルター（複数の部署も含む）
     if (filters.department !== 'all') {
-      filtered = filtered.filter(employee => employee.department === filters.department)
+      filtered = filtered.filter(employee => {
+        const departments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
+        return departments.includes(filters.department)
+      })
     }
 
-    // 役職フィルター
+    // 役職フィルター（複数の役職も含む）
     if (filters.position !== 'all') {
-      filtered = filtered.filter(employee => employee.position === filters.position)
+      filtered = filtered.filter(employee => {
+        const positions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
+        return positions.includes(filters.position)
+      })
     }
 
     // ステータスフィルター
@@ -172,7 +219,9 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       filtered = filtered.filter(employee => !employee.isInvisibleTop && employee.employeeNumber !== '000')
     }
 
-    setFilteredEmployees(filtered)
+    // カスタム順序を適用
+    const orderedFiltered = applyCustomOrder(filtered)
+    setFilteredEmployees(orderedFiltered)
   }, [employees, filters])
 
   const getStatusBadge = (status: string) => {
@@ -335,10 +384,24 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 </div>
               </TableCell>
               <TableCell>
-                <span className="text-sm text-slate-700">{employee.department}</span>
+                <div className="text-sm text-slate-700">
+                  {(() => {
+                    const departments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
+                    return departments.slice(0, 2).map((dept: string, index: number) => (
+                      <div key={index}>{dept}</div>
+                    ))
+                  })()}
+                </div>
               </TableCell>
               <TableCell>
-                <span className="text-sm text-slate-700">{employee.position}</span>
+                <div className="text-sm text-slate-700">
+                  {(() => {
+                    const positions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
+                    return positions.slice(0, 2).map((pos: string, index: number) => (
+                      <div key={index}>{pos}</div>
+                    ))
+                  })()}
+                </div>
               </TableCell>
               <TableCell>
                 <span className="text-sm text-slate-600">{employee.joinDate}</span>

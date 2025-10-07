@@ -4,18 +4,42 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const employees = await prisma.employee.findMany({
+      include: {
+        familyMembers: true
+      },
       orderBy: {
         createdAt: 'desc'
       }
     });
 
-    return NextResponse.json(employees);
+    // 複数の組織名・部署・役職をパースして返す
+    const processedEmployees = employees.map(employee => ({
+      ...employee,
+      departments: parseJsonArray(employee.department),
+      positions: parseJsonArray(employee.position),
+      organizations: parseJsonArray(employee.organization),
+    }));
+
+    return NextResponse.json(processedEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
     return NextResponse.json(
       { error: '社員一覧の取得に失敗しました' },
       { status: 500 }
     );
+  }
+}
+
+// JSON配列をパースするヘルパー関数
+function parseJsonArray(value: string): string[] {
+  if (!value) return [];
+  
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(item => item && item.trim() !== '') : [value];
+  } catch {
+    // JSONでない場合は単一の値として扱う
+    return value ? [value] : [];
   }
 }
 
@@ -97,9 +121,9 @@ export async function POST(request: NextRequest) {
         name: body.name,
         email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,
         phone: body.phone || null,
-        department: body.department || '未設定',
-        position: body.position || '未設定',
-        organization: body.organization || '株式会社テックイノベーション',
+        department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : (body.department || '未設定'),
+        position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : (body.position || '未設定'),
+        organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : (body.organization || '株式会社テックイノベーション'),
         team: body.team || null,
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',

@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// JSON配列をパースするヘルパー関数
+function parseJsonArray(value: string): string[] {
+  if (!value) return [];
+  
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(item => item && item.trim() !== '') : [value];
+  } catch {
+    // JSONでない場合は単一の値として扱う
+    return value ? [value] : [];
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -20,7 +33,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(employee);
+    // 複数の組織名・部署・役職をパースして返す
+    const processedEmployee = {
+      ...employee,
+      departments: parseJsonArray(employee.department),
+      positions: parseJsonArray(employee.position),
+      organizations: parseJsonArray(employee.organization),
+    };
+
+    return NextResponse.json(processedEmployee);
   } catch (error) {
     console.error('社員取得エラー:', error);
     return NextResponse.json(
@@ -107,9 +128,9 @@ export async function PUT(
         name: body.name,
         email: body.email,
         phone: body.phone,
-        department: body.department,
-        position: body.position,
-        organization: body.organization,
+        department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
+        position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : body.position,
+        organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : body.organization,
         team: body.team,
         joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
         status: body.status,

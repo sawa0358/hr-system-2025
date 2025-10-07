@@ -65,9 +65,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     manageAnnouncements: false,
     viewOwnProfile: true,
     editOwnProfile: false,
-    viewSubordinateProfiles: false,
+    viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
     editSubordinateProfiles: false,
-    viewAllProfiles: false,
+    viewAllProfiles: true, // 全権限者が全プロフィール閲覧可能
     editAllProfiles: false,
     viewMyNumber: false,
     suspendUsers: false,
@@ -101,10 +101,10 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboardStats: false,
     manageAnnouncements: false,
     viewOwnProfile: true,
-    editOwnProfile: true,
-    viewSubordinateProfiles: false,
+    editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
+    viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
     editSubordinateProfiles: false,
-    viewAllProfiles: false,
+    viewAllProfiles: true, // 全権限者が全プロフィール閲覧可能
     editAllProfiles: false,
     viewMyNumber: false,
     suspendUsers: false,
@@ -138,10 +138,10 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboardStats: false,
     manageAnnouncements: true,
     viewOwnProfile: true,
-    editOwnProfile: true,
-    viewSubordinateProfiles: true,
+    editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
+    viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
     editSubordinateProfiles: false,
-    viewAllProfiles: false,
+    viewAllProfiles: true, // 全権限者が全プロフィール閲覧可能
     editAllProfiles: false,
     viewMyNumber: false,
     suspendUsers: false,
@@ -175,10 +175,10 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboardStats: true,
     manageAnnouncements: true,
     viewOwnProfile: true,
-    editOwnProfile: false, // 店長は自分のプロフィール編集不可
-    viewSubordinateProfiles: true,
-    editSubordinateProfiles: true,
-    viewAllProfiles: true, // 全員のプロフィール閲覧は可能
+    editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
+    viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
+    editSubordinateProfiles: false, // 店長は配下のプロフィール編集不可
+    viewAllProfiles: true, // 全権限者が全プロフィール閲覧可能
     editAllProfiles: false, // 全員のプロフィール編集は不可
     viewMyNumber: false,
     suspendUsers: false,
@@ -212,10 +212,10 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboardStats: true,
     manageAnnouncements: true,
     viewOwnProfile: true,
-    editOwnProfile: true,
-    viewSubordinateProfiles: true,
+    editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
+    viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
     editSubordinateProfiles: false,
-    viewAllProfiles: false,
+    viewAllProfiles: true, // 全権限者が全プロフィール閲覧可能
     editAllProfiles: false,
     viewMyNumber: false,
     suspendUsers: false,

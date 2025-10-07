@@ -118,6 +118,59 @@ function DisplayOrgChartWithoutTop({
     return null
   }
   
+  // 仮想ルートノードの場合は、子ノードを横並びで表示
+  if (node.id === 'virtual-root' && node.children && node.children.length > 0) {
+    return (
+      <div className="flex gap-8 relative">
+        {node.children
+          .filter(child => {
+            // 見えないTOPの子ノードも除外
+            const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
+            return !isChildInvisibleTop
+          })
+          .map((child, index) => (
+          <div key={child.id} className="relative">
+            {node.children!.filter(c => {
+              const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
+              return !isChildInvisibleTop
+            }).length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+            <DraggableOrgNodeCard
+              node={child}
+              level={0}
+              onEmployeeClick={onEmployeeClick}
+              onShowSubordinates={onShowSubordinates}
+              selectedNodeId={selectedNodeId}
+              canEdit={canEdit}
+              isCompactMode={isCompactMode}
+              onHorizontalMove={onHorizontalMove}
+            />
+            {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
+            {canEdit && (
+              <RightMoveDropZone
+                parentId={node.id}
+                targetIndex={index + 1}
+                canEdit={canEdit}
+                onDrop={onHorizontalMove || (() => {})}
+              />
+            )}
+            {/* 各社員間の横ラインにドロップゾーンを配置 */}
+            {index < node.children!.filter(c => {
+              const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
+              return !isChildInvisibleTop
+            }).length - 1 && canEdit && (
+              <HorizontalDropZone
+                parentId={node.id}
+                targetIndex={index + 1}
+                canEdit={canEdit}
+                onDrop={onHorizontalMove || (() => {})}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+  
   // 店長は通常の階層構造で表示（特別な処理は不要）
   
   // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
@@ -755,20 +808,24 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       }
     }
 
-    // 複数のルートがある場合は、最初のルートをメインとして使用
-    const mainRoot = hierarchy[0]
-    console.log('メインルート:', mainRoot.name, mainRoot.employee?.role)
-    
-    // 他のルートノードをメインルートの子として追加
+    // 複数のルートがある場合は、横並びで表示するための仮想ルートを作成
     if (hierarchy.length > 1) {
-      if (!mainRoot.children) {
-        mainRoot.children = []
+      console.log('複数のルートノードを横並びで表示:', hierarchy.map(h => h.name))
+      
+      // 仮想ルートノードを作成（表示されない）
+      const virtualRoot: OrgNode = {
+        id: 'virtual-root',
+        name: '組織図',
+        position: '',
+        department: '',
+        children: hierarchy
       }
-      mainRoot.children.push(...hierarchy.slice(1))
-      console.log('追加された子ノード:', hierarchy.slice(1).map(h => h.name))
+      
+      return virtualRoot
     }
 
-    return mainRoot
+    // 単一のルートノードの場合はそのまま返す
+    return hierarchy[0]
   }
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))

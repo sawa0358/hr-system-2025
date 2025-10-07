@@ -84,6 +84,22 @@ export async function PUT(
         );
       }
     }
+
+    // roleの値の正規化（ハイフンをアンダースコアに変換）
+    const validRoles = ['viewer', 'general', 'sub_manager', 'manager', 'hr', 'admin'];
+    let normalizedRole = body.role;
+    if (normalizedRole === 'sub-manager') {
+      normalizedRole = 'sub_manager';
+    }
+    
+    // roleのバリデーション
+    if (normalizedRole && normalizedRole !== '' && !validRoles.includes(normalizedRole)) {
+      console.error('Invalid role value:', normalizedRole);
+      return NextResponse.json(
+        { error: `無効なrole値です: ${normalizedRole}` },
+        { status: 400 }
+      );
+    }
     
     const employee = await prisma.employee.update({
       where: { id: params.id },
@@ -98,7 +114,7 @@ export async function PUT(
         joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
         status: body.status,
         password: body.password,
-        role: body.role && body.role !== '' ? body.role : null,
+        role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
         myNumber: body.myNumber || null,
         employeeNumber: body.employeeNumber,
         employeeType: body.employeeType,

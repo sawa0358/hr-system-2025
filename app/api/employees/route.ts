@@ -43,6 +43,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // roleの値の正規化（ハイフンをアンダースコアに変換）
+    const validRoles = ['viewer', 'general', 'sub_manager', 'manager', 'hr', 'admin'];
+    let normalizedRole = body.role;
+    if (normalizedRole === 'sub-manager') {
+      normalizedRole = 'sub_manager';
+    }
+    
+    // roleのバリデーション
+    if (normalizedRole && normalizedRole !== '' && !validRoles.includes(normalizedRole)) {
+      console.error('Invalid role value:', normalizedRole);
+      return NextResponse.json(
+        { error: `無効なrole値です: ${normalizedRole}` },
+        { status: 400 }
+      );
+    }
+
     // メールアドレスの重複チェック
     if (body.email) {
       const existingEmail = await prisma.employee.findUnique({
@@ -88,7 +104,7 @@ export async function POST(request: NextRequest) {
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
         password: body.password,
-        role: body.role && body.role !== '' ? body.role : null,
+        role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
         myNumber: body.myNumber || null,
         userId: body.userId || null,
         url: body.url || null,

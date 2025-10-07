@@ -347,9 +347,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (onOrgChartUpdate) {
           onOrgChartUpdate()
         }
-        // 新規登録の場合はページをリロード、編集の場合はリロードしない
+        // 新規登録の場合はダイアログを閉じて、テーブルをリフレッシュ
         if (isNewEmployee) {
-          window.location.reload()
+          onOpenChange(false)
+          if (onRefresh) {
+            onRefresh()
+          }
         }
       } else {
         const error = await response.json()
@@ -390,7 +393,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (onRefresh) {
           onRefresh()
         }
-        window.location.reload()
+        // 組織図も更新
+        if (onOrgChartUpdate) {
+          onOrgChartUpdate()
+        }
       } else {
         const error = await response.json()
         console.error('削除エラー:', error)

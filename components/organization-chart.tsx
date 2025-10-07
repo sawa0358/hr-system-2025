@@ -19,6 +19,7 @@ import {
   closestCenter,
 } from "@dnd-kit/core"
 import { usePermissions } from "@/hooks/use-permissions"
+import { useAuth } from "@/lib/auth-context"
 
 interface Employee {
   id: string
@@ -46,6 +47,7 @@ interface Employee {
   birthDate?: string
   showInOrgChart: boolean
   parentEmployeeId?: string
+  isInvisibleTop?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -108,15 +110,32 @@ function DisplayOrgChartWithoutTop({
   isCompactMode,
   onHorizontalMove,
 }: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
+  // 見えないTOPの社員を除外する判定
+  const isInvisibleTop = node.employee?.isInvisibleTop || node.employee?.employeeNumber === '000'
+  
+  // 見えないTOPの場合は何も表示しない
+  if (isInvisibleTop) {
+    return null
+  }
+  
   // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
   if (node.children && node.children.length > 0) {
     // 複数の子ノードがある場合は横並びで表示
     if (node.children.length > 1) {
       return (
         <div className="flex gap-8 relative">
-          {node.children.map((child, index) => (
+          {node.children
+            .filter(child => {
+              // 見えないTOPの子ノードも除外
+              const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
+              return !isChildInvisibleTop
+            })
+            .map((child, index) => (
             <div key={child.id} className="relative">
-              {node.children!.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+              {node.children!.filter(c => {
+                const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
+                return !isChildInvisibleTop
+              }).length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
               <DraggableOrgNodeCard
                 node={child}
                 level={0}
@@ -150,18 +169,26 @@ function DisplayOrgChartWithoutTop({
         </div>
       )
     } else {
-      // 子ノードが1つの場合は縦に表示
-      return (
-        <DraggableOrgNodeCard
-          node={node.children[0]}
-          level={0}
-          onEmployeeClick={onEmployeeClick}
-          onShowSubordinates={onShowSubordinates}
-          selectedNodeId={selectedNodeId}
-          canEdit={canEdit}
-          isCompactMode={isCompactMode}
-        />
-      )
+      // 子ノードが1つの場合は縦に表示（見えないTOPは除外）
+      const visibleChild = node.children.find(child => {
+        const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
+        return !isChildInvisibleTop
+      })
+      
+      if (visibleChild) {
+        return (
+          <DraggableOrgNodeCard
+            node={visibleChild}
+            level={0}
+            onEmployeeClick={onEmployeeClick}
+            onShowSubordinates={onShowSubordinates}
+            selectedNodeId={selectedNodeId}
+            canEdit={canEdit}
+            isCompactMode={isCompactMode}
+          />
+        )
+      }
+      return null
     }
   }
 
@@ -295,10 +322,18 @@ function DraggableOrgNodeCard({
   isCompactMode = false,
   onHorizontalMove,
 }: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
+  const { currentUser } = useAuth()
   const hasChildren = node.children && node.children.length > 0
   const [departmentLabel, setDepartmentLabel] = useState(node.department)
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  
+  // 部門ラベル編集権限のチェック（マネージャー・総務・管理者のみ）
+  const canEditDepartmentLabel = canEdit && (
+    currentUser?.role === 'manager' || 
+    currentUser?.role === 'hr' || 
+    currentUser?.role === 'admin'
+  )
 
   const {
     attributes,
@@ -320,7 +355,7 @@ function DraggableOrgNodeCard({
   return (
     <div className="flex flex-col items-center">
       <div className="mb-2 flex items-center gap-2">
-        {isEditingLabel && canEdit ? (
+        {isEditingLabel && canEditDepartmentLabel ? (
           <Input
             value={departmentLabel}
             onChange={(e) => setDepartmentLabel(e.target.value)}
@@ -334,7 +369,7 @@ function DraggableOrgNodeCard({
         ) : (
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-md">
             <span className="text-sm font-medium text-slate-700">{departmentLabel}</span>
-            {canEdit && (
+            {canEditDepartmentLabel && (
               <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={() => setIsEditingLabel(true)}>
                 <Edit2 className="w-3 h-3" />
               </Button>

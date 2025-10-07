@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Mail, Phone, FileText } from "lucide-react"
+import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
@@ -27,6 +27,50 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // 順序入れ替え関数
+  const moveEmployee = async (employeeId: string, direction: 'up' | 'down') => {
+    try {
+      const currentIndex = filteredEmployees.findIndex(emp => emp.id === employeeId)
+      if (currentIndex === -1) return
+
+      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
+      if (newIndex < 0 || newIndex >= filteredEmployees.length) return
+
+      // 社員の順序を入れ替えるAPIを呼び出し
+      const response = await fetch(`/api/employees/${employeeId}/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          direction,
+          currentIndex,
+          newIndex
+        }),
+      })
+
+      if (response.ok) {
+        // 成功した場合はテーブルを再読み込み
+        const fetchEmployees = async () => {
+          try {
+            const response = await fetch('/api/employees')
+            if (response.ok) {
+              const data = await response.json()
+              setEmployees(data)
+            }
+          } catch (error) {
+            console.error('社員データの取得エラー:', error)
+          }
+        }
+        fetchEmployees()
+      } else {
+        console.error('順序入れ替えに失敗しました')
+      }
+    } catch (error) {
+      console.error('順序入れ替えエラー:', error)
+    }
+  }
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -51,11 +95,28 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
   // フィルター適用
   useEffect(() => {
     if (!filters) {
-      setFilteredEmployees(employees)
+      // 見えないTOPの社員は管理者のみに表示
+      const filteredEmployees = employees.filter(employee => {
+        const isInvisibleTop = employee.isInvisibleTop || employee.employeeNumber === '000'
+        if (isInvisibleTop) {
+          return currentUser?.role === 'admin'
+        }
+        return true
+      })
+      setFilteredEmployees(filteredEmployees)
       return
     }
 
     let filtered = employees
+    
+    // 見えないTOPの社員は管理者のみに表示
+    filtered = filtered.filter(employee => {
+      const isInvisibleTop = employee.isInvisibleTop || employee.employeeNumber === '000'
+      if (isInvisibleTop) {
+        return currentUser?.role === 'admin'
+      }
+      return true
+    })
 
     // フリーワード検索（表示されているテキストデータを参照）
     if (filters.searchQuery) {
@@ -157,6 +218,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50">
+            <TableHead className="font-semibold w-20">順序</TableHead>
             <TableHead className="font-semibold">番号・考課表</TableHead>
             <TableHead className="font-semibold">氏名</TableHead>
             <TableHead className="font-semibold">部署</TableHead>
@@ -167,7 +229,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredEmployees.map((employee) => (
+          {filteredEmployees.map((employee, index) => (
             <TableRow
               key={employee.id}
               className={`hover:bg-slate-50 ${
@@ -182,6 +244,37 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 }
               }}
             >
+              <TableCell>
+                {/* 順序入れ替えボタン（管理者・総務のみ） */}
+                {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        moveEmployee(employee.id, 'up')
+                      }}
+                      disabled={index === 0}
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        moveEmployee(employee.id, 'down')
+                      }}
+                      disabled={index === filteredEmployees.length - 1}
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </TableCell>
               <TableCell>
                 <div className="space-y-1">
                   <div className="text-sm font-medium">

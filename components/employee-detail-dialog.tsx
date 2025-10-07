@@ -103,8 +103,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // フォーム状態管理
   const [formData, setFormData] = useState(() => {
     const initialData = {
-      name: employee?.name || '',
-      email: employee?.email || '',
+    name: employee?.name || '',
+    furigana: employee?.furigana || '',
+    email: employee?.email || '',
       phone: employee?.phone || '',
       phoneInternal: employee?.phoneInternal || '',
       phoneMobile: employee?.phoneMobile || '',
@@ -149,6 +150,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     if (employee) { // employeeが変更されたら常に更新
       setFormData({
         name: employee.name || '',
+        furigana: employee.furigana || '',
         email: employee.email || '',
         phone: employee.phone || '',
         phoneInternal: employee.phoneInternal || '',
@@ -171,6 +173,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         selfIntroduction: employee.selfIntroduction || '',
         birthDate: employee.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
         showInOrgChart: employee.showInOrgChart ?? true,
+        isSuspended: employee.isSuspended ?? false,
+        retirementDate: employee.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
       })
       
       // パスワード表示状態をローカルストレージから復元（管理者・総務のみ）
@@ -254,6 +258,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       // 新規登録の場合はフォームをリセット
       setFormData({
         name: '',
+        furigana: '',
         email: '',
         phone: '',
         phoneInternal: '',
@@ -276,6 +281,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         selfIntroduction: '',
         birthDate: '',
         showInOrgChart: true,
+        isSuspended: false,
+        retirementDate: '',
       })
       setOrganizations([""])
       setDepartments([""])
@@ -355,22 +362,47 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('API呼び出し:', { url, method, formData })
       console.log('送信するbirthDate:', formData.birthDate)
       console.log('送信するisSuspended:', formData.isSuspended)
+      console.log('送信するfurigana:', formData.furigana)
+      console.log('送信する公開設定:', privacySettings)
+      
+      const requestBody = {
+        ...formData,
+        familyMembers: familyMembers,
+        // furiganaフィールドを明示的に追加
+        furigana: formData.furigana || '',
+        // 配列フィールドも送信
+        organizations: organizations.filter(org => org.trim() !== ''),
+        departments: departments.filter(dept => dept.trim() !== ''),
+        positions: positions.filter(pos => pos.trim() !== ''),
+        // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
+        isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false,
+        // 公開設定を送信
+        privacyDisplayName: privacySettings.displayName,
+        privacyOrganization: privacySettings.organization,
+        privacyDepartment: privacySettings.department,
+        privacyPosition: privacySettings.position,
+        privacyUrl: privacySettings.url,
+        privacyAddress: privacySettings.address,
+        privacyBio: privacySettings.bio,
+        privacyEmail: privacySettings.email,
+        privacyWorkPhone: privacySettings.workPhone,
+        privacyExtension: privacySettings.extension,
+        privacyMobilePhone: privacySettings.mobilePhone,
+      }
+      
+      console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))
+      console.log('furiganaフィールドの送信値:', {
+        formData: formData.furigana,
+        requestBody: requestBody.furigana,
+        type: typeof requestBody.furigana
+      })
       
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          familyMembers: familyMembers,
-          // 配列フィールドも送信
-          organizations: organizations.filter(org => org.trim() !== ''),
-          departments: departments.filter(dept => dept.trim() !== ''),
-          positions: positions.filter(pos => pos.trim() !== ''),
-          // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
-          isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false
-        }),
+        body: JSON.stringify(requestBody),
       })
 
       console.log('APIレスポンス:', response.status, response.statusText)
@@ -670,19 +702,44 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     URL.revokeObjectURL(url)
   }
 
-  const [privacySettings, setPrivacySettings] = useState({
-    displayName: true,
-    organization: true,
-    department: true,
-    position: true,
-    url: true,
-    address: true,
-    bio: true,
-    email: true,
-    workPhone: true,
-    extension: true,
-    mobilePhone: true,
+  const [privacySettings, setPrivacySettings] = useState(() => {
+    if (employee) {
+      return {
+        displayName: employee.privacyDisplayName ?? true,
+        organization: employee.privacyOrganization ?? true,
+        department: employee.privacyDepartment ?? true,
+        position: employee.privacyPosition ?? true,
+        url: employee.privacyUrl ?? true,
+        address: employee.privacyAddress ?? true,
+        bio: employee.privacyBio ?? true,
+        email: employee.privacyEmail ?? true,
+        workPhone: employee.privacyWorkPhone ?? true,
+        extension: employee.privacyExtension ?? true,
+        mobilePhone: employee.privacyMobilePhone ?? true,
+      }
+    }
+    return {
+      displayName: true,
+      organization: true,
+      department: true,
+      position: true,
+      url: true,
+      address: true,
+      bio: true,
+      email: true,
+      workPhone: true,
+      extension: true,
+      mobilePhone: true,
+    }
   })
+
+  // 公開設定に基づいて表示する値を取得する関数
+  const getDisplayValue = (value: string, privacyKey: keyof typeof privacySettings, fallback: string = '') => {
+    if (privacySettings[privacyKey]) {
+      return value || fallback
+    }
+    return '' // 公開OFFの場合は空文字を返す
+  }
 
   const [organizations, setOrganizations] = useState<string[]>(() => {
     return employee?.organizations && employee.organizations.length > 0 ? employee.organizations :
@@ -861,6 +918,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       disabled={!canEditUserInfo && !isNewEmployee} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>フリガナ</Label>
+                    <Input 
+                      value={formData.furigana}
+                      onChange={(e) => setFormData({ ...formData, furigana: e.target.value })}
+                      disabled={!canEditUserInfo && !isNewEmployee}
+                      placeholder="ヤマダタロウ"
                     />
                   </div>
                   <div className="space-y-2">

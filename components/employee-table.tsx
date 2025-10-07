@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown } from "lucide-react"
+import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown, ArrowUpDown, SortAsc, SortDesc, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
@@ -24,6 +24,8 @@ interface EmployeeTableProps {
 
 export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters }: EmployeeTableProps) {
   const { currentUser } = useAuth()
+  const [sortField, setSortField] = useState<string>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   // 考課表ボタンの表示権限を判定する関数
   const canShowEvaluationButton = (employee: any) => {
@@ -94,6 +96,77 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     }
     return []
   })
+
+  // ソート機能
+  const applySorting = (employeeList: any[]) => {
+    if (sortField === 'none') return employeeList
+    
+    const sorted = [...employeeList].sort((a, b) => {
+      let aValue: any
+      let bValue: any
+      
+      switch (sortField) {
+        case 'name':
+          // フリガナがある場合はフリガナでソート、ない場合は名前でソート
+          aValue = a.furigana || a.name
+          bValue = b.furigana || b.name
+          break
+        case 'furigana':
+          // 五十音順ソート（フリガナ優先、なければ名前）
+          aValue = a.furigana || a.name
+          bValue = b.furigana || b.name
+          break
+        case 'employeeNumber':
+          aValue = a.employeeNumber || a.employeeId || ''
+          bValue = b.employeeNumber || b.employeeId || ''
+          break
+        case 'department':
+          aValue = Array.isArray(a.departments) ? a.departments[0] : a.department
+          bValue = Array.isArray(b.departments) ? b.departments[0] : b.department
+          break
+        case 'position':
+          aValue = Array.isArray(a.positions) ? a.positions[0] : a.position
+          bValue = Array.isArray(b.positions) ? b.positions[0] : b.position
+          break
+        case 'status':
+          aValue = a.status
+          bValue = b.status
+          break
+        default:
+          return 0
+      }
+      
+      // 見えないTOP社員は常に最下部に配置
+      const aIsInvisibleTop = a.isInvisibleTop || a.employeeNumber === '000'
+      const bIsInvisibleTop = b.isInvisibleTop || b.employeeNumber === '000'
+      
+      if (aIsInvisibleTop && !bIsInvisibleTop) return 1
+      if (!aIsInvisibleTop && bIsInvisibleTop) return -1
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue, 'ja')
+          : bValue.localeCompare(aValue, 'ja')
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+    
+    return sorted
+  }
+
+  // ソート設定を変更
+  const handleSort = (field: string) => {
+    console.log('ソートボタンクリック:', { field, currentSortField: sortField, currentDirection: sortDirection })
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
 
   // カスタム順序を適用するヘルパー関数
   const applyCustomOrder = (employeeList: any[]) => {
@@ -204,8 +277,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
         }
         return true
       })
-      setFilteredEmployees(filteredEmployees)
-      return
+    // ソートを適用
+    const sortedEmployees = applySorting(filteredEmployees)
+    setFilteredEmployees(sortedEmployees)
+    return
     }
 
     let filtered = employees
@@ -297,8 +372,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
 
     // カスタム順序を適用
     const orderedFiltered = applyCustomOrder(filtered)
-    setFilteredEmployees(orderedFiltered)
-  }, [employees, filters])
+    // ソートを適用
+    const sortedEmployees = applySorting(orderedFiltered)
+    setFilteredEmployees(sortedEmployees)
+  }, [employees, filters, sortField, sortDirection])
 
   const getStatusBadge = (status: string, isSuspended?: boolean) => {
     if (isSuspended || status === 'suspended') {
@@ -353,7 +430,41 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
           <TableRow className="bg-slate-50">
             <TableHead className="font-semibold w-20">順序</TableHead>
             <TableHead className="font-semibold">番号・考課表</TableHead>
-            <TableHead className="font-semibold">氏名</TableHead>
+            <TableHead className="font-semibold">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">氏名</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 w-8 p-0"
+                  onClick={() => {
+                    console.log('ソートボタンクリック')
+                    if (sortField === 'name') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                    } else if (sortField === 'furigana') {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                    } else {
+                      setSortField('name')
+                      setSortDirection('asc')
+                    }
+                  }}
+                >
+                  {sortField === 'name' || sortField === 'furigana' ? (
+                    sortDirection === 'asc' ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />
+                  ) : (
+                    <ArrowUpDown className="w-4 h-4" />
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-6 text-xs"
+                  onClick={() => handleSort('furigana')}
+                >
+                  五十音順
+                </Button>
+              </div>
+            </TableHead>
             <TableHead className="font-semibold">部署</TableHead>
             <TableHead className="font-semibold">役職</TableHead>
             <TableHead className="font-semibold">入社日</TableHead>

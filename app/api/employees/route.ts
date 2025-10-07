@@ -171,6 +171,13 @@ export async function POST(request: NextRequest) {
         employeeNumber: body.employeeNumber || employeeId,
         employeeType: body.employeeType || 'employee',
         name: body.name,
+        furigana: (() => {
+          if (!body.furigana || body.furigana === '' || body.furigana === null || body.furigana === undefined) {
+            return null;
+          }
+          const trimmed = String(body.furigana).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
         email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,
         phone: body.phone || null,
         department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : (body.department || '未設定'),
@@ -203,6 +210,18 @@ export async function POST(request: NextRequest) {
         showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
         isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
         retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
+        // 公開設定（デフォルトは全て公開）
+        privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
+        privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,
+        privacyDepartment: body.privacyDepartment !== undefined ? body.privacyDepartment : true,
+        privacyPosition: body.privacyPosition !== undefined ? body.privacyPosition : true,
+        privacyUrl: body.privacyUrl !== undefined ? body.privacyUrl : true,
+        privacyAddress: body.privacyAddress !== undefined ? body.privacyAddress : true,
+        privacyBio: body.privacyBio !== undefined ? body.privacyBio : true,
+        privacyEmail: body.privacyEmail !== undefined ? body.privacyEmail : true,
+        privacyWorkPhone: body.privacyWorkPhone !== undefined ? body.privacyWorkPhone : true,
+        privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
+        privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
       }
     });
 

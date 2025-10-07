@@ -8,44 +8,56 @@ datasource db {
 }
 
 model Employee {
-  id               String         @id @default(cuid())
-  employeeId       String         @unique
-  employeeNumber   String         @unique
-  employeeType     EmployeeType
-  name             String
-  email            String         @unique
-  phone            String?
-  department       String
-  position         String
-  organization     String
-  team             String?
-  joinDate         DateTime
-  status           EmployeeStatus @default(active)
-  password         String
-  role             UserRole?
-  myNumber         String?
-  userId           String?
-  url              String?
-  address          String?
-  selfIntroduction String?
-  phoneInternal    String?
-  phoneMobile      String?
-  birthDate        DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  activityLogs     ActivityLog[]
-  attendance       Attendance[]
-  evaluations      Evaluation[]
-  familyMembers    FamilyMember[]
-  files            File[]
-  folders          Folder[]
-  payroll          Payroll[]
-  tasks            Task[]
-  showInOrgChart   Boolean @default(true)
-  parentEmployeeId String?
-  isInvisibleTop   Boolean @default(false)
-  isSuspended      Boolean @default(false)
-  retirementDate   DateTime?
+  id                  String         @id @default(cuid())
+  employeeId          String         @unique
+  employeeNumber      String         @unique
+  employeeType        EmployeeType
+  name                String
+  furigana            String?
+  email               String         @unique
+  phone               String?
+  department          String
+  position            String
+  organization        String
+  team                String?
+  joinDate            DateTime
+  status              EmployeeStatus @default(active)
+  password            String
+  role                UserRole?
+  myNumber            String?
+  userId              String?
+  url                 String?
+  address             String?
+  selfIntroduction    String?
+  phoneInternal       String?
+  phoneMobile         String?
+  birthDate           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  showInOrgChart      Boolean        @default(true)
+  parentEmployeeId    String?
+  isInvisibleTop      Boolean        @default(false)
+  isSuspended         Boolean        @default(false)
+  retirementDate      DateTime?
+  privacyDisplayName  Boolean        @default(true)
+  privacyOrganization Boolean        @default(true)
+  privacyDepartment   Boolean        @default(true)
+  privacyPosition     Boolean        @default(true)
+  privacyUrl          Boolean        @default(true)
+  privacyAddress      Boolean        @default(true)
+  privacyBio          Boolean        @default(true)
+  privacyEmail        Boolean        @default(true)
+  privacyWorkPhone    Boolean        @default(true)
+  privacyExtension    Boolean        @default(true)
+  privacyMobilePhone  Boolean        @default(true)
+  activityLogs        ActivityLog[]
+  attendance          Attendance[]
+  evaluations         Evaluation[]
+  familyMembers       FamilyMember[]
+  files               File[]
+  folders             Folder[]
+  payroll             Payroll[]
+  tasks               Task[]
 
   @@map("employees")
 }

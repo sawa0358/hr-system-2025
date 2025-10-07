@@ -70,6 +70,7 @@ export async function PUT(
     console.log('birthDate value:', body.birthDate);
     console.log('isSuspended value:', body.isSuspended);
     console.log('retirementDate value:', body.retirementDate);
+    console.log('furigana value:', body.furigana);
     
     // メールアドレスの重複チェック（自分以外）
     if (body.email) {
@@ -127,10 +128,30 @@ export async function PUT(
       );
     }
     
+    console.log('受信したリクエストボディ:', JSON.stringify(body, null, 2))
+    console.log('更新データ:', {
+      name: body.name,
+      furigana: body.furigana,
+      email: body.email
+    })
+    console.log('furiganaフィールドの詳細:', {
+      value: body.furigana,
+      type: typeof body.furigana,
+      isString: typeof body.furigana === 'string',
+      isEmpty: body.furigana === '' || body.furigana === null || body.furigana === undefined
+    })
+
     const employee = await prisma.employee.update({
       where: { id: params.id },
       data: {
         name: body.name,
+        furigana: (() => {
+          if (!body.furigana || body.furigana === '' || body.furigana === null || body.furigana === undefined) {
+            return null;
+          }
+          const trimmed = String(body.furigana).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
         email: body.email,
         phone: body.phone,
         department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
@@ -166,8 +187,22 @@ export async function PUT(
         parentEmployeeId: body.parentEmployeeId || null,
         isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
         retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
+        // 公開設定
+        privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
+        privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,
+        privacyDepartment: body.privacyDepartment !== undefined ? body.privacyDepartment : true,
+        privacyPosition: body.privacyPosition !== undefined ? body.privacyPosition : true,
+        privacyUrl: body.privacyUrl !== undefined ? body.privacyUrl : true,
+        privacyAddress: body.privacyAddress !== undefined ? body.privacyAddress : true,
+        privacyBio: body.privacyBio !== undefined ? body.privacyBio : true,
+        privacyEmail: body.privacyEmail !== undefined ? body.privacyEmail : true,
+        privacyWorkPhone: body.privacyWorkPhone !== undefined ? body.privacyWorkPhone : true,
+        privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
+        privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
       }
     });
+
+    console.log('更新成功:', employee.id, employee.name, employee.furigana)
 
     // 家族データの保存
     if (body.familyMembers && Array.isArray(body.familyMembers)) {

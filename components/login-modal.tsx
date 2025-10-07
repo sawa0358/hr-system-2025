@@ -54,11 +54,18 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
         const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
         
         if (employee) {
-          // システム使用状態をチェック（roleが設定されているかどうか）
-          if (!employee.role || employee.role === '') {
-            setError("このアカウントはシステム使用が無効になっています。管理者にお問い合わせください。")
+          // 停止中ユーザーのログインをブロック
+          if (employee.isSuspended || employee.status === 'suspended') {
+            setError("このアカウントは停止中です。管理者にお問い合わせください。")
             return
           }
+          
+          // 休職・退職ユーザーのログインをブロック
+          if (employee.status === 'leave' || employee.status === 'retired') {
+            setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
+            return
+          }
+          
           onLoginSuccess(employee, rememberMe)
         } else {
           setError("名前またはパスワードが正しくありません")
@@ -67,11 +74,18 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
         // フォールバック: モックデータを使用
         const employee = mockEmployees.find((emp) => emp.name === name && emp.password === password)
         if (employee) {
-          // システム使用状態をチェック（roleが設定されているかどうか）
-          if (!employee.role || employee.role === '') {
-            setError("このアカウントはシステム使用が無効になっています。管理者にお問い合わせください。")
+          // 停止中ユーザーのログインをブロック
+          if (employee.isSuspended || employee.status === 'suspended') {
+            setError("このアカウントは停止中です。管理者にお問い合わせください。")
             return
           }
+          
+          // 休職・退職ユーザーのログインをブロック
+          if (employee.status === 'leave' || employee.status === 'retired') {
+            setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
+            return
+          }
+          
           onLoginSuccess(employee, rememberMe)
         } else {
           setError("名前またはパスワードが正しくありません")

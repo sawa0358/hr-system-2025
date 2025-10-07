@@ -726,13 +726,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
-    const showInChartEmployees = employees.filter(emp => 
-      emp.showInOrgChart && 
-      emp.status !== 'leave' && 
-      emp.status !== 'retired' && 
-      emp.status !== 'suspended' && 
-      !emp.isSuspended
-    )
+  const showInChartEmployees = employees.filter(emp =>
+    emp.showInOrgChart &&
+    emp.status !== 'leave' &&
+    emp.status !== 'retired' &&
+    emp.status !== 'suspended' &&
+    !emp.isSuspended
+  )
     
     // デバッグログを追加
     console.log('組織図構築 - 全社員数:', employees.length)

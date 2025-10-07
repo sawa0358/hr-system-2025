@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { X, Plus, Upload, Folder, Eye, EyeOff, Lock, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -39,6 +39,7 @@ interface EmployeeDetailDialogProps {
 export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, onOrgChartUpdate }: EmployeeDetailDialogProps) {
   const { currentUser } = useAuth()
   const permissions = usePermissions()
+  const [latestEmployee, setLatestEmployee] = useState(employee)
 
   const isOwnProfile = currentUser?.id === employee?.id
   const isNewEmployee = !employee
@@ -52,11 +53,31 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // 見えないTOPの社員の編集・削除は管理者のみ可能
   const canEditInvisibleTop = isInvisibleTopEmployee ? currentUser?.role === 'admin' : true
   
+  // ダイアログが開かれた時に最新の社員データを取得
+  useEffect(() => {
+    if (open && employee?.id) {
+      const fetchLatestEmployee = async () => {
+        try {
+          const response = await fetch(`/api/employees/${employee.id}`)
+          if (response.ok) {
+            const data = await response.json()
+            setLatestEmployee(data)
+            console.log('最新の社員データを取得:', data)
+          }
+        } catch (error) {
+          console.error('最新の社員データ取得エラー:', error)
+        }
+      }
+      fetchLatestEmployee()
+    }
+  }, [open, employee?.id])
+  
   // デバッグ用：現在のユーザー情報をコンソールに出力
   console.log('Current User:', currentUser)
   console.log('Is Admin or HR:', isAdminOrHR)
   console.log('Is New Employee:', isNewEmployee)
   console.log('Employee Detail Dialog - employee:', employee)
+  console.log('Employee Detail Dialog - latestEmployee:', latestEmployee)
   console.log('Employee Detail Dialog - employee.id:', employee?.id)
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
@@ -80,32 +101,48 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   })
 
   // フォーム状態管理
-  const [formData, setFormData] = useState({
-    name: employee?.name || '',
-    email: employee?.email || '',
-    phone: employee?.phone || '',
-    phoneInternal: employee?.phoneInternal || '',
-    phoneMobile: employee?.phoneMobile || '',
-    department: employee?.department || '',
-    position: employee?.position || '',
-    organization: employee?.organization || '株式会社テックイノベーション',
-    joinDate: employee?.joinDate ? new Date(employee.joinDate).toISOString().split('T')[0] : '',
-    status: employee?.status || 'active',
-    password: employee?.password || '',
-    role: employee?.role || 'general',
-    myNumber: employee?.myNumber || '',
-    employeeType: employee?.employeeType || 'employee',
-    employeeNumber: employee?.employeeNumber || '',
-    employeeId: employee?.employeeId || '',
-    isSuspended: employee?.isSuspended || false,
-    retirementDate: employee?.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
-    userId: employee?.userId || '',
-    url: employee?.url || '',
-    address: employee?.address || '',
-    selfIntroduction: employee?.selfIntroduction || '',
-    birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
-    showInOrgChart: employee?.showInOrgChart ?? true,
+  const [formData, setFormData] = useState(() => {
+    const initialData = {
+      name: employee?.name || '',
+      email: employee?.email || '',
+      phone: employee?.phone || '',
+      phoneInternal: employee?.phoneInternal || '',
+      phoneMobile: employee?.phoneMobile || '',
+      department: employee?.department || '',
+      position: employee?.position || '',
+      organization: employee?.organization || '株式会社テックイノベーション',
+      joinDate: employee?.joinDate ? new Date(employee.joinDate).toISOString().split('T')[0] : '',
+      status: employee?.status || 'active',
+      password: employee?.password || '',
+      role: employee?.role || 'general',
+      myNumber: employee?.myNumber || '',
+      employeeType: employee?.employeeType || 'employee',
+      employeeNumber: employee?.employeeNumber || '',
+      employeeId: employee?.employeeId || '',
+      isSuspended: employee?.isSuspended ?? false,
+      retirementDate: employee?.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
+      userId: employee?.userId || '',
+      url: employee?.url || '',
+      address: employee?.address || '',
+      selfIntroduction: employee?.selfIntroduction || '',
+      birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
+      showInOrgChart: employee?.showInOrgChart ?? true,
+    }
+    console.log('formData初期化:', initialData)
+    console.log('employee.isSuspended:', employee?.isSuspended)
+    return initialData
   })
+
+  // latestEmployeeが更新された時にformDataを更新
+  useEffect(() => {
+    if (latestEmployee && !isNewEmployee) {
+      setFormData(prev => ({
+        ...prev,
+        isSuspended: latestEmployee.isSuspended ?? false
+      }))
+      console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
+    }
+  }, [latestEmployee, isNewEmployee])
 
   // 社員データが変更された時にフォームデータを更新
   React.useEffect(() => {
@@ -180,8 +217,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
       }
       
-      // システム使用状態を設定
-      setSystemUsageEnabled(employee.role ? true : false)
       
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
       setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
@@ -242,7 +277,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         birthDate: '',
         showInOrgChart: true,
       })
-      setSystemUsageEnabled(false)
       setOrganizations([""])
       setDepartments([""])
       setPositions([""])
@@ -320,6 +354,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       
       console.log('API呼び出し:', { url, method, formData })
       console.log('送信するbirthDate:', formData.birthDate)
+      console.log('送信するisSuspended:', formData.isSuspended)
       
       const response = await fetch(url, {
         method,
@@ -347,6 +382,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         // 家族データを更新
         if (result.employee && result.employee.familyMembers) {
           setFamilyMembers(result.employee.familyMembers)
+        }
+        
+        // formDataを更新（特にisSuspendedの状態を反映）
+        if (result.employee) {
+          setFormData(prev => ({
+            ...prev,
+            isSuspended: result.employee.isSuspended || false
+          }))
         }
         
         onOpenChange(false)
@@ -665,9 +708,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       { value: "contractor", label: "契約社員" }
     ]
   })
-  const [systemUsageEnabled, setSystemUsageEnabled] = useState(() => {
-    return employee?.role ? true : false
-  })
   const [userPermission, setUserPermission] = useState<string>("general")
 
   const [isDepartmentManagerOpen, setIsDepartmentManagerOpen] = useState(false)
@@ -871,52 +911,30 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
                   {(canEditUserInfo || isAdminOrHR) && (
                     <>
-                      <div className="col-span-2 space-y-3 border-t pt-4">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-1">
-                            <Label className="text-base">システム使用ON/OFF</Label>
-                            <p className="text-xs text-slate-500">ONにすると利用者として登録されます</p>
-                          </div>
-                          <Switch
-                            checked={systemUsageEnabled}
-                            onCheckedChange={(checked) => {
-                              setSystemUsageEnabled(checked)
-                              if (!checked) {
-                                setFormData({...formData, role: ''})
-                              } else {
-                                setFormData({...formData, role: formData.role || 'general'})
-                              }
-                            }}
-                            className="data-[state=checked]:bg-blue-600"
-                          />
-                        </div>
-                        {systemUsageEnabled && (
-                          <div className="space-y-2 pl-4 border-l-2 border-blue-200">
-                            <Label>権限設定</Label>
-                            <Select 
-                              value={formData.role} 
-                              onValueChange={(value) => setFormData({...formData, role: value})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="viewer">閲覧のみ</SelectItem>
-                                <SelectItem value="general">一般ユーザー</SelectItem>
-                                <SelectItem value="sub_manager">サブマネージャー</SelectItem>
-                                <SelectItem value="store_manager">店長</SelectItem>
-                                <SelectItem value="manager">マネージャー</SelectItem>
-                                <SelectItem value="hr">総務権限</SelectItem>
-                                <SelectItem value="admin">管理者権限</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-slate-500">
-                              ※ 管理者権限：全機能へのアクセス可能
-                              <br />※ 総務権限：給与管理・社員情報の閲覧・編集可能
-                              <br />※ 一般ユーザー：自分の情報とタスクのみ閲覧・編集可能
-                            </p>
-                          </div>
-                        )}
+                      <div className="col-span-2 space-y-2">
+                        <Label>権限設定</Label>
+                        <Select 
+                          value={formData.role} 
+                          onValueChange={(value) => setFormData({...formData, role: value})}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="権限を選択してください" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">閲覧のみ</SelectItem>
+                            <SelectItem value="general">一般ユーザー</SelectItem>
+                            <SelectItem value="sub_manager">サブマネージャー</SelectItem>
+                            <SelectItem value="store_manager">店長</SelectItem>
+                            <SelectItem value="manager">マネージャー</SelectItem>
+                            <SelectItem value="hr">総務権限</SelectItem>
+                            <SelectItem value="admin">管理者権限</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-slate-500">
+                          ※ 管理者権限：全機能へのアクセス可能
+                          <br />※ 総務権限：給与管理・社員情報の閲覧・編集可能
+                          <br />※ 一般ユーザー：自分の情報とタスクのみ閲覧・編集可能
+                        </p>
                         
                         {/* 組織図表示設定 */}
                         {isAdminOrHR && (
@@ -1931,7 +1949,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             {!isNewEmployee && (currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin') && canEditInvisibleTop && (
               <Button 
                 variant={formData.isSuspended ? "default" : "destructive"}
-                onClick={() => setFormData({...formData, isSuspended: !formData.isSuspended})}
+                onClick={() => {
+                  console.log('現在のisSuspended:', formData.isSuspended)
+                  console.log('employee.isSuspended:', employee?.isSuspended)
+                  const newSuspendedState = !formData.isSuspended
+                  console.log('新しいisSuspended:', newSuspendedState)
+                  setFormData({...formData, isSuspended: newSuspendedState})
+                }}
                 className={formData.isSuspended ? "bg-green-600 hover:bg-green-700" : ""}
               >
                 {formData.isSuspended ? '稼働させる' : '停止させる'}

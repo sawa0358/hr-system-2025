@@ -107,10 +107,13 @@ export async function PUT(
     }
 
     // roleの値の正規化（ハイフンをアンダースコアに変換）
-    const validRoles = ['viewer', 'general', 'sub_manager', 'manager', 'hr', 'admin'];
+    const validRoles = ['viewer', 'general', 'sub_manager', 'store_manager', 'manager', 'hr', 'admin'];
     let normalizedRole = body.role;
     if (normalizedRole === 'sub-manager') {
       normalizedRole = 'sub_manager';
+    }
+    if (normalizedRole === 'store-manager') {
+      normalizedRole = 'store_manager';
     }
     
     // roleのバリデーション

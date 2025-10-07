@@ -24,6 +24,66 @@ interface EmployeeTableProps {
 
 export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters }: EmployeeTableProps) {
   const { currentUser } = useAuth()
+
+  // 考課表ボタンの表示権限を判定する関数
+  const canShowEvaluationButton = (employee: any) => {
+    if (!currentUser) return false
+
+    const userRole = currentUser.role
+    const employeeId = employee.id
+
+    switch (userRole) {
+      case 'viewer':
+        return false // 閲覧：表示無し
+      
+      case 'general':
+      case 'sub_manager':
+        return employeeId === currentUser.id // 自分だけ
+      
+      case 'store_manager': // 店長（新規追加）
+        return employeeId === currentUser.id || isSubordinate(employee) // 自分と配下
+      
+      case 'manager':
+      case 'hr':
+      case 'admin':
+        return true // 全員
+      
+      default:
+        return false
+    }
+  }
+
+  // 組織図での配下判定
+  const isSubordinate = (employee: any) => {
+    if (!currentUser || currentUser.role !== 'store_manager') return false
+    
+    // 部署が同じ場合は配下とみなす
+    const employeeDepartments = Array.isArray(employee.departments) ? employee.departments : [employee.department]
+    const userDepartments = Array.isArray(currentUser.departments) ? currentUser.departments : [currentUser.department]
+    
+    // 部署の重複をチェック
+    const hasCommonDepartment = employeeDepartments.some((dept: string) => userDepartments.includes(dept))
+    
+    // 自分より下位の役職かどうかもチェック（店長は上位役職）
+    const positionHierarchy: Record<string, number> = {
+      '代表取締役': 7,
+      '取締役': 6,
+      '部長': 5,
+      '次長': 4,
+      '課長': 3,
+      '係長': 2,
+      '主任': 1,
+      '一般社員': 0
+    }
+    
+    const userPositions = Array.isArray(currentUser.positions) ? currentUser.positions : [currentUser.position]
+    const employeePositions = Array.isArray(employee.positions) ? employee.positions : [employee.position]
+    
+    const userMaxLevel = Math.max(...userPositions.map((pos: string) => positionHierarchy[pos] || 0))
+    const employeeMaxLevel = Math.max(...employeePositions.map((pos: string) => positionHierarchy[pos] || 0))
+    
+    return hasCommonDepartment && employeeMaxLevel < userMaxLevel
+  }
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -329,25 +389,27 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                   <div className="text-sm font-medium">
                     {employee.employeeNumber || employee.employeeId}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={`font-mono text-xs bg-transparent ${
-                      (employee.isInvisibleTop || employee.employeeNumber === '000')
-                        ? 'opacity-50 cursor-not-allowed'
-                        : ''
-                    }`}
-                    disabled={employee.isInvisibleTop || employee.employeeNumber === '000'}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (!employee.isInvisibleTop && employee.employeeNumber !== '000') {
-                        onEvaluationClick?.(employee)
-                      }
-                    }}
-                  >
-                    <FileText className="w-3 h-3 mr-1" />
-                    考課表
-                  </Button>
+                  {canShowEvaluationButton(employee) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`font-mono text-xs bg-transparent ${
+                        (employee.isInvisibleTop || employee.employeeNumber === '000')
+                          ? 'opacity-50 cursor-not-allowed'
+                          : 'hover:bg-slate-100'
+                      }`}
+                      disabled={employee.isInvisibleTop || employee.employeeNumber === '000'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!employee.isInvisibleTop && employee.employeeNumber !== '000') {
+                          onEvaluationClick?.(employee)
+                        }
+                      }}
+                    >
+                      <FileText className="w-3 h-3 mr-1" />
+                      考課表
+                    </Button>
+                  )}
                 </div>
               </TableCell>
               <TableCell>
@@ -456,14 +518,16 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                         >
                           編集
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEvaluationClick?.(employee)
-                          }}
-                        >
-                          人事考課表を開く
-                        </DropdownMenuItem>
+                        {canShowEvaluationButton(employee) && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEvaluationClick?.(employee)
+                            }}
+                          >
+                            人事考課表を開く
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
                           削除
                         </DropdownMenuItem>

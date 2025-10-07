@@ -365,10 +365,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           }
         }
       } else {
-        const error = await response.json()
-        console.error('保存エラー:', error)
-        console.error('レスポンス詳細:', response.status, response.statusText)
-        alert(`保存に失敗しました: ${error.error || '不明なエラーが発生しました'}`)
+        let errorMessage = '不明なエラーが発生しました'
+        try {
+          const error = await response.json()
+          console.error('保存エラー:', error)
+          console.error('レスポンス詳細:', response.status, response.statusText)
+          errorMessage = error.error || errorMessage
+        } catch (parseError) {
+          console.error('エラーレスポンスの解析に失敗:', parseError)
+          errorMessage = `サーバーエラー: ${response.status} ${response.statusText}`
+        }
+        alert(`保存に失敗しました: ${errorMessage}`)
       }
     } catch (error) {
       console.error('保存エラー:', error)
@@ -895,7 +902,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                               <SelectContent>
                                 <SelectItem value="viewer">閲覧のみ</SelectItem>
                                 <SelectItem value="general">一般ユーザー</SelectItem>
-                                <SelectItem value="sub-manager">サブマネージャー</SelectItem>
+                                <SelectItem value="sub_manager">サブマネージャー</SelectItem>
+                                <SelectItem value="store_manager">店長</SelectItem>
                                 <SelectItem value="manager">マネージャー</SelectItem>
                                 <SelectItem value="hr">総務権限</SelectItem>
                                 <SelectItem value="admin">管理者権限</SelectItem>

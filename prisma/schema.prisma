@@ -194,6 +194,7 @@ enum UserRole {
   viewer
   general
   sub_manager
+  store_manager
   manager
   hr
   admin

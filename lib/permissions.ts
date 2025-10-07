@@ -1,5 +1,5 @@
 // Permission types and utilities
-export type UserRole = "viewer" | "general" | "sub-manager" | "manager" | "hr" | "admin"
+export type UserRole = "viewer" | "general" | "sub_manager" | "store_manager" | "manager" | "hr" | "admin"
 
 export interface Permission {
   // Dashboard
@@ -133,7 +133,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewSubordinateEvaluations: false,
     editEvaluations: false,
   },
-  "sub-manager": {
+  "sub_manager": {
     viewDashboard: true,
     viewDashboardStats: false,
     manageAnnouncements: true,
@@ -169,6 +169,43 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: false,
+  },
+  "store_manager": {
+    viewDashboard: true,
+    viewDashboardStats: true,
+    manageAnnouncements: true,
+    viewOwnProfile: true,
+    editOwnProfile: false, // 店長は自分のプロフィール編集不可
+    viewSubordinateProfiles: true,
+    editSubordinateProfiles: true,
+    viewAllProfiles: true, // 全員のプロフィール閲覧は可能
+    editAllProfiles: false, // 全員のプロフィール編集は不可
+    viewMyNumber: false,
+    suspendUsers: false,
+    viewOrgChart: true,
+    editOrgChart: false,
+    moveEmployeeCards: false,
+    viewOwnTasks: true,
+    editOwnTasks: true,
+    createTaskBoards: true,
+    manageSubordinateTasks: true,
+    viewOwnAttendance: true,
+    viewSubordinateAttendance: true,
+    editAttendance: false,
+    viewLeaveManagement: false,
+    editLeaveManagement: false,
+    viewOwnPayroll: true,
+    viewAllPayroll: false,
+    editPayroll: false,
+    uploadPayroll: true,
+    deletePayroll: false,
+    uploadFiles: true,
+    deleteOwnFiles: false,
+    deleteAllFiles: false,
+    viewLogs: false,
+    viewOwnEvaluations: true,
+    viewSubordinateEvaluations: true,
+    editEvaluations: true,
   },
   manager: {
     viewDashboard: true,

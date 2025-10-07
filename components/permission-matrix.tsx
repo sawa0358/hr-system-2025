@@ -13,7 +13,8 @@ interface PermissionMatrixProps {
 const roleLabels: Record<UserRole, string> = {
   viewer: "閲覧",
   general: "一般",
-  "sub-manager": "サブマネ",
+  "sub_manager": "サブマネ",
+  "store_manager": "店長",
   manager: "マネージャー",
   hr: "総務",
   admin: "管理者",
@@ -58,7 +59,7 @@ const permissionLabels: Record<string, string> = {
 }
 
 export function PermissionMatrix({ open, onOpenChange }: PermissionMatrixProps) {
-  const roles: UserRole[] = ["viewer", "general", "sub-manager", "manager", "hr", "admin"]
+  const roles: UserRole[] = ["viewer", "general", "sub_manager", "store_manager", "manager", "hr", "admin"]
   const permissions = Object.keys(permissionLabels)
 
   return (

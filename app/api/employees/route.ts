@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+// Prismaクライアントの初期化確認
+console.log('Prismaクライアント初期化確認:', !!prisma);
+
 export async function GET() {
   try {
     const employees = await prisma.employee.findMany({
@@ -44,18 +47,37 @@ function parseJsonArray(value: string): string[] {
 }
 
 export async function POST(request: NextRequest) {
+  console.log('POST /api/employees 開始');
   try {
+    console.log('リクエストボディの解析開始');
     const body = await request.json();
+    console.log('新規社員登録リクエスト:', body);
     
     // 必須フィールドのバリデーション
     const requiredFields = ['name', 'password'];
     for (const field of requiredFields) {
-      if (!body[field]) {
+      if (!body[field] || body[field].trim() === '') {
+        console.error(`必須フィールドが不足: ${field}`, body[field]);
         return NextResponse.json(
           { error: `${field}は必須項目です` },
           { status: 400 }
         );
       }
+    }
+    
+    console.log('必須フィールドバリデーション通過');
+
+    // Prismaクライアントの接続確認
+    console.log('Prismaクライアント接続確認中...');
+    try {
+      await prisma.$connect();
+      console.log('Prismaクライアント接続成功');
+    } catch (prismaError) {
+      console.error('Prismaクライアント接続エラー:', prismaError);
+      return NextResponse.json(
+        { error: 'データベース接続エラー' },
+        { status: 500 }
+      );
     }
 
     // 雇用形態のバリデーション
@@ -68,19 +90,39 @@ export async function POST(request: NextRequest) {
     }
 
     // roleの値の正規化（ハイフンをアンダースコアに変換）
-    const validRoles = ['viewer', 'general', 'sub_manager', 'manager', 'hr', 'admin'];
+    const validRoles = ['viewer', 'general', 'sub_manager', 'store_manager', 'manager', 'hr', 'admin'];
     let normalizedRole = body.role;
     if (normalizedRole === 'sub-manager') {
       normalizedRole = 'sub_manager';
+    }
+    if (normalizedRole === 'store-manager') {
+      normalizedRole = 'store_manager';
     }
     
     // roleのバリデーション
     if (normalizedRole && normalizedRole !== '' && !validRoles.includes(normalizedRole)) {
       console.error('Invalid role value:', normalizedRole);
+      console.error('Valid roles:', validRoles);
       return NextResponse.json(
         { error: `無効なrole値です: ${normalizedRole}` },
         { status: 400 }
       );
+    }
+    
+    console.log('正規化後のrole:', normalizedRole);
+
+    // 社員番号の重複チェック
+    if (body.employeeNumber) {
+      const existingEmployeeNumber = await prisma.employee.findUnique({
+        where: { employeeNumber: body.employeeNumber }
+      });
+      if (existingEmployeeNumber) {
+        console.error('社員番号重複:', body.employeeNumber);
+        return NextResponse.json(
+          { error: 'この社員番号は既に使用されています' },
+          { status: 400 }
+        );
+      }
     }
 
     // メールアドレスの重複チェック
@@ -113,6 +155,16 @@ export async function POST(request: NextRequest) {
     const employeeId = body.employeeNumber || `EMP-${Date.now()}`;
 
     // 社員データの作成
+    console.log('社員データ作成開始:', {
+      employeeId,
+      employeeNumber: body.employeeNumber || employeeId,
+      employeeType: body.employeeType || 'employee',
+      name: body.name,
+      email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,
+      role: normalizedRole
+    });
+    
+    console.log('prisma.employee.create 実行開始');
     const employee = await prisma.employee.create({
       data: {
         employeeId,
@@ -152,12 +204,19 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log('社員データ作成成功:', employee);
+
     return NextResponse.json({
       success: true,
       employee
     });
   } catch (error: any) {
     console.error('社員作成エラー:', error);
+    console.error('エラーの詳細:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
     
     // ユニーク制約エラーの場合
     if (error.code === 'P2002') {

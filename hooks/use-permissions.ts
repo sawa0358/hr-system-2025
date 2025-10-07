@@ -8,6 +8,16 @@ export function usePermissions() {
   const userRole: UserRole = currentUser?.role || "viewer"
   const permissions = getPermissions(userRole)
 
+  // 権限が取得できない場合のフォールバック
+  if (!permissions) {
+    console.error(`権限が見つかりません: ${userRole}`)
+    return {
+      role: userRole,
+      permissions: getPermissions("viewer"), // デフォルトはviewer権限
+      hasPermission: () => false,
+    }
+  }
+
   return {
     role: userRole,
     permissions,

@@ -118,6 +118,8 @@ function DisplayOrgChartWithoutTop({
     return null
   }
   
+  // 店長は通常の階層構造で表示（特別な処理は不要）
+  
   // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
   if (node.children && node.children.length > 0) {
     // 複数の子ノードがある場合は横並びで表示
@@ -657,6 +659,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       
       // 組織図を構築
       const orgTree = buildOrgChartFromEmployees(data)
+      console.log('構築された組織図:', orgTree)
       setDisplayedTree(orgTree)
       
       setLoading(false)
@@ -669,6 +672,11 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
     const showInChartEmployees = employees.filter(emp => emp.showInOrgChart)
+    
+    // デバッグログを追加
+    console.log('組織図構築 - 全社員数:', employees.length)
+    console.log('組織図構築 - 表示対象社員数:', showInChartEmployees.length)
+    console.log('店長の社員:', employees.filter(emp => emp.role === 'store_manager'))
     
     if (showInChartEmployees.length === 0) {
       return {
@@ -708,6 +716,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       
       employees.forEach(emp => {
         const node = nodeMap.get(emp.id)!
+        console.log(`社員処理: ${emp.name} (${emp.role}), parentEmployeeId: ${emp.parentEmployeeId}`)
+        
         if (emp.parentEmployeeId && nodeMap.has(emp.parentEmployeeId)) {
           // 親がいる場合、親の子として追加
           const parentNode = nodeMap.get(emp.parentEmployeeId)!
@@ -715,18 +725,27 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
             parentNode.children = []
           }
           parentNode.children.push(node)
+          console.log(`  → 親の子として追加: ${emp.name} → ${parentNode.name}`)
         } else {
           // 親がいない場合、ルートノードとして追加
           rootNodes.push(node)
+          console.log(`  → ルートノードとして追加: ${emp.name}`)
         }
       })
+      
+      console.log('ルートノード数:', rootNodes.length)
+      console.log('ルートノード:', rootNodes.map(n => n.name))
 
       return rootNodes
     }
 
     const hierarchy = buildHierarchy(showInChartEmployees)
     
+    console.log('階層構築結果:', hierarchy.length, '個のルートノード')
+    console.log('階層詳細:', hierarchy.map(h => ({ name: h.name, role: h.employee?.role })))
+    
     if (hierarchy.length === 0) {
+      console.log('組織図に表示する社員がいません')
       return {
         id: 'empty',
         name: '組織図に表示する社員がいません',
@@ -738,6 +757,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
     // 複数のルートがある場合は、最初のルートをメインとして使用
     const mainRoot = hierarchy[0]
+    console.log('メインルート:', mainRoot.name, mainRoot.employee?.role)
     
     // 他のルートノードをメインルートの子として追加
     if (hierarchy.length > 1) {
@@ -745,6 +765,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         mainRoot.children = []
       }
       mainRoot.children.push(...hierarchy.slice(1))
+      console.log('追加された子ノード:', hierarchy.slice(1).map(h => h.name))
     }
 
     return mainRoot
@@ -920,7 +941,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
   }
 
-  // 社員をTOP位置に移動
+  // 社員をTOP位置に移動（見えないTOPの子として）
   const moveEmployeeToTop = async (node: OrgNode) => {
     if (!node.employee) {
       console.error('Node employee not found:', node)
@@ -928,9 +949,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     try {
+      // 見えないTOPのIDを取得
+      const invisibleTopId = 'cmgf1ihyn00008zsynjmy280x'
+      
       const updateData = {
         ...node.employee,
-        parentEmployeeId: null
+        parentEmployeeId: invisibleTopId
       }
       
       console.log('Moving employee to top:', {
@@ -1286,6 +1310,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   }
 
   const superiorsToDisplay = selectedNodeId ? getSuperiors(selectedNodeId, superiorLevels, employees) : []
+  
+  // displayedTreeの状態を監視
+  console.log('displayedTree状態:', {
+    id: displayedTree?.id,
+    name: displayedTree?.name,
+    role: displayedTree?.employee?.role,
+    childrenCount: displayedTree?.children?.length || 0
+  })
   
   console.log('Superiors display info:', {
     selectedNodeId,

@@ -89,7 +89,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     department: employee?.department || '',
     position: employee?.position || '',
     organization: employee?.organization || '株式会社テックイノベーション',
-    team: employee?.team || '',
     joinDate: employee?.joinDate ? new Date(employee.joinDate).toISOString().split('T')[0] : '',
     status: employee?.status || 'active',
     password: employee?.password || '',
@@ -98,6 +97,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     employeeType: employee?.employeeType || 'employee',
     employeeNumber: employee?.employeeNumber || '',
     employeeId: employee?.employeeId || '',
+    isSuspended: employee?.isSuspended || false,
+    retirementDate: employee?.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
     userId: employee?.userId || '',
     url: employee?.url || '',
     address: employee?.address || '',
@@ -1021,15 +1022,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>チーム</Label>
-                    <Input 
-                      value={formData.team}
-                      onChange={(e) => setFormData({...formData, team: e.target.value})}
-                      placeholder="チーム名を入力" 
-                      disabled={!canEditUserInfo && !isNewEmployee} 
-                    />
-                  </div>
-                  <div className="space-y-2">
                     <Label>ステータス</Label>
                     <Select 
                       value={formData.status} 
@@ -1043,8 +1035,20 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         <SelectItem value="active">在籍中</SelectItem>
                         <SelectItem value="leave">休職中</SelectItem>
                         <SelectItem value="retired">退職</SelectItem>
+                        <SelectItem value="suspended">外注停止</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formData.status === 'retired' && (
+                      <div className="mt-2">
+                        <Label>退職日</Label>
+                        <Input
+                          type="date"
+                          value={formData.retirementDate || ''}
+                          onChange={(e) => setFormData({...formData, retirementDate: e.target.value})}
+                          disabled={!canEditUserInfo && !isNewEmployee}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1924,12 +1928,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           </div>
 
           <div className="flex justify-between items-center mt-6 pt-6 border-t">
-            {permissions.permissions.suspendUsers && canEditInvisibleTop && (
+            {!isNewEmployee && (currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin') && canEditInvisibleTop && (
               <Button 
-                variant="destructive" 
-                onClick={() => onOpenChange(false)}
+                variant={formData.isSuspended ? "default" : "destructive"}
+                onClick={() => setFormData({...formData, isSuspended: !formData.isSuspended})}
+                className={formData.isSuspended ? "bg-green-600 hover:bg-green-700" : ""}
               >
-                ユーザーを停止する
+                {formData.isSuspended ? '稼働させる' : '停止させる'}
               </Button>
             )}
             <div className="flex gap-3 ml-auto">

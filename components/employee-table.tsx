@@ -191,10 +191,16 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
   useEffect(() => {
     if (!filters) {
       // 見えないTOPの社員は管理者のみに表示
+      // 休職・退職・停止中の社員はマネージャー・総務・管理者のみに表示
+      const isManagerOrHR = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
       const filteredEmployees = employees.filter(employee => {
         const isInvisibleTop = employee.isInvisibleTop || employee.employeeNumber === '000'
         if (isInvisibleTop) {
           return currentUser?.role === 'admin'
+        }
+        const isInactive = employee.status === 'leave' || employee.status === 'retired' || employee.status === 'suspended' || employee.isSuspended
+        if (isInactive) {
+          return isManagerOrHR
         }
         return true
       })
@@ -209,6 +215,16 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       const isInvisibleTop = employee.isInvisibleTop || employee.employeeNumber === '000'
       if (isInvisibleTop) {
         return currentUser?.role === 'admin'
+      }
+      return true
+    })
+
+    // 休職・退職・停止中の社員はマネージャー・総務・管理者のみに表示
+    const isManagerOrHR = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
+    filtered = filtered.filter(employee => {
+      const isInactive = employee.status === 'leave' || employee.status === 'retired' || employee.status === 'suspended' || employee.isSuspended
+      if (isInactive) {
+        return isManagerOrHR
       }
       return true
     })
@@ -284,7 +300,15 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     setFilteredEmployees(orderedFiltered)
   }, [employees, filters])
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, isSuspended?: boolean) => {
+    if (isSuspended || status === 'suspended') {
+      return (
+        <Badge variant="secondary" className="bg-red-50 text-red-700 border-red-200">
+          停止中
+        </Badge>
+      )
+    }
+    
     switch (status) {
       case "active":
         return (
@@ -344,6 +368,8 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
               className={`hover:bg-slate-50 ${
                 (employee.isInvisibleTop || employee.employeeNumber === '000') 
                   ? 'cursor-not-allowed opacity-60' 
+                  : employee.isSuspended || employee.status === 'suspended'
+                  ? 'cursor-pointer opacity-50 bg-slate-100'
                   : 'cursor-pointer'
               }`}
               onClick={() => {
@@ -468,7 +494,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
               <TableCell>
                 <span className="text-sm text-slate-600">{employee.joinDate}</span>
               </TableCell>
-              <TableCell>{getStatusBadge(employee.status)}</TableCell>
+              <TableCell>{getStatusBadge(employee.status, employee.isSuspended)}</TableCell>
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

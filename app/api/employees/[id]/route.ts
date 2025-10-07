@@ -68,6 +68,8 @@ export async function PUT(
     const body = await request.json();
     console.log('PUT request body:', body);
     console.log('birthDate value:', body.birthDate);
+    console.log('isSuspended value:', body.isSuspended);
+    console.log('retirementDate value:', body.retirementDate);
     
     // メールアドレスの重複チェック（自分以外）
     if (body.email) {
@@ -162,6 +164,8 @@ export async function PUT(
         })(),
         showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
         parentEmployeeId: body.parentEmployeeId || null,
+        isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
+        retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
       }
     });
 

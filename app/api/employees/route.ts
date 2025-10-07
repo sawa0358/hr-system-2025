@@ -201,6 +201,8 @@ export async function POST(request: NextRequest) {
           }
         })(),
         showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
+        isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
+        retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
       }
     });
 

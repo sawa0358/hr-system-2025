@@ -44,6 +44,8 @@ model Employee {
   showInOrgChart   Boolean @default(true)
   parentEmployeeId String?
   isInvisibleTop   Boolean @default(false)
+  isSuspended      Boolean @default(false)
+  retirementDate   DateTime?
 
   @@map("employees")
 }
@@ -204,6 +206,7 @@ enum EmployeeStatus {
   active
   leave
   retired
+  suspended
 }
 
 enum EmployeeType {

@@ -50,6 +50,7 @@ model Employee {
   privacyWorkPhone    Boolean        @default(true)
   privacyExtension    Boolean        @default(true)
   privacyMobilePhone  Boolean        @default(true)
+  privacyBirthDate    Boolean        @default(false)
   activityLogs        ActivityLog[]
   attendance          Attendance[]
   evaluations         Evaluation[]

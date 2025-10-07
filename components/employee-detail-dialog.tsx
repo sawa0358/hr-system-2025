@@ -388,6 +388,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         privacyWorkPhone: privacySettings.workPhone,
         privacyExtension: privacySettings.extension,
         privacyMobilePhone: privacySettings.mobilePhone,
+        privacyBirthDate: privacySettings.birthDate,
       }
       
       console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))
@@ -716,6 +717,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         workPhone: employee.privacyWorkPhone ?? true,
         extension: employee.privacyExtension ?? true,
         mobilePhone: employee.privacyMobilePhone ?? true,
+        birthDate: employee.privacyBirthDate ?? false, // 生年月日はデフォルトで非公開
       }
     }
     return {
@@ -730,6 +732,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       workPhone: true,
       extension: true,
       mobilePhone: true,
+      birthDate: false, // 生年月日はデフォルトで非公開
     }
   })
 
@@ -966,14 +969,30 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <p className="text-xs text-slate-500">※ 表示するにはログインパスワードの入力が必要です</p>
                     </div>
                   )}
-                  <div className="col-span-2 space-y-2">
-                    <Label>生年月日</Label>
-                    <Input 
-                      type="date" 
-                      value={formData.birthDate}
-                      onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee} 
-                    />
+                  <div className="col-span-2">
+                    <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
+                      <div className="space-y-2">
+                        <Label>生年月日</Label>
+                        <Input 
+                          type="date" 
+                          value={privacySettings.birthDate ? formData.birthDate : ''}
+                          onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                          disabled={!canEditUserInfo && !isNewEmployee || !privacySettings.birthDate}
+                        />
+                        {!privacySettings.birthDate && (
+                          <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                        )}
+                      </div>
+                      {canEditUserInfo && isAdminOrHR && (
+                        <div className="flex items-center gap-2 pt-6">
+                          <Switch
+                            checked={privacySettings.birthDate}
+                            onCheckedChange={(checked) => setPrivacySettings({ ...privacySettings, birthDate: checked })}
+                          />
+                          <span className="text-sm text-slate-600">公開</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {(canEditUserInfo || isAdminOrHR) && (
                     <>
@@ -1550,7 +1569,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
-                    <Label>電話番号(勤務先)</Label>
+                    <Label>電話番号（勤務先or勤務携帯・公開）</Label>
                     <Input 
                       type="tel" 
                       value={privacySettings.workPhone ? formData.phone : '非公開'}
@@ -1574,7 +1593,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
-                    <Label>電話番号(内線)</Label>
+                    <Label>電話番号（勤務先・内線）</Label>
                     <Input 
                       type="tel" 
                       value={privacySettings.extension ? formData.phoneInternal : '非公開'}
@@ -1598,7 +1617,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
-                    <Label>電話番号(携帯)</Label>
+                    <Label>電話番号（携帯・非公開です）</Label>
                     <Input 
                       type="tel" 
                       value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}

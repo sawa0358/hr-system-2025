@@ -553,7 +553,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 <div className="flex items-center gap-3">
                   <Avatar className="w-10 h-10">
                     <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
-                      {employee.name.charAt(0)}
+                      {employee.name.slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
                   <div>

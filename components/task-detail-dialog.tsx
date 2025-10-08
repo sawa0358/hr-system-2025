@@ -656,7 +656,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                 <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
-                      {member.name.charAt(0)}
+                      {member.name.slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm">{member.name}</span>
@@ -697,7 +697,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarFallback className="bg-blue-100 text-blue-700 text-sm">
-                          {employee.name.charAt(0)}
+                          {employee.name.slice(0, 3)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">

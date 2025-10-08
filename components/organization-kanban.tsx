@@ -71,7 +71,7 @@ function EmployeeCard({
               <div className="flex items-center gap-2 mb-2">
                 <Avatar className="w-8 h-8">
                   <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                    {employee.name.charAt(0)}
+                    {employee.name.slice(0, 3)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">

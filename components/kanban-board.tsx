@@ -185,7 +185,7 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
               <div className="flex items-center justify-between">
                 <Avatar className="w-6 h-6">
                   <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
-                    {task.assignee.charAt(0)}
+                    {task.assignee.slice(0, 3)}
                   </AvatarFallback>
                 </Avatar>
               </div>

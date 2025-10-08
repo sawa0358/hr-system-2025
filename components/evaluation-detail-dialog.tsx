@@ -275,7 +275,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
             <DialogTitle className="flex items-center gap-4">
               <Avatar className="w-12 h-12">
                 <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
-                  {employee.name.charAt(0)}
+                  {employee.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
               <div>

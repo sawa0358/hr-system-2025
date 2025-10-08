@@ -333,7 +333,7 @@ function DraggableOrgNodeCard({
 }: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
   const { currentUser } = useAuth()
   const hasChildren = node.children && node.children.length > 0
-  const [departmentLabel, setDepartmentLabel] = useState(node.department)
+  const [departmentLabel, setDepartmentLabel] = useState(node.department?.replace(/^\[|\]$/g, '') || '')
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   
@@ -413,7 +413,7 @@ function DraggableOrgNodeCard({
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                 <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                  {node.name.charAt(0)}
+                  {node.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
@@ -605,7 +605,7 @@ function UnassignedEmployeeCard({
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
               <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">
-                {employee.name.charAt(0)}
+                {employee.name.slice(0, 3)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left min-w-0">
@@ -1588,7 +1588,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                 <div className="flex items-center gap-2">
                   <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                     <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                      {activeNode.name.charAt(0)}
+                      {activeNode.name.slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left min-w-0">

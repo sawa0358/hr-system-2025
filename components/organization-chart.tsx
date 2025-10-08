@@ -102,7 +102,7 @@ interface HorizontalDropZoneProps {
   onDrop: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void
 }
 
-// 組織図表示コンポーネント（TOP社員を除外）
+// 組織図表示コンポーネント（見えないTOPを除外）
 function DisplayOrgChartWithoutTop({
   node,
   onEmployeeClick,
@@ -122,20 +122,24 @@ function DisplayOrgChartWithoutTop({
   
   // 仮想ルートノードの場合は、子ノードを横並びで表示
   if (node.id === 'virtual-root' && node.children && node.children.length > 0) {
+    const visibleChildren = node.children.filter(child => {
+      const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
+      return !isChildInvisibleTop
+    })
+    
+    if (visibleChildren.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <div className="text-slate-500">表示する社員がいません</div>
+        </div>
+      )
+    }
+    
     return (
       <div className="flex gap-8 relative">
-        {node.children
-          .filter(child => {
-            // 見えないTOPの子ノードも除外
-            const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
-            return !isChildInvisibleTop
-          })
-          .map((child, index) => (
+        {visibleChildren.map((child, index) => (
           <div key={child.id} className="relative">
-            {node.children!.filter(c => {
-              const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
-              return !isChildInvisibleTop
-            }).length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+            {visibleChildren.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
             <DraggableOrgNodeCard
               node={child}
               level={0}
@@ -156,10 +160,7 @@ function DisplayOrgChartWithoutTop({
               />
             )}
             {/* 各社員間の横ラインにドロップゾーンを配置 */}
-            {index < node.children!.filter(c => {
-              const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
-              return !isChildInvisibleTop
-            }).length - 1 && canEdit && (
+            {index < visibleChildren.length - 1 && canEdit && (
               <HorizontalDropZone
                 parentId={node.id}
                 targetIndex={index + 1}
@@ -173,87 +174,19 @@ function DisplayOrgChartWithoutTop({
     )
   }
   
-  // 店長は通常の階層構造で表示（特別な処理は不要）
-  
-  // TOP社員（parentEmployeeIdがnull）を除外して、その子ノードのみを表示
-  if (node.children && node.children.length > 0) {
-    // 複数の子ノードがある場合は横並びで表示
-    if (node.children.length > 1) {
-      return (
-        <div className="flex gap-8 relative">
-          {node.children
-            .filter(child => {
-              // 見えないTOPの子ノードも除外
-              const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
-              return !isChildInvisibleTop
-            })
-            .map((child, index) => (
-            <div key={child.id} className="relative">
-              {node.children!.filter(c => {
-                const isChildInvisibleTop = c.employee?.isInvisibleTop || c.employee?.employeeNumber === '000'
-                return !isChildInvisibleTop
-              }).length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
-              <DraggableOrgNodeCard
-                node={child}
-                level={0}
-                onEmployeeClick={onEmployeeClick}
-                onShowSubordinates={onShowSubordinates}
-                selectedNodeId={selectedNodeId}
-                canEdit={canEdit}
-                isCompactMode={isCompactMode}
-                onHorizontalMove={onHorizontalMove}
-              />
-              {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
-              {canEdit && (
-                <RightMoveDropZone
-                  parentId={node.id}
-                  targetIndex={index + 1}
-                  canEdit={canEdit}
-                  onDrop={onHorizontalMove || (() => {})}
-                />
-              )}
-              {/* 各社員間の横ラインにドロップゾーンを配置 */}
-              {index < node.children!.length - 1 && canEdit && (
-                <HorizontalDropZone
-                  parentId={node.id}
-                  targetIndex={index + 1}
-                  canEdit={canEdit}
-                  onDrop={onHorizontalMove || (() => {})}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )
-    } else {
-      // 子ノードが1つの場合は縦に表示（見えないTOPは除外）
-      const visibleChild = node.children.find(child => {
-        const isChildInvisibleTop = child.employee?.isInvisibleTop || child.employee?.employeeNumber === '000'
-        return !isChildInvisibleTop
-      })
-      
-      if (visibleChild) {
-        return (
-          <DraggableOrgNodeCard
-            node={visibleChild}
-            level={0}
-            onEmployeeClick={onEmployeeClick}
-            onShowSubordinates={onShowSubordinates}
-            selectedNodeId={selectedNodeId}
-            canEdit={canEdit}
-            isCompactMode={isCompactMode}
-          />
-        )
-      }
-      return null
-    }
-  }
-
-  // 子ノードがない場合は空の表示
+  // 通常のノードの場合（1階層目の社員など）
+  // このノード自体を表示
   return (
-    <div className="text-center py-8">
-      <div className="text-slate-500">表示する社員がいません</div>
-    </div>
+    <DraggableOrgNodeCard
+      node={node}
+      level={0}
+      onEmployeeClick={onEmployeeClick}
+      onShowSubordinates={onShowSubordinates}
+      selectedNodeId={selectedNodeId}
+      canEdit={canEdit}
+      isCompactMode={isCompactMode}
+      onHorizontalMove={onHorizontalMove}
+    />
   )
 }
 
@@ -282,21 +215,27 @@ function TopDropZone({ canEdit, onDrop }: TopDropZoneProps) {
   return (
     <div
       ref={setNodeRef}
-      className={`w-full transition-colors mb-4 ${
+      className={`w-full transition-all duration-200 mb-4 ${
         isOver 
           ? 'border-green-400 bg-green-50 border-2 border-dashed rounded' 
-          : 'border-slate-200 border border-dashed rounded bg-transparent'
+          : 'border-transparent border-2 border-dashed rounded'
       }`}
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
       style={{ 
-        height: '1px',
-        minHeight: '1px',
-        maxHeight: '1px',
-        opacity: isOver ? 1 : 0.3 // 通常時は薄く表示
+        height: '20px',
+        minHeight: '20px',
+        maxHeight: '20px',
+        opacity: isOver ? 1 : 0 // 通常時は完全に透明
       }}
-      title="TOP位置にドロップ"
-    />
+      title="TOP位置にドロップ（1階層目に並列表示）"
+    >
+      {isOver && (
+        <div className="flex items-center justify-center h-full text-sm text-green-600 font-medium">
+          ここにドロップ（1階層目に並列表示）
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -695,7 +634,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   // 社員データを取得
   useEffect(() => {
     fetchEmployees()
-  }, [])
+  }, []) // 依存配列を空にして、初回のみ実行
 
   // 外部から呼び出せるメソッドを定義
   useImperativeHandle(ref, () => ({
@@ -1058,8 +997,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       })
 
       if (response.ok) {
-        // 社員データを更新
-        await fetchEmployees()
+        // 社員データを更新（遅延実行で重複を避ける）
+        setTimeout(() => fetchEmployees(), 100)
         console.log(`社員 ${node.name} をTOP位置に移動しました`)
         alert(`社員 ${node.name} をTOP位置に移動しました`)
       } else {
@@ -1102,8 +1041,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       })
 
       if (response.ok) {
-        // 社員データを更新
-        await fetchEmployees()
+        // 社員データを更新（遅延実行で重複を避ける）
+        setTimeout(() => fetchEmployees(), 100)
         console.log(`社員 ${node.name} を未配置エリアに移動しました`)
         alert(`社員 ${node.name} を未配置エリアに移動しました`)
       } else {
@@ -1166,8 +1105,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       })
 
       if (response.ok) {
-        // 社員データを更新
-        await fetchEmployees()
+        // 社員データを更新（遅延実行で重複を避ける）
+        setTimeout(() => fetchEmployees(), 100)
         console.log(`社員 ${employee.name} を組織図に移動しました（親: ${targetEmployee.name}）`)
         alert(`社員 ${employee.name} を ${targetEmployee.name} の配下に移動しました`)
       } else {
@@ -1215,8 +1154,8 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
       if (response.ok) {
         console.log(`社員 ${draggedNode.name} の階層情報を保存しました（親: ${targetNode.name}）`)
-        // データを再取得して最新状態に更新
-        await fetchEmployees()
+        // データを再取得して最新状態に更新（遅延実行で重複を避ける）
+        setTimeout(() => fetchEmployees(), 100)
       } else {
         const errorData = await response.text()
         console.error('階層情報の保存に失敗しました:', response.status, errorData)
@@ -1397,21 +1336,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   const superiorsToDisplay = selectedNodeId ? getSuperiors(selectedNodeId, superiorLevels, employees) : []
   
-  // displayedTreeの状態を監視
-  console.log('displayedTree状態:', {
-    id: displayedTree?.id,
-    name: displayedTree?.name,
-    role: displayedTree?.employee?.role,
-    childrenCount: displayedTree?.children?.length || 0
-  })
-  
-  console.log('Superiors display info:', {
-    selectedNodeId,
-    superiorLevels,
-    superiorsToDisplay: superiorsToDisplay.length,
-    employeesCount: employees.length,
-    superiorsToDisplayDetails: superiorsToDisplay.map(s => ({ id: s.id, name: s.name }))
-  })
+  // displayedTreeの状態を監視（デバッグログを削除）
 
   return (
     <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

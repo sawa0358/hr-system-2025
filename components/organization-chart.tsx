@@ -130,7 +130,7 @@ function DisplayOrgChartWithoutTop({
   // 見えないTOPの場合は何も表示しない
   if (isInvisibleTop) {
     console.log('見えないTOPのため非表示:', node.name)
-    return <div style={{ display: 'none' }} key={`invisible-${node.id}`} />
+    return <div key={`invisible-${node.id}`} data-invisible="true" style={{ display: 'none', width: 0, height: 0, overflow: 'hidden', position: 'absolute', left: '-9999px' }} />
   }
   
   // 仮想ルートノードの場合は、子ノードを横並びで表示

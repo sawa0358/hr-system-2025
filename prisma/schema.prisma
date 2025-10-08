@@ -14,7 +14,7 @@ model Employee {
   employeeType        EmployeeType
   name                String
   furigana            String?
-  email               String         @unique
+  email               String?        @unique
   phone               String?
   department          String
   position            String

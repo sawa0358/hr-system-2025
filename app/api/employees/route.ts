@@ -4,37 +4,8 @@ import { prisma } from '@/lib/prisma';
 // Prismaクライアントの初期化確認
 console.log('Prismaクライアント初期化確認:', !!prisma);
 
-export async function GET() {
-  try {
-    const employees = await prisma.employee.findMany({
-      include: {
-        familyMembers: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-
-    // 複数の組織名・部署・役職をパースして返す
-    const processedEmployees = employees.map(employee => ({
-      ...employee,
-      departments: parseJsonArray(employee.department),
-      positions: parseJsonArray(employee.position),
-      organizations: parseJsonArray(employee.organization),
-    }));
-
-    return NextResponse.json(processedEmployees);
-  } catch (error) {
-    console.error('社員一覧取得エラー:', error);
-    return NextResponse.json(
-      { error: '社員一覧の取得に失敗しました' },
-      { status: 500 }
-    );
-  }
-}
-
 // JSON配列をパースするヘルパー関数
-function parseJsonArray(value: string): string[] {
+function parseJsonArray(value: string | null): string[] {
   if (!value) return [];
   
   try {
@@ -43,6 +14,52 @@ function parseJsonArray(value: string): string[] {
   } catch {
     // JSONでない場合は単一の値として扱う
     return value ? [value] : [];
+  }
+}
+
+export async function GET() {
+  try {
+    console.log('社員一覧取得開始');
+    const employees = await prisma.employee.findMany({
+      include: {
+        familyMembers: true
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+    console.log('社員データ取得成功:', employees.length, '件');
+
+    // 複数の組織名・部署・役職をパースして返す
+    const processedEmployees = employees.map(employee => {
+      try {
+        return {
+          ...employee,
+          departments: parseJsonArray(employee.department),
+          positions: parseJsonArray(employee.position),
+          organizations: parseJsonArray(employee.organization),
+        };
+      } catch (parseError) {
+        console.error('社員データパースエラー:', employee.id, parseError);
+        // パースエラーの場合は元のデータをそのまま返す
+        return {
+          ...employee,
+          departments: [employee.department || ''],
+          positions: [employee.position || ''],
+          organizations: [employee.organization || ''],
+        };
+      }
+    });
+
+    console.log('社員データ処理完了');
+    return NextResponse.json(processedEmployees);
+  } catch (error) {
+    console.error('社員一覧取得エラー:', error);
+    console.error('エラーの詳細:', error.message, error.stack);
+    return NextResponse.json(
+      { error: '社員一覧の取得に失敗しました', details: error.message },
+      { status: 500 }
+    );
   }
 }
 
@@ -126,7 +143,8 @@ export async function POST(request: NextRequest) {
     }
 
     // メールアドレスの重複チェック
-    if (body.email) {
+    // 空文字列やnullの場合はチェックをスキップ
+    if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findUnique({
         where: { email: body.email }
       });
@@ -178,7 +196,7 @@ export async function POST(request: NextRequest) {
           const trimmed = String(body.furigana).trim();
           return trimmed !== '' ? trimmed : null;
         })(),
-        email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,
+        email: body.email && body.email.trim() !== '' ? body.email : null,
         phone: body.phone || null,
         department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : (body.department || '未設定'),
         position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : (body.position || '未設定'),

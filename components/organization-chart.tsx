@@ -333,7 +333,20 @@ function DraggableOrgNodeCard({
 }: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
   const { currentUser } = useAuth()
   const hasChildren = node.children && node.children.length > 0
-  const [departmentLabel, setDepartmentLabel] = useState(node.department?.replace(/^\[|\]$/g, '') || '')
+  
+  // ローカルストレージから編集済みラベルを取得、なければ役職を使用（ダブルクォーテーションを削除）
+  const getInitialLabel = () => {
+    if (typeof window !== 'undefined' && node.id) {
+      const savedLabel = localStorage.getItem(`org-chart-label-${node.id}`)
+      if (savedLabel) {
+        return savedLabel
+      }
+    }
+    // デフォルトは役職から引用（[]と""を削除）
+    return node.position?.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '') || ''
+  }
+  
+  const [departmentLabel, setDepartmentLabel] = useState(getInitialLabel())
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   
@@ -343,6 +356,15 @@ function DraggableOrgNodeCard({
     currentUser?.role === 'hr' || 
     currentUser?.role === 'admin'
   )
+  
+  // ラベル編集終了時に保存
+  const handleLabelBlur = () => {
+    setIsEditingLabel(false)
+    if (typeof window !== 'undefined' && node.id) {
+      localStorage.setItem(`org-chart-label-${node.id}`, departmentLabel)
+      console.log(`ラベルを保存: ${node.id} -> ${departmentLabel}`)
+    }
+  }
 
   const {
     attributes,
@@ -368,9 +390,11 @@ function DraggableOrgNodeCard({
           <Input
             value={departmentLabel}
             onChange={(e) => setDepartmentLabel(e.target.value)}
-            onBlur={() => setIsEditingLabel(false)}
+            onBlur={handleLabelBlur}
             onKeyDown={(e) => {
-              if (e.key === "Enter") setIsEditingLabel(false)
+              if (e.key === "Enter") {
+                handleLabelBlur()
+              }
             }}
             className="h-7 text-sm w-48"
             autoFocus
@@ -413,7 +437,7 @@ function DraggableOrgNodeCard({
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                 <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                  {node.name.slice(0, 3)}
+                  {node.name.slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
@@ -426,9 +450,9 @@ function DraggableOrgNodeCard({
                       <p className="text-xs text-slate-500 font-mono">{node.employeeNumber}</p>
                     )}
                     {node.organization && (
-                      <p className="text-xs text-slate-600 truncate">{node.organization.replace(/^\[|\]$/g, '')}</p>
+                      <p className="text-xs text-slate-600 truncate">{node.organization.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')}</p>
                     )}
-                    <p className="text-xs text-slate-600 truncate">{node.position.replace(/^\[|\]$/g, '')}</p>
+                    <p className="text-xs text-slate-600 truncate">{node.position.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')}</p>
                     {node.description && (
                       <p className="text-xs text-slate-500 italic truncate">{node.description}</p>
                     )}
@@ -605,7 +629,7 @@ function UnassignedEmployeeCard({
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
               <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">
-                {employee.name.slice(0, 3)}
+                {employee.name.slice(0, 2)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left min-w-0">
@@ -1593,7 +1617,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                 <div className="flex items-center gap-2">
                   <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                     <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                      {activeNode.name.slice(0, 3)}
+                      {activeNode.name.slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left min-w-0">

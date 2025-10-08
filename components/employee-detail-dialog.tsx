@@ -129,9 +129,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
       showInOrgChart: employee?.showInOrgChart ?? true,
       description: employee?.description || '',
+      parentEmployeeId: employee?.parentEmployeeId || null,
     }
     console.log('formData初期化:', initialData)
     console.log('employee.isSuspended:', employee?.isSuspended)
+    console.log('employee.parentEmployeeId:', employee?.parentEmployeeId)
     return initialData
   })
 
@@ -177,6 +179,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         isSuspended: employee.isSuspended ?? false,
         retirementDate: employee.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
         description: employee.description || '',
+        parentEmployeeId: employee.parentEmployeeId || null,
       })
       
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
@@ -374,6 +377,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('送信するbirthDate:', formData.birthDate)
       console.log('送信するisSuspended:', formData.isSuspended)
       console.log('送信するfurigana:', formData.furigana)
+      console.log('送信するparentEmployeeId:', formData.parentEmployeeId)
+      console.log('employee.parentEmployeeId:', employee?.parentEmployeeId)
       console.log('送信する公開設定:', privacySettings)
       
       const requestBody = {
@@ -387,6 +392,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         positions: positions.filter(pos => pos.trim() !== ''),
         // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
         isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false,
+        // 組織図の親子関係を保持（既存社員の場合のみ）
+        parentEmployeeId: !isNewEmployee ? (formData.parentEmployeeId || employee?.parentEmployeeId || null) : null,
         // 公開設定を送信
         privacyDisplayName: privacySettings.displayName,
         privacyOrganization: privacySettings.organization,
@@ -1227,7 +1234,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             className="w-full h-full object-cover"
                           />
                         ) : avatarText ? (
-                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 3)}</span>
+                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 2)}</span>
                         ) : employee?.avatar ? (
                           <img 
                             src={employee.avatar} 
@@ -1283,7 +1290,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                               }}
                               className="w-20 h-8 text-sm"
                             />
-                            <span className="text-xs text-slate-500">または文字（表示は3文字）</span>
+                            <span className="text-xs text-slate-500">または文字（表示は2文字）</span>
                           </div>
                         </div>
                       )}

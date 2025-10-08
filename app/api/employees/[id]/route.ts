@@ -73,7 +73,8 @@ export async function PUT(
     console.log('furigana value:', body.furigana);
     
     // メールアドレスの重複チェック（自分以外）
-    if (body.email) {
+    // 空文字列やnullの場合はチェックをスキップ
+    if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findFirst({
         where: { 
           email: body.email,
@@ -152,7 +153,7 @@ export async function PUT(
           const trimmed = String(body.furigana).trim();
           return trimmed !== '' ? trimmed : null;
         })(),
-        email: body.email,
+        email: body.email && body.email.trim() !== '' ? body.email : null,
         phone: body.phone,
         department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
         position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : body.position,

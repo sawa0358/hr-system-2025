@@ -443,6 +443,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
         // 組織図を更新
         if (onOrgChartUpdate) {
+          console.log('社員詳細: 組織図更新コールバックを呼び出します')
           onOrgChartUpdate()
         }
         // 新規登録の場合はダイアログを閉じて、テーブルをリフレッシュ
@@ -500,6 +501,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
         // 組織図も更新
         if (onOrgChartUpdate) {
+          console.log('社員詳細: 組織図更新コールバックを呼び出します（削除時）')
           onOrgChartUpdate()
         }
       } else {

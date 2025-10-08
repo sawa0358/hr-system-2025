@@ -17,9 +17,13 @@ export default function OrganizationPage() {
   }
 
   const handleOrgChartUpdate = () => {
+    console.log('組織ページ: 組織図更新が要求されました')
     // 組織図を更新
     if (orgChartRef.current) {
+      console.log('組織ページ: 組織図のrefreshを呼び出します')
       orgChartRef.current.refresh()
+    } else {
+      console.error('組織ページ: orgChartRef.currentがnullです')
     }
   }
 

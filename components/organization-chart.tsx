@@ -660,13 +660,18 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   // 外部から呼び出せるメソッドを定義
   useImperativeHandle(ref, () => ({
-    refresh: fetchEmployees
+    refresh: () => {
+      console.log('組織図: 外部からrefreshが呼び出されました')
+      fetchEmployees()
+    }
   }))
 
   const fetchEmployees = async () => {
     try {
+      console.log('組織図: 社員データを取得中...')
       const response = await fetch('/api/employees')
       const data = await response.json()
+      console.log('組織図: 取得した社員データ:', data.length, '件')
       setEmployees(data)
       
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）

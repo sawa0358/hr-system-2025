@@ -15,8 +15,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    setIsMounted(true)
     const savedUser = localStorage.getItem("currentUser")
     if (savedUser) {
       try {
@@ -46,7 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("currentUser")
   }
 
-  if (isLoading) {
+  // クライアントサイドでのマウント前は何も表示しない
+  if (!isMounted || isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">

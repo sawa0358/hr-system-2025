@@ -7,6 +7,7 @@ import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
+import { ClientOnly } from "@/components/client-only"
 
 export const metadata: Metadata = {
   title: "v0 App",
@@ -30,7 +31,9 @@ export default function RootLayout({
             </div>
           </Suspense>
         </AuthProvider>
-        <Analytics />
+        <ClientOnly>
+          <Analytics />
+        </ClientOnly>
       </body>
     </html>
   )

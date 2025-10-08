@@ -130,7 +130,7 @@ function DisplayOrgChartWithoutTop({
   // 見えないTOPの場合は何も表示しない
   if (isInvisibleTop) {
     console.log('見えないTOPのため非表示:', node.name)
-    return <div style={{ display: 'none' }} />
+    return <div style={{ display: 'none' }} key={`invisible-${node.id}`} />
   }
   
   // 仮想ルートノードの場合は、子ノードを横並びで表示
@@ -149,7 +149,7 @@ function DisplayOrgChartWithoutTop({
     }
     
     return (
-      <div className="flex gap-8 relative">
+      <div key="virtual-root-container" className="flex gap-8 relative">
         {visibleChildren.map((child, index) => (
           <div key={`virtual-child-${child.id}-${index}`} className="relative">
             {visibleChildren.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
@@ -1448,7 +1448,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         )}
 
         <div className="p-8 overflow-auto max-h-[calc(100vh-300px)]">
-          <div className="flex gap-4">
+          <div key="org-chart-content" className="flex gap-4">
             {/* 未配置社員エリア */}
             {showUnassignedArea && (
               <div className="flex-shrink-0">
@@ -1477,6 +1477,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
             {/* メインの組織図エリア */}
             <div
+              key="main-org-chart-area"
               className="min-w-max flex flex-col items-center justify-center transition-transform flex-1"
               style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
             >

@@ -128,6 +128,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       selfIntroduction: employee?.selfIntroduction || '',
       birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
       showInOrgChart: employee?.showInOrgChart ?? true,
+      description: employee?.description || '',
     }
     console.log('formData初期化:', initialData)
     console.log('employee.isSuspended:', employee?.isSuspended)
@@ -175,7 +176,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         showInOrgChart: employee.showInOrgChart ?? true,
         isSuspended: employee.isSuspended ?? false,
         retirementDate: employee.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
+        description: employee.description || '',
       })
+      
+      // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
+      setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
+                      employee.organization ? [employee.organization] : [""])
+      setDepartments(employee.departments && employee.departments.length > 0 ? employee.departments : 
+                    employee.department ? [employee.department] : [""])
+      setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
+                  employee.position ? [employee.position] : [""])
       
       // パスワード表示状態をローカルストレージから復元（管理者・総務のみ）
       if (isAdminOrHR && typeof window !== 'undefined') {
@@ -283,6 +293,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         showInOrgChart: true,
         isSuspended: false,
         retirementDate: '',
+        description: '',
       })
       setOrganizations([""])
       setDepartments([""])
@@ -1523,6 +1534,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <span className="text-sm text-slate-600">公開</span>
                     </div>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>組織図での説明書き</Label>
+                  <Textarea 
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    disabled={!canEditProfile}
+                    placeholder="組織図の社員カードに表示される説明書きを入力"
+                    rows={3}
+                  />
+                  <p className="text-xs text-slate-500">組織図の社員カード下部に表示されます</p>
                 </div>
 
                 {(isOwnProfile || isAdminOrHR) && (

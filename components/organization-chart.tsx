@@ -35,6 +35,7 @@ interface Employee {
   position: string
   organization: string
   team?: string
+  description?: string
   joinDate: string
   status: string
   password: string
@@ -62,6 +63,7 @@ interface OrgNode {
   employeeNumber?: string
   organization?: string
   team?: string
+  description?: string
   employeeCount?: number
   children?: OrgNode[]
   employee?: Employee
@@ -413,9 +415,12 @@ function DraggableOrgNodeCard({
                       <p className="text-xs text-slate-500 font-mono">{node.employeeNumber}</p>
                     )}
                     {node.organization && (
-                      <p className="text-xs text-slate-600 truncate">{node.organization}</p>
+                      <p className="text-xs text-slate-600 truncate">{node.organization.replace(/^\[|\]$/g, '')}</p>
                     )}
-                    <p className="text-xs text-slate-600 truncate">{node.position}</p>
+                    <p className="text-xs text-slate-600 truncate">{node.position.replace(/^\[|\]$/g, '')}</p>
+                    {node.description && (
+                      <p className="text-xs text-slate-500 italic truncate">{node.description}</p>
+                    )}
                   </>
                 )}
               </div>
@@ -713,6 +718,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           employeeNumber: emp.employeeNumber,
           organization: emp.organization,
           team: emp.team,
+          description: emp.description,
           employee: emp,
           children: []
         }

@@ -8,6 +8,7 @@ import { Sidebar } from "@/components/sidebar"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ClientOnly } from "@/components/client-only"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
   title: "v0 App",
@@ -23,14 +24,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <AuthProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <div className="flex h-screen overflow-hidden">
-              <Sidebar />
-              <main className="flex-1 overflow-auto bg-slate-50">{children}</main>
-            </div>
-          </Suspense>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <div className="flex h-screen overflow-hidden">
+                <Sidebar />
+                <main className="flex-1 overflow-auto bg-slate-50">{children}</main>
+              </div>
+            </Suspense>
+          </AuthProvider>
+        </ErrorBoundary>
         <ClientOnly>
           <Analytics />
         </ClientOnly>

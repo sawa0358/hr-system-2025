@@ -117,9 +117,20 @@ function DisplayOrgChartWithoutTop({
   // 見えないTOPの社員を除外する判定
   const isInvisibleTop = node.employee?.isInvisibleTop || node.employee?.employeeNumber === '000'
   
+  // デバッグログを追加
+  console.log('DisplayOrgChartWithoutTop - ノード情報:', {
+    nodeId: node.id,
+    nodeName: node.name,
+    isInvisibleTop,
+    employeeNumber: node.employee?.employeeNumber,
+    hasChildren: node.children && node.children.length > 0,
+    childrenCount: node.children?.length || 0
+  })
+  
   // 見えないTOPの場合は何も表示しない
   if (isInvisibleTop) {
-    return null
+    console.log('見えないTOPのため非表示:', node.name)
+    return <div style={{ display: 'none' }} />
   }
   
   // 仮想ルートノードの場合は、子ノードを横並びで表示
@@ -140,7 +151,7 @@ function DisplayOrgChartWithoutTop({
     return (
       <div className="flex gap-8 relative">
         {visibleChildren.map((child, index) => (
-          <div key={child.id} className="relative">
+          <div key={`virtual-child-${child.id}-${index}`} className="relative">
             {visibleChildren.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
             <DraggableOrgNodeCard
               node={child}
@@ -467,7 +478,7 @@ function DraggableOrgNodeCard({
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-300" style={{ top: "-8px" }} />
             )}
             {node.children!.map((child, index) => (
-              <div key={child.id} className="relative">
+              <div key={`child-${child.id}-${index}`} className="relative">
                 {node.children!.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
                 <DraggableOrgNodeCard
                   node={child}
@@ -1436,7 +1447,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           </div>
         )}
 
-        <div className="p-8 overflow-x-auto">
+        <div className="p-8 overflow-auto max-h-[calc(100vh-300px)]">
           <div className="flex gap-4">
             {/* 未配置社員エリア */}
             {showUnassignedArea && (
@@ -1444,9 +1455,9 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                 <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-w-[200px]">
                   <h4 className="text-sm font-medium text-slate-700 mb-3">未配置社員</h4>
                   <UnassignedDropZone>
-                    {unassignedEmployees.map((emp) => (
+                    {unassignedEmployees.map((emp, index) => (
                       <UnassignedEmployeeCard
-                        key={emp.id}
+                        key={`unassigned-${emp.id}-${index}`}
                         employee={emp}
                         isCompactMode={isCompactMode}
                         onEmployeeClick={onEmployeeClick}
@@ -1473,7 +1484,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               <div className="mb-4">
                 <div className="flex flex-col items-center gap-2">
                   {superiorsToDisplay.map((superior, index) => (
-                    <div key={superior.id}>
+                    <div key={`superior-${superior.id}-${index}`}>
                       <DraggableOrgNodeCard
                         node={superior}
                         onEmployeeClick={onEmployeeClick}

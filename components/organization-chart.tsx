@@ -130,7 +130,7 @@ function DisplayOrgChartWithoutTop({
   // 見えないTOPの場合は何も表示しない
   if (isInvisibleTop) {
     console.log('見えないTOPのため非表示:', node.name)
-    return <div key={`invisible-${node.id}`} data-invisible="true" style={{ display: 'none', width: 0, height: 0, overflow: 'hidden', position: 'absolute', left: '-9999px' }} />
+    return null
   }
   
   // 仮想ルートノードの場合は、子ノードを横並びで表示
@@ -646,6 +646,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   const [showUnassignedArea, setShowUnassignedArea] = useState(false)
   const [showUnassignedList, setShowUnassignedList] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // クライアントサイドでのマウント状態を設定
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // 社員データを取得
   useEffect(() => {
@@ -1448,72 +1454,100 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         )}
 
         <div className="p-8 overflow-auto max-h-[calc(100vh-300px)]">
-          <div key="org-chart-content" className="flex gap-4">
-            {/* 未配置社員エリア */}
-            {showUnassignedArea && (
-              <div className="flex-shrink-0">
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-w-[200px]">
-                  <h4 className="text-sm font-medium text-slate-700 mb-3">未配置社員</h4>
-                  <UnassignedDropZone>
-                    {unassignedEmployees.map((emp, index) => (
-                      <UnassignedEmployeeCard
-                        key={`unassigned-${emp.id}-${index}`}
-                        employee={emp}
-                        isCompactMode={isCompactMode}
-                        onEmployeeClick={onEmployeeClick}
-                        canEdit={canEdit}
-                        isSelected={selectedNodeId === emp.id}
-                      />
-                    ))}
-                    {unassignedEmployees.length === 0 && (
-                      <div className="text-center text-slate-500 text-sm py-4">
-                        未配置社員はありません
+          {!isMounted ? (
+            <div className="text-center py-8">
+              <div className="text-slate-500">読み込み中...</div>
+            </div>
+          ) : (
+            <div key="org-chart-content" className="flex gap-4">
+              {/* 未配置社員エリア */}
+              {showUnassignedArea && (
+                <div className="flex-shrink-0">
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 min-w-[200px]">
+                    <h4 className="text-sm font-medium text-slate-700 mb-3">未配置社員</h4>
+                    <UnassignedDropZone>
+                      {unassignedEmployees.map((emp, index) => (
+                        <UnassignedEmployeeCard
+                          key={`unassigned-${emp.id}-${index}`}
+                          employee={emp}
+                          isCompactMode={isCompactMode}
+                          onEmployeeClick={onEmployeeClick}
+                          canEdit={canEdit}
+                          isSelected={selectedNodeId === emp.id}
+                        />
+                      ))}
+                      {unassignedEmployees.length === 0 && (
+                        <div className="text-center text-slate-500 text-sm py-4">
+                          未配置社員はありません
+                        </div>
+                      )}
+                    </UnassignedDropZone>
+                  </div>
+                </div>
+              )}
+
+              {/* メインの組織図エリア */}
+              <div
+                key="main-org-chart-area"
+                className="min-w-max flex flex-col items-center justify-center transition-transform flex-1"
+                style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
+              >
+              {superiorsToDisplay.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex flex-col items-center gap-2">
+                    {superiorsToDisplay.map((superior, index) => (
+                      <div key={`superior-${superior.id}-${index}`}>
+                        <DraggableOrgNodeCard
+                          node={superior}
+                          onEmployeeClick={onEmployeeClick}
+                          onShowSubordinates={handleShowSubordinates}
+                          selectedNodeId={null}
+                          canEdit={canEdit}
+                          isCompactMode={isCompactMode}
+                        />
+                        {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 bg-slate-300 mx-auto my-2" />}
                       </div>
-                    )}
-                  </UnassignedDropZone>
+                    ))}
+                    <div className="w-0.5 h-8 bg-slate-300 my-2" />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* メインの組織図エリア */}
-            <div
-              key="main-org-chart-area"
-              className="min-w-max flex flex-col items-center justify-center transition-transform flex-1"
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top center" }}
-            >
-            {superiorsToDisplay.length > 0 && (
-              <div className="mb-4">
-                <div className="flex flex-col items-center gap-2">
-                  {superiorsToDisplay.map((superior, index) => (
-                    <div key={`superior-${superior.id}-${index}`}>
-                      <DraggableOrgNodeCard
-                        node={superior}
-                        onEmployeeClick={onEmployeeClick}
-                        onShowSubordinates={handleShowSubordinates}
-                        selectedNodeId={null}
-                        canEdit={canEdit}
-                        isCompactMode={isCompactMode}
-                      />
-                      {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 bg-slate-300 mx-auto my-2" />}
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="text-slate-500">読み込み中...</div>
+                </div>
+              ) : (
+                <>
+                  {/* 配下表示時は自分のカードのみを表示 */}
+                  {selectedNodeId ? (
+                    <div className="mb-4">
+                      <div className="flex flex-col items-center">
+                        <div className="text-sm text-slate-600 mb-2 font-medium">現在選択中の社員</div>
+                        <DraggableOrgNodeCard
+                          node={displayedTree}
+                          onEmployeeClick={onEmployeeClick}
+                          onShowSubordinates={handleShowSubordinates}
+                          selectedNodeId={selectedNodeId}
+                          canEdit={canEdit}
+                          isCompactMode={isCompactMode}
+                          onHorizontalMove={handleHorizontalMove}
+                        />
+                        <div className="w-0.5 h-8 bg-slate-300 my-2" />
+                      </div>
                     </div>
-                  ))}
-                  <div className="w-0.5 h-8 bg-slate-300 my-2" />
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="text-slate-500">読み込み中...</div>
-              </div>
-            ) : (
-              <>
-                {/* 配下表示時は自分のカードのみを表示 */}
-                {selectedNodeId ? (
-                  <div className="mb-4">
-                    <div className="flex flex-col items-center">
-                      <div className="text-sm text-slate-600 mb-2 font-medium">現在選択中の社員</div>
-                      <DraggableOrgNodeCard
+                  ) : (
+                    <>
+                      {/* TOPドロップゾーン（管理者・総務のみ表示） */}
+                      {(permissions.editAllProfiles || permissions.editOrgChart) && (
+                        <TopDropZone 
+                          canEdit={canEdit}
+                          onDrop={moveEmployeeToTop}
+                        />
+                      )}
+                      
+                      {/* 組織図の表示（「見えないTOP」を除外して表示） */}
+                      <DisplayOrgChartWithoutTop
                         node={displayedTree}
                         onEmployeeClick={onEmployeeClick}
                         onShowSubordinates={handleShowSubordinates}
@@ -1522,35 +1556,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                         isCompactMode={isCompactMode}
                         onHorizontalMove={handleHorizontalMove}
                       />
-                      <div className="w-0.5 h-8 bg-slate-300 my-2" />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* TOPドロップゾーン（管理者・総務のみ表示） */}
-                    {(permissions.editAllProfiles || permissions.editOrgChart) && (
-                      <TopDropZone 
-                        canEdit={canEdit}
-                        onDrop={moveEmployeeToTop}
-                      />
-                    )}
-                    
-                    {/* 組織図の表示（「見えないTOP」を除外して表示） */}
-                    <DisplayOrgChartWithoutTop
-                      node={displayedTree}
-                      onEmployeeClick={onEmployeeClick}
-                      onShowSubordinates={handleShowSubordinates}
-                      selectedNodeId={selectedNodeId}
-                      canEdit={canEdit}
-                      isCompactMode={isCompactMode}
-                      onHorizontalMove={handleHorizontalMove}
-                    />
-                  </>
-                )}
-              </>
-            )}
+                    </>
+                  )}
+                </>
+              )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="px-4 pb-4">
@@ -1568,29 +1580,31 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         </div>
       </div>
 
-      <DragOverlay>
-        {activeNode ? (
-          <Card className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-lg opacity-90`}>
-            <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
-              <div className="flex items-center gap-2">
-                <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                  <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                    {activeNode.name.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left min-w-0">
-                  <h3 className={`${isCompactMode ? 'text-xs' : 'text-sm'} font-semibold text-slate-900 truncate`}>
-                    {activeNode.name}
-                  </h3>
-                  {!isCompactMode && (
-                    <p className="text-xs text-slate-600 truncate">{activeNode.position}</p>
-                  )}
+      {isMounted && (
+        <DragOverlay>
+          {activeNode ? (
+            <Card className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-lg opacity-90`}>
+              <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
+                <div className="flex items-center gap-2">
+                  <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
+                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
+                      {activeNode.name.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 text-left min-w-0">
+                    <h3 className={`${isCompactMode ? 'text-xs' : 'text-sm'} font-semibold text-slate-900 truncate`}>
+                      {activeNode.name}
+                    </h3>
+                    {!isCompactMode && (
+                      <p className="text-xs text-slate-600 truncate">{activeNode.position}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-      </DragOverlay>
+              </CardContent>
+            </Card>
+          ) : null}
+        </DragOverlay>
+      )}
     </DndContext>
   )
 })

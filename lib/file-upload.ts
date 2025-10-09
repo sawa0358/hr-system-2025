@@ -26,6 +26,7 @@ export async function handleFileUpload(
     const file = formData.get('file') as File;
     const category = formData.get('category') as string;
     const folder = formData.get('folder') as string;
+    const folderName = formData.get('folderName') as string;
 
     if (!file) {
       return { success: false, error: 'ファイルが選択されていません' };
@@ -82,7 +83,7 @@ export async function handleFileUpload(
         fileSize: file.size,
         mimeType: file.type,
         category: category || 'general',
-        folderName: folder || null,
+        folderName: folderName || folder || null,
         employee: {
           connect: { id: employeeId }
         }

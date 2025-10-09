@@ -14,7 +14,7 @@ model Employee {
   employeeType        EmployeeType
   name                String
   furigana            String?
-  email               String?        @unique
+  email               String?
   phone               String?
   department          String
   position            String
@@ -169,8 +169,8 @@ model File {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   folderName   String?
-  folder       Folder?  @relation(fields: [folderId], references: [id])
   employee     Employee @relation(fields: [employeeId], references: [id])
+  folder       Folder?  @relation(fields: [folderId], references: [id])
 
   @@map("files")
 }
@@ -184,9 +184,9 @@ model Folder {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   files      File[]
-  employee   Employee @relation(fields: [employeeId], references: [id])
   parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
   children   Folder[] @relation("FolderHierarchy")
+  employee   Employee @relation(fields: [employeeId], references: [id])
 
   @@map("folders")
 }

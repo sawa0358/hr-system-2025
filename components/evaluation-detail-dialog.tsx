@@ -15,8 +15,10 @@ import { usePermissions } from "@/hooks/use-permissions"
 interface Employee {
   id: string
   name: string
-  department: string
-  position: string
+  department?: string | string[]
+  departments?: string[]
+  position?: string | string[]
+  positions?: string[]
   employeeId: string
 }
 
@@ -43,8 +45,19 @@ interface EvaluationDetailDialogProps {
 
 export function EvaluationDetailDialog({ employee, open, onOpenChange }: EvaluationDetailDialogProps) {
   const permissions = usePermissions()
-  const [folders, setFolders] = useState<string[]>(["基本情報", "契約書類", "評価資料"])
-  const [currentFolder, setCurrentFolder] = useState("基本情報")
+  const defaultFolders = ["基本情報", "契約書類", "評価資料"]
+  
+  // localStorageからフォルダ情報を読み込む
+  const getStoredFolders = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`evaluation-folders-${employee.id}`)
+      return stored ? JSON.parse(stored) : defaultFolders
+    }
+    return defaultFolders
+  }
+  
+  const [folders, setFolders] = useState<string[]>(getStoredFolders())
+  const [currentFolder, setCurrentFolder] = useState(getStoredFolders()[0])
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isAddingFolder, setIsAddingFolder] = useState(false)
@@ -55,6 +68,13 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   
   // 管理者・総務権限チェック
   const canManageFolders = permissions.role === 'admin' || permissions.role === 'hr'
+  
+  // フォルダが変更されたらlocalStorageに保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`evaluation-folders-${employee.id}`, JSON.stringify(folders))
+    }
+  }, [folders, employee.id])
 
   // ファイルデータを取得
   useEffect(() => {
@@ -69,9 +89,13 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   const fetchEvaluationFiles = async () => {
     setLoading(true)
     try {
+      console.log('ファイル取得開始:', { employeeId: employee.id })
       const response = await fetch(`/api/files/employee/${employee.id}`)
+      
       if (response.ok) {
         const data = await response.json()
+        console.log('取得したファイルデータ:', data)
+        
         const fileList: EvaluationFile[] = data.map((file: any) => ({
           id: file.id,
           name: file.originalName,
@@ -80,6 +104,8 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           size: formatFileSize(file.size),
           folderName: file.folderName || '基本情報'
         }))
+        
+        console.log('処理後のファイルリスト:', fileList)
         setFiles(fileList)
         
         // フォルダ別にファイルを分類
@@ -87,7 +113,11 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
         folders.forEach(folder => {
           filesByFolderMap[folder] = fileList.filter(file => file.folderName === folder)
         })
+        
+        console.log('フォルダ別ファイル分類:', filesByFolderMap)
         setFilesByFolder(filesByFolderMap)
+      } else {
+        console.error('ファイル取得エラー:', response.status, await response.text())
       }
     } catch (error) {
       console.error('ファイル取得エラー:', error)
@@ -161,6 +191,8 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
 
   const handleFileUpload = async (files: File[], folderName?: string) => {
     setLoading(true)
+    let uploadSuccess = false
+    
     try {
       for (const file of files) {
         const formData = new FormData()
@@ -168,6 +200,12 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
         formData.append('employeeId', employee.id)
         formData.append('folder', 'evaluation') // 考課表用のフォルダ
         formData.append('folderName', folderName || currentFolder) // 現在のフォルダ名を指定
+
+        console.log('ファイルアップロード開始:', {
+          fileName: file.name,
+          employeeId: employee.id,
+          folderName: folderName || currentFolder
+        })
 
         const response = await fetch('/api/files/upload', {
           method: 'POST',
@@ -180,13 +218,18 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
         if (response.ok) {
           const result = await response.json()
           console.log('ファイルアップロード成功:', result)
+          uploadSuccess = true
         } else {
-          console.error('ファイルアップロードエラー:', await response.text())
+          const errorText = await response.text()
+          console.error('ファイルアップロードエラー:', response.status, errorText)
         }
       }
       
-      // アップロード後にファイル一覧を再取得
-      await fetchEvaluationFiles()
+      // アップロードが成功した場合のみファイル一覧を再取得
+      if (uploadSuccess) {
+        console.log('ファイル一覧を再取得中...')
+        await fetchEvaluationFiles()
+      }
     } catch (error) {
       console.error('ファイルアップロードエラー:', error)
     } finally {
@@ -270,18 +313,40 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[98vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[98vw] h-[95vh] max-w-none max-h-none overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4">
               <Avatar className="w-12 h-12">
                 <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
-                  {employee.name.slice(0, 3)}
+                  {employee.name.slice(0, 2)}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="text-xl font-bold">{employee.name} - 人事考課表</div>
                 <div className="text-sm font-normal text-slate-600">
-                  {employee.department} / {employee.position}
+                  {(() => {
+                    // 部署情報の処理
+                    let deptStr = ""
+                    if (Array.isArray(employee.departments)) {
+                      deptStr = employee.departments.filter(Boolean).slice(0, 2).join(", ")
+                    } else if (employee.department) {
+                      deptStr = Array.isArray(employee.department) 
+                        ? employee.department.filter(Boolean).slice(0, 2).join(", ")
+                        : employee.department
+                    }
+                    
+                    // 役職情報の処理
+                    let posStr = ""
+                    if (Array.isArray(employee.positions)) {
+                      posStr = employee.positions.filter(Boolean).slice(0, 2).join(", ")
+                    } else if (employee.position) {
+                      posStr = Array.isArray(employee.position)
+                        ? employee.position.filter(Boolean).slice(0, 2).join(", ")
+                        : employee.position
+                    }
+                    
+                    return `${deptStr} / ${posStr}`
+                  })()}
                 </div>
               </div>
             </DialogTitle>
@@ -387,18 +452,19 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                 <TabsContent key={folder} value={folder} className="space-y-4">
                   {/* Drag & Drop Upload Area */}
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors h-32 flex flex-col justify-center ${
                       isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
                     }`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, folder)}
                   >
-                    <Upload className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-                    <p className="text-slate-600 mb-2">ファイルをドラッグ&ドロップ</p>
-                    <p className="text-sm text-slate-500 mb-4">または</p>
+                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                    <p className="text-slate-600 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
+                    <p className="text-xs text-slate-500 mb-2">または</p>
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={() => {
                         const input = document.createElement("input")
                         input.type = "file"
@@ -411,10 +477,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                         input.click()
                       }}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-3 h-3 mr-1" />
                       ファイルを選択
                     </Button>
-                    <p className="text-xs text-slate-500 mt-4">対応形式: Excel, PDF, 画像, テキスト, Word, CSV</p>
+                    <p className="text-xs text-slate-500 mt-1">対応形式: Excel, PDF, 画像, テキスト, Word, CSV</p>
                   </div>
 
                   {/* File List */}

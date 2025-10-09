@@ -453,9 +453,6 @@ function DraggableOrgNodeCard({
                       <p className="text-xs text-slate-600 truncate">{node.organization.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')}</p>
                     )}
                     <p className="text-xs text-slate-600 truncate">{node.position.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')}</p>
-                    {node.description && (
-                      <p className="text-xs text-slate-500 italic truncate">{node.description}</p>
-                    )}
                   </>
                 )}
               </div>

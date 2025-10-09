@@ -952,15 +952,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       placeholder="ヤマダタロウ"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>メールアドレス</Label>
-                    <Input 
-                      type="email" 
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee} 
-                    />
-                  </div>
                   {canViewMyNumber && (
                     <div className="col-span-2 space-y-2">
                       <div className="flex items-center gap-2">
@@ -1545,17 +1536,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>組織図での説明書き</Label>
-                  <Textarea 
-                    value={formData.description || ''}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    disabled={!canEditProfile}
-                    placeholder="組織図の社員カードに表示される説明書きを入力"
-                    rows={3}
-                  />
-                  <p className="text-xs text-slate-500">組織図の社員カード下部に表示されます</p>
-                </div>
+                {/* 備考欄は総務・管理者のみ表示 */}
+                {(currentUser?.department?.includes('総務') || currentUser?.role === 'admin') && (
+                  <div className="space-y-2">
+                    <Label>備考欄</Label>
+                    <Textarea 
+                      value={formData.description || ''}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      disabled={!canEditProfile}
+                      placeholder="自由項目として備考を入力"
+                      rows={3}
+                    />
+                  </div>
+                )}
 
                 {(isOwnProfile || isAdminOrHR) && (
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-center">

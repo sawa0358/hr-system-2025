@@ -421,19 +421,27 @@ function DraggableOrgNodeCard({
         onMouseLeave={() => setIsHovered(false)}
       >
         <Card
-          className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+          className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all ${
+            canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+          } ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
-          } ${isDraggingThis ? "opacity-50" : ""}`}
-          onClick={() => onEmployeeClick?.(node)}
+          } ${
+            isDraggingThis ? "opacity-50 bg-blue-50 border-blue-300" : ""
+          }`}
+          onClick={(e) => {
+            // ドラッグ中でない場合のみクリックイベントを実行
+            if (!isDraggingThis) {
+              onEmployeeClick?.(node)
+            }
+          }}
+          {...(canEdit ? { ...listeners, ...attributes } : {})}
         >
           <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
             <div className="flex items-center gap-2">
-              {canEdit ? (
-                <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-shrink-0">
-                  <GripVertical className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+              {canEdit && (
+                <div className="flex-shrink-0">
+                  <GripVertical className="w-4 h-4 text-slate-400" />
                 </div>
-              ) : (
-                <div className="w-4 flex-shrink-0" />
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
                 <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
@@ -600,29 +608,35 @@ function UnassignedEmployeeCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`w-full bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer ${
-        isDraggingThis ? "opacity-50 z-50" : ""
+      className={`w-full bg-white border border-slate-200 rounded-lg shadow-sm hover:shadow-md transition-all ${
+        canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+      } ${
+        isDraggingThis ? "opacity-50 z-50 bg-blue-50 border-blue-300" : ""
       } ${isSelected ? "bg-green-50 border-green-300 ring-2 ring-green-200" : ""}`}
-      onClick={() => onEmployeeClick?.({
-        id: employee.id,
-        name: employee.name,
-        position: employee.position,
-        department: employee.department,
-        employeeNumber: employee.employeeNumber,
-        organization: employee.organization,
-        team: employee.team,
-        employee: employee
-      })}
+      onClick={(e) => {
+        // ドラッグ中でない場合のみクリックイベントを実行
+        if (!isDraggingThis) {
+          onEmployeeClick?.({
+            id: employee.id,
+            name: employee.name,
+            position: employee.position,
+            department: employee.department,
+            employeeNumber: employee.employeeNumber,
+            organization: employee.organization,
+            team: employee.team,
+            employee: employee
+          })
+        }
+      }}
+      {...(canEdit ? { ...listeners, ...attributes } : {})}
     >
       <div className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            {canEdit ? (
-              <div {...listeners} {...attributes} className="cursor-grab active:cursor-grabbing flex-shrink-0">
-                <GripVertical className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+            {canEdit && (
+              <div className="flex-shrink-0">
+                <GripVertical className="w-3 h-3 text-slate-400" />
               </div>
-            ) : (
-              <div className="w-3 flex-shrink-0" />
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
               <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">

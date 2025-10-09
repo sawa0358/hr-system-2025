@@ -87,7 +87,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
   const canEditUserInfo = permissions.permissions.editAllProfiles || isAdminOrHR
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
-  const canViewFiles = permissions.permissions.viewAllProfiles || isAdminOrHR
+  const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
   
   // デバッグ用：権限チェック結果をコンソールに出力
   console.log('Permission Check Results:', {
@@ -940,7 +940,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee} 
+                      disabled={!canEditUserInfo && !isNewEmployee}
+                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -950,6 +951,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       onChange={(e) => setFormData({ ...formData, furigana: e.target.value })}
                       disabled={!canEditUserInfo && !isNewEmployee}
                       placeholder="ヤマダタロウ"
+                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   {canViewMyNumber && (
@@ -965,7 +967,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           value={formData.myNumber}
                           onChange={(e) => setFormData({...formData, myNumber: e.target.value})}
                           placeholder="マイナンバー（12桁）"
-                          className="font-mono"
+                          className={`font-mono ${(!showEmployeeMyNumber || !canEditUserInfo) ? "text-[#374151] bg-[#edeaed]" : ""}`}
                           disabled={!showEmployeeMyNumber || !canEditUserInfo}
                         />
                         <Button
@@ -989,6 +991,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           value={privacySettings.birthDate ? formData.birthDate : ''}
                           onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                           disabled={!canEditUserInfo && !isNewEmployee || !privacySettings.birthDate}
+                          className={(!canEditUserInfo && !isNewEmployee || !privacySettings.birthDate) ? "text-[#374151] bg-[#edeaed]" : ""}
                         />
                         {!privacySettings.birthDate && (
                           <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
@@ -1092,7 +1095,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="date" 
                       value={formData.joinDate}
                       onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
-                      disabled={!canEditUserInfo && !isNewEmployee} 
+                      disabled={!canEditUserInfo && !isNewEmployee}
+                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1101,7 +1105,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       value={formData.employeeNumber || ''}
                       onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
                       placeholder="社員番号を入力"
-                      disabled={!canEditUserInfo && !isNewEmployee} 
+                      disabled={!canEditUserInfo && !isNewEmployee}
+                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1123,7 +1128,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       onValueChange={(value) => setFormData({...formData, employeeType: value})}
                       disabled={!canEditUserInfo && !isNewEmployee}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1142,7 +1147,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       onValueChange={(value) => setFormData({...formData, status: value})}
                       disabled={!canEditUserInfo && !isNewEmployee}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1184,7 +1189,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={privacySettings.displayName ? formData.name : '非公開'} 
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.displayName} 
+                      disabled={!canEditProfile || !privacySettings.displayName}
+                      className={(!canEditProfile || !privacySettings.displayName) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.displayName && (
                       <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
@@ -1208,7 +1214,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       placeholder="半角の英数字とのみ使用できます" 
                       value={formData.userId}
                       onChange={(e) => setFormData({...formData, userId: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile}
+                      className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                 </div>
@@ -1317,6 +1324,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           setFormData({...formData, organization: e.target.value})
                         }}
                         disabled={!canEditProfile}
+                        className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                       />
                       <div className="flex items-center gap-2">
                         {canEditProfile && organizations.length > 1 && (
@@ -1390,7 +1398,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         }}
                         disabled={!canEditProfile}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}>
                           <SelectValue placeholder="部署を選択" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1464,7 +1472,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           }}
                           disabled={!canEditProfile}
                         >
-                          <SelectTrigger className="flex-1">
+                          <SelectTrigger className={`flex-1 ${!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}`}>
                             <SelectValue placeholder="役職を選択" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1522,7 +1530,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="url" 
                       value={formData.url}
                       onChange={(e) => setFormData({...formData, url: e.target.value})}
-                      disabled={!canEditProfile} 
+                      disabled={!canEditProfile}
+                      className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   {canEditProfile && isAdminOrHR && (
@@ -1575,7 +1584,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="email" 
                       value={privacySettings.email ? formData.email : '非公開'}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.email} 
+                      disabled={!canEditProfile || !privacySettings.email}
+                      className={(!canEditProfile || !privacySettings.email) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.email && (
                       <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
@@ -1599,7 +1609,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="tel" 
                       value={privacySettings.workPhone ? formData.phone : '非公開'}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.workPhone} 
+                      disabled={!canEditProfile || !privacySettings.workPhone}
+                      className={(!canEditProfile || !privacySettings.workPhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.workPhone && (
                       <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
@@ -1623,7 +1634,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="tel" 
                       value={privacySettings.extension ? formData.phoneInternal : '非公開'}
                       onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.extension} 
+                      disabled={!canEditProfile || !privacySettings.extension}
+                      className={(!canEditProfile || !privacySettings.extension) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.extension && (
                       <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
@@ -1647,7 +1659,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="tel" 
                       value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
                       onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.mobilePhone} 
+                      disabled={!canEditProfile || !privacySettings.mobilePhone}
+                      className={(!canEditProfile || !privacySettings.mobilePhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.mobilePhone && (
                       <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>

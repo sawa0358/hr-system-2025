@@ -25,29 +25,37 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
 
-  // 部署と役職の一覧を取得
+  // 部署と役職の一覧をlocalStorageから取得
   useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        const response = await fetch('/api/employees')
-        if (response.ok) {
-          const employees = await response.json()
-          
-          // 部署の一覧を取得（重複を除去）
-          const departments = [...new Set(employees.map((emp: any) => emp.department).filter(Boolean))] as string[]
+    if (typeof window !== 'undefined') {
+      // 部署管理から取得
+      const savedDepartments = localStorage.getItem('available-departments')
+      if (savedDepartments) {
+        try {
+          const departments = JSON.parse(savedDepartments)
           setAvailableDepartments(departments)
-          
-          // 役職の一覧を取得（重複を除去）
-          const positions = [...new Set(employees.map((emp: any) => emp.position).filter(Boolean))] as string[]
-          setAvailablePositions(positions)
+        } catch (error) {
+          console.error('部署データの取得エラー:', error)
         }
-      } catch (error) {
-        console.error('フィルターオプションの取得エラー:', error)
+      }
+
+      // 役職管理から取得
+      const savedPositions = localStorage.getItem('available-positions')
+      if (savedPositions) {
+        try {
+          const positions = JSON.parse(savedPositions)
+          setAvailablePositions(positions)
+        } catch (error) {
+          console.error('役職データの取得エラー:', error)
+        }
       }
     }
-
-    fetchFilterOptions()
   }, [])
+
+  // カッコ表示を除去するヘルパー関数
+  const cleanText = (text: string) => {
+    return text.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')
+  }
 
   // フィルター変更時に親コンポーネントに通知
   useEffect(() => {
@@ -102,7 +110,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           <SelectContent>
             <SelectItem value="all">全部署</SelectItem>
             {availableDepartments.map((dept) => (
-              <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+              <SelectItem key={dept} value={dept}>{cleanText(dept)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -114,7 +122,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           <SelectContent>
             <SelectItem value="all">全役職</SelectItem>
             {availablePositions.map((pos) => (
-              <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+              <SelectItem key={pos} value={pos}>{cleanText(pos)}</SelectItem>
             ))}
           </SelectContent>
         </Select>

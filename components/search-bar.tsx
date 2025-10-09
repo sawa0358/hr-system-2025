@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Search, Sparkles, Calendar } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -12,14 +12,52 @@ import { ja } from "date-fns/locale"
 
 export function SearchBar() {
   const [organization, setOrganization] = useState<string>("")
+  const [department, setDepartment] = useState<string>("")
+  const [position, setPosition] = useState<string>("")
   const [employeeName, setEmployeeName] = useState<string>("")
   const [dateFrom, setDateFrom] = useState<Date>()
   const [dateTo, setDateTo] = useState<Date>()
   const [searchType, setSearchType] = useState<string>("keyword")
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
+  const [availablePositions, setAvailablePositions] = useState<string[]>([])
+
+  // 部署と役職の一覧をlocalStorageから取得
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // 部署管理から取得
+      const savedDepartments = localStorage.getItem('available-departments')
+      if (savedDepartments) {
+        try {
+          const departments = JSON.parse(savedDepartments)
+          setAvailableDepartments(departments)
+        } catch (error) {
+          console.error('部署データの取得エラー:', error)
+        }
+      }
+
+      // 役職管理から取得
+      const savedPositions = localStorage.getItem('available-positions')
+      if (savedPositions) {
+        try {
+          const positions = JSON.parse(savedPositions)
+          setAvailablePositions(positions)
+        } catch (error) {
+          console.error('役職データの取得エラー:', error)
+        }
+      }
+    }
+  }, [])
+
+  // カッコ表示を除去するヘルパー関数
+  const cleanText = (text: string) => {
+    return text.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')
+  }
 
   const handleSearch = () => {
     console.log("[v0] Search filters:", {
       organization,
+      department,
+      position,
       employeeName,
       dateFrom,
       dateTo,
@@ -34,7 +72,7 @@ export function SearchBar() {
         <h2 className="text-lg font-semibold text-slate-900">総合検索</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
         <Select value={organization} onValueChange={setOrganization}>
           <SelectTrigger>
             <SelectValue placeholder="組織" />
@@ -47,6 +85,30 @@ export function SearchBar() {
             <SelectItem value="engineering">エンジニアリング部</SelectItem>
             <SelectItem value="sales">営業部</SelectItem>
             <SelectItem value="hr">人事部</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={department} onValueChange={setDepartment}>
+          <SelectTrigger>
+            <SelectValue placeholder="部署" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部署</SelectItem>
+            {availableDepartments.map((dept) => (
+              <SelectItem key={dept} value={dept}>{cleanText(dept)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={position} onValueChange={setPosition}>
+          <SelectTrigger>
+            <SelectValue placeholder="役職" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全役職</SelectItem>
+            {availablePositions.map((pos) => (
+              <SelectItem key={pos} value={pos}>{cleanText(pos)}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -100,6 +162,8 @@ export function SearchBar() {
           variant="outline"
           onClick={() => {
             setOrganization("")
+            setDepartment("")
+            setPosition("")
             setEmployeeName("")
             setDateFrom(undefined)
             setDateTo(undefined)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -391,26 +391,87 @@ function KanbanColumn({
   )
 }
 
-export function KanbanBoard() {
+interface KanbanBoardProps {
+  boardData?: any
+}
+
+export function KanbanBoard({ boardData }: KanbanBoardProps) {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
 
-  const [lists, setLists] = useState<KanbanList[]>([
-    { id: "todo", title: "未着手", taskIds: kanbanTasks.filter((t) => t.status === "todo").map((t) => t.id) },
-    {
-      id: "in-progress",
-      title: "進行中",
-      taskIds: kanbanTasks.filter((t) => t.status === "in-progress").map((t) => t.id),
-    },
-    { id: "review", title: "レビュー", taskIds: kanbanTasks.filter((t) => t.status === "review").map((t) => t.id) },
-    { id: "done", title: "完了", taskIds: kanbanTasks.filter((t) => t.status === "done").map((t) => t.id) },
-  ])
+  // ボードデータからリストとカードを生成
+  const generateListsFromBoardData = (boardData: any) => {
+    if (!boardData?.lists) {
+      return [
+        { id: "todo", title: "未着手", taskIds: [] },
+        { id: "in-progress", title: "進行中", taskIds: [] },
+        { id: "review", title: "レビュー", taskIds: [] },
+        { id: "done", title: "完了", taskIds: [] },
+      ]
+    }
+
+    return boardData.lists.map((list: any) => ({
+      id: list.id,
+      title: list.title,
+      taskIds: list.cards ? list.cards.map((card: any) => card.id) : [],
+    }))
+  }
+
+  const generateTasksFromBoardData = (boardData: any) => {
+    if (!boardData?.lists) {
+      return {}
+    }
+
+    const tasks: Record<string, Task> = {}
+    boardData.lists.forEach((list: any) => {
+      if (list.cards) {
+        list.cards.forEach((card: any) => {
+          tasks[card.id] = {
+            id: card.id,
+            title: card.title,
+            description: card.description || "",
+            assignee: card.members?.[0]?.name || "未割り当て",
+            dueDate: card.dueDate || "",
+            priority: card.priority || "medium",
+            comments: 0,
+            attachments: card.attachments?.length || 0,
+            status: list.id,
+            cardColor: card.cardColor,
+            labels: card.labels || [],
+          }
+        })
+      }
+    })
+    return tasks
+  }
+
+  const [lists, setLists] = useState<KanbanList[]>(
+    boardData ? generateListsFromBoardData(boardData) : [
+      { id: "todo", title: "未着手", taskIds: kanbanTasks.filter((t) => t.status === "todo").map((t) => t.id) },
+      {
+        id: "in-progress",
+        title: "進行中",
+        taskIds: kanbanTasks.filter((t) => t.status === "in-progress").map((t) => t.id),
+      },
+      { id: "review", title: "レビュー", taskIds: kanbanTasks.filter((t) => t.status === "review").map((t) => t.id) },
+      { id: "done", title: "完了", taskIds: kanbanTasks.filter((t) => t.status === "done").map((t) => t.id) },
+    ]
+  )
 
   const [tasksById, setTasksById] = useState<Record<string, Task>>(
-    kanbanTasks.reduce((acc, task) => ({ ...acc, [task.id]: task }), {}),
+    boardData ? generateTasksFromBoardData(boardData) : kanbanTasks.reduce((acc, task) => ({ ...acc, [task.id]: task }), {}),
   )
+
+  // ボードデータが変更されたときに状態を更新
+  useEffect(() => {
+    if (boardData) {
+      console.log("KanbanBoard - Updating with board data:", boardData)
+      setLists(generateListsFromBoardData(boardData))
+      setTasksById(generateTasksFromBoardData(boardData))
+    }
+  }, [boardData])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

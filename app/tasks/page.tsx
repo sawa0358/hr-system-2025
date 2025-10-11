@@ -1,6 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { getPermissions } from "@/lib/permissions"
+import { WorkspaceSelector } from "@/components/workspace-selector"
+import { WorkspaceManagerDialog } from "@/components/workspace-manager-dialog"
+import { BoardManagerDialog } from "@/components/board-manager-dialog"
 import { KanbanBoard } from "@/components/kanban-board"
 import { TaskCalendar } from "@/components/task-calendar"
 import { ExportMenu } from "@/components/export-menu"
@@ -8,17 +13,24 @@ import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
 import { DefaultCardSettingsDialog } from "@/components/default-card-settings-dialog"
-import { Plus, Filter, LayoutGrid, Calendar, Users } from "lucide-react"
+import { Plus, Filter, LayoutGrid, Calendar, Settings } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { kanbanTasks } from "@/lib/mock-data"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
+import { employees } from "@/lib/mock-data"
 
 export default function TasksPage() {
-  const [currentBoard, setCurrentBoard] = useState("my-tasks")
+  const { currentUser } = useAuth()
+  const permissions = currentUser?.role ? getPermissions(currentUser.role) : null
+  
+  // デバッグ用ログ
+  console.log("TasksPage - currentUser:", currentUser)
+  console.log("TasksPage - permissions:", permissions)
+
+  const [workspaces, setWorkspaces] = useState<any[]>([])
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
+  const [boards, setBoards] = useState<any[]>([])
+  const [currentBoard, setCurrentBoard] = useState<string | null>(null)
+  const [currentBoardData, setCurrentBoardData] = useState<any>(null)
   const [showCalendar, setShowCalendar] = useState(false)
-  const [boardMembersDialogOpen, setBoardMembersDialogOpen] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [taskFilters, setTaskFilters] = useState<TaskFilters>({
     freeWord: "",
@@ -27,66 +39,271 @@ export default function TasksPage() {
     dateFrom: "",
     dateTo: "",
   })
-  const isAdmin = true
 
-  const [boards, setBoards] = useState([
-    { id: "my-tasks", name: "自分のタスク", members: ["current-user"], isPersonal: true },
-    { id: "all", name: "全体ボード", members: ["all"], isDefault: true },
-    { id: "engineering", name: "エンジニアリング部", members: ["user1", "user2", "user3"] },
-    { id: "sales", name: "営業部", members: ["user4", "user5"] },
-    { id: "project1", name: "プロジェクトA", members: ["user1", "user4", "user6"] },
-  ])
+  // Dialog states
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
+  const [boardDialogOpen, setBoardDialogOpen] = useState(false)
+  const [editingWorkspace, setEditingWorkspace] = useState<any>(null)
+  const [editingBoard, setEditingBoard] = useState<any>(null)
 
-  const [selectedBoardMembers, setSelectedBoardMembers] = useState<string[]>([])
+  // ワークスペース一覧を取得
+  useEffect(() => {
+    if (currentUser) {
+      fetchWorkspaces()
+    }
+  }, [currentUser])
 
-  const employees = [
-    { id: "user1", name: "山田太郎" },
-    { id: "user2", name: "佐藤花子" },
-    { id: "user3", name: "鈴木一郎" },
-    { id: "user4", name: "田中美咲" },
-    { id: "user5", name: "高橋健太" },
-    { id: "user6", name: "伊藤さくら" },
-  ]
+  // ワークスペースが変更されたらボード一覧を取得
+  useEffect(() => {
+    if (currentWorkspace) {
+      fetchBoards(currentWorkspace)
+    } else {
+      setBoards([])
+      setCurrentBoard(null)
+    }
+  }, [currentWorkspace])
 
-  const handleAddBoard = () => {
-    const boardName = prompt("ボード名を入力してください")
-    if (boardName) {
-      const newBoard = {
-        id: `board-${Date.now()}`,
-        name: boardName,
-        members: ["current-user"],
-        isPersonal: false,
+  // ボード選択時にデータを取得
+  useEffect(() => {
+    if (currentBoard) {
+      fetchBoardData(currentBoard)
+    }
+  }, [currentBoard])
+
+  const fetchWorkspaces = async () => {
+    try {
+      const response = await fetch("/api/workspaces", {
+        headers: {
+          "x-employee-id": currentUser?.id || "",
+        },
+      })
+      const data = await response.json()
+      if (data.workspaces) {
+        setWorkspaces(data.workspaces)
+        // 最初のワークスペースを選択
+        if (data.workspaces.length > 0 && !currentWorkspace) {
+          setCurrentWorkspace(data.workspaces[0].id)
+        }
       }
-      setBoards([...boards, newBoard])
-      console.log("[v0] Creating new board:", boardName)
+    } catch (error) {
+      console.error("Failed to fetch workspaces:", error)
     }
   }
 
-  const handleManageBoardMembers = () => {
-    const currentBoardData = boards.find((b) => b.id === currentBoard)
-    if (currentBoardData) {
-      setSelectedBoardMembers(currentBoardData.members)
-      setBoardMembersDialogOpen(true)
+  const fetchBoards = async (workspaceId: string) => {
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}`, {
+        headers: {
+          "x-employee-id": currentUser?.id || "",
+        },
+      })
+      const data = await response.json()
+      if (data.workspace?.boards) {
+        setBoards(data.workspace.boards)
+        // 最初のボードを選択
+        if (data.workspace.boards.length > 0 && !currentBoard) {
+          setCurrentBoard(data.workspace.boards[0].id)
+          // ボード選択時にリストとカードを取得
+          fetchBoardData(data.workspace.boards[0].id)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch boards:", error)
     }
   }
 
-  const handleSaveBoardMembers = () => {
-    setBoards(boards.map((board) => (board.id === currentBoard ? { ...board, members: selectedBoardMembers } : board)))
-    setBoardMembersDialogOpen(false)
+  const fetchBoardData = async (boardId: string) => {
+    try {
+      console.log("Fetching board data for:", boardId)
+      const response = await fetch(`/api/boards/${boardId}`, {
+        headers: {
+          "x-employee-id": currentUser?.id || "",
+        },
+      })
+      const data = await response.json()
+      console.log("Board data received:", data)
+      
+      if (data.board) {
+        setCurrentBoardData(data.board)
+        console.log("Current board data set:", data.board)
+      }
+    } catch (error) {
+      console.error("Failed to fetch board data:", error)
+    }
   }
 
-  const toggleMember = (memberId: string) => {
-    setSelectedBoardMembers((prev) =>
-      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId],
-    )
+  const handleCreateWorkspace = () => {
+    setEditingWorkspace(null)
+    setWorkspaceDialogOpen(true)
   }
 
-  const allTasks = Object.values(kanbanTasks)
-    .flat()
-    .filter((task) => task.dueDate)
+  const handleEditWorkspace = () => {
+    const workspace = workspaces.find((w) => w.id === currentWorkspace)
+    setEditingWorkspace(workspace)
+    setWorkspaceDialogOpen(true)
+  }
 
-  const currentBoardData = boards.find((b) => b.id === currentBoard)
-  const canEditBoard = isAdmin || currentBoardData?.members.includes("current-user")
+  const handleSaveWorkspace = async (data: { name: string; description: string; memberIds: string[] }) => {
+    try {
+      if (editingWorkspace?.id) {
+        // 更新
+        const response = await fetch(`/api/workspaces/${editingWorkspace.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser?.id || "",
+          },
+          body: JSON.stringify(data),
+        })
+        if (response.ok) {
+          fetchWorkspaces()
+        }
+      } else {
+        // 新規作成
+        console.log("Creating workspace with user ID:", currentUser?.id)
+        const response = await fetch("/api/workspaces", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser?.id || "",
+          },
+          body: JSON.stringify(data),
+        })
+        if (response.ok) {
+          const result = await response.json()
+          console.log("Workspace created successfully:", result.workspace)
+          fetchWorkspaces()
+          setCurrentWorkspace(result.workspace.id)
+          setWorkspaceDialogOpen(false)
+          setEditingWorkspace(null)
+          console.log("Current workspace set to:", result.workspace.id)
+          
+          // デフォルトボードを作成
+          try {
+            const boardResponse = await fetch("/api/boards", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-employee-id": currentUser?.id || "",
+              },
+              body: JSON.stringify({
+                name: "メインボード",
+                description: "メインのタスクボードです",
+                workspaceId: result.workspace.id,
+              }),
+            })
+            
+            if (boardResponse.ok) {
+              const boardResult = await boardResponse.json()
+              setCurrentBoard(boardResult.board.id)
+              fetchBoards(result.workspace.id)
+            }
+          } catch (error) {
+            console.error("Failed to create default board:", error)
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to save workspace:", error)
+      alert("ワークスペースの保存に失敗しました")
+    }
+  }
+
+  const handleDeleteWorkspace = async () => {
+    if (!editingWorkspace?.id) return
+    if (!confirm("このワークスペースを削除してもよろしいですか？すべてのボードとカードも削除されます。")) return
+
+    try {
+      const response = await fetch(`/api/workspaces/${editingWorkspace.id}`, {
+        method: "DELETE",
+        headers: {
+          "x-employee-id": currentUser?.id || "",
+        },
+      })
+      if (response.ok) {
+        setWorkspaceDialogOpen(false)
+        setEditingWorkspace(null)
+        setCurrentWorkspace(null)
+        fetchWorkspaces()
+      }
+    } catch (error) {
+      console.error("Failed to delete workspace:", error)
+      alert("ワークスペースの削除に失敗しました")
+    }
+  }
+
+  const handleCreateBoard = () => {
+    if (!currentWorkspace) {
+      alert("ワークスペースを選択してください")
+      return
+    }
+    setEditingBoard(null)
+    setBoardDialogOpen(true)
+  }
+
+  const handleSaveBoard = async (data: { name: string; description: string; workspaceId: string }) => {
+    try {
+      if (editingBoard?.id) {
+        // 更新
+        const response = await fetch(`/api/boards/${editingBoard.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser?.id || "",
+          },
+          body: JSON.stringify(data),
+        })
+        if (response.ok) {
+          fetchBoards(currentWorkspace!)
+        }
+      } else {
+        // 新規作成
+        const response = await fetch("/api/boards", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser?.id || "",
+          },
+          body: JSON.stringify(data),
+        })
+        if (response.ok) {
+          const result = await response.json()
+          fetchBoards(currentWorkspace!)
+          setCurrentBoard(result.board.id)
+          setBoardDialogOpen(false)
+          setEditingBoard(null)
+        }
+      }
+    } catch (error) {
+      console.error("Failed to save board:", error)
+      alert("ボードの保存に失敗しました")
+    }
+  }
+
+  const handleDeleteBoard = async () => {
+    if (!editingBoard?.id) return
+    if (!confirm("このボードを削除してもよろしいですか？すべてのカードも削除されます。")) return
+
+    try {
+      const response = await fetch(`/api/boards/${editingBoard.id}`, {
+        method: "DELETE",
+        headers: {
+          "x-employee-id": currentUser?.id || "",
+        },
+      })
+      if (response.ok) {
+        setBoardDialogOpen(false)
+        setEditingBoard(null)
+        setCurrentBoard(null)
+        fetchBoards(currentWorkspace!)
+      }
+    } catch (error) {
+      console.error("Failed to delete board:", error)
+      alert("ボードの削除に失敗しました")
+    }
+  }
+
+  const allTasks = [] // TODO: カードデータを取得
 
   return (
     <main className="overflow-y-auto">
@@ -95,116 +312,138 @@ export default function TasksPage() {
           <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
         </div>
 
+        {/* ワークスペース選択 */}
         <div className="flex items-center justify-between mb-6">
+          <WorkspaceSelector
+            workspaces={workspaces}
+            currentWorkspace={currentWorkspace}
+            onWorkspaceChange={setCurrentWorkspace}
+            onCreateWorkspace={handleCreateWorkspace}
+            canCreateWorkspace={permissions?.createWorkspace || false}
+          />
           <div className="flex gap-3">
             <AIAskButton context="タスク管理" />
-          </div>
-          <div className="flex gap-3">
             <ExportMenu />
             <DefaultCardSettingsDialog />
-            <Button
-              variant={showCalendar ? "default" : "outline"}
-              onClick={() => setShowCalendar(!showCalendar)}
-              className={showCalendar ? "" : "border-slate-300"}
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              カレンダー表示
-            </Button>
-            <Button
-              variant={showFilters ? "default" : "outline"}
-              onClick={() => setShowFilters(!showFilters)}
-              className={showFilters ? "" : "border-slate-300 bg-transparent"}
-            >
-              <Filter className="w-4 h-4 mr-2" />
-              フィルター
-            </Button>
+            {currentWorkspace && (
+              <Button variant="outline" onClick={handleEditWorkspace} className="border-slate-300">
+                <Settings className="w-4 h-4 mr-2" />
+                ワークスペース設定
+              </Button>
+            )}
           </div>
         </div>
 
-        {showFilters && (
-          <div className="mb-6">
-            <TaskSearchFilters onFilterChange={setTaskFilters} />
-          </div>
-        )}
-
-        {showCalendar && (
-          <div className="mb-8">
-            <TaskCalendar tasks={allTasks} />
-          </div>
-        )}
-
-        <div className="flex items-center gap-3 mb-6">
-          <LayoutGrid className="w-5 h-5 text-slate-600" />
-          <Select value={currentBoard} onValueChange={setCurrentBoard}>
-            <SelectTrigger className="w-64">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {boards.map((board) => (
-                <SelectItem key={board.id} value={board.id}>
-                  {board.name}
-                  {board.isPersonal && " 📌"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" onClick={handleAddBoard}>
-            <Plus className="w-4 h-4 mr-2" />
-            ボード追加
-          </Button>
-
-          {canEditBoard && !currentBoardData?.isPersonal && (
-            <Dialog open={boardMembersDialogOpen} onOpenChange={setBoardMembersDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleManageBoardMembers}>
-                  <Users className="w-4 h-4 mr-2" />
-                  メンバー管理
+        {/* ボード選択とフィルター */}
+        {currentWorkspace && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex gap-3">
+                <Button
+                  variant={showCalendar ? "default" : "outline"}
+                  onClick={() => setShowCalendar(!showCalendar)}
+                  className={showCalendar ? "" : "border-slate-300"}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  カレンダー表示
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>ボードメンバー管理</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-600">
-                    このボードにアクセスできるメンバーを選択してください。
-                    <br />
-                    選択されたメンバーのみがタスクに追加できます。
-                  </p>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {employees.map((employee) => (
-                      <div key={employee.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={employee.id}
-                          checked={selectedBoardMembers.includes(employee.id)}
-                          onCheckedChange={() => toggleMember(employee.id)}
-                        />
-                        <Label htmlFor={employee.id} className="cursor-pointer">
-                          {employee.name}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button variant="outline" onClick={() => setBoardMembersDialogOpen(false)}>
-                      キャンセル
-                    </Button>
-                    <Button onClick={handleSaveBoardMembers} className="bg-blue-600 hover:bg-blue-700">
-                      保存
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
+                <Button
+                  variant={showFilters ? "default" : "outline"}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={showFilters ? "" : "border-slate-300 bg-transparent"}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  フィルター
+                </Button>
+              </div>
+            </div>
 
-          {isAdmin && (
-            <span className="text-xs text-slate-500 ml-2">※ 管理者・総務はすべてのボードを閲覧・編集できます</span>
-          )}
-        </div>
+            {showFilters && (
+              <div className="mb-6">
+                <TaskSearchFilters onFilterChange={setTaskFilters} />
+              </div>
+            )}
 
-        <KanbanBoard />
+            {showCalendar && (
+              <div className="mb-8">
+                <TaskCalendar tasks={allTasks} />
+              </div>
+            )}
+
+            {/* ボード選択 */}
+            <div className="flex items-center gap-3 mb-6">
+              <LayoutGrid className="w-5 h-5 text-slate-600" />
+              <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="ボードを選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {boards.map((board) => (
+                    <SelectItem key={board.id} value={board.id}>
+                      {board.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {permissions?.createBoards && (
+                <Button variant="outline" size="sm" onClick={handleCreateBoard}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  ボード追加
+                </Button>
+              )}
+            </div>
+
+            {/* カンバンボード */}
+            {currentBoard ? (
+              <KanbanBoard boardData={currentBoardData} />
+            ) : (
+              <div className="text-center py-12 text-slate-500">
+                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="text-lg font-medium mb-2">ボードが選択されていません</p>
+                <p className="text-sm">上からボードを選択するか、新しいボードを作成してください</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ワークスペースが選択されていない場合 */}
+        {!currentWorkspace && (
+          <div className="text-center py-12 text-slate-500">
+            <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+            <p className="text-lg font-medium mb-2">ワークスペースがありません</p>
+            <p className="text-sm mb-6">新しいワークスペースを作成してタスク管理を始めましょう</p>
+            {permissions?.createWorkspace && (
+              <Button onClick={handleCreateWorkspace} className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                ワークスペースを作成
+              </Button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ダイアログ */}
+      <WorkspaceManagerDialog
+        open={workspaceDialogOpen}
+        onOpenChange={setWorkspaceDialogOpen}
+        workspace={editingWorkspace}
+        employees={employees}
+        onSave={handleSaveWorkspace}
+        onDelete={handleDeleteWorkspace}
+        canDelete={permissions?.deleteWorkspace || false}
+      />
+
+      {currentWorkspace && (
+        <BoardManagerDialog
+          open={boardDialogOpen}
+          onOpenChange={setBoardDialogOpen}
+          board={editingBoard}
+          workspaceId={currentWorkspace}
+          onSave={handleSaveBoard}
+          onDelete={handleDeleteBoard}
+          canDelete={permissions?.deleteBoards || false}
+        />
+      )}
     </main>
   )
 }

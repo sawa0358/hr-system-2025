@@ -8,58 +8,64 @@ datasource db {
 }
 
 model Employee {
-  id                  String         @id @default(cuid())
-  employeeId          String         @unique
-  employeeNumber      String         @unique
-  employeeType        EmployeeType
-  name                String
-  furigana            String?
-  email               String?
-  phone               String?
-  department          String
-  position            String
-  organization        String
-  team                String?
-  joinDate            DateTime
-  status              EmployeeStatus @default(active)
-  password            String
-  role                UserRole?
-  myNumber            String?
-  userId              String?
-  url                 String?
-  address             String?
-  selfIntroduction    String?
-  phoneInternal       String?
-  phoneMobile         String?
-  birthDate           DateTime?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  showInOrgChart      Boolean        @default(true)
-  parentEmployeeId    String?
-  isInvisibleTop      Boolean        @default(false)
-  isSuspended         Boolean        @default(false)
-  retirementDate      DateTime?
-  privacyDisplayName  Boolean        @default(true)
-  privacyOrganization Boolean        @default(true)
-  privacyDepartment   Boolean        @default(true)
-  privacyPosition     Boolean        @default(true)
-  privacyUrl          Boolean        @default(true)
-  privacyAddress      Boolean        @default(true)
-  privacyBio          Boolean        @default(true)
-  privacyEmail        Boolean        @default(true)
-  privacyWorkPhone    Boolean        @default(true)
-  privacyExtension    Boolean        @default(true)
-  privacyMobilePhone  Boolean        @default(true)
-  privacyBirthDate    Boolean        @default(false)
-  originalEmployeeId  String?
-  activityLogs        ActivityLog[]
-  attendance          Attendance[]
-  evaluations         Evaluation[]
-  familyMembers       FamilyMember[]
-  files               File[]
-  folders             Folder[]
-  payroll             Payroll[]
-  tasks               Task[]
+  id                    String            @id @default(cuid())
+  employeeId            String            @unique
+  employeeNumber        String            @unique
+  employeeType          EmployeeType
+  name                  String
+  furigana              String?
+  email                 String?
+  phone                 String?
+  department            String
+  position              String
+  organization          String
+  team                  String?
+  joinDate              DateTime
+  status                EmployeeStatus    @default(active)
+  password              String
+  role                  UserRole?
+  myNumber              String?
+  userId                String?
+  url                   String?
+  address               String?
+  selfIntroduction      String?
+  phoneInternal         String?
+  phoneMobile           String?
+  birthDate             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  showInOrgChart        Boolean           @default(true)
+  parentEmployeeId      String?
+  isInvisibleTop        Boolean           @default(false)
+  isSuspended           Boolean           @default(false)
+  retirementDate        DateTime?
+  privacyDisplayName    Boolean           @default(true)
+  privacyOrganization   Boolean           @default(true)
+  privacyDepartment     Boolean           @default(true)
+  privacyPosition       Boolean           @default(true)
+  privacyUrl            Boolean           @default(true)
+  privacyAddress        Boolean           @default(true)
+  privacyBio            Boolean           @default(true)
+  privacyEmail          Boolean           @default(true)
+  privacyWorkPhone      Boolean           @default(true)
+  privacyExtension      Boolean           @default(true)
+  privacyMobilePhone    Boolean           @default(true)
+  privacyBirthDate      Boolean           @default(false)
+  originalEmployeeId    String?
+  activityLogs          ActivityLog[]
+  attendance            Attendance[]
+  evaluations           Evaluation[]
+  familyMembers         FamilyMember[]
+  files                 File[]
+  folders               Folder[]
+  payroll               Payroll[]
+  tasks                 Task[]
+  workspacesCreated     Workspace[]       @relation("WorkspaceCreator")
+  workspaceMemberships  WorkspaceMember[] @relation("WorkspaceMemberships")
+  boardsCreated         Board[]           @relation("BoardCreator")
+  cardsCreated          Card[]            @relation("CardCreator")
+  cardMemberships       CardMember[]      @relation("CardMemberships")
+  cardMembersAdded      CardMember[]      @relation("CardMemberAdder")
 
   @@map("employees")
 }
@@ -96,6 +102,102 @@ model Evaluation {
   employee     Employee @relation(fields: [employeeId], references: [id])
 
   @@map("evaluations")
+}
+
+model Workspace {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  createdBy   String
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  boards      Board[]
+  members     WorkspaceMember[]
+  creator     Employee            @relation("WorkspaceCreator", fields: [createdBy], references: [id])
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  employeeId  String
+  role        String    // workspace_admin, workspace_member
+  joinedAt    DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation("WorkspaceMemberships", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, employeeId])
+  @@map("workspace_members")
+}
+
+model Board {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  position    Int           @default(0)
+  createdBy   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator     Employee      @relation("BoardCreator", fields: [createdBy], references: [id])
+  lists       BoardList[]
+  cards       Card[]
+
+  @@map("boards")
+}
+
+model BoardList {
+  id        String   @id @default(cuid())
+  boardId   String
+  title     String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards     Card[]
+
+  @@map("board_lists")
+}
+
+model Card {
+  id          String       @id @default(cuid())
+  boardId     String
+  listId      String
+  title       String
+  description String?
+  position    Int          @default(0)
+  dueDate     DateTime?
+  priority    String       @default("medium")
+  cardColor   String?
+  labels      Json?
+  checklists  Json?
+  attachments Json?
+  isArchived  Boolean      @default(false)
+  createdBy   String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  list        BoardList    @relation(fields: [listId], references: [id], onDelete: Cascade)
+  creator     Employee     @relation("CardCreator", fields: [createdBy], references: [id])
+  members     CardMember[]
+
+  @@map("cards")
+}
+
+model CardMember {
+  id         String   @id @default(cuid())
+  cardId     String
+  employeeId String
+  addedBy    String
+  addedAt    DateTime @default(now())
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  employee   Employee @relation("CardMemberships", fields: [employeeId], references: [id], onDelete: Cascade)
+  addedByUser Employee @relation("CardMemberAdder", fields: [addedBy], references: [id])
+
+  @@unique([cardId, employeeId])
+  @@map("card_members")
 }
 
 model Task {

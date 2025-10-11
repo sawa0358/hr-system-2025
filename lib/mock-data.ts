@@ -1,6 +1,6 @@
 export const mockEmployees = [
   {
-    id: "0",
+    id: "cmgkljr1000008z81edjq66sl",
     employeeId: "EMP-2015-001",
     employeeNumber: "EMP-2015-001",
     employeeType: "employee",
@@ -17,11 +17,11 @@ export const mockEmployees = [
     role: "admin" as const,
   },
   {
-    id: "0-1",
+    id: "cmgkljr1100018z81od9gdvtu",
     employeeId: "EMP-2015-002",
     employeeNumber: "EMP-2015-002",
     employeeType: "employee",
-    name: "manager",
+    name: "mane",
     email: "manager@company.com",
     phone: "090-0000-0001",
     department: "総務・管理者",
@@ -34,7 +34,7 @@ export const mockEmployees = [
     role: "manager" as const,
   },
   {
-    id: "0-2",
+    id: "cmgkljr1100028z81k6te3z1b",
     employeeId: "EMP-2016-001",
     employeeNumber: "EMP-2016-001",
     employeeType: "employee",
@@ -51,7 +51,7 @@ export const mockEmployees = [
     role: "sub-manager" as const,
   },
   {
-    id: "0-3",
+    id: "cmgkljr1200038z81w0b4pk89",
     employeeId: "EMP-2017-001",
     employeeNumber: "EMP-2017-001",
     employeeType: "employee",
@@ -68,7 +68,7 @@ export const mockEmployees = [
     role: "general" as const,
   },
   {
-    id: "0-4",
+    id: "cmgkljr1300048z81o4uq0cqi",
     employeeId: "EMP-2018-001",
     employeeNumber: "EMP-2018-001",
     employeeType: "employee",

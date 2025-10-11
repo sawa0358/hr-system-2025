@@ -23,8 +23,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (savedUser) {
       try {
         const user = JSON.parse(savedUser)
-        setCurrentUser(user)
-        setIsAuthenticated(true)
+        // 古い形式のID（"admin"など）の場合はキャッシュをクリア
+        if (user.id === "admin" || user.id === "manager" || user.id === "sub" || user.id === "ippan" || user.id === "etsuran") {
+          console.log("Clearing old cached user data:", user.id)
+          localStorage.removeItem("currentUser")
+        } else {
+          setCurrentUser(user)
+          setIsAuthenticated(true)
+        }
       } catch (error) {
         console.error("[v0] Failed to parse saved user:", error)
         localStorage.removeItem("currentUser")
@@ -34,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = (employee: any, rememberMe: boolean) => {
+    console.log("AuthContext - Login:", employee.name, "ID:", employee.id)
     setCurrentUser(employee)
     setIsAuthenticated(true)
 

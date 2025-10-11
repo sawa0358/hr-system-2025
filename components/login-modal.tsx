@@ -30,28 +30,16 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
     setIsLoading(true)
 
     try {
-      // admin/admin の特別な認証
-      if (name === "admin" && password === "admin") {
-        const adminUser = {
-          id: "admin",
-          name: "管理者",
-          role: "admin",
-          department: "システム管理部",
-          position: "システム管理者",
-          email: "admin@company.com",
-          phone: "000-0000-0000",
-          hireDate: new Date().toISOString(),
-          isActive: true
-        }
-        onLoginSuccess(adminUser, rememberMe)
-        return
-      }
-
       // データベースから社員情報を取得
+      console.log("Fetching employees from API...")
       const response = await fetch('/api/employees')
+      console.log("API response status:", response.status)
+      
       if (response.ok) {
         const employees = await response.json()
-        const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
+        console.log("Found employees:", employees.length)
+        const employee = employees.find((emp: any) => emp.name === name && emp.password === password && emp.role)
+        console.log("Found employee:", employee ? `${employee.name} (ID: ${employee.id}, Role: ${employee.role})` : "None")
         
         if (employee) {
           // 停止中ユーザーのログインをブロック
@@ -71,25 +59,8 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           setError("名前またはパスワードが正しくありません")
         }
       } else {
-        // フォールバック: モックデータを使用
-        const employee = mockEmployees.find((emp) => emp.name === name && emp.password === password)
-        if (employee) {
-          // 停止中ユーザーのログインをブロック
-          if (employee.isSuspended || employee.status === 'suspended') {
-            setError("このアカウントは停止中です。管理者にお問い合わせください。")
-            return
-          }
-          
-          // 休職・退職ユーザーのログインをブロック
-          if (employee.status === 'leave' || employee.status === 'retired') {
-            setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
-            return
-          }
-          
-          onLoginSuccess(employee, rememberMe)
-        } else {
-          setError("名前またはパスワードが正しくありません")
-        }
+        console.error("Failed to fetch employees from API, status:", response.status)
+        setError("サーバーに接続できません。しばらく待ってから再試行してください。")
       }
     } catch (error) {
       console.error('ログインエラー:', error)

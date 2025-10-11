@@ -355,14 +355,20 @@ export default function TasksPage() {
           fetchBoards(currentWorkspace!)
         }
       } else {
-        // 新規作成
+        // 新規作成 - 現在のボードをテンプレートとして使用
+        const requestData = {
+          ...data,
+          templateBoardId: currentBoard || undefined, // 現在のボードIDをテンプレートとして送信
+        }
+        console.log("[v0] Creating new board with template:", requestData)
+        
         const response = await fetch("/api/boards", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-employee-id": currentUser?.id || "",
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify(requestData),
         })
         if (response.ok) {
           const result = await response.json()

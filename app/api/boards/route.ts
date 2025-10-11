@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, workspaceId } = body
+    const { name, description, workspaceId, templateBoardId } = body
 
     if (!name || !workspaceId) {
       return NextResponse.json({ error: "ボード名とワークスペースIDは必須です" }, { status: 400 })
@@ -53,6 +53,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "このワークスペースにアクセスする権限がありません" }, { status: 403 })
     }
 
+    // テンプレートボードからリスト情報を取得
+    let defaultLists = [
+      { title: "未着手", position: 0, color: null },
+      { title: "進行中", position: 1, color: null },
+      { title: "レビュー", position: 2, color: null },
+      { title: "完了", position: 3, color: null },
+    ]
+
+    if (templateBoardId) {
+      const templateBoard = await prisma.board.findUnique({
+        where: { id: templateBoardId },
+        include: {
+          lists: {
+            orderBy: {
+              position: "asc",
+            },
+          },
+        },
+      })
+
+      if (templateBoard && templateBoard.lists.length > 0) {
+        console.log("[v0] Using template board lists:", templateBoard.lists)
+        defaultLists = templateBoard.lists.map((list, index) => ({
+          title: list.title,
+          position: index,
+          color: list.color,
+        }))
+      }
+    }
+
+    console.log("[v0] Creating board with default lists:", defaultLists)
+
     // ボードの最大position値を取得
     const maxPositionBoard = await prisma.board.findFirst({
       where: { workspaceId },
@@ -67,12 +99,7 @@ export async function POST(request: NextRequest) {
         createdBy: userId,
         position: (maxPositionBoard?.position ?? -1) + 1,
         lists: {
-          create: [
-            { title: "未着手", position: 0 },
-            { title: "進行中", position: 1 },
-            { title: "レビュー", position: 2 },
-            { title: "完了", position: 3 },
-          ],
+          create: defaultLists,
         },
       },
       include: {

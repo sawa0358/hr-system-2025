@@ -642,36 +642,38 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       ]
     }
 
-    return boardData.lists.map((list: any) => ({
-      id: list.id,
-      title: list.title,
-      taskIds: list.cards ? list.cards
-        .filter((card: any) => {
-          // アーカイブフィルターを適用
-          if (!showArchived && card.isArchived) {
-            return false // アーカイブされたカードをスキップ
-          }
-          if (showArchived && !card.isArchived) {
-            return false // アーカイブされていないカードをスキップ
-          }
+    return boardData.lists
+      .sort((a: any, b: any) => (a.position || 0) - (b.position || 0)) // position順にソート
+      .map((list: any) => ({
+        id: list.id,
+        title: list.title,
+        taskIds: list.cards ? list.cards
+          .filter((card: any) => {
+            // アーカイブフィルターを適用
+            if (!showArchived && card.isArchived) {
+              return false // アーカイブされたカードをスキップ
+            }
+            if (showArchived && !card.isArchived) {
+              return false // アーカイブされていないカードをスキップ
+            }
 
-          // 日付フィルターを適用
-          if (dateFrom || dateTo) {
-            if (!card.dueDate) return false // 締切日がないカードをスキップ
-            
-            const cardDate = new Date(card.dueDate)
-            const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
-            const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
-            
-            if (fromDate && cardDate < fromDate) return false
-            if (toDate && cardDate > toDate) return false
-          }
+            // 日付フィルターを適用
+            if (dateFrom || dateTo) {
+              if (!card.dueDate) return false // 締切日がないカードをスキップ
+              
+              const cardDate = new Date(card.dueDate)
+              const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+              const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+              
+              if (fromDate && cardDate < fromDate) return false
+              if (toDate && cardDate > toDate) return false
+            }
 
-          return true
-        })
-        .map((card: any) => card.id) : [],
-      color: list.color,
-    }))
+            return true
+          })
+          .map((card: any) => card.id) : [],
+        color: list.color,
+      }))
   }
 
   const generateTasksFromBoardData = (boardData: any) => {
@@ -830,7 +832,40 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       const newIndex = lists.findIndex((list) => list.id === overId)
 
       if (oldIndex !== newIndex) {
-        setLists(arrayMove(lists, oldIndex, newIndex))
+        // ローカル状態を更新
+        const newLists = arrayMove(lists, oldIndex, newIndex)
+        setLists(newLists)
+
+        // データベースに並び順を保存
+        try {
+          console.log("[v0] Reordering lists:", newLists.map((list, index) => ({ id: list.id, position: index })))
+          
+          const response = await fetch(`/api/boards/${boardData?.id}/lists/reorder`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-employee-id': currentUserId || '',
+            },
+            body: JSON.stringify({
+              listOrders: newLists.map((list, index) => ({ id: list.id, position: index })),
+            }),
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            console.error("[v0] Failed to reorder lists:", error)
+            alert(`リストの並び順更新に失敗しました: ${error.error || '不明なエラー'}`)
+            // 失敗時は元の状態に戻す
+            onRefresh?.()
+          } else {
+            console.log("[v0] Lists reordered successfully")
+          }
+        } catch (error) {
+          console.error("[v0] Error reordering lists:", error)
+          alert("リストの並び順更新中にエラーが発生しました")
+          // 失敗時は元の状態に戻す
+          onRefresh?.()
+        }
       }
       return
     }
@@ -918,7 +953,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }
 
-  const handleAddList = () => {
+  const handleAddList = async () => {
     if (!currentUserRole) {
       alert(getPermissionErrorMessage("店長"))
       return
@@ -932,13 +967,35 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
     const listName = prompt("リスト名を入力してください")
     if (listName) {
-      const newList: KanbanList = {
-        id: `list-${Date.now()}`,
-        title: listName,
-        taskIds: [],
+      try {
+        console.log("[v0] Creating new list:", listName)
+        
+        const response = await fetch(`/api/boards/${boardData?.id}/lists`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUserId || '',
+          },
+          body: JSON.stringify({
+            title: listName,
+          }),
+        })
+
+        if (response.ok) {
+          const newListData = await response.json()
+          console.log("[v0] List created successfully:", newListData)
+          
+          // ボードデータを再取得してUIを更新
+          onRefresh?.()
+        } else {
+          const error = await response.json()
+          console.error("[v0] Failed to create list:", error)
+          alert(`リストの作成に失敗しました: ${error.error || '不明なエラー'}`)
+        }
+      } catch (error) {
+        console.error("[v0] Error creating list:", error)
+        alert("リストの作成中にエラーが発生しました")
       }
-      setLists([...lists, newList])
-      console.log("[v0] Creating new list:", listName)
     }
   }
 

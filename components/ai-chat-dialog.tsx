@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, Bot, User, Trash2, RotateCcw } from "lucide-react"
 
 interface Message {
@@ -58,20 +57,37 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
     }
   }, [messages])
 
+  // スクロールを最下部に移動する関数（即座に実行）
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+    }
+  }
+
   // 新しいメッセージが追加されたら自動スクロール
   useEffect(() => {
-    const scrollToBottom = () => {
-      if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight
-        }
-      }
+    if (messages.length > 0) {
+      // 即座にスクロール、必要に応じて再試行
+      scrollToBottom()
+      
+      // 短い遅延で再試行（アニメーションなし）
+      setTimeout(scrollToBottom, 10)
+      setTimeout(scrollToBottom, 50)
     }
-    
-    // 少し遅延を入れてスクロールを確実に実行
-    setTimeout(scrollToBottom, 100)
   }, [messages, isLoading])
+
+  // ダイアログが開かれた時に最新の会話にスクロール
+  useEffect(() => {
+    if (open && messages.length > 0) {
+      // 即座にスクロール実行
+      scrollToBottom()
+      
+      // 短い遅延で再試行（アニメーションなし）
+      setTimeout(scrollToBottom, 10)
+      setTimeout(scrollToBottom, 50)
+      setTimeout(scrollToBottom, 100)
+    }
+  }, [open, messages.length])
 
   // チャット履歴をクリア
   const clearChatHistory = () => {
@@ -184,9 +200,12 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
         )}
 
         {/* チャット履歴エリア */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full pr-4" ref={scrollAreaRef}>
-            <div className="space-y-4 pb-4 px-1">
+        <div 
+          className="flex-1 overflow-y-auto pr-4"
+          ref={scrollAreaRef}
+          style={{ scrollBehavior: 'auto' }}
+        >
+          <div className="space-y-4 pb-4 px-1">
             {messages.length === 0 && (
               <div className="text-center py-12 text-slate-500">
                 <Bot className="w-12 h-12 mx-auto mb-4 text-slate-300" />
@@ -249,8 +268,7 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
                 </div>
               </div>
             )}
-            </div>
-          </ScrollArea>
+          </div>
         </div>
 
         {/* 入力エリア */}

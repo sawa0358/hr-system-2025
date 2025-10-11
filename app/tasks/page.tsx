@@ -43,6 +43,7 @@ export default function TasksPage() {
   const [currentBoardData, setCurrentBoardData] = useState<any>(null)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [boardScale, setBoardScale] = useState(0.8) // 80%を初期値とする
   const [taskFilters, setTaskFilters] = useState<TaskFilters>({
     freeWord: "",
     member: "all",
@@ -570,17 +571,52 @@ export default function TasksPage() {
                   )
                 )
               })()}
+              
+              {/* ボードサイズ調整 */}
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-sm text-slate-600">サイズ:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
+                  disabled={boardScale <= 0.5}
+                  className="h-8 w-8 p-0"
+                >
+                  <span className="text-sm">-</span>
+                </Button>
+                <span className="text-sm font-medium w-12 text-center">
+                  {Math.round(boardScale * 100)}%
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
+                  disabled={boardScale >= 1.5}
+                  className="h-8 w-8 p-0"
+                >
+                  <span className="text-sm">+</span>
+                </Button>
+              </div>
             </div>
 
             {/* カンバンボード */}
             {currentBoard ? (
-              <KanbanBoard 
-                ref={kanbanBoardRef}
-                boardData={currentBoardData} 
-                currentUserId={currentUser?.id}
-                currentUserRole={currentUser?.role}
-                onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
-              />
+              <div 
+                style={{ 
+                  transform: `scale(${boardScale})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / boardScale}%`,
+                  height: `${100 / boardScale}%`
+                }}
+              >
+                <KanbanBoard 
+                  ref={kanbanBoardRef}
+                  boardData={currentBoardData} 
+                  currentUserId={currentUser?.id}
+                  currentUserRole={currentUser?.role}
+                  onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+                />
+              </div>
             ) : (
               <div className="text-center py-12 text-slate-500">
                 <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />

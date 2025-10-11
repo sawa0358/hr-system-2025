@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +19,7 @@ interface LoginModalProps {
 }
 
 export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
+  const router = useRouter()
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -55,6 +57,8 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           }
           
           onLoginSuccess(employee, rememberMe)
+          // ログイン成功後、タスク管理ページにリダイレクト
+          router.push('/tasks')
         } else {
           setError("名前またはパスワードが正しくありません")
         }

@@ -45,7 +45,7 @@ const roleLabels: Record<string, string> = {
 }
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const pathname = usePathname()
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()

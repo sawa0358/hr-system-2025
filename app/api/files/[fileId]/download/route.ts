@@ -29,12 +29,38 @@ export async function GET(
       );
     }
 
-    // ファイルの所有者チェック
-    if (file.employeeId !== employeeId) {
-      return NextResponse.json(
-        { error: 'このファイルにアクセスする権限がありません' },
-        { status: 403 }
-      );
+    // タスクに関連するファイルの場合、タスクのメンバーかどうかをチェック
+    if (file.category === 'task' && file.taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: file.taskId },
+        include: { members: true }
+      });
+      
+      if (!task) {
+        return NextResponse.json(
+          { error: 'タスクが見つかりません' },
+          { status: 404 }
+        );
+      }
+      
+      // タスクのメンバーかオーナーかチェック
+      const isMember = task.members.some(member => member.employeeId === employeeId);
+      const isOwner = file.employeeId === employeeId;
+      
+      if (!isMember && !isOwner) {
+        return NextResponse.json(
+          { error: 'このファイルにアクセスする権限がありません' },
+          { status: 403 }
+        );
+      }
+    } else {
+      // 他のカテゴリのファイルは所有者のみアクセス可能
+      if (file.employeeId !== employeeId) {
+        return NextResponse.json(
+          { error: 'このファイルにアクセスする権限がありません' },
+          { status: 403 }
+        );
+      }
     }
 
     // ファイルが存在するかチェック

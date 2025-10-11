@@ -1425,11 +1425,47 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              const link = document.createElement("a")
-                              link.href = `/api/files/download/${file.id}`
-                              link.download = file.name
-                              link.click()
+                            onClick={async () => {
+                              if (!currentUser) {
+                                alert("ユーザー情報が取得できません")
+                                return
+                              }
+
+                              try {
+                                console.log("Downloading file:", file.id, file.name)
+                                
+                                const response = await fetch(`/api/files/${file.id}/download`, {
+                                  method: 'GET',
+                                  headers: {
+                                    'x-employee-id': currentUser.id,
+                                  },
+                                })
+
+                                if (!response.ok) {
+                                  const error = await response.json()
+                                  console.error("Download failed:", error)
+                                  alert(`ダウンロードに失敗しました: ${error.error || '不明なエラー'}`)
+                                  return
+                                }
+
+                                // レスポンスからファイルデータを取得
+                                const blob = await response.blob()
+                                
+                                // ダウンロードリンクを作成
+                                const url = window.URL.createObjectURL(blob)
+                                const link = document.createElement("a")
+                                link.href = url
+                                link.download = file.name
+                                document.body.appendChild(link)
+                                link.click()
+                                document.body.removeChild(link)
+                                window.URL.revokeObjectURL(url)
+                                
+                                console.log("File downloaded successfully:", file.name)
+                              } catch (error) {
+                                console.error("Download error:", error)
+                                alert("ダウンロードに失敗しました")
+                              }
                             }}
                           >
                             <Download className="w-3 h-3" />

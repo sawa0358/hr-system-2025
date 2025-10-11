@@ -170,6 +170,7 @@ model Card {
   position    Int          @default(0)
   dueDate     DateTime?
   priority    String       @default("medium")
+  status      String       @default("todo")
   cardColor   String?
   labels      Json?
   checklists  Json?

@@ -436,14 +436,19 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
             id: card.id,
             title: card.title,
             description: card.description || "",
-            assignee: card.members?.[0]?.name || "未割り当て",
+            assignee: card.members?.[0]?.employee?.name || card.members?.[0]?.name || "未割り当て",
             dueDate: card.dueDate || "",
             priority: card.priority || "medium",
             comments: 0,
             attachments: card.attachments?.length || 0,
-            status: list.id,
+            status: card.status || list.id,
             cardColor: card.cardColor,
             labels: card.labels || [],
+            members: card.members?.map((m: any) => ({
+              id: m.employee?.id || m.id,
+              name: m.employee?.name || m.name,
+            })) || [],
+            checklists: card.checklists || [],
           }
         })
       }
@@ -594,6 +599,39 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
     setDialogOpen(true)
   }
 
+  const handleTaskUpdate = (updatedTask: Task) => {
+    // タスクが更新されたときにローカル状態を更新
+    setTasksById((prev) => ({
+      ...prev,
+      [updatedTask.id]: updatedTask
+    }))
+    
+    // ステータスが変更された場合、リスト間での移動も処理
+    if (updatedTask.status) {
+      setLists((prevLists) => {
+        return prevLists.map((list) => {
+          // 古いリストからタスクを削除
+          const filteredTaskIds = list.taskIds.filter(id => id !== updatedTask.id)
+          
+          // 新しいステータスのリストにタスクを追加
+          const statusToTitleMap: Record<string, string> = {
+            'todo': '未着手',
+            'in-progress': '進行中',
+            'review': 'レビュー',
+            'done': '完了'
+          }
+          
+          const targetTitle = statusToTitleMap[updatedTask.status] || updatedTask.status
+          if (list.title === targetTitle) {
+            return { ...list, taskIds: [...filteredTaskIds, updatedTask.id] }
+          }
+          
+          return { ...list, taskIds: filteredTaskIds }
+        })
+      })
+    }
+  }
+
   const handleAddCard = (listId: string) => {
     setSelectedListId(listId)
     setAddCardDialogOpen(true)
@@ -625,20 +663,20 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
         const result = await response.json()
         console.log("Card created successfully:", result)
         
-        // ローカル状態を更新
-        const newTask: Task = {
-          id: result.card.id,
-          title: cardData.title,
-          description: cardData.description || "",
-          assignee: "未割り当て",
-          dueDate: "",
-          priority: (cardData.priority as "low" | "medium" | "high") || "medium",
-          comments: 0,
-          attachments: 0,
-          status: selectedListId,
-          cardColor: "",
-          labels: [],
-        }
+                 // ローカル状態を更新
+                 const newTask: Task = {
+                   id: result.card.id,
+                   title: cardData.title,
+                   description: cardData.description || "",
+                   assignee: result.card.members?.[0]?.employee?.name || "未割り当て",
+                   dueDate: result.card.dueDate || "",
+                   priority: (cardData.priority as "low" | "medium" | "high") || "medium",
+                   comments: 0,
+                   attachments: 0,
+                   status: selectedListId,
+                   cardColor: result.card.cardColor || "",
+                   labels: result.card.labels || [],
+                 }
 
         setTasksById((prev) => ({ ...prev, [newTask.id]: newTask }))
         setLists((prev) =>
@@ -737,7 +775,13 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
         </DragOverlay>
       </DndContext>
 
-      <TaskDetailDialog task={selectedTask} open={dialogOpen} onOpenChange={setDialogOpen} />
+               <TaskDetailDialog 
+                 task={selectedTask} 
+                 open={dialogOpen} 
+                 onOpenChange={setDialogOpen}
+                 onRefresh={onRefresh}
+                 onTaskUpdate={handleTaskUpdate}
+               />
       
       {/* カード追加ダイアログ */}
       <AddCardDialog 

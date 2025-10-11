@@ -138,47 +138,107 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
     }
 
     const body = await request.json()
-    const { title, description, dueDate, priority, labels, checklists, cardColor, isArchived } = body
+    const { title, description, dueDate, priority, status, labels, checklists, cardColor, isArchived, members, attachments } = body
 
-    const updatedCard = await prisma.card.update({
-      where: { id: params.cardId },
-      data: {
-        title,
-        description,
-        dueDate: dueDate ? new Date(dueDate) : undefined,
-        priority,
-        labels: labels !== undefined ? labels : undefined,
-        checklists: checklists !== undefined ? checklists : undefined,
-        cardColor,
-        isArchived,
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+    // ステータスが変更された場合、対応するリストIDを取得
+    let newListId = card.listId
+    if (status && status !== card.status) {
+      // ステータスからリストIDを取得する処理
+      const boardLists = await prisma.boardList.findMany({
+        where: { boardId: card.boardId },
+        select: { id: true, title: true }
+      })
+      
+      // ステータスとリストタイトルのマッピング
+      const statusToTitleMap: Record<string, string> = {
+        'todo': '未着手',
+        'in-progress': '進行中',
+        'review': 'レビュー',
+        'done': '完了'
+      }
+      
+      const targetTitle = statusToTitleMap[status] || status
+      const targetList = boardLists.find(list => list.title === targetTitle)
+      if (targetList) {
+        newListId = targetList.id
+      }
+    }
+
+    // トランザクションでカードとメンバーを更新
+    const updatedCard = await prisma.$transaction(async (tx) => {
+      // メンバーの更新処理
+      if (members !== undefined) {
+        // 既存のメンバーを削除
+        await tx.cardMember.deleteMany({
+          where: { cardId: params.cardId },
+        })
+
+        // 新しいメンバーを追加
+        if (members && members.length > 0) {
+          await tx.cardMember.createMany({
+            data: members.map((member: any) => ({
+              cardId: params.cardId,
+              employeeId: member.id,
+              addedBy: userId,
+            })),
+          })
+        }
+      }
+
+      // カードを更新
+      return await tx.card.update({
+        where: { id: params.cardId },
+        data: {
+          title: title || undefined,
+          description: description || undefined,
+          dueDate: dueDate ? new Date(dueDate) : undefined,
+          priority: priority || undefined,
+          status: status || undefined,
+          listId: newListId, // リストIDも更新
+          labels: labels !== undefined ? labels : undefined,
+          checklists: checklists !== undefined ? checklists : undefined,
+          attachments: attachments !== undefined ? attachments : undefined,
+          cardColor: cardColor || undefined,
+          isArchived: isArchived !== undefined ? isArchived : undefined,
         },
-        members: {
-          include: {
-            employee: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                department: true,
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          members: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  department: true,
+                  position: true,
+                },
               },
             },
           },
         },
-      },
+      })
     })
 
     return NextResponse.json({ card: updatedCard })
   } catch (error) {
     console.error("[v0] Error updating card:", error)
-    return NextResponse.json({ error: "カードの更新に失敗しました" }, { status: 500 })
+    console.error("[v0] Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      cardId: params.cardId,
+      userId: request.headers.get("x-employee-id")
+    })
+    return NextResponse.json({ 
+      error: "カードの更新に失敗しました",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 

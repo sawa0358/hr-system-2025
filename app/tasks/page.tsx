@@ -66,6 +66,8 @@ export default function TasksPage() {
   // ボード選択時にデータを取得
   useEffect(() => {
     if (currentBoard) {
+      // ボード変更時は現在のボードデータをクリアしてから新しいデータを取得
+      setCurrentBoardData(null)
       fetchBoardData(currentBoard)
     }
   }, [currentBoard])
@@ -100,11 +102,16 @@ export default function TasksPage() {
       const data = await response.json()
       if (data.workspace?.boards) {
         setBoards(data.workspace.boards)
-        // 最初のボードを選択
-        if (data.workspace.boards.length > 0 && !currentBoard) {
-          setCurrentBoard(data.workspace.boards[0].id)
+        // ワークスペース変更時は常に最初のボードを選択
+        if (data.workspace.boards.length > 0) {
+          const firstBoard = data.workspace.boards[0]
+          setCurrentBoard(firstBoard.id)
           // ボード選択時にリストとカードを取得
-          fetchBoardData(data.workspace.boards[0].id)
+          fetchBoardData(firstBoard.id)
+          console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
+        } else {
+          // ボードがない場合は現在のボードをクリア
+          setCurrentBoard(null)
         }
       }
     } catch (error) {
@@ -135,6 +142,14 @@ export default function TasksPage() {
   const handleCreateWorkspace = () => {
     setEditingWorkspace(null)
     setWorkspaceDialogOpen(true)
+  }
+
+  const handleWorkspaceChange = (workspaceId: string | null) => {
+    console.log("Workspace changed to:", workspaceId)
+    setCurrentWorkspace(workspaceId)
+    // ワークスペース変更時は現在のボードとボードデータをクリア
+    setCurrentBoard(null)
+    setCurrentBoardData(null)
   }
 
   const handleEditWorkspace = () => {
@@ -344,7 +359,7 @@ export default function TasksPage() {
           <WorkspaceSelector
             workspaces={workspaces}
             currentWorkspace={currentWorkspace}
-            onWorkspaceChange={setCurrentWorkspace}
+            onWorkspaceChange={handleWorkspaceChange}
             onCreateWorkspace={handleCreateWorkspace}
             canCreateWorkspace={permissions?.createWorkspace || false}
           />

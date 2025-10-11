@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +36,7 @@ import {
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { employees } from "@/lib/mock-data"
+import { useAuth } from "@/lib/auth-context"
 
 interface Label {
   id: string
@@ -94,6 +95,8 @@ interface TaskDetailDialogProps {
   task: Task | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onRefresh?: () => void
+  onTaskUpdate?: (updatedTask: Task) => void
 }
 
 const PRESET_LABELS: Label[] = [
@@ -130,17 +133,25 @@ const STATUS_OPTIONS = [
   { value: "done", label: "完了" },
 ]
 
-export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
-  const [title, setTitle] = useState(task?.title || "")
-  const [description, setDescription] = useState(task?.description || "")
-  const [dueDate, setDueDate] = useState<Date | undefined>(task?.dueDate ? new Date(task.dueDate) : undefined)
-  const [priority, setPriority] = useState(task?.priority || "medium")
-  const [status, setStatus] = useState(task?.status || "todo")
-  const [selectedLabels, setSelectedLabels] = useState<Label[]>(task?.labels || [])
-  const [checklists, setChecklists] = useState<Checklist[]>(task?.checklists || [])
-  const [members, setMembers] = useState<Member[]>(task?.members || [])
-  const [cardColor, setCardColor] = useState(task?.cardColor || "")
+export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUpdate }: TaskDetailDialogProps) {
+  const { currentUser } = useAuth()
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
+  
+  // 締切日設定ハンドラー
+  const handleSetDueDate = (date: Date | undefined) => {
+    console.log("setDueDate called with:", date)
+    setDueDate(date)
+  }
+  const [priority, setPriority] = useState("medium")
+  const [status, setStatus] = useState("todo")
+  const [selectedLabels, setSelectedLabels] = useState<Label[]>([])
+  const [checklists, setChecklists] = useState<Checklist[]>([])
+  const [members, setMembers] = useState<Member[]>([])
+  const [cardColor, setCardColor] = useState("")
   const [showLabelManager, setShowLabelManager] = useState(false)
+  const [showLabelSelector, setShowLabelSelector] = useState(false)
   const [customLabels, setCustomLabels] = useState<Label[]>(PRESET_LABELS)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
@@ -164,14 +175,65 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
   const [newStatusValue, setNewStatusValue] = useState("")
 
   const [showEmployeeSelector, setShowEmployeeSelector] = useState(false)
+  const [showCalendarSelector, setShowCalendarSelector] = useState(false)
   const [employeeSearch, setEmployeeSearch] = useState("")
 
   const [isGoogleCalendarSynced, setIsGoogleCalendarSynced] = useState(false)
   const [isArchived, setIsArchived] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // タスクが変更されたときに状態を更新
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title || "")
+      setDescription(task.description || "")
+      setDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
+      setPriority(task.priority || "medium")
+      setStatus(task.status || "todo")
+      setSelectedLabels(task.labels || [])
+      setChecklists(task.checklists || [])
+      
+      // membersの構造を正しく処理
+      const processedMembers = (task.members || []).map((member: any) => ({
+        id: member.id || member.employee?.id || "",
+        name: member.name || member.employee?.name || "未設定",
+      }))
+      setMembers(processedMembers)
+      
+      setCardColor(task.cardColor || "")
+      
+      // ファイル情報を復元
+      if (task.attachments && Array.isArray(task.attachments)) {
+        console.log("Restoring file folders from task:", task.attachments)
+        setFileFolders(task.attachments)
+        // アクティブフォルダを最初のフォルダに設定
+        if (task.attachments.length > 0) {
+          setActiveFileFolder(task.attachments[0].id)
+        }
+      } else {
+        // デフォルトのフォルダ構造を設定
+        const defaultFolders = [
+          { id: "folder-1", name: "資料", files: [] },
+          { id: "folder-2", name: "画像", files: [] },
+        ]
+        setFileFolders(defaultFolders)
+        setActiveFileFolder(defaultFolders[0].id)
+      }
+      
+      console.log("TaskDetailDialog - Task loaded:", task)
+      console.log("TaskDetailDialog - Processed members:", processedMembers)
+    }
+  }, [task])
 
   const handleAddLabel = (label: Label) => {
+    console.log("handleAddLabel called with:", label)
+    console.log("Current selectedLabels:", selectedLabels)
     if (!selectedLabels.find((l) => l.id === label.id)) {
-      setSelectedLabels([...selectedLabels, label])
+      const newLabels = [...selectedLabels, label]
+      setSelectedLabels(newLabels)
+      console.log("New selectedLabels:", newLabels)
+    } else {
+      console.log("Label already exists")
     }
   }
 
@@ -302,31 +364,98 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     handleFileUpload(files)
   }
 
-  const handleFileUpload = (files: File[]) => {
+  const handleFileUpload = async (files: File[]) => {
+    if (!currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
     const currentFolder = fileFolders.find((f) => f.id === activeFileFolder)
     if (!currentFolder) return
 
-    const newFiles: TaskFile[] = files.map((file) => ({
-      id: `file-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      type: file.type,
-      uploadDate: new Date().toISOString().split("T")[0],
-      size: `${Math.round(file.size / 1024)}KB`,
-    }))
+    // ファイルを順次アップロード
+    for (const file of files) {
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('category', 'task')
+        formData.append('folderName', currentFolder.name)
 
-    setFileFolders(
-      fileFolders.map((folder) =>
-        folder.id === activeFileFolder ? { ...folder, files: [...folder.files, ...newFiles] } : folder,
-      ),
-    )
+        console.log("Uploading file:", file.name, "to folder:", currentFolder.name)
+
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          headers: {
+            'x-employee-id': currentUser.id,
+          },
+          body: formData,
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          console.log("File uploaded successfully:", result)
+
+          const newFile: TaskFile = {
+            id: result.fileId,
+            name: file.name,
+            type: file.type,
+            uploadDate: new Date().toISOString().split("T")[0],
+            size: `${Math.round(file.size / 1024)}KB`,
+          }
+
+          setFileFolders(
+            fileFolders.map((folder) =>
+              folder.id === activeFileFolder 
+                ? { ...folder, files: [...folder.files, newFile] } 
+                : folder,
+            ),
+          )
+        } else {
+          const error = await response.json()
+          console.error("File upload failed:", error)
+          alert(`ファイルアップロードに失敗しました: ${error.error}`)
+        }
+      } catch (error) {
+        console.error("File upload error:", error)
+        alert(`ファイルアップロードに失敗しました: ${file.name}`)
+      }
+    }
   }
 
-  const handleDeleteFile = (fileId: string) => {
-    setFileFolders(
-      fileFolders.map((folder) =>
-        folder.id === activeFileFolder ? { ...folder, files: folder.files.filter((f) => f.id !== fileId) } : folder,
-      ),
-    )
+  const handleDeleteFile = async (fileId: string) => {
+    if (!currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    try {
+      console.log("Deleting file:", fileId)
+
+      const response = await fetch(`/api/files/${fileId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          'x-employee-id': currentUser.id,
+        },
+      })
+
+      if (response.ok) {
+        console.log("File deleted successfully")
+        setFileFolders(
+          fileFolders.map((folder) =>
+            folder.id === activeFileFolder 
+              ? { ...folder, files: folder.files.filter((f) => f.id !== fileId) } 
+              : folder,
+          ),
+        )
+      } else {
+        const error = await response.json()
+        console.error("File deletion failed:", error)
+        alert(`ファイル削除に失敗しました: ${error.error}`)
+      }
+    } catch (error) {
+      console.error("File deletion error:", error)
+      alert("ファイル削除に失敗しました")
+    }
   }
 
   const handleAddPriority = () => {
@@ -373,10 +502,40 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     console.log("[v0] Google Calendar sync:", !isGoogleCalendarSynced ? "enabled" : "disabled")
   }
 
-  const handleMakeTemplate = () => {
-    console.log("[v0] Creating template from task:", task?.title)
-    // In real app, this would save the current task as a template
-    alert("テンプレートとして保存しました")
+  const handleMakeTemplate = async () => {
+    if (!task || !currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    try {
+      const templateData = {
+        title: `${title} (テンプレート)`,
+        description,
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        priority,
+        labels: selectedLabels,
+        checklists,
+        cardColor,
+        isTemplate: true,
+      }
+
+      console.log("Creating template:", templateData)
+      // テンプレートデータをlocalStorageに保存
+      const templates = JSON.parse(localStorage.getItem('cardTemplates') || '[]')
+      templates.push({
+        id: `template-${Date.now()}`,
+        ...templateData,
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.id,
+      })
+      localStorage.setItem('cardTemplates', JSON.stringify(templates))
+      
+      alert("テンプレートとして保存しました")
+    } catch (error) {
+      console.error("Error creating template:", error)
+      alert("テンプレートの保存に失敗しました")
+    }
   }
 
   const handleArchive = () => {
@@ -386,11 +545,140 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
     onOpenChange(false)
   }
 
-  const handleDelete = () => {
+  const handleSave = async () => {
+    if (!task || !currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const requestBody = {
+        title: title || "",
+        description: description || "",
+        dueDate: dueDate ? dueDate.toISOString() : null,
+        priority: priority || "medium",
+        status: status || "todo",
+        labels: selectedLabels || [],
+        checklists: checklists || [],
+        cardColor: cardColor || "",
+        isArchived: isArchived || false,
+        members: members || [],
+        attachments: fileFolders || [], // ファイル情報を追加
+      }
+      
+      console.log("Sending card update request:", {
+        cardId: task.id,
+        userId: currentUser.id,
+        requestBody
+      })
+
+      const response = await fetch(`/api/cards/${task.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser.id,
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("Card saved successfully:", result)
+        
+        // 保存されたカードデータでローカル状態を更新
+        if (result.card) {
+          // レスポンスからメンバー情報を正しく処理
+          const processedMembers = (result.card.members || []).map((member: any) => ({
+            id: member.employee?.id || member.id || "",
+            name: member.employee?.name || member.name || "未設定",
+          }))
+
+          setTitle(result.card.title || "")
+          setDescription(result.card.description || "")
+          setDueDate(result.card.dueDate ? new Date(result.card.dueDate) : undefined)
+          setPriority(result.card.priority || "medium")
+          setStatus(result.card.status || "todo")
+          setSelectedLabels(result.card.labels || [])
+          setChecklists(result.card.checklists || [])
+          setMembers(processedMembers)
+          setCardColor(result.card.cardColor || "")
+          
+          // ファイル情報も更新
+          if (result.card.attachments && Array.isArray(result.card.attachments)) {
+            setFileFolders(result.card.attachments)
+          }
+          
+          // 親コンポーネントに更新されたタスクを通知
+          if (onTaskUpdate && task) {
+            const updatedTask: Task = {
+              id: task.id,
+              title: result.card.title || "",
+              description: result.card.description || "",
+              assignee: processedMembers[0]?.name || task.assignee,
+              dueDate: result.card.dueDate || "",
+              priority: result.card.priority || "medium",
+              comments: task.comments,
+              attachments: result.card.attachments || task.attachments,
+              status: result.card.status || "todo",
+              cardColor: result.card.cardColor || "",
+              labels: result.card.labels || [],
+              members: processedMembers,
+              checklists: result.card.checklists || task.checklists || [],
+            }
+            onTaskUpdate(updatedTask)
+          }
+        }
+        
+        if (onRefresh) {
+          onRefresh()
+        }
+        onOpenChange(false)
+      } else {
+        const error = await response.json()
+        console.error("Failed to save card:", error)
+        console.error("Response status:", response.status)
+        console.error("Error details:", error.details || error.error)
+        alert(`保存に失敗しました: ${error.error || error.details || '不明なエラー'}`)
+      }
+    } catch (error) {
+      console.error("Error saving card:", error)
+      alert("保存に失敗しました")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!task || !currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
     if (confirm("このタスクを削除してもよろしいですか？")) {
-      console.log("[v0] Deleting task:", task?.title)
-      alert("タスクを削除しました")
-      onOpenChange(false)
+      try {
+        const response = await fetch(`/api/cards/${task.id}`, {
+          method: "DELETE",
+          headers: {
+            "x-employee-id": currentUser.id,
+          },
+        })
+
+        if (response.ok) {
+          console.log("Task deleted successfully")
+          if (onRefresh) {
+            onRefresh()
+          }
+          onOpenChange(false)
+        } else {
+          const error = await response.json()
+          console.error("Failed to delete card:", error)
+          alert(`削除に失敗しました: ${error.error}`)
+        }
+      } catch (error) {
+        console.error("Error deleting card:", error)
+        alert("削除に失敗しました")
+      }
     }
   }
 
@@ -438,29 +726,16 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                 </Badge>
               ))}
             </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Plus className="w-3 h-3 mr-1" />
-                  ラベルを追加
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64">
-                <div className="space-y-2">
-                  {customLabels.map((label) => (
-                    <button
-                      key={label.id}
-                      onClick={() => handleAddLabel(label)}
-                      className="w-full text-left px-3 py-2 rounded hover:bg-slate-100 flex items-center justify-between"
-                    >
-                      <Badge style={{ backgroundColor: label.color }} className="text-white">
-                        {label.name}
-                      </Badge>
-                    </button>
-                  ))}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <Button 
+              variant="outline" 
+              size="sm"
+              type="button"
+              onClick={() => setShowLabelSelector(true)}
+              className="pointer-events-auto"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              ラベルを追加
+            </Button>
 
             {showLabelManager && (
               <div className="mt-4 p-4 border rounded-lg bg-slate-50">
@@ -513,16 +788,14 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               締切日
             </label>
             <div className="flex gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex-1 justify-start bg-transparent">
-                    {dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar mode="single" selected={dueDate} onSelect={setDueDate} locale={ja} />
-                </PopoverContent>
-              </Popover>
+              <Button 
+                variant="outline" 
+                className="flex-1 justify-start bg-transparent pointer-events-auto"
+                type="button"
+                onClick={() => setShowCalendarSelector(true)}
+              >
+                {dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}
+              </Button>
               <Button
                 variant={isGoogleCalendarSynced ? "default" : "outline"}
                 onClick={handleGoogleCalendarSync}
@@ -656,7 +929,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                 <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
-                      {member.name.slice(0, 3)}
+                      {(member.name || "未").slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm">{member.name}</span>
@@ -697,7 +970,7 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
                     >
                       <Avatar className="w-8 h-8">
                         <AvatarFallback className="bg-blue-100 text-blue-700 text-sm">
-                          {employee.name.slice(0, 3)}
+                          {(employee.name || "未").slice(0, 3)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
@@ -956,13 +1229,93 @@ export function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogP
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 キャンセル
               </Button>
-              <Button onClick={() => onOpenChange(false)} className="bg-blue-600 hover:bg-blue-700">
-                保存
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSaving ? "保存中..." : "保存"}
               </Button>
             </div>
           </div>
         </div>
       </DialogContent>
+
+      {/* ラベル選択ダイアログ */}
+      <Dialog open={showLabelSelector} onOpenChange={setShowLabelSelector}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>ラベルを選択</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {customLabels.map((label) => (
+              <button
+                key={label.id}
+                type="button"
+                onClick={() => {
+                  console.log("Label selected:", label)
+                  handleAddLabel(label)
+                  setShowLabelSelector(false)
+                }}
+                className="w-full text-left px-3 py-2 rounded hover:bg-slate-100 flex items-center justify-between transition-colors border border-slate-200"
+              >
+                <Badge style={{ backgroundColor: label.color }} className="text-white text-sm">
+                  {label.name}
+                </Badge>
+                {selectedLabels.find(l => l.id === label.id) && (
+                  <span className="text-sm text-green-600">✓ 選択済み</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setShowLabelSelector(false)}>
+              キャンセル
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* カレンダー選択ダイアログ */}
+      <Dialog open={showCalendarSelector} onOpenChange={setShowCalendarSelector}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>締切日を選択</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4">
+            <Calendar 
+              mode="single" 
+              selected={dueDate} 
+              onSelect={(date) => {
+                console.log("Calendar date selected:", date)
+                handleSetDueDate(date)
+                setShowCalendarSelector(false)
+              }} 
+              locale={ja}
+              className="rounded-md border"
+            />
+            <div className="flex gap-2 w-full">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  handleSetDueDate(undefined)
+                  setShowCalendarSelector(false)
+                }}
+                className="flex-1"
+              >
+                クリア
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setShowCalendarSelector(false)}
+                className="flex-1"
+              >
+                キャンセル
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   )
 }

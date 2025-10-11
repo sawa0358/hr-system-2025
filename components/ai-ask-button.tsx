@@ -23,7 +23,7 @@ export function AIAskButton({ context }: AIAskButtonProps) {
         <Bot className="w-4 h-4 mr-2" />
         AIに聞く
       </Button>
-      <AIChatDialog open={open} onOpenChange={setOpen} title={`AI - ${context}`} context={context} />
+      <AIChatDialog open={open} onOpenChange={setOpen} title="AIアシスタント" context={context} />
     </>
   )
 }

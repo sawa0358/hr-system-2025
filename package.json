@@ -17,6 +17,7 @@
     "@dnd-kit/core": "latest",
     "@dnd-kit/sortable": "latest",
     "@dnd-kit/utilities": "latest",
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.10.0",
     "@prisma/client": "^6.16.3",
     "@radix-ui/react-accordion": "1.2.2",

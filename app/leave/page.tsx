@@ -1,10 +1,44 @@
 "use client"
 
 import { AIAskButton } from "@/components/ai-ask-button"
+import { useAuth } from "@/lib/auth-context"
 import { Calendar, Clock, AlertCircle } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function LeavePage() {
+  const { currentUser } = useAuth()
+
+  // AIに渡すコンテキスト情報を構築
+  const buildAIContext = () => {
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    
+    return `【現在のページ】有給管理（休暇管理）
+【ページの説明】社員の有給休暇を管理するページです（現在開発中）
+
+【現在のユーザー】
+- 名前: ${currentUser?.name || '不明'}
+- 役職: ${currentUser?.position || '不明'}
+- 部署: ${currentUser?.department || '不明'}
+- 権限: ${isAdminOrHR ? '管理者/総務（全機能利用可）' : '一般ユーザー'}
+
+【実装予定の機能】
+- 社員ごとの有給残日数管理
+- 有給申請・承認フロー
+- 有給取得履歴の表示
+- 有給消化率の分析
+- カレンダー表示での有給管理
+
+【現在の状態】
+このページは現在開発中です。将来的に上記の機能が実装される予定です。
+
+【このページで質問できること】
+- 有給管理システムの概要
+- 実装予定の機能について
+- 有給休暇の制度について
+- 有給申請の一般的な流れ
+- その他、人事管理システム全般に関する質問`
+  }
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
@@ -13,7 +47,7 @@ export default function LeavePage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">有給管理</h1>
             <p className="text-slate-600">社員の有給休暇を管理</p>
           </div>
-          <AIAskButton context="有給管理" />
+          <AIAskButton context={buildAIContext()} />
         </div>
 
         <Card className="border-2 border-dashed border-slate-300">

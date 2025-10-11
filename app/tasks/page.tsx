@@ -418,6 +418,62 @@ export default function TasksPage() {
     })) || []
   ) || []
 
+  // AIに渡すコンテキスト情報を構築
+  const buildAIContext = () => {
+    const workspace = workspaces.find(w => w.id === currentWorkspace)
+    const board = boards.find(b => b.id === currentBoard)
+    
+    const filterDescriptions = []
+    if (taskFilters.freeWord) filterDescriptions.push(`検索キーワード: ${taskFilters.freeWord}`)
+    if (taskFilters.member !== 'all') filterDescriptions.push(`担当者: ${taskFilters.member}`)
+    if (taskFilters.showArchived) filterDescriptions.push(`アーカイブ表示: ON`)
+    if (taskFilters.dateFrom) filterDescriptions.push(`開始日: ${taskFilters.dateFrom}`)
+    if (taskFilters.dateTo) filterDescriptions.push(`終了日: ${taskFilters.dateTo}`)
+
+    const listNames = currentBoardData?.lists?.map((list: any) => list.title).join('、') || '未設定'
+    const taskCount = currentBoardData?.lists?.reduce((acc: number, list: any) => acc + (list.cards?.length || 0), 0) || 0
+
+    return `【現在のページ】タスク管理（カンバンボード）
+【ページの説明】プロジェクト単位でタスクを管理するカンバンボードシステムです
+
+【現在のユーザー】
+- 名前: ${currentUser?.name || '不明'}
+- 役職: ${currentUser?.position || '不明'}
+- 部署: ${currentUser?.department || '不明'}
+- 権限: ${currentUser?.role === 'admin' ? '管理者（全機能利用可）' : permissions?.createWorkspace ? 'リーダー（ワークスペース作成可）' : '一般ユーザー'}
+
+【現在の状態】
+- ワークスペース: ${workspace?.name || '未選択'}
+- ボード: ${board?.name || '未選択'}
+- リスト構成: ${listNames}
+- タスク総数: ${taskCount}件
+- カレンダー表示: ${showCalendar ? 'ON' : 'OFF'}
+- フィルター表示: ${showFilters ? 'ON' : 'OFF'}
+
+【現在適用されているフィルター】
+${filterDescriptions.length > 0 ? filterDescriptions.join('\n') : 'フィルターなし'}
+
+【利用可能な機能】
+${permissions?.createWorkspace ? `- ワークスペースの作成・編集・削除
+- ボードの作成・編集・削除
+- タスクの作成・編集・削除
+- タスクの割り当て` : `- ボードの閲覧
+- タスクの閲覧
+- タスクへのコメント`}
+- カレンダービュー
+- タスク検索・フィルター
+- データエクスポート
+
+【このページで質問できること】
+- カンバンボードの使い方
+- ワークスペースとボードの管理方法
+- タスクの作成・編集・割り当て方法
+- フィルター機能の使い方
+- カレンダー機能の使い方
+- 権限設定について
+- その他、タスク管理に関する質問`
+  }
+
   return (
     <main className="overflow-y-auto">
       {/* 上部セクション - 背景色#B4D5E7 */}
@@ -452,7 +508,7 @@ export default function TasksPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <AIAskButton context="タスク管理" />
+            <AIAskButton context={buildAIContext()} />
             <ExportMenu />
           </div>
         </div>

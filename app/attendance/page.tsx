@@ -97,6 +97,46 @@ export default function AttendancePage() {
   const userRole = "admin" // or "hr" or "employee"
   const isAdminOrHR = userRole === "admin" || userRole === "hr"
 
+  // AIに渡すコンテキスト情報を構築
+  const buildAIContext = () => {
+    const filterDescriptions = []
+    if (searchQuery) filterDescriptions.push(`検索キーワード: ${searchQuery}`)
+    if (department !== 'all') filterDescriptions.push(`部署: ${department}`)
+    if (status !== 'active') filterDescriptions.push(`ステータス: ${status}`)
+    if (employeeType !== 'all') filterDescriptions.push(`雇用形態: ${employeeType}`)
+
+    return `【現在のページ】勤怠管理
+【ページの説明】社員の勤怠データをアップロード・管理するページです
+
+【現在のユーザー】
+- 名前: ${currentUser?.name || '不明'}
+- 役職: ${currentUser?.position || '不明'}
+- 部署: ${currentUser?.department || '不明'}
+- 権限: ${isAdminOrHR ? '管理者/総務（全機能利用可）' : '一般ユーザー（閲覧のみ）'}
+
+【現在適用されているフィルター】
+${filterDescriptions.length > 0 ? filterDescriptions.join('\n') : 'フィルターなし（全社員表示）'}
+
+【表示中の社員数】
+- 全体: ${employees.length}名
+- フィルター適用後: ${filteredEmployees.length}名
+
+【利用可能な機能】
+${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
+- テンプレートの管理
+- 勤怠記録の編集・削除
+- 全社員の勤怠データ閲覧` : `- 自分の勤怠データの閲覧
+- 勤怠記録の確認`}
+
+【このページで質問できること】
+- 勤怠データのアップロード方法
+- テンプレートの使い方
+- 勤怠記録の確認方法
+- フィルター機能の使い方
+- 一括アップロード機能について
+- その他、勤怠管理に関する質問`
+  }
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
@@ -105,7 +145,7 @@ export default function AttendancePage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">勤怠管理</h1>
             <p className="text-slate-600">社員をクリックして勤怠データをアップロード</p>
           </div>
-          <AIAskButton context="勤怠管理" />
+          <AIAskButton context={buildAIContext()} />
         </div>
 
         {isAdminOrHR && (

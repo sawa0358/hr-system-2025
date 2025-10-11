@@ -83,6 +83,46 @@ export default function PayrollPage() {
   // 現在のユーザーの権限を取得
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
+  // AIに渡すコンテキスト情報を構築
+  const buildAIContext = () => {
+    const filterDescriptions = []
+    if (searchQuery) filterDescriptions.push(`検索キーワード: ${searchQuery}`)
+    if (department !== 'all') filterDescriptions.push(`部署: ${department}`)
+    if (status !== 'active') filterDescriptions.push(`ステータス: ${status}`)
+    if (employeeType !== 'all') filterDescriptions.push(`雇用形態: ${employeeType}`)
+
+    return `【現在のページ】給与管理
+【ページの説明】社員の給与明細をアップロード・管理するページです
+
+【現在のユーザー】
+- 名前: ${currentUser?.name || '不明'}
+- 役職: ${currentUser?.position || '不明'}
+- 部署: ${currentUser?.department || '不明'}
+- 権限: ${isAdminOrHR ? '管理者/総務（全機能利用可）' : '一般ユーザー（自分の給与のみ閲覧）'}
+
+【現在適用されているフィルター】
+${filterDescriptions.length > 0 ? filterDescriptions.join('\n') : 'フィルターなし（全社員表示）'}
+
+【表示中の社員数】
+- 全体: ${employees.length}名
+- フィルター適用後: ${filteredEmployees.length}名
+
+【利用可能な機能】
+${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
+- 給与データの編集・削除
+- 全社員の給与データ閲覧
+- 給与統計の確認` : `- 自分の給与明細の閲覧
+- 給与履歴の確認`}
+
+【このページで質問できること】
+- 給与明細のアップロード方法
+- 給与データの確認方法
+- フィルター機能の使い方
+- 一括アップロード機能について
+- 給与計算の仕組み
+- その他、給与管理に関する質問`
+  }
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
@@ -91,7 +131,7 @@ export default function PayrollPage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">給与管理</h1>
             <p className="text-slate-600">社員をクリックして給与明細をアップロード</p>
           </div>
-          <AIAskButton context="給与管理" />
+          <AIAskButton context={buildAIContext()} />
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">

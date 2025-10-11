@@ -12,7 +12,6 @@ import { ExportMenu } from "@/components/export-menu"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
-import { DefaultCardSettingsDialog } from "@/components/default-card-settings-dialog"
 import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -454,7 +453,6 @@ export default function TasksPage() {
           <div className="flex gap-3">
             <AIAskButton context="タスク管理" />
             <ExportMenu />
-            <DefaultCardSettingsDialog />
           </div>
         </div>
 

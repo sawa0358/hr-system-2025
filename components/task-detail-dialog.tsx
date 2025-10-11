@@ -100,6 +100,39 @@ interface TaskDetailDialogProps {
   onTaskUpdate?: (updatedTask: Task) => void
 }
 
+// 18色のカラーパレット（段階的配色）
+const COLOR_PALETTE = [
+  // 基本色
+  { name: "白", value: "#ffffff", category: "basic" },
+  { name: "黒", value: "#000000", category: "basic" },
+  { name: "グレー", value: "#6b7280", category: "basic" },
+  
+  // 赤系統
+  { name: "赤", value: "#ef4444", category: "red" },
+  { name: "ローズ", value: "#f43f5e", category: "red" },
+  { name: "ピンク", value: "#ec4899", category: "red" },
+  
+  // オレンジ系統
+  { name: "オレンジ", value: "#f97316", category: "orange" },
+  { name: "アンバー", value: "#f59e0b", category: "orange" },
+  { name: "イエロー", value: "#eab308", category: "orange" },
+  
+  // 緑系統
+  { name: "緑", value: "#22c55e", category: "green" },
+  { name: "エメラルド", value: "#10b981", category: "green" },
+  { name: "ティール", value: "#14b8a6", category: "green" },
+  
+  // 青系統
+  { name: "青", value: "#3b82f6", category: "blue" },
+  { name: "インディゴ", value: "#6366f1", category: "blue" },
+  { name: "バイオレット", value: "#8b5cf6", category: "blue" },
+  
+  // 紫系統
+  { name: "パープル", value: "#a855f7", category: "purple" },
+  { name: "フューシャ", value: "#d946ef", category: "purple" },
+  { name: "ライラック", value: "#e879f9", category: "purple" },
+]
+
 const PRESET_LABELS: Label[] = [
   { id: "label-1", name: "緊急", color: "#ef4444" },
   { id: "label-2", name: "重要", color: "#f59e0b" },
@@ -109,17 +142,25 @@ const PRESET_LABELS: Label[] = [
   { id: "label-6", name: "ドキュメント", color: "#8b5cf6" },
 ]
 
+// カード色用（不透明な色調）
 const CARD_COLORS = [
   { name: "なし", value: "" },
-  { name: "赤", value: "#fee2e2" },
-  { name: "オレンジ", value: "#fed7aa" },
-  { name: "黄", value: "#fef3c7" },
-  { name: "緑", value: "#d1fae5" },
-  { name: "青", value: "#dbeafe" },
-  { name: "紫", value: "#e9d5ff" },
-  { name: "ピンク", value: "#fce7f3" },
-  { name: "グレー", value: "#f3f4f6" },
+  ...COLOR_PALETTE.map(color => ({
+    name: color.name,
+    value: color.value === "#ffffff" ? "#ffffff" : 
+           color.value === "#000000" ? "#f8fafc" : 
+           color.value === "#6b7280" ? "#f1f5f9" : 
+           color.value // 透明度を適用せず、元の色をそのまま使用
+  }))
 ]
+
+// ヘックスカラーをRGBAに変換する関数
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 const PRIORITY_OPTIONS = [
   { value: "low", label: "低" },
@@ -699,7 +740,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         status: status || "todo",
         labels: selectedLabels || [],
         checklists: checklists || [],
-        cardColor: cardColor || "",
+        cardColor: cardColor || null,
         isArchived: isArchived || false,
         members: members || [],
         attachments: uploadedFiles || [], // ファイル情報を追加
@@ -838,14 +879,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="max-w-5xl max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: cardColor || "white" }}
+        style={{ 
+          backgroundColor: cardColor && cardColor !== "" ? cardColor : "white"
+        }}
       >
         <DialogHeader>
           <DialogTitle>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-semibold border-none shadow-none px-0 focus-visible:ring-0"
+              className="text-xl font-semibold border-none shadow-none px-0 focus-visible:ring-0 bg-white"
               placeholder="タスク名"
             />
           </DialogTitle>
@@ -905,6 +948,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     placeholder="ラベル名"
                     value={newLabelName}
                     onChange={(e) => setNewLabelName(e.target.value)}
+                    className="bg-white"
                   />
                   <input
                     type="color"
@@ -926,6 +970,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               onChange={(e) => setDescription(e.target.value)}
               placeholder="タスクの詳細を入力..."
               rows={4}
+              className="bg-white"
             />
           </div>
 
@@ -997,7 +1042,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                       placeholder="重要度の表示名（例：最高）"
                       value={newPriorityLabel}
                       onChange={(e) => setNewPriorityLabel(e.target.value)}
-                      className="text-sm flex-1"
+                      className="text-sm flex-1 bg-white"
                     />
                     <Button size="sm" onClick={handleAddPriority}>
                       追加
@@ -1043,7 +1088,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                       placeholder="状態の表示名（例：保留中）"
                       value={newStatusLabel}
                       onChange={(e) => setNewStatusLabel(e.target.value)}
-                      className="text-sm flex-1"
+                      className="text-sm flex-1 bg-white"
                     />
                     <Button size="sm" onClick={handleAddStatus}>
                       追加
@@ -1098,7 +1143,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     placeholder="名前、部署、役職で検索..."
                     value={employeeSearch}
                     onChange={(e) => setEmployeeSearch(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 bg-white"
                   />
                 </div>
                 <div className="max-h-64 overflow-y-auto space-y-1">
@@ -1148,7 +1193,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
 
                 return (
-                  <div key={checklist.id} className="border rounded-lg p-4">
+                  <div key={checklist.id} className="border rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">{checklist.title}</h4>
                       <Button variant="ghost" size="sm" onClick={() => handleDeleteChecklist(checklist.id)}>
@@ -1246,7 +1291,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                       value={newFileFolderName}
                       onChange={(e) => setNewFileFolderName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddFileFolder()}
-                      className="w-32 h-8 text-sm"
+                      className="w-32 h-8 text-sm bg-white"
                       autoFocus
                     />
                     <Button size="sm" onClick={handleAddFileFolder}>
@@ -1373,18 +1418,32 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               <Palette className="w-4 h-4" />
               カードの色
             </label>
-            <div className="flex flex-wrap gap-2">
-              {CARD_COLORS.map((color) => (
-                <button
-                  key={color.value}
-                  onClick={() => setCardColor(color.value)}
-                  className={`w-16 h-10 rounded border-2 ${
-                    cardColor === color.value ? "border-blue-600" : "border-slate-300"
-                  }`}
-                  style={{ backgroundColor: color.value || "white" }}
-                  title={color.name}
-                />
-              ))}
+            <div className="space-y-3">
+              {/* カラーピッカー */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-600">カスタム色を選択</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    id="customCardColor"
+                    className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                    onChange={(e) => {
+                      setCardColor(e.target.value)
+                    }}
+                  />
+                  <span className="text-sm text-gray-600">カスタム色を選択</span>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCardColor("")}
+                    className="text-xs"
+                  >
+                    色をリセット
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 

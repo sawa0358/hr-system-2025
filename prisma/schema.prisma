@@ -152,6 +152,7 @@ model BoardList {
   id        String   @id @default(cuid())
   boardId   String
   title     String
+  color     String?  @default("#f1f5f9")
   position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

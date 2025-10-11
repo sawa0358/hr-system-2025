@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Settings, Plus, Trash2 } from "lucide-react"
+import { Settings, Plus, Trash2, Palette } from "lucide-react"
 
 interface DefaultLabel {
   id: string
@@ -45,11 +45,45 @@ const INITIAL_STATUSES: DefaultStatus[] = [
   { value: "done", label: "完了" },
 ]
 
+// カード色のプリセット
+const CARD_COLORS = [
+  { name: "白", value: "#ffffff", color: "#ffffff" },
+  { name: "薄い青", value: "#eff6ff", color: "#3b82f6" },
+  { name: "薄い緑", value: "#f0fdf4", color: "#10b981" },
+  { name: "薄い黄", value: "#fefce8", color: "#eab308" },
+  { name: "薄い赤", value: "#fef2f2", color: "#ef4444" },
+  { name: "薄い紫", value: "#faf5ff", color: "#8b5cf6" },
+  { name: "薄いピンク", value: "#fdf2f8", color: "#ec4899" },
+  { name: "薄いオレンジ", value: "#fff7ed", color: "#f97316" },
+  { name: "薄いグレー", value: "#f8fafc", color: "#64748b" },
+  { name: "薄いシアン", value: "#ecfeff", color: "#06b6d4" },
+  { name: "薄いライム", value: "#f7fee7", color: "#84cc16" },
+  { name: "薄いローズ", value: "#fff1f2", color: "#f43f5e" },
+]
+
+// リスト色のプリセット
+const LIST_COLORS = [
+  { name: "デフォルト", value: "#f1f5f9", color: "#64748b" },
+  { name: "青", value: "#dbeafe", color: "#3b82f6" },
+  { name: "緑", value: "#dcfce7", color: "#10b981" },
+  { name: "黄", value: "#fef3c7", color: "#f59e0b" },
+  { name: "赤", value: "#fee2e2", color: "#ef4444" },
+  { name: "紫", value: "#ede9fe", color: "#8b5cf6" },
+  { name: "ピンク", value: "#fce7f3", color: "#ec4899" },
+  { name: "オレンジ", value: "#fed7aa", color: "#f97316" },
+  { name: "グレー", value: "#e2e8f0", color: "#64748b" },
+  { name: "シアン", value: "#cffafe", color: "#06b6d4" },
+  { name: "ライム", value: "#ecfccb", color: "#84cc16" },
+  { name: "ローズ", value: "#ffe4e6", color: "#f43f5e" },
+]
+
 export function DefaultCardSettingsDialog() {
   const [open, setOpen] = useState(false)
   const [labels, setLabels] = useState<DefaultLabel[]>(INITIAL_LABELS)
   const [priorities, setPriorities] = useState<DefaultPriority[]>(INITIAL_PRIORITIES)
   const [statuses, setStatuses] = useState<DefaultStatus[]>(INITIAL_STATUSES)
+  const [defaultCardColor, setDefaultCardColor] = useState("#ffffff")
+  const [defaultListColor, setDefaultListColor] = useState("#f1f5f9")
 
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
@@ -72,7 +106,9 @@ export function DefaultCardSettingsDialog() {
 
   const handleAddPriority = () => {
     if (newPriorityValue.trim() && newPriorityLabel.trim()) {
-      setPriorities([...priorities, { value: newPriorityValue, label: newPriorityLabel }])
+      // 値を小文字に統一
+      const normalizedValue = newPriorityValue.trim().toLowerCase()
+      setPriorities([...priorities, { value: normalizedValue, label: newPriorityLabel.trim() }])
       setNewPriorityValue("")
       setNewPriorityLabel("")
     }
@@ -84,7 +120,9 @@ export function DefaultCardSettingsDialog() {
 
   const handleAddStatus = () => {
     if (newStatusValue.trim() && newStatusLabel.trim()) {
-      setStatuses([...statuses, { value: newStatusValue, label: newStatusLabel }])
+      // 値を小文字に統一し、ハイフンで区切る
+      const normalizedValue = newStatusValue.trim().toLowerCase().replace(/\s+/g, '-')
+      setStatuses([...statuses, { value: normalizedValue, label: newStatusLabel.trim() }])
       setNewStatusValue("")
       setNewStatusLabel("")
     }
@@ -95,7 +133,23 @@ export function DefaultCardSettingsDialog() {
   }
 
   const handleSave = () => {
-    console.log("[v0] Saving default card settings:", { labels, priorities, statuses })
+    console.log("[v0] Saving default card settings:", { 
+      labels, 
+      priorities, 
+      statuses, 
+      defaultCardColor, 
+      defaultListColor 
+    })
+    // localStorageに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('default-card-settings', JSON.stringify({
+        labels,
+        priorities,
+        statuses,
+        defaultCardColor,
+        defaultListColor
+      }))
+    }
     alert("デフォルト設定を保存しました。全てのボードのカードに反映されます。")
     setOpen(false)
   }
@@ -112,7 +166,7 @@ export function DefaultCardSettingsDialog() {
         <DialogHeader>
           <DialogTitle>カードのデフォルト設定</DialogTitle>
           <p className="text-sm text-slate-600">
-            全てのボードのカードに適用されるデフォルトのラベル、重要度、状態を設定します
+            全てのボードのカードに適用されるデフォルトのラベル、重要度、状態、色を設定します
           </p>
         </DialogHeader>
 
@@ -219,6 +273,64 @@ export function DefaultCardSettingsDialog() {
                 <Plus className="w-3 h-3 mr-1" />
                 追加
               </Button>
+            </div>
+          </div>
+
+          {/* Card Colors Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              デフォルトカード色
+            </h3>
+            <div className="grid grid-cols-6 gap-2">
+              {CARD_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => setDefaultCardColor(color.value)}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    defaultCardColor === color.value 
+                      ? 'border-blue-500 ring-2 ring-blue-200' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                  title={color.name}
+                >
+                  {defaultCardColor === color.value && (
+                    <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center mx-auto">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* List Colors Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold mb-3 flex items-center gap-2">
+              <Palette className="w-4 h-4" />
+              デフォルトリスト色
+            </h3>
+            <div className="grid grid-cols-6 gap-2">
+              {LIST_COLORS.map((color) => (
+                <button
+                  key={color.value}
+                  onClick={() => setDefaultListColor(color.value)}
+                  className={`p-3 rounded-lg border-2 transition-all ${
+                    defaultListColor === color.value 
+                      ? 'border-blue-500 ring-2 ring-blue-200' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  style={{ backgroundColor: color.value }}
+                  title={color.name}
+                >
+                  {defaultListColor === color.value && (
+                    <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center mx-auto">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
           </div>
 

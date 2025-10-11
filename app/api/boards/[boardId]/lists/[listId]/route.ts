@@ -71,23 +71,46 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { title } = body
+    const { title, color } = body
 
-    if (!title || title.trim() === "") {
-      return NextResponse.json({ error: "リスト名は必須です" }, { status: 400 })
+    // colorまたはtitleのいずれかが必要
+    if (!color && !title) {
+      return NextResponse.json({ error: "色またはリスト名のいずれかは必須です" }, { status: 400 })
+    }
+
+    // 更新データを構築
+    const updateData: any = {}
+    if (title && title.trim() !== "") {
+      updateData.title = title.trim()
+    }
+    if (color) {
+      updateData.color = color
+    }
+
+    // 更新データが空の場合はエラー
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "更新するデータがありません" }, { status: 400 })
     }
 
     const updatedList = await prisma.boardList.update({
       where: { id: params.listId },
-      data: {
-        title: title.trim(),
-      },
+      data: updateData,
     })
 
     return NextResponse.json({ list: updatedList })
   } catch (error) {
     console.error("Error updating list:", error)
-    return NextResponse.json({ error: "リストの更新に失敗しました" }, { status: 500 })
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      body: await request.text().catch(() => 'Failed to read body'),
+      params,
+      userId: request.headers.get("x-employee-id")
+    })
+    return NextResponse.json({ 
+      error: "リストの更新に失敗しました",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 

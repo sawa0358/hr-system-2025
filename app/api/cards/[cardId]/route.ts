@@ -221,7 +221,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           labels: labels !== undefined ? labels : undefined,
           checklists: checklists !== undefined ? checklists : undefined,
           attachments: attachments !== undefined ? attachments : undefined,
-          cardColor: cardColor || undefined,
+          cardColor: cardColor !== null && cardColor !== "" ? cardColor : null,
           isArchived: isArchived !== undefined ? isArchived : undefined,
         },
         include: {

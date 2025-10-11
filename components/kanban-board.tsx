@@ -7,11 +7,61 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2 } from "lucide-react"
+import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { kanbanTasks, taskTemplates } from "@/lib/mock-data"
 import { checkListPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 import { TaskDetailDialog } from "./task-detail-dialog"
+
+// 18色のカラーパレット（段階的配色）
+const COLOR_PALETTE = [
+  // 基本色
+  { name: "白", value: "#ffffff", category: "basic" },
+  { name: "黒", value: "#000000", category: "basic" },
+  { name: "グレー", value: "#6b7280", category: "basic" },
+  
+  // 赤系統
+  { name: "赤", value: "#ef4444", category: "red" },
+  { name: "ローズ", value: "#f43f5e", category: "red" },
+  { name: "ピンク", value: "#ec4899", category: "red" },
+  
+  // オレンジ系統
+  { name: "オレンジ", value: "#f97316", category: "orange" },
+  { name: "アンバー", value: "#f59e0b", category: "orange" },
+  { name: "イエロー", value: "#eab308", category: "orange" },
+  
+  // 緑系統
+  { name: "緑", value: "#22c55e", category: "green" },
+  { name: "エメラルド", value: "#10b981", category: "green" },
+  { name: "ティール", value: "#14b8a6", category: "green" },
+  
+  // 青系統
+  { name: "青", value: "#3b82f6", category: "blue" },
+  { name: "インディゴ", value: "#6366f1", category: "blue" },
+  { name: "バイオレット", value: "#8b5cf6", category: "blue" },
+  
+  // 紫系統
+  { name: "パープル", value: "#a855f7", category: "purple" },
+  { name: "フューシャ", value: "#d946ef", category: "purple" },
+  { name: "ライラック", value: "#e879f9", category: "purple" },
+]
+
+// ヘックスカラーをRGBAに変換する関数
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+// リスト色用（薄い色調）
+const LIST_COLORS = COLOR_PALETTE.map(color => ({
+  name: color.name,
+  value: color.value === "#ffffff" ? "#ffffff" : 
+         color.value === "#000000" ? "#f1f5f9" : 
+         color.value === "#6b7280" ? "#e5e7eb" : 
+         hexToRgba(color.value, 0.15) // 透明度15%を適用して薄くする
+}))
 import {
   DndContext,
   DragOverlay,
@@ -53,6 +103,7 @@ interface KanbanList {
   id: string
   title: string
   taskIds: string[]
+  color?: string
 }
 
 function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => void; isDragging?: boolean }) {
@@ -99,7 +150,9 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
     >
       <Card
         className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-        style={{ backgroundColor: task.cardColor || "white" }}
+        style={{ 
+          backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+        }}
       >
         <CardContent className="p-2">
           <div className="flex items-center gap-2">
@@ -174,7 +227,9 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
     >
       <Card
         className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-        style={{ backgroundColor: task.cardColor || "white" }}
+        style={{ 
+          backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+        }}
       >
         <CardContent className="p-2">
           <div className="flex items-start gap-2">
@@ -279,7 +334,9 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
     <div
       className="flex items-center gap-4 px-4 py-2 border border-slate-200 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
       onClick={onClick}
-      style={{ backgroundColor: task.cardColor || "white" }}
+      style={{ 
+        backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+      }}
     >
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-slate-900 text-sm truncate">{task.title}</h3>
@@ -332,6 +389,7 @@ function KanbanColumn({
   onAddFromTemplate,
   onEditList,
   onDeleteList,
+  onListColorChange,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -341,6 +399,7 @@ function KanbanColumn({
   onAddFromTemplate: () => void
   onEditList: (listId: string) => void
   onDeleteList: (listId: string) => void
+  onListColorChange: (listId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -355,7 +414,10 @@ function KanbanColumn({
   if (isCollapsed) {
     return (
       <div ref={setNodeRef} style={style} className="flex-shrink-0 w-12">
-        <div className="bg-slate-100 rounded-lg p-2 h-full min-h-[400px] flex flex-col items-center">
+        <div 
+          className="rounded-lg p-2 h-full min-h-[400px] flex flex-col items-center"
+          style={{ backgroundColor: list.color || "#f1f5f9" }}
+        >
           <Button
             variant="ghost"
             size="sm"
@@ -380,7 +442,10 @@ function KanbanColumn({
       style={style} 
       className="flex-1 min-w-[300px]"
     >
-      <div className="bg-slate-100 rounded-lg p-4 relative z-0">
+      <div 
+        className="rounded-lg p-4 relative z-0"
+        style={{ backgroundColor: list.color || "#f1f5f9" }}
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 flex-1">
             <Button
@@ -421,6 +486,10 @@ function KanbanColumn({
                 <DropdownMenuItem onClick={() => onEditList(list.id)}>
                   <Edit className="w-4 h-4 mr-2" />
                   編集
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onListColorChange(list.id)}>
+                  <Palette className="w-4 h-4 mr-2" />
+                  色を変更
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => onDeleteList(list.id)}
@@ -519,7 +588,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [addCardDialogOpen, setAddCardDialogOpen] = useState(false)
+  const [listColorModalOpen, setListColorModalOpen] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
+  const [colorChangeListId, setColorChangeListId] = useState<string | null>(null)
 
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
@@ -536,6 +607,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       id: list.id,
       title: list.title,
       taskIds: list.cards ? list.cards.map((card: any) => card.id) : [],
+      color: list.color,
     }))
   }
 
@@ -862,6 +934,37 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }
 
+  const handleListColorChange = async (listId: string, color: string) => {
+    try {
+      console.log('Changing list color:', { listId, color, boardId: boardData?.id })
+      
+      const response = await fetch(`/api/boards/${boardData?.id}/lists/${listId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUserId || '',
+        },
+        body: JSON.stringify({ color }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('List color updated successfully:', result)
+        setLists(lists.map(l =>
+          l.id === listId ? { ...l, color } : l
+        ))
+        if (onRefresh) onRefresh()
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('List color update failed:', response.status, errorData)
+        alert(`リスト色の変更に失敗しました: ${errorData.error || response.statusText}`)
+      }
+    } catch (error) {
+      console.error('Error updating list color:', error)
+      alert(`リスト色の変更に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task)
     setDialogOpen(true)
@@ -1028,6 +1131,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   onAddFromTemplate={() => console.log("[v0] Adding from template to:", list.title)}
                   onEditList={handleEditList}
                   onDeleteList={handleDeleteList}
+                  onListColorChange={(listId) => {
+                    setColorChangeListId(listId)
+                    setListColorModalOpen(true)
+                  }}
                 />
               )
             })}
@@ -1077,6 +1184,65 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         onOpenChange={setAddCardDialogOpen}
         onCreateCard={handleCreateCard}
       />
+
+      {/* リスト色変更モーダル */}
+      <Dialog open={listColorModalOpen} onOpenChange={setListColorModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>リストの色を変更</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* カラーピッカー */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">カスタム色を選択</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  id="customListColor"
+                  className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+                  onChange={(e) => {
+                    if (colorChangeListId) {
+                      const customColor = hexToRgba(e.target.value, 0.15)
+                      handleListColorChange(colorChangeListId, customColor)
+                      setListColorModalOpen(false)
+                      setColorChangeListId(null)
+                    }
+                  }}
+                />
+                <span className="text-sm text-gray-600">カスタム色を選択</span>
+              </div>
+            </div>
+            
+            {/* プリセット色 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">プリセット色</label>
+              <div className="grid grid-cols-6 gap-3">
+                {LIST_COLORS.map((color) => (
+                  <button
+                    key={color.value}
+                    onClick={() => {
+                      if (colorChangeListId) {
+                        handleListColorChange(colorChangeListId, color.value)
+                        setListColorModalOpen(false)
+                        setColorChangeListId(null)
+                      }
+                    }}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      'border-gray-200 hover:border-gray-300'
+                    }`}
+                    style={{ backgroundColor: color.value }}
+                    title={color.name}
+                  >
+                    <div className="text-xs text-center font-medium text-gray-700">
+                      {color.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 })

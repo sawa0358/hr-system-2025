@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
 import { format, parseISO } from "date-fns"
-import { kanbanTasks, taskTemplates } from "@/lib/mock-data"
+import { taskTemplates } from "@/lib/mock-data"
 import { checkListPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 import { TaskDetailDialog } from "./task-detail-dialog"
 
@@ -780,20 +780,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }
 
   const [lists, setLists] = useState<KanbanList[]>(
-    boardData ? generateListsFromBoardData(boardData) : [
-      { id: "todo", title: "未着手", taskIds: kanbanTasks.filter((t) => t.status === "todo").map((t) => t.id) },
-      {
-        id: "in-progress",
-        title: "進行中",
-        taskIds: kanbanTasks.filter((t) => t.status === "in-progress").map((t) => t.id),
-      },
-      { id: "review", title: "レビュー", taskIds: kanbanTasks.filter((t) => t.status === "review").map((t) => t.id) },
-      { id: "done", title: "完了", taskIds: kanbanTasks.filter((t) => t.status === "done").map((t) => t.id) },
-    ]
+    boardData ? generateListsFromBoardData(boardData) : []
   )
 
   const [tasksById, setTasksById] = useState<Record<string, Task>>(
-    boardData ? generateTasksFromBoardData(boardData) : kanbanTasks.reduce((acc, task) => ({ ...acc, [task.id]: task }), {}),
+    boardData ? generateTasksFromBoardData(boardData) : {},
   )
 
   // ボードデータが変更されたときに状態を更新
@@ -879,7 +870,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       const oldIndex = lists.findIndex((list) => list.id === activeId)
       const newIndex = lists.findIndex((list) => list.id === overId)
 
-      if (oldIndex !== newIndex) {
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
         // ローカル状態を更新
         const newLists = arrayMove(lists, oldIndex, newIndex)
         setLists(newLists)
@@ -926,16 +917,16 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       
       if (!sourceList || !targetList) return
 
-      const oldIndex = sourceList.taskIds.indexOf(activeId)
+      const oldIndex = sourceList.taskIds?.indexOf(activeId) ?? -1
       
       // Determine new index in target list
       let newIndex: number
       if (targetList.id === overId) {
         // Dropped on list header, add to end
-        newIndex = targetList.taskIds.length
+        newIndex = targetList.taskIds?.length ?? 0
       } else {
         // Dropped on another task
-        newIndex = targetList.taskIds.indexOf(overId)
+        newIndex = targetList.taskIds?.indexOf(overId) ?? 0
       }
 
       // Update local state first
@@ -944,7 +935,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         
         if (sourceList.id === targetList.id) {
           // Moving within same list
-          const updatedTaskIds = arrayMove(sourceList.taskIds, oldIndex, newIndex)
+          const sourceTaskIds = sourceList.taskIds || []
+          const updatedTaskIds = arrayMove(sourceTaskIds, oldIndex, newIndex)
           const sourceListIndex = newLists.findIndex((l) => l.id === sourceList.id)
           newLists[sourceListIndex] = { ...sourceList, taskIds: updatedTaskIds }
         } else {
@@ -953,11 +945,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           const targetListIndex = newLists.findIndex((l) => l.id === targetList.id)
           
           // Remove from source list
-          const updatedSourceTaskIds = sourceList.taskIds.filter((id) => id !== activeId)
+          const sourceTaskIds = sourceList.taskIds || []
+          const updatedSourceTaskIds = sourceTaskIds.filter((id) => id !== activeId)
           newLists[sourceListIndex] = { ...sourceList, taskIds: updatedSourceTaskIds }
           
           // Add to target list
-          const updatedTargetTaskIds = [...targetList.taskIds]
+          const targetTaskIds = targetList.taskIds || []
+          const updatedTargetTaskIds = [...targetTaskIds]
           updatedTargetTaskIds.splice(newIndex, 0, activeId)
           newLists[targetListIndex] = { ...targetList, taskIds: updatedTargetTaskIds }
         }
@@ -1387,37 +1381,44 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-6 overflow-x-auto pb-4">
-          <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-            {lists.map((list) => {
-              const listTasks = list.taskIds.map((id) => tasksById[id]).filter(Boolean)
-              return (
-                <KanbanColumn
-                  key={list.id}
-                  list={list}
-                  tasks={listTasks}
-                  viewMode={viewMode}
-                  onTaskClick={handleTaskClick}
-                  onAddCard={() => handleAddCard(list.id)}
-                  onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
-                  onEditList={handleEditList}
-                  onDeleteList={handleDeleteList}
-                  onListColorChange={(listId) => {
-                    setColorChangeListId(listId)
-                    setListColorModalOpen(true)
-                  }}
-                  boardId={boardData?.id}
-                />
-              )
-            })}
-          </SortableContext>
+          {lists.length > 0 ? (
+            <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+              {lists.map((list) => {
+                const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
+                return (
+                  <KanbanColumn
+                    key={list.id}
+                    list={list}
+                    tasks={listTasks}
+                    viewMode={viewMode}
+                    onTaskClick={handleTaskClick}
+                    onAddCard={() => handleAddCard(list.id)}
+                    onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
+                    onEditList={handleEditList}
+                    onDeleteList={handleDeleteList}
+                    onListColorChange={(listId) => {
+                      setColorChangeListId(listId)
+                      setListColorModalOpen(true)
+                    }}
+                    boardId={boardData?.id}
+                  />
+                )
+              })}
+            </SortableContext>
+          ) : (
+            <div className="flex-1 text-center py-12 text-slate-500">
+              <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+              <p className="text-lg font-medium mb-2">リストがありません</p>
+              <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
+            </div>
+          )}
 
-          <div className="flex-shrink-0 w-[300px]">
-            {(() => {
-              if (!currentUserRole) return null
-              const listPermissions = checkListPermissions(currentUserRole as any)
-              if (!listPermissions.canCreate) return null
-              
-              return (
+          {currentUserRole && (() => {
+            const listPermissions = checkListPermissions(currentUserRole as any)
+            if (!listPermissions.canCreate) return null
+            
+            return (
+              <div className="flex-shrink-0 w-[300px]">
                 <button
                   onClick={handleAddList}
                   className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
@@ -1425,13 +1426,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   <Plus className="w-5 h-5" />
                   リストを追加
                 </button>
-              )
-            })()}
-          </div>
+              </div>
+            )
+          })()}
         </div>
 
         <DragOverlay>
-          {activeTask ? (
+          {activeTask && tasksById[activeTask.id] ? (
             viewMode === "list" ? (
               <CompactTaskCard task={activeTask} onClick={() => {}} isDragging />
             ) : (

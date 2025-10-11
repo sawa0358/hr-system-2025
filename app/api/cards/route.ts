@@ -83,51 +83,74 @@ export async function POST(request: NextRequest) {
 
     // カード作成時は作成者を自動的にメンバーに追加
     const allMemberIds = Array.from(new Set([userId, ...memberIds]))
+    console.log("[v0] Creating card with members:", allMemberIds)
 
-    const card = await prisma.card.create({
-      data: {
-        title,
-        description,
-        listId,
-        boardId,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        priority: priority || "medium",
-        createdBy: userId,
-        position: (maxPositionCard?.position ?? -1) + 1,
-        members: {
-          create: allMemberIds.map((employeeId) => ({
+    const card = await prisma.$transaction(async (tx) => {
+      // カードを作成
+      const newCard = await tx.card.create({
+        data: {
+          title,
+          description,
+          listId,
+          boardId,
+          dueDate: dueDate ? new Date(dueDate) : null,
+          priority: priority || "medium",
+          createdBy: userId,
+          position: (maxPositionCard?.position ?? -1) + 1,
+        },
+      })
+
+      // メンバーを作成
+      if (allMemberIds.length > 0) {
+        await tx.cardMember.createMany({
+          data: allMemberIds.map((employeeId) => ({
+            cardId: newCard.id,
             employeeId,
             addedBy: userId,
           })),
-        },
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        })
+      }
+
+      // 作成したカードを取得（関連データを含む）
+      return await tx.card.findUnique({
+        where: { id: newCard.id },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
-        },
-        members: {
-          include: {
-            employee: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                department: true,
+          members: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  department: true,
+                },
               },
             },
           },
         },
-      },
+      })
     })
 
     return NextResponse.json({ card }, { status: 201 })
   } catch (error) {
     console.error("[v0] Error creating card:", error)
-    return NextResponse.json({ error: "カードの作成に失敗しました" }, { status: 500 })
+    console.error("[v0] Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      body: body,
+      userId: userId
+    })
+    return NextResponse.json({ 
+      error: "カードの作成に失敗しました",
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 }
 

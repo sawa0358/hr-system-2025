@@ -92,10 +92,20 @@ export async function PATCH(
       return NextResponse.json({ error: "更新するデータがありません" }, { status: 400 })
     }
 
-    const updatedList = await prisma.boardList.update({
-      where: { id: params.listId },
-      data: updateData,
-    })
+    console.log("[v0] Updating list with data:", updateData)
+    
+    let updatedList
+    try {
+      updatedList = await prisma.boardList.update({
+        where: { id: params.listId },
+        data: updateData,
+      })
+      
+      console.log("[v0] List updated successfully:", updatedList)
+    } catch (updateError) {
+      console.error("[v0] Prisma update error:", updateError)
+      throw updateError
+    }
 
     return NextResponse.json({ list: updatedList })
   } catch (error) {
@@ -103,9 +113,9 @@ export async function PATCH(
     console.error("Error details:", {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      body: await request.text().catch(() => 'Failed to read body'),
       params,
-      userId: request.headers.get("x-employee-id")
+      userId: request.headers.get("x-employee-id"),
+      updateData: updateData
     })
     return NextResponse.json({ 
       error: "リストの更新に失敗しました",

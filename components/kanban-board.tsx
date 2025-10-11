@@ -426,6 +426,7 @@ function KanbanColumn({
   onEditList,
   onDeleteList,
   onListColorChange,
+  boardId,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -436,20 +437,47 @@ function KanbanColumn({
   onEditList: (listId: string) => void
   onDeleteList: (listId: string) => void
   onListColorChange: (listId: string) => void
+  boardId?: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
-  const [isCollapsed, setIsCollapsed] = useState(false)
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
   const [savedTemplates, setSavedTemplates] = useState<any[]>([])
 
-  // localStorageからテンプレートを読み込む
+  // localStorageから折りたたみ状態を読み込む
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem(`list-collapsed-${list.id}`)
+    return saved === 'true'
+  })
+
+  // 折りたたみ状態をlocalStorageに保存
+  const handleToggleCollapse = (collapsed: boolean) => {
+    setIsCollapsed(collapsed)
+    localStorage.setItem(`list-collapsed-${list.id}`, String(collapsed))
+  }
+
+  // localStorageからテンプレートを読み込む（ボードごと）
   useEffect(() => {
-    if (showTemplateDialog) {
-      const templates = JSON.parse(localStorage.getItem('cardTemplates') || '[]')
-      console.log('[v0] Loaded templates from localStorage:', templates)
+    if (showTemplateDialog && boardId) {
+      const storageKey = `cardTemplates-${boardId}`
+      const templates = JSON.parse(localStorage.getItem(storageKey) || '[]')
+      console.log('[v0] Loaded templates from localStorage for board:', boardId, templates)
       setSavedTemplates(templates)
     }
-  }, [showTemplateDialog])
+  }, [showTemplateDialog, boardId])
+
+  // テンプレートを削除
+  const handleDeleteTemplate = (templateId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // カードのクリックイベントを阻止
+    if (confirm('このテンプレートを削除してもよろしいですか？')) {
+      if (!boardId) return
+      const storageKey = `cardTemplates-${boardId}`
+      const templates = JSON.parse(localStorage.getItem(storageKey) || '[]')
+      const updatedTemplates = templates.filter((t: any) => t.id !== templateId)
+      localStorage.setItem(storageKey, JSON.stringify(updatedTemplates))
+      setSavedTemplates(updatedTemplates)
+      console.log('[v0] Template deleted:', templateId)
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -467,7 +495,7 @@ function KanbanColumn({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setIsCollapsed(false)}
+            onClick={() => handleToggleCollapse(false)}
             className="h-8 w-8 p-0 mb-4 flex-shrink-0"
           >
             <ChevronRight className="w-4 h-4" />
@@ -499,7 +527,7 @@ function KanbanColumn({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation()
-                setIsCollapsed(true)
+                handleToggleCollapse(true)
               }}
               className="h-6 w-6 p-0 flex-shrink-0"
             >
@@ -595,10 +623,20 @@ function KanbanColumn({
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-slate-900">{template.title}</h3>
-                    <Badge variant="secondary" className="text-xs">
-                      テンプレート
-                    </Badge>
+                    <h3 className="font-semibold text-slate-900 flex-1">{template.title}</h3>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        テンプレート
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => handleDeleteTemplate(template.id, e)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-sm text-slate-600 mb-3">{template.description}</p>
                   {template.labels && template.labels.length > 0 && (
@@ -1367,6 +1405,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                     setColorChangeListId(listId)
                     setListColorModalOpen(true)
                   }}
+                  boardId={boardData?.id}
                 />
               )
             })}

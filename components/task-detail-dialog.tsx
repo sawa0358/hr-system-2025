@@ -90,6 +90,7 @@ interface Task {
   checklists?: Checklist[]
   members?: Member[]
   cardColor?: string
+  boardId?: string
 }
 
 interface TaskDetailDialogProps {
@@ -681,6 +682,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       return
     }
 
+    if (!task.boardId) {
+      alert("ボード情報が取得できません")
+      return
+    }
+
     try {
       const templateData = {
         title: `${title} (テンプレート)`,
@@ -693,16 +699,18 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         isTemplate: true,
       }
 
-      console.log("Creating template:", templateData)
-      // テンプレートデータをlocalStorageに保存
-      const templates = JSON.parse(localStorage.getItem('cardTemplates') || '[]')
+      console.log("Creating template for board:", task.boardId, templateData)
+      // テンプレートデータをlocalStorageに保存（ボードごと）
+      const storageKey = `cardTemplates-${task.boardId}`
+      const templates = JSON.parse(localStorage.getItem(storageKey) || '[]')
       templates.push({
         id: `template-${Date.now()}`,
         ...templateData,
         createdAt: new Date().toISOString(),
         createdBy: currentUser.id,
+        boardId: task.boardId,
       })
-      localStorage.setItem('cardTemplates', JSON.stringify(templates))
+      localStorage.setItem(storageKey, JSON.stringify(templates))
       
       alert("テンプレートとして保存しました")
     } catch (error) {

@@ -138,12 +138,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
     }
 
     const body = await request.json()
-    const { title, description, dueDate, priority, status, labels, checklists, cardColor, isArchived, members, attachments } = body
+    const { title, description, dueDate, priority, status, labels, checklists, cardColor, isArchived, members, attachments, listId, position } = body
 
-    // ステータスが変更された場合、対応するリストIDを取得
+    // リストIDの更新処理
     let newListId = card.listId
-    if (status && status !== card.status) {
-      // ステータスからリストIDを取得する処理
+    if (listId) {
+      // 直接listIdが指定された場合（ドラッグ&ドロップ）
+      newListId = listId
+    } else if (status && status !== card.status) {
+      // ステータスが変更された場合、対応するリストIDを取得
       const boardLists = await prisma.boardList.findMany({
         where: { boardId: card.boardId },
         select: { id: true, title: true }
@@ -195,6 +198,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           priority: priority || undefined,
           status: status || undefined,
           listId: newListId, // リストIDも更新
+          position: position !== undefined ? position : undefined,
           labels: labels !== undefined ? labels : undefined,
           checklists: checklists !== undefined ? checklists : undefined,
           attachments: attachments !== undefined ? attachments : undefined,

@@ -157,16 +157,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
 
   // ファイル管理の状態（ユーザー詳細を参考にした実装）
-  const [folders, setFolders] = useState<string[]>(() => {
-    // localStorageからフォルダ情報を取得
-    if (typeof window !== 'undefined') {
-      const savedFolders = localStorage.getItem(`task-folders-${task?.id || 'new'}`)
-      if (savedFolders) {
-        return JSON.parse(savedFolders)
-      }
-    }
-    return ["資料", "画像", "参考資料"]
-  })
+  const [folders, setFolders] = useState<string[]>(["資料", "画像", "参考資料"])
   const [currentFolder, setCurrentFolder] = useState(folders[0] || "資料")
   const [files, setFiles] = useState<File[]>([]) // アップロード中のファイル
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]) // アップロード済みファイル
@@ -175,19 +166,28 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [newFileFolderName, setNewFileFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
   
+  // タスクが開かれた時にフォルダ情報を読み込み、ファイルを取得
+  useEffect(() => {
+    if (open && task?.id) {
+      // localStorageからフォルダ情報を読み込み
+      if (typeof window !== 'undefined') {
+        const savedFolders = localStorage.getItem(`task-folders-${task.id}`)
+        if (savedFolders) {
+          const parsedFolders = JSON.parse(savedFolders)
+          setFolders(parsedFolders)
+          setCurrentFolder(parsedFolders[0] || "資料")
+        }
+      }
+      fetchUploadedFiles(task.id)
+    }
+  }, [open, task?.id])
+
   // フォルダが変更されたらlocalStorageに保存
   useEffect(() => {
     if (typeof window !== 'undefined' && task?.id) {
       localStorage.setItem(`task-folders-${task.id}`, JSON.stringify(folders))
     }
   }, [folders, task?.id])
-
-  // タスクが開かれた時にファイルを取得
-  useEffect(() => {
-    if (open && task?.id) {
-      fetchUploadedFiles(task.id)
-    }
-  }, [open, task?.id])
 
   const [showPriorityManager, setShowPriorityManager] = useState(false)
   const [showStatusManager, setShowStatusManager] = useState(false)

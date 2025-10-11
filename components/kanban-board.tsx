@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical } from "lucide-react"
+import { format, parseISO } from "date-fns"
 import { kanbanTasks, taskTemplates } from "@/lib/mock-data"
 import { TaskDetailDialog } from "./task-detail-dialog"
 import {
@@ -82,7 +83,8 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
       case "low":
         return "低"
       default:
-        return priority
+        // カスタム重要度の場合は大文字小文字を調整
+        return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
     }
   }
 
@@ -105,7 +107,9 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
             </Badge>
             <div className="flex items-center gap-1 text-xs text-slate-500 flex-shrink-0">
               <Calendar className="w-3 h-3" />
-              <span className="text-xs">{task.dueDate}</span>
+              <span className="text-xs">
+                {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
+              </span>
             </div>
           </div>
         </CardContent>
@@ -145,7 +149,8 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
       case "low":
         return "低"
       default:
-        return priority
+        // カスタム重要度の場合は大文字小文字を調整
+        return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
     }
   }
 
@@ -190,7 +195,9 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
 
               <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
                 <Calendar className="w-3 h-3" />
-                <span>{task.dueDate}</span>
+                <span>
+                  {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
+                </span>
               </div>
             </div>
           </div>
@@ -223,7 +230,8 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
       case "low":
         return "低"
       default:
-        return priority
+        // カスタム重要度の場合は大文字小文字を調整
+        return priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase()
     }
   }
 
@@ -241,7 +249,9 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
       </Badge>
       <div className="flex items-center gap-1 text-xs text-slate-500 flex-shrink-0 min-w-[90px]">
         <Calendar className="w-3 h-3" />
-        <span>{task.dueDate}</span>
+        <span>
+          {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
+        </span>
       </div>
     </div>
   )
@@ -538,7 +548,7 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
     }
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
 
@@ -558,23 +568,73 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
       return
     }
 
-    // Check if dragging a task within the same list
-    if (tasksById[activeId] && activeId !== overId) {
-      const list = lists.find((list) => list.taskIds.includes(activeId))
-      if (!list) return
+    // Check if dragging a task
+    if (tasksById[activeId]) {
+      const sourceList = lists.find((list) => list.taskIds.includes(activeId))
+      const targetList = lists.find((list) => list.id === overId) || 
+                        lists.find((list) => list.taskIds.includes(overId))
+      
+      if (!sourceList || !targetList) return
 
-      const oldIndex = list.taskIds.indexOf(activeId)
-      const newIndex = list.taskIds.indexOf(overId)
+      const oldIndex = sourceList.taskIds.indexOf(activeId)
+      
+      // Determine new index in target list
+      let newIndex: number
+      if (targetList.id === overId) {
+        // Dropped on list header, add to end
+        newIndex = targetList.taskIds.length
+      } else {
+        // Dropped on another task
+        newIndex = targetList.taskIds.indexOf(overId)
+      }
 
-      if (oldIndex !== newIndex) {
-        setLists((lists) =>
-          lists.map((l) => {
-            if (l.id === list.id) {
-              return { ...l, taskIds: arrayMove(l.taskIds, oldIndex, newIndex) }
-            }
-            return l
-          }),
-        )
+      // Update local state first
+      setLists((lists) => {
+        const newLists = [...lists]
+        
+        if (sourceList.id === targetList.id) {
+          // Moving within same list
+          const updatedTaskIds = arrayMove(sourceList.taskIds, oldIndex, newIndex)
+          const sourceListIndex = newLists.findIndex((l) => l.id === sourceList.id)
+          newLists[sourceListIndex] = { ...sourceList, taskIds: updatedTaskIds }
+        } else {
+          // Moving between lists
+          const sourceListIndex = newLists.findIndex((l) => l.id === sourceList.id)
+          const targetListIndex = newLists.findIndex((l) => l.id === targetList.id)
+          
+          // Remove from source list
+          const updatedSourceTaskIds = sourceList.taskIds.filter((id) => id !== activeId)
+          newLists[sourceListIndex] = { ...sourceList, taskIds: updatedSourceTaskIds }
+          
+          // Add to target list
+          const updatedTargetTaskIds = [...targetList.taskIds]
+          updatedTargetTaskIds.splice(newIndex, 0, activeId)
+          newLists[targetListIndex] = { ...targetList, taskIds: updatedTargetTaskIds }
+        }
+        
+        return newLists
+      })
+
+      // Update database
+      try {
+        const response = await fetch(`/api/cards/${activeId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            listId: targetList.id,
+            position: newIndex
+          })
+        })
+
+        if (!response.ok) {
+          console.error('Failed to update card position:', response.statusText)
+          // Optionally revert local state change
+        }
+      } catch (error) {
+        console.error('Error updating card position:', error)
+        // Optionally revert local state change
       }
     }
   }

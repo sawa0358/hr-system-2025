@@ -169,11 +169,18 @@ const PRIORITY_OPTIONS = [
   { value: "high", label: "高" },
 ]
 
-const STATUS_OPTIONS = [
-  { value: "todo", label: "未着手" },
-  { value: "in-progress", label: "進行中" },
-  { value: "review", label: "レビュー" },
-  { value: "done", label: "完了" },
+// デフォルトの状態オプション（削除不可）
+const DEFAULT_STATUS_OPTIONS = [
+  { value: "scheduled", label: "予定リスト", isDefault: true },
+  { value: "in-progress", label: "進行中", isDefault: true },
+  { value: "done", label: "完了", isDefault: true },
+]
+
+// カスタム状態オプション（削除可能）
+// デフォルトと重複しないもののみ
+const CUSTOM_STATUS_OPTIONS = [
+  { value: "todo", label: "未着手", isDefault: false },
+  { value: "review", label: "レビュー", isDefault: false },
 ]
 
 export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUpdate }: TaskDetailDialogProps) {
@@ -196,7 +203,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     setDueDate(date)
   }
   const [priority, setPriority] = useState("medium")
-  const [status, setStatus] = useState("todo")
+  const [status, setStatus] = useState("scheduled")
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([])
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -259,14 +266,42 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('task-status-options')
       if (stored) {
-        return JSON.parse(stored)
+        const customOptions = JSON.parse(stored)
+        // デフォルトオプションの値と重複しないカスタムオプションのみをフィルタリング
+        const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+        const filteredCustomOptions = customOptions.filter((option: any) => 
+          !defaultValues.includes(option.value)
+        )
+        // デフォルトオプションとフィルタリングされたカスタムオプションをマージ
+        return [...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions]
       }
     }
-    return STATUS_OPTIONS
+    // 初回時はデフォルト + カスタムオプション（重複チェック済み）
+    return [...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS]
   }
   
   const [priorityOptions, setPriorityOptions] = useState(getStoredPriorityOptions)
-  const [statusOptions, setStatusOptions] = useState(getStoredStatusOptions)
+  const [statusOptions, setStatusOptions] = useState(() => {
+    const options = getStoredStatusOptions()
+    // 初回読み込み時に重複をクリーンアップ
+    const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+    const cleanedOptions = options.filter((option, index, self) => {
+      // デフォルト値との重複をチェック
+      if (defaultValues.includes(option.value) && !option.isDefault) {
+        return false
+      }
+      // 配列内での重複をチェック
+      return index === self.findIndex(opt => opt.value === option.value)
+    })
+    
+    // クリーンアップされたカスタムオプションをlocalStorageに保存
+    if (typeof window !== 'undefined' && cleanedOptions.length !== options.length) {
+      const customOptions = cleanedOptions.filter(s => !s.isDefault)
+      localStorage.setItem('task-status-options', JSON.stringify(customOptions))
+    }
+    
+    return cleanedOptions
+  })
   const [newPriorityLabel, setNewPriorityLabel] = useState("")
   const [newStatusLabel, setNewStatusLabel] = useState("")
 
@@ -634,25 +669,50 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     if (newStatusLabel.trim()) {
       // 値は自動生成（ラベルの最初の文字を小文字にしたもの）
       const autoValue = newStatusLabel.toLowerCase().replace(/\s+/g, '-')
-      const newOptions = [...statusOptions, { value: autoValue, label: newStatusLabel.trim() }]
+      
+      // 重複チェック
+      const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+      if (defaultValues.includes(autoValue)) {
+        alert('この状態はすでにデフォルトで存在します。別の名前を使用してください。')
+        return
+      }
+      
+      // 既存のオプションとの重複チェック
+      const existingOption = statusOptions.find(opt => opt.value === autoValue || opt.label === newStatusLabel.trim())
+      if (existingOption) {
+        alert('同じ名前の状態が既に存在します。別の名前を使用してください。')
+        return
+      }
+      
+      const newCustomOption = { value: autoValue, label: newStatusLabel.trim(), isDefault: false }
+      const newOptions = [...statusOptions, newCustomOption]
       
       setStatusOptions(newOptions)
       setNewStatusLabel("")
       
-      // localStorageに保存
+      // カスタムオプションのみlocalStorageに保存
+      const customOptions = newOptions.filter(s => !s.isDefault)
       if (typeof window !== 'undefined') {
-        localStorage.setItem('task-status-options', JSON.stringify(newOptions))
+        localStorage.setItem('task-status-options', JSON.stringify(customOptions))
       }
     }
   }
 
   const handleDeleteStatus = (value: string) => {
+    // デフォルトオプションは削除できない
+    const option = statusOptions.find(s => s.value === value)
+    if (option?.isDefault) {
+      alert('この状態は削除できません。')
+      return
+    }
+    
     const newOptions = statusOptions.filter((s) => s.value !== value)
     setStatusOptions(newOptions)
     
-    // localStorageに保存
+    // カスタムオプションのみlocalStorageに保存
+    const customOptions = newOptions.filter(s => !s.isDefault)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('task-status-options', JSON.stringify(newOptions))
+      localStorage.setItem('task-status-options', JSON.stringify(customOptions))
     }
   }
 
@@ -1113,8 +1173,21 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   <div className="space-y-2 mb-3">
                     {statusOptions.map((option) => (
                       <div key={option.value} className="flex items-center justify-between text-sm">
-                        <span>{option.label}</span>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteStatus(option.value)}>
+                        <div className="flex items-center gap-2">
+                          <span>{option.label}</span>
+                          {option.isDefault && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                              デフォルト
+                            </span>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => handleDeleteStatus(option.value)}
+                          disabled={option.isDefault}
+                          className={option.isDefault ? "opacity-50 cursor-not-allowed" : ""}
+                        >
                           <Trash2 className="w-3 h-3" />
                         </Button>
                       </div>

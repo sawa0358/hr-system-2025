@@ -12,6 +12,7 @@ export interface FileUploadData {
   category: string;
   employeeId: string;
   folder?: string;
+  taskId?: string;
 }
 
 /**
@@ -27,6 +28,7 @@ export async function handleFileUpload(
     const category = formData.get('category') as string;
     const folder = formData.get('folder') as string;
     const folderName = formData.get('folderName') as string;
+    const taskId = formData.get('taskId') as string;
 
     if (!file) {
       return { success: false, error: 'ファイルが選択されていません' };
@@ -90,6 +92,45 @@ export async function handleFileUpload(
       },
     });
 
+    // タスクカードのファイルの場合は、カードのattachmentsフィールドを更新
+    if (taskId && category === 'task') {
+      try {
+        // カードの現在のattachmentsを取得
+        const card = await prisma.card.findUnique({
+          where: { id: taskId },
+          select: { attachments: true }
+        });
+
+        if (card) {
+          const currentAttachments = card.attachments as any[] || [];
+          
+          // ファイル情報をattachmentsに追加（シンプルな実装）
+          const fileInfo = {
+            id: fileRecord.id,
+            name: file.name,
+            type: file.type,
+            uploadDate: new Date().toISOString().split("T")[0],
+            size: `${Math.round(file.size / 1024)}KB`,
+            folderName: folderName || folder || 'general'
+          };
+
+          // ファイルをattachmentsに追加
+          const updatedAttachments = [...currentAttachments, fileInfo];
+
+          await prisma.card.update({
+            where: { id: taskId },
+            data: { attachments: updatedAttachments }
+          });
+
+          console.log("Card attachments updated with new file:", fileInfo);
+          console.log("Updated attachments structure:", updatedAttachments);
+        }
+      } catch (error) {
+        console.error("Error updating card attachments:", error);
+        // ファイルアップロードは成功したが、カード更新に失敗した場合は警告のみ
+      }
+    }
+
     return { success: true, fileId: fileRecord.id };
   } catch (error) {
     console.error('ファイルアップロードエラー:', error);
@@ -138,7 +179,8 @@ export async function handleFileDownload(
  */
 export async function handleFileDelete(
   fileId: string,
-  employeeId: string
+  employeeId: string,
+  taskId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // ファイル情報を取得
@@ -159,6 +201,48 @@ export async function handleFileDelete(
     } catch (error) {
       console.error('ファイル削除エラー:', error);
       // ファイルが存在しない場合は無視
+    }
+
+    // タスクカードのファイルの場合は、カードのattachmentsフィールドからも削除
+    if (taskId) {
+      try {
+        const card = await prisma.card.findUnique({
+          where: { id: taskId },
+          select: { attachments: true }
+        });
+
+        if (card && card.attachments) {
+          const currentAttachments = card.attachments as any[] || [];
+          let updatedAttachments = currentAttachments;
+
+          // フォルダ構造が存在する場合は、フォルダ内のファイルから削除
+          if (currentAttachments.some((item: any) => item.files)) {
+            updatedAttachments = currentAttachments.map((folder: any) => {
+              if (folder.files && Array.isArray(folder.files)) {
+                return {
+                  ...folder,
+                  files: folder.files.filter((file: any) => file.id !== fileId)
+                };
+              }
+              return folder;
+            });
+          } else {
+            // フラットな構造の場合は直接フィルタ
+            updatedAttachments = currentAttachments.filter((attachment: any) => attachment.id !== fileId);
+          }
+
+          await prisma.card.update({
+            where: { id: taskId },
+            data: { attachments: updatedAttachments }
+          });
+
+          console.log("File removed from card attachments:", fileId);
+          console.log("Updated attachments structure after deletion:", updatedAttachments);
+        }
+      } catch (error) {
+        console.error("Error updating card attachments after file deletion:", error);
+        // ファイル削除は続行
+      }
     }
 
     // データベースからファイル情報を削除

@@ -89,16 +89,15 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
   return (
     <div ref={setNodeRef} style={style}>
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer mb-1"
-        onClick={onClick}
+        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow mb-1"
         style={{ backgroundColor: task.cardColor || "white" }}
       >
         <CardContent className="p-2">
           <div className="flex items-center gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1">
               <GripVertical className="w-3 h-3 text-slate-400" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
               <span className="font-medium text-slate-900 text-xs truncate block">{task.title}</span>
             </div>
             <Badge variant="secondary" className={`text-xs flex-shrink-0 ${getPriorityColor(task.priority)}`}>
@@ -153,16 +152,15 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
   return (
     <div ref={setNodeRef} style={style}>
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer mb-2"
-        onClick={onClick}
+        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow mb-2"
         style={{ backgroundColor: task.cardColor || "white" }}
       >
         <CardContent className="p-2">
           <div className="flex items-start gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing mt-1">
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing mt-1 p-1">
               <GripVertical className="w-4 h-4 text-slate-400" />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 cursor-pointer" onClick={onClick}>
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-slate-900 text-sm leading-relaxed">{task.title}</h3>
                 <Badge variant="secondary" className={`text-xs ${getPriorityColor(task.priority)}`}>

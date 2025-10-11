@@ -156,23 +156,68 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
 
-  const [fileFolders, setFileFolders] = useState<FileFolder[]>([
-    { id: "folder-1", name: "資料", files: [] },
-    { id: "folder-2", name: "画像", files: [] },
-  ])
-  const [activeFileFolder, setActiveFileFolder] = useState(fileFolders[0].id)
+  // ファイル管理の状態（ユーザー詳細を参考にした実装）
+  const [folders, setFolders] = useState<string[]>(() => {
+    // localStorageからフォルダ情報を取得
+    if (typeof window !== 'undefined') {
+      const savedFolders = localStorage.getItem(`task-folders-${task?.id || 'new'}`)
+      if (savedFolders) {
+        return JSON.parse(savedFolders)
+      }
+    }
+    return ["資料", "画像", "参考資料"]
+  })
+  const [currentFolder, setCurrentFolder] = useState(folders[0] || "資料")
+  const [files, setFiles] = useState<File[]>([]) // アップロード中のファイル
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]) // アップロード済みファイル
+  const [loadingFiles, setLoadingFiles] = useState(false)
   const [isAddingFileFolder, setIsAddingFileFolder] = useState(false)
   const [newFileFolderName, setNewFileFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
+  
+  // フォルダが変更されたらlocalStorageに保存
+  useEffect(() => {
+    if (typeof window !== 'undefined' && task?.id) {
+      localStorage.setItem(`task-folders-${task.id}`, JSON.stringify(folders))
+    }
+  }, [folders, task?.id])
+
+  // タスクが開かれた時にファイルを取得
+  useEffect(() => {
+    if (open && task?.id) {
+      fetchUploadedFiles(task.id)
+    }
+  }, [open, task?.id])
 
   const [showPriorityManager, setShowPriorityManager] = useState(false)
   const [showStatusManager, setShowStatusManager] = useState(false)
-  const [priorityOptions, setPriorityOptions] = useState(PRIORITY_OPTIONS)
-  const [statusOptions, setStatusOptions] = useState(STATUS_OPTIONS)
+  
+  // localStorageから優先度オプションを取得
+  const getStoredPriorityOptions = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('task-priority-options')
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    }
+    return PRIORITY_OPTIONS
+  }
+  
+  // localStorageから状態オプションを取得
+  const getStoredStatusOptions = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('task-status-options')
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    }
+    return STATUS_OPTIONS
+  }
+  
+  const [priorityOptions, setPriorityOptions] = useState(getStoredPriorityOptions)
+  const [statusOptions, setStatusOptions] = useState(getStoredStatusOptions)
   const [newPriorityLabel, setNewPriorityLabel] = useState("")
-  const [newPriorityValue, setNewPriorityValue] = useState("")
   const [newStatusLabel, setNewStatusLabel] = useState("")
-  const [newStatusValue, setNewStatusValue] = useState("")
 
   const [showEmployeeSelector, setShowEmployeeSelector] = useState(false)
   const [showCalendarSelector, setShowCalendarSelector] = useState(false)
@@ -202,25 +247,25 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       
       setCardColor(task.cardColor || "")
       
-      // ファイル情報を復元
+      // ファイル情報を復元（新しい実装）
       if (task.attachments && Array.isArray(task.attachments)) {
-        console.log("Restoring file folders from task:", task.attachments)
-        setFileFolders(task.attachments)
-        // アクティブフォルダを最初のフォルダに設定
-        if (task.attachments.length > 0) {
-          setActiveFileFolder(task.attachments[0].id)
-        }
-      } else {
-        // デフォルトのフォルダ構造を設定
-        const defaultFolders = [
-          { id: "folder-1", name: "資料", files: [] },
-          { id: "folder-2", name: "画像", files: [] },
-        ]
-        setFileFolders(defaultFolders)
-        setActiveFileFolder(defaultFolders[0].id)
+        console.log("Restoring files from task:", task.attachments)
+        
+        // ファイルをアップロード済みファイルリストに設定
+        const fileList = task.attachments.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+          uploadDate: file.uploadDate,
+          size: file.size,
+          folderName: file.folderName || '資料'
+        }))
+        
+        setUploadedFiles(fileList)
       }
       
       console.log("TaskDetailDialog - Task loaded:", task)
+      console.log("TaskDetailDialog - Task attachments:", task.attachments)
       console.log("TaskDetailDialog - Processed members:", processedMembers)
     }
   }, [task])
@@ -336,15 +381,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
   const handleAddFileFolder = () => {
     if (newFileFolderName.trim()) {
-      const newFolder: FileFolder = {
-        id: `folder-${Date.now()}`,
-        name: newFileFolderName,
-        files: [],
-      }
-      setFileFolders([...fileFolders, newFolder])
-      setActiveFileFolder(newFolder.id)
+      const newFolders = [...folders, newFileFolderName.trim()]
+      setFolders(newFolders)
+      setCurrentFolder(newFileFolderName.trim())
       setNewFileFolderName("")
       setIsAddingFileFolder(false)
+      
+      // localStorageに保存
+      if (typeof window !== 'undefined' && task?.id) {
+        localStorage.setItem(`task-folders-${task.id}`, JSON.stringify(newFolders))
+      }
     }
   }
 
@@ -364,61 +410,107 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     handleFileUpload(files)
   }
 
-  const handleFileUpload = async (files: File[]) => {
-    if (!currentUser) {
-      alert("ユーザー情報が取得できません")
+  // ファイルアップロード処理（ユーザー詳細を参考にした実装）
+  const handleFileUpload = async (selectedFiles: File[]) => {
+    if (!currentUser || !task?.id) {
+      alert("ユーザー情報またはタスク情報が取得できません")
       return
     }
 
-    const currentFolder = fileFolders.find((f) => f.id === activeFileFolder)
-    if (!currentFolder) return
+    // 一時的にローカルファイルリストに追加（アップロード中表示用）
+    setFiles([...files, ...selectedFiles])
 
-    // ファイルを順次アップロード
-    for (const file of files) {
+    // 各ファイルをアップロード
+    for (const file of selectedFiles) {
       try {
+        console.log('ファイルアップロード開始:', file.name)
+        
         const formData = new FormData()
         formData.append('file', file)
         formData.append('category', 'task')
-        formData.append('folderName', currentFolder.name)
-
-        console.log("Uploading file:", file.name, "to folder:", currentFolder.name)
-
+        formData.append('folder', currentFolder)
+        formData.append('taskId', task.id)
+        
         const response = await fetch('/api/files/upload', {
           method: 'POST',
           headers: {
             'x-employee-id': currentUser.id,
           },
-          body: formData,
+          body: formData
         })
-
+        
         if (response.ok) {
           const result = await response.json()
-          console.log("File uploaded successfully:", result)
-
-          const newFile: TaskFile = {
-            id: result.fileId,
-            name: file.name,
-            type: file.type,
-            uploadDate: new Date().toISOString().split("T")[0],
-            size: `${Math.round(file.size / 1024)}KB`,
-          }
-
-          setFileFolders(
-            fileFolders.map((folder) =>
-              folder.id === activeFileFolder 
-                ? { ...folder, files: [...folder.files, newFile] } 
-                : folder,
-            ),
-          )
+          console.log('ファイルアップロード成功:', result)
+          
+          // アップロード成功したファイルをローカルリストから削除
+          setFiles(prevFiles => prevFiles.filter(f => f !== file))
+          
+          // アップロード済みファイルリストを再取得
+          setTimeout(() => {
+            fetchUploadedFiles(task.id)
+          }, 500)
         } else {
-          const error = await response.json()
-          console.error("File upload failed:", error)
-          alert(`ファイルアップロードに失敗しました: ${error.error}`)
+          const errorText = await response.text()
+          console.error('ファイルアップロード失敗:', response.status, errorText)
+          // エラーの場合もローカルリストから削除
+          setFiles(prevFiles => prevFiles.filter(f => f !== file))
         }
       } catch (error) {
-        console.error("File upload error:", error)
-        alert(`ファイルアップロードに失敗しました: ${file.name}`)
+        console.error('ファイルアップロードエラー:', error)
+        // エラーの場合もローカルリストから削除
+        setFiles(prevFiles => prevFiles.filter(f => f !== file))
       }
+    }
+  }
+
+  // アップロード済みファイルを取得
+  const fetchUploadedFiles = async (taskId: string) => {
+    if (!currentUser) return
+    
+    setLoadingFiles(true)
+    try {
+      const response = await fetch(`/api/files/task/${taskId}`, {
+        headers: {
+          'x-employee-id': currentUser.id,
+        },
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('取得したファイル:', data)
+        setUploadedFiles(data)
+      } else {
+        console.error('ファイル取得失敗:', response.status)
+        // エラーの場合はタスクのattachmentsから取得を試行
+        if (task?.attachments && Array.isArray(task.attachments)) {
+          const fileList = task.attachments.map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            type: file.type,
+            uploadDate: file.uploadDate,
+            size: file.size,
+            folderName: file.folderName || '資料'
+          }))
+          setUploadedFiles(fileList)
+        }
+      }
+    } catch (error) {
+      console.error('ファイル取得エラー:', error)
+      // エラーの場合はタスクのattachmentsから取得を試行
+      if (task?.attachments && Array.isArray(task.attachments)) {
+        const fileList = task.attachments.map((file: any) => ({
+          id: file.id,
+          name: file.name,
+          type: file.type,
+          uploadDate: file.uploadDate,
+          size: file.size,
+          folderName: file.folderName || '資料'
+        }))
+        setUploadedFiles(fileList)
+      }
+    } finally {
+      setLoadingFiles(false)
     }
   }
 
@@ -434,19 +526,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       const response = await fetch(`/api/files/${fileId}/delete`, {
         method: 'DELETE',
         headers: {
+          'Content-Type': 'application/json',
           'x-employee-id': currentUser.id,
         },
+        body: JSON.stringify({ taskId: task.id }),
       })
 
       if (response.ok) {
         console.log("File deleted successfully")
-        setFileFolders(
-          fileFolders.map((folder) =>
-            folder.id === activeFileFolder 
-              ? { ...folder, files: folder.files.filter((f) => f.id !== fileId) } 
-              : folder,
-          ),
-        )
+        // アップロード済みファイルリストから削除
+        setUploadedFiles(prevFiles => prevFiles.filter(file => file.id !== fileId))
       } else {
         const error = await response.json()
         console.error("File deletion failed:", error)
@@ -459,27 +548,55 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const handleAddPriority = () => {
-    if (newPriorityLabel.trim() && newPriorityValue.trim()) {
-      setPriorityOptions([...priorityOptions, { value: newPriorityValue, label: newPriorityLabel }])
+    if (newPriorityLabel.trim()) {
+      // 値は自動生成（ラベルの最初の文字を小文字にしたもの）
+      const autoValue = newPriorityLabel.toLowerCase().replace(/\s+/g, '-')
+      const newOptions = [...priorityOptions, { value: autoValue, label: newPriorityLabel.trim() }]
+      
+      setPriorityOptions(newOptions)
       setNewPriorityLabel("")
-      setNewPriorityValue("")
+      
+      // localStorageに保存
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
+      }
     }
   }
 
   const handleDeletePriority = (value: string) => {
-    setPriorityOptions(priorityOptions.filter((p) => p.value !== value))
+    const newOptions = priorityOptions.filter((p) => p.value !== value)
+    setPriorityOptions(newOptions)
+    
+    // localStorageに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
+    }
   }
 
   const handleAddStatus = () => {
-    if (newStatusLabel.trim() && newStatusValue.trim()) {
-      setStatusOptions([...statusOptions, { value: newStatusValue, label: newStatusLabel }])
+    if (newStatusLabel.trim()) {
+      // 値は自動生成（ラベルの最初の文字を小文字にしたもの）
+      const autoValue = newStatusLabel.toLowerCase().replace(/\s+/g, '-')
+      const newOptions = [...statusOptions, { value: autoValue, label: newStatusLabel.trim() }]
+      
+      setStatusOptions(newOptions)
       setNewStatusLabel("")
-      setNewStatusValue("")
+      
+      // localStorageに保存
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('task-status-options', JSON.stringify(newOptions))
+      }
     }
   }
 
   const handleDeleteStatus = (value: string) => {
-    setStatusOptions(statusOptions.filter((s) => s.value !== value))
+    const newOptions = statusOptions.filter((s) => s.value !== value)
+    setStatusOptions(newOptions)
+    
+    // localStorageに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('task-status-options', JSON.stringify(newOptions))
+    }
   }
 
   const handleAddEmployee = (employee: any) => {
@@ -564,7 +681,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         cardColor: cardColor || "",
         isArchived: isArchived || false,
         members: members || [],
-        attachments: fileFolders || [], // ファイル情報を追加
+        attachments: uploadedFiles || [], // ファイル情報を追加
       }
       
       console.log("Sending card update request:", {
@@ -572,6 +689,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         userId: currentUser.id,
         requestBody
       })
+      console.log("Files being sent:", uploadedFiles)
 
       const response = await fetch(`/api/cards/${task.id}`, {
         method: "PATCH",
@@ -585,6 +703,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       if (response.ok) {
         const result = await response.json()
         console.log("Card saved successfully:", result)
+        console.log("Saved card attachments:", result.card?.attachments)
         
         // 保存されたカードデータでローカル状態を更新
         if (result.card) {
@@ -606,7 +725,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           
           // ファイル情報も更新
           if (result.card.attachments && Array.isArray(result.card.attachments)) {
-            setFileFolders(result.card.attachments)
+            const fileList = result.card.attachments.map((file: any) => ({
+              id: file.id,
+              name: file.name,
+              type: file.type,
+              uploadDate: file.uploadDate,
+              size: file.size,
+              folderName: file.folderName || '資料'
+            }))
+            setUploadedFiles(fileList)
           }
           
           // 親コンポーネントに更新されたタスクを通知
@@ -684,7 +811,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
   if (!task) return null
 
-  const currentFileFolder = fileFolders.find((f) => f.id === activeFileFolder)
+  // currentFileFolderは不要になったので削除
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -846,16 +973,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   </div>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="表示名"
+                      placeholder="重要度の表示名（例：最高）"
                       value={newPriorityLabel}
                       onChange={(e) => setNewPriorityLabel(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Input
-                      placeholder="値"
-                      value={newPriorityValue}
-                      onChange={(e) => setNewPriorityValue(e.target.value)}
-                      className="text-sm"
+                      className="text-sm flex-1"
                     />
                     <Button size="sm" onClick={handleAddPriority}>
                       追加
@@ -898,16 +1019,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   </div>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="表示名"
+                      placeholder="状態の表示名（例：保留中）"
                       value={newStatusLabel}
                       onChange={(e) => setNewStatusLabel(e.target.value)}
-                      className="text-sm"
-                    />
-                    <Input
-                      placeholder="値"
-                      value={newStatusValue}
-                      onChange={(e) => setNewStatusValue(e.target.value)}
-                      className="text-sm"
+                      className="text-sm flex-1"
                     />
                     <Button size="sm" onClick={handleAddStatus}>
                       追加
@@ -1070,15 +1185,30 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               <Upload className="w-4 h-4" />
               ファイル
             </label>
-            <Tabs value={activeFileFolder} onValueChange={setActiveFileFolder}>
-              <div className="flex items-center gap-2 mb-3">
-                <TabsList className="flex-1 justify-start overflow-x-auto">
-                  {fileFolders.map((folder) => (
-                    <TabsTrigger key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+            {/* フォルダタブ */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-wrap gap-1 flex-1">
+                  {folders.map((folder) => {
+                    const fileCount = uploadedFiles.filter(file => file.folderName === folder).length
+                    return (
+                      <Button
+                        key={folder}
+                        variant={currentFolder === folder ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCurrentFolder(folder)}
+                        className="relative"
+                      >
+                        {folder}
+                        {fileCount > 0 && (
+                          <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/20 rounded-full">
+                            {fileCount}
+                          </span>
+                        )}
+                      </Button>
+                    )
+                  })}
+                </div>
                 {!isAddingFileFolder ? (
                   <Button variant="outline" size="sm" onClick={() => setIsAddingFileFolder(true)}>
                     <Plus className="w-3 h-3 mr-1" />
@@ -1110,70 +1240,106 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   </div>
                 )}
               </div>
+            </div>
 
-              {fileFolders.map((folder) => (
-                <TabsContent key={folder.id} value={folder.id} className="space-y-3">
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                      isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                  >
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                    <p className="text-sm text-slate-600 mb-2">ファイルをドラッグ&ドロップ</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const input = document.createElement("input")
-                        input.type = "file"
-                        input.multiple = true
-                        input.onchange = (e) => {
-                          const files = Array.from((e.target as HTMLInputElement).files || [])
-                          handleFileUpload(files)
-                        }
-                        input.click()
-                      }}
-                    >
-                      <Upload className="w-3 h-3 mr-1" />
-                      ファイルを選択
-                    </Button>
-                  </div>
+            {/* ファイルアップロードエリア */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+              <p className="text-sm text-slate-600 mb-2">ファイルをドラッグ&ドロップ</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const input = document.createElement("input")
+                  input.type = "file"
+                  input.multiple = true
+                  input.onchange = (e) => {
+                    const selectedFiles = Array.from((e.target as HTMLInputElement).files || [])
+                    handleFileUpload(selectedFiles)
+                  }
+                  input.click()
+                }}
+              >
+                <Upload className="w-3 h-3 mr-1" />
+                ファイルを選択
+              </Button>
+            </div>
 
-                  {folder.files.length > 0 && (
-                    <div className="space-y-2">
-                      {folder.files.map((file) => (
-                        <Card key={file.id} className="border-slate-200">
-                          <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <FileIcon className="w-5 h-5 text-blue-600" />
-                                <div>
-                                  <p className="text-sm font-medium">{file.name}</p>
-                                  <p className="text-xs text-slate-500">
-                                    {file.uploadDate} • {file.size}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="sm">
-                                  <Download className="w-3 h-3" />
-                                </Button>
-                                <Button variant="ghost" size="sm" onClick={() => handleDeleteFile(file.id)}>
-                                  <Trash2 className="w-3 h-3 text-red-600" />
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+            {/* ファイル一覧 */}
+            <div className="mt-4 space-y-2">
+              {loadingFiles ? (
+                <div className="text-sm text-slate-500">ファイルを読み込み中...</div>
+              ) : files.length === 0 && uploadedFiles.filter(file => file.folderName === currentFolder).length === 0 ? (
+                <div className="text-sm text-slate-500">ファイルがありません</div>
+              ) : (
+                <div className="space-y-2">
+                  {/* ローカルファイル（アップロード中） */}
+                  {files.map((file, index) => (
+                    <div key={`local-${index}`} className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-200">
+                      <div className="flex items-center gap-2 flex-1">
+                        <Upload className="w-4 h-4 text-blue-400" />
+                        <span className="text-sm">{file.name}</span>
+                        <span className="text-xs text-blue-600">
+                          ({(file.size / 1024).toFixed(1)} KB) - アップロード中...
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFiles(files.filter((_, i) => i !== index))}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
+                  ))}
+                  
+                  {/* アップロード済みファイル */}
+                  {uploadedFiles
+                    .filter(file => file.folderName === currentFolder)
+                    .map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-2 bg-slate-50 rounded border">
+                        <div className="flex items-center gap-2 flex-1">
+                          <FileText className="w-4 h-4 text-slate-400" />
+                          <span className="text-sm">{file.name}</span>
+                          <span className="text-xs text-slate-500">
+                            {file.size} - {file.uploadDate}
+                          </span>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const link = document.createElement("a")
+                              link.href = `/api/files/download/${file.id}`
+                              link.download = file.name
+                              link.click()
+                            }}
+                          >
+                            <Download className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteFile(file.id)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Card Color */}

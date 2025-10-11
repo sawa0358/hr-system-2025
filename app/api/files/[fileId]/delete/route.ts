@@ -15,7 +15,16 @@ export async function DELETE(
       );
     }
 
-    const result = await handleFileDelete(params.fileId, employeeId);
+    // リクエストボディからtaskIdを取得
+    let taskId: string | undefined;
+    try {
+      const body = await request.json();
+      taskId = body.taskId;
+    } catch {
+      // JSONボディがない場合はundefinedのまま
+    }
+
+    const result = await handleFileDelete(params.fileId, employeeId, taskId);
 
     if (!result.success) {
       return NextResponse.json(

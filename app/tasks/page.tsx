@@ -413,7 +413,8 @@ export default function TasksPage() {
 
   return (
     <main className="overflow-y-auto">
-      <div className="p-8">
+      {/* 上部セクション - 背景色#B4D5E7 */}
+      <div className="px-8 py-6" style={{ backgroundColor: '#B4D5E7' }}>
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
@@ -449,8 +450,8 @@ export default function TasksPage() {
           </div>
         </div>
 
-        {/* ワークスペース選択 */}
-        <div className="flex items-center justify-between mb-6">
+        {/* ワークスペースとボード選択 */}
+        <div className="flex items-center gap-6 mb-6">
           <WorkspaceSelector
             workspaces={workspaces}
             currentWorkspace={currentWorkspace}
@@ -482,12 +483,101 @@ export default function TasksPage() {
               ).canDelete
             })()}
           />
+          
+          {currentWorkspace && (
+            <>
+              <div className="flex items-center gap-3">
+                <LayoutGrid className="w-5 h-5 text-slate-600" />
+                <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder="ボードを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {boards.map((board) => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(() => {
+                  if (!currentUser?.role) return false
+                  const workspace = workspaces.find(w => w.id === currentWorkspace)
+                  if (!workspace) return false
+                  return checkBoardPermissions(
+                    currentUser.role,
+                    currentUser.id,
+                    workspace.createdBy || ''
+                  ).canCreate
+                })() && (
+                  <Button variant="outline" size="sm" onClick={handleCreateBoard}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    ボード追加
+                  </Button>
+                )}
+                {(() => {
+                  if (!currentUser?.role || !currentBoard) return null
+                  const workspace = workspaces.find(w => w.id === currentWorkspace)
+                  if (!workspace) return null
+                  const boardPermissions = checkBoardPermissions(
+                    currentUser.role,
+                    currentUser.id,
+                    workspace.createdBy || ''
+                  )
+                  const canEdit = boardPermissions.canEdit
+                  const canDelete = boardPermissions.canDelete
+                  
+                  if (!canEdit && !canDelete) return null
+                  
+                  return (
+                    canEdit && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          console.log("ボード編集ボタンがクリックされました")
+                          handleEditBoard()
+                        }}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    )
+                  )
+                })()}
+                
+                {/* ボードサイズ調整 */}
+                <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-600">サイズ:</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
+                  disabled={boardScale <= 0.5}
+                  className="h-8 w-8 p-0"
+                >
+                  <span className="text-sm">-</span>
+                </Button>
+                <span className="text-sm font-medium w-12 text-center">
+                  {Math.round(boardScale * 100)}%
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
+                  disabled={boardScale >= 1.5}
+                  className="h-8 w-8 p-0"
+                >
+                  <span className="text-sm">+</span>
+                </Button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* ボード選択とフィルター */}
+        {/* フィルターとカレンダー */}
         {currentWorkspace && (
           <>
-
             {showFilters && (
               <div className="mb-6">
                 <TaskSearchFilters onFilterChange={setTaskFilters} />
@@ -511,137 +601,53 @@ export default function TasksPage() {
                 />
               </div>
             )}
-
-            {/* ボード選択 */}
-            <div className="flex items-center gap-3 mb-6">
-              <LayoutGrid className="w-5 h-5 text-slate-600" />
-              <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
-                <SelectTrigger className="w-64">
-                  <SelectValue placeholder="ボードを選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {boards.map((board) => (
-                    <SelectItem key={board.id} value={board.id}>
-                      {board.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(() => {
-                if (!currentUser?.role) return false
-                const workspace = workspaces.find(w => w.id === currentWorkspace)
-                if (!workspace) return false
-                return checkBoardPermissions(
-                  currentUser.role,
-                  currentUser.id,
-                  workspace.createdBy || ''
-                ).canCreate
-              })() && (
-                <Button variant="outline" size="sm" onClick={handleCreateBoard}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  ボード追加
-                </Button>
-              )}
-              {(() => {
-                if (!currentUser?.role || !currentBoard) return null
-                const workspace = workspaces.find(w => w.id === currentWorkspace)
-                if (!workspace) return null
-                const boardPermissions = checkBoardPermissions(
-                  currentUser.role,
-                  currentUser.id,
-                  workspace.createdBy || ''
-                )
-                const canEdit = boardPermissions.canEdit
-                const canDelete = boardPermissions.canDelete
-                
-                if (!canEdit && !canDelete) return null
-                
-                return (
-                  canEdit && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        console.log("ボード編集ボタンがクリックされました")
-                        handleEditBoard()
-                      }}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                  )
-                )
-              })()}
-              
-              {/* ボードサイズ調整 */}
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-sm text-slate-600">サイズ:</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
-                  disabled={boardScale <= 0.5}
-                  className="h-8 w-8 p-0"
-                >
-                  <span className="text-sm">-</span>
-                </Button>
-                <span className="text-sm font-medium w-12 text-center">
-                  {Math.round(boardScale * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
-                  disabled={boardScale >= 1.5}
-                  className="h-8 w-8 p-0"
-                >
-                  <span className="text-sm">+</span>
-                </Button>
-              </div>
-            </div>
-
-            {/* カンバンボード */}
-            {currentBoard ? (
-              <div 
-                style={{ 
-                  transform: `scale(${boardScale})`,
-                  transformOrigin: 'top left',
-                  width: `${100 / boardScale}%`,
-                  height: `${100 / boardScale}%`
-                }}
-              >
-                <KanbanBoard 
-                  ref={kanbanBoardRef}
-                  boardData={currentBoardData} 
-                  currentUserId={currentUser?.id}
-                  currentUserRole={currentUser?.role}
-                  onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
-                />
-              </div>
-            ) : (
-              <div className="text-center py-12 text-slate-500">
-                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-lg font-medium mb-2">ボードが選択されていません</p>
-                <p className="text-sm">上からボードを選択するか、新しいボードを作成してください</p>
-              </div>
-            )}
           </>
         )}
+      </div>
 
-        {/* ワークスペースが選択されていない場合 */}
-        {!currentWorkspace && (
+      {/* カンバンボード */}
+      <div style={{ backgroundColor: '#E6DDCD', padding: '0', width: '100%' }}>
+        {currentBoard ? (
+          <div 
+            style={{ 
+              transform: `scale(${boardScale})`,
+              transformOrigin: 'top left',
+              width: `${100 / boardScale}%`,
+              height: `${100 / boardScale}%`,
+              minWidth: '100%'
+            }}
+          >
+            <KanbanBoard 
+              ref={kanbanBoardRef}
+              boardData={currentBoardData} 
+              currentUserId={currentUser?.id}
+              currentUserRole={currentUser?.role}
+              onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+            />
+          </div>
+        ) : (
           <div className="text-center py-12 text-slate-500">
             <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-medium mb-2">ワークスペースがありません</p>
-            <p className="text-sm mb-6">新しいワークスペースを作成してタスク管理を始めましょう</p>
-            {permissions?.createWorkspace && (
-              <Button onClick={handleCreateWorkspace} className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                ワークスペースを作成
-              </Button>
-            )}
+            <p className="text-lg font-medium mb-2">ボードが選択されていません</p>
+            <p className="text-sm">上からボードを選択するか、新しいボードを作成してください</p>
           </div>
         )}
       </div>
+
+      {/* ワークスペースが選択されていない場合 */}
+      {!currentWorkspace && (
+        <div className="text-center py-12 text-slate-500">
+          <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+          <p className="text-lg font-medium mb-2">ワークスペースがありません</p>
+          <p className="text-sm mb-6">新しいワークスペースを作成してタスク管理を始めましょう</p>
+          {permissions?.createWorkspace && (
+            <Button onClick={handleCreateWorkspace} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="w-4 h-4 mr-2" />
+              ワークスペースを作成
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* ダイアログ */}
       <WorkspaceManagerDialog

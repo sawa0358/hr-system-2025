@@ -5,12 +5,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Send, Bot, User, Trash2, RotateCcw } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 interface Message {
   id: string
   role: "user" | "assistant"
   content: string
   timestamp: Date
+  userId?: string // セキュリティのためユーザーIDを追加
 }
 
 interface AIChatDialogProps {
@@ -21,6 +23,7 @@ interface AIChatDialogProps {
 }
 
 export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }: AIChatDialogProps) {
+  const { currentUser } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -30,32 +33,55 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // ローカルストレージからチャット履歴を読み込み
+  // 社員ごとのチャット履歴キーを生成
+  const getChatHistoryKey = () => {
+    if (!currentUser?.id) return null
+    return `ai-chat-history-${currentUser.id}`
+  }
+
+  // ローカルストレージから社員ごとのチャット履歴を読み込み
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedMessages = localStorage.getItem('ai-chat-history')
-      if (savedMessages) {
-        try {
-          const parsed = JSON.parse(savedMessages)
-          // タイムスタンプをDateオブジェクトに変換
-          const messagesWithDates = parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }))
-          setMessages(messagesWithDates)
-        } catch (error) {
-          console.error('チャット履歴の読み込みに失敗:', error)
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      const chatHistoryKey = getChatHistoryKey()
+      if (chatHistoryKey) {
+        const savedMessages = localStorage.getItem(chatHistoryKey)
+        if (savedMessages) {
+          try {
+            const parsed = JSON.parse(savedMessages)
+            // タイムスタンプをDateオブジェクトに変換し、ユーザーIDを検証
+            const messagesWithDates = parsed
+              .filter((msg: any) => {
+                // 現在のユーザーのメッセージのみを表示
+                return msg.userId === currentUser.id
+              })
+              .map((msg: any) => ({
+                ...msg,
+                timestamp: new Date(msg.timestamp)
+              }))
+            setMessages(messagesWithDates)
+          } catch (error) {
+            console.error('チャット履歴の読み込みに失敗:', error)
+          }
+        } else {
+          // 新しいユーザーの場合は空の履歴で開始
+          setMessages([])
         }
       }
+    } else if (!currentUser?.id) {
+      // ログインしていない場合は空の履歴で開始
+      setMessages([])
     }
-  }, [])
+  }, [currentUser?.id])
 
-  // メッセージが更新されたらローカルストレージに保存
+  // メッセージが更新されたら社員ごとのローカルストレージに保存
   useEffect(() => {
-    if (typeof window !== 'undefined' && messages.length > 0) {
-      localStorage.setItem('ai-chat-history', JSON.stringify(messages))
+    if (typeof window !== 'undefined' && currentUser?.id) {
+      const chatHistoryKey = getChatHistoryKey()
+      if (chatHistoryKey && messages.length > 0) {
+        localStorage.setItem(chatHistoryKey, JSON.stringify(messages))
+      }
     }
-  }, [messages])
+  }, [messages, currentUser?.id])
 
   // スクロールを最下部に移動する関数（即座に実行）
   const scrollToBottom = () => {
@@ -89,10 +115,13 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
     }
   }, [open, messages.length])
 
-  // チャット履歴をクリア
+  // チャット履歴をクリア（社員ごと）
   const clearChatHistory = () => {
     setMessages([])
-    localStorage.removeItem('ai-chat-history')
+    const chatHistoryKey = getChatHistoryKey()
+    if (chatHistoryKey) {
+      localStorage.removeItem(chatHistoryKey)
+    }
   }
 
   const handleSend = async () => {
@@ -103,6 +132,7 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
       role: "user",
       content: input,
       timestamp: new Date(),
+      userId: currentUser?.id, // ユーザーIDを追加
     }
 
     const newMessages = [...messages, userMessage]
@@ -138,6 +168,7 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
         role: "assistant",
         content: data.message,
         timestamp: new Date(),
+        userId: currentUser?.id, // ユーザーIDを追加
       }
 
       setMessages([...newMessages, aiMessage])
@@ -148,6 +179,7 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
         role: "assistant",
         content: `エラーが発生しました: ${error.message}\n\nGEMINI_API_KEYが設定されているか確認してください。`,
         timestamp: new Date(),
+        userId: currentUser?.id, // ユーザーIDを追加
       }
       setMessages([...newMessages, errorMessage])
     } finally {

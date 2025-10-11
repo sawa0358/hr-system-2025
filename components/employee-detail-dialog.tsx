@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
-import { X, Plus, Upload, Folder, Eye, EyeOff, Lock, Settings } from "lucide-react"
+import { X, Plus, Upload, Folder, Eye, EyeOff, Lock, Settings, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -53,6 +53,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // 見えないTOPの社員の編集・削除は管理者のみ可能
   const canEditInvisibleTop = isInvisibleTopEmployee ? currentUser?.role === 'admin' : true
   
+  // コピー社員かどうかの判定
+  const isCopyEmployee = employee?.status === 'copy'
+  
   // ダイアログが開かれた時に最新の社員データを取得
   useEffect(() => {
     if (open && employee?.id) {
@@ -82,10 +85,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
-  const canEditProfile = isAdminOrHR
+  const canEditProfile = isAdminOrHR && !isCopyEmployee
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
-  const canEditUserInfo = permissions.permissions.editAllProfiles || isAdminOrHR
+  const canEditUserInfo = (permissions.permissions.editAllProfiles || isAdminOrHR) && !isCopyEmployee
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
   
@@ -524,6 +527,47 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
   }
 
+  // コピー処理
+  const [copying, setCopying] = useState(false)
+  const handleCopy = async () => {
+    if (!employee || (!isAdminOrHR && currentUser?.role !== 'manager')) return
+    
+    if (!confirm(`「${employee.name}」の情報をコピーしますか？コピー社員は編集できません。`)) {
+      return
+    }
+    
+    setCopying(true)
+    try {
+      const response = await fetch(`/api/employees/${employee.id}/copy`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        console.log('コピー成功')
+        alert('社員情報をコピーしました')
+        onOpenChange(false)
+        // リフレッシュを呼び出してテーブルを更新
+        if (onRefresh) {
+          onRefresh()
+        }
+        // 組織図も更新
+        if (onOrgChartUpdate) {
+          console.log('社員詳細: 組織図更新コールバックを呼び出します（コピー時）')
+          onOrgChartUpdate()
+        }
+      } else {
+        const error = await response.json()
+        console.error('コピーエラー:', error)
+        alert(`コピーに失敗しました: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('コピーエラー:', error)
+      alert('コピーに失敗しました')
+    } finally {
+      setCopying(false)
+    }
+  }
+
 
   const handleRemoveFamilyMember = (id: string) => {
     const newFamilyMembers = familyMembers.filter(member => member.id !== id)
@@ -919,10 +963,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={`max-w-5xl max-h-[90vh] overflow-y-auto ${isCopyEmployee ? 'bg-slate-50' : ''}`}>
           
           <DialogHeader>
-            <DialogTitle className="text-2xl">ユーザー詳細</DialogTitle>
+            <DialogTitle className="text-2xl flex items-center gap-3">
+              ユーザー詳細
+              {isCopyEmployee && (
+                <span className="text-sm font-normal bg-slate-200 text-slate-700 px-3 py-1 rounded-full border border-slate-300 flex items-center gap-1">
+                  <Copy className="w-4 h-4" />
+                  コピー社員（編集不可）
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-8">
@@ -2100,6 +2152,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               </Button>
             )}
             <div className="flex gap-3 ml-auto">
+              {employee && (isAdminOrHR || currentUser?.role === 'manager') && canEditInvisibleTop && !isCopyEmployee && (
+                <Button 
+                  variant="outline"
+                  onClick={handleCopy}
+                  disabled={copying}
+                  className="border-slate-300"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  {copying ? 'コピー中...' : 'コピー'}
+                </Button>
+              )}
               {employee && isAdminOrHR && canEditInvisibleTop && (
                 <Button 
                   variant="destructive" 
@@ -2112,7 +2175,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 戻る
               </Button>
-              {(canEditUserInfo || isNewEmployee || isAdminOrHR) && canEditInvisibleTop && (
+              {!isCopyEmployee && (canEditUserInfo || isNewEmployee || isAdminOrHR) && canEditInvisibleTop && (
                 <Button 
                   onClick={handleSave} 
                   disabled={saving}

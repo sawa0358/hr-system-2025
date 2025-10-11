@@ -438,7 +438,9 @@ function DraggableOrgNodeCard({
       >
         <Card
           className={`relative z-0 ${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all ${
-            canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+            node.employee?.status === 'copy'
+              ? "cursor-not-allowed opacity-50 bg-slate-50 border-slate-300"
+              : canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
           } ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
           } ${
@@ -447,6 +449,12 @@ function DraggableOrgNodeCard({
           onClick={(e) => {
             // メニュー表示時はカードクリックを無効化
             if (isMenuOpen) {
+              e.stopPropagation()
+              e.preventDefault()
+              return
+            }
+            // コピー社員の場合はクリックを無効化
+            if (node.employee?.status === 'copy') {
               e.stopPropagation()
               e.preventDefault()
               return
@@ -514,6 +522,10 @@ function DraggableOrgNodeCard({
                   onMouseDown={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
+                    // コピー社員の場合は配下の表示を無効化
+                    if (node.employee?.status === 'copy') {
+                      return
+                    }
                     console.log('配下の表示ボタンがクリックされました')
                     if (onShowSubordinates && node) {
                       onShowSubordinates(node)

@@ -51,6 +51,7 @@ model Employee {
   privacyExtension    Boolean        @default(true)
   privacyMobilePhone  Boolean        @default(true)
   privacyBirthDate    Boolean        @default(false)
+  originalEmployeeId  String?
   activityLogs        ActivityLog[]
   attendance          Attendance[]
   evaluations         Evaluation[]
@@ -220,6 +221,7 @@ enum EmployeeStatus {
   leave
   retired
   suspended
+  copy
 }
 
 enum EmployeeType {

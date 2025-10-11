@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown, ArrowUpDown, SortAsc, SortDesc, ChevronDown } from "lucide-react"
+import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown, ArrowUpDown, SortAsc, SortDesc, ChevronDown, Copy } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
@@ -85,6 +85,28 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     const employeeMaxLevel = Math.max(...employeePositions.map((pos: string) => positionHierarchy[pos] || 0))
     
     return hasCommonDepartment && employeeMaxLevel < userMaxLevel
+  }
+
+  // 社員をコピーする関数
+  const handleCopyEmployee = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/copy`, {
+        method: 'POST',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        alert('社員情報をコピーしました')
+        // テーブルを再読み込み
+        window.location.reload()
+      } else {
+        const errorData = await response.json()
+        alert(`エラー: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('コピーエラー:', error)
+      alert('社員のコピーに失敗しました')
+    }
   }
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
@@ -349,8 +371,15 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     }
 
     // ステータスフィルター
-    if (filters.status !== 'all') {
+    if (filters.status === 'active') {
+      // 「在籍中」フィルターの場合、コピー社員は除外する
+      filtered = filtered.filter(employee => employee.status === 'active')
+    } else if (filters.status !== 'all') {
       filtered = filtered.filter(employee => employee.status === filters.status)
+    } else {
+      // 「全ステータス」の場合でも、デフォルトではコピー社員は除外する
+      // コピー社員を見たい場合は明示的に「コピー社員」フィルターを選択する必要がある
+      filtered = filtered.filter(employee => employee.status !== 'copy')
     }
 
     // システム使用状態のフィルタリング
@@ -403,6 +432,12 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
         return (
           <Badge variant="secondary" className="bg-slate-100 text-slate-600 border-slate-200">
             退職
+          </Badge>
+        )
+      case "copy":
+        return (
+          <Badge variant="secondary" className="bg-slate-200 text-slate-700 border-slate-300">
+            コピー社員
           </Badge>
         )
       default:
@@ -479,13 +514,15 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
               className={`hover:bg-slate-50 ${
                 (employee.isInvisibleTop || employee.employeeNumber === '000') 
                   ? 'cursor-not-allowed opacity-60' 
+                  : employee.status === 'copy'
+                  ? 'cursor-not-allowed opacity-50 bg-slate-50'
                   : employee.isSuspended || employee.status === 'suspended'
                   ? 'cursor-pointer opacity-50 bg-slate-100'
                   : 'cursor-pointer'
               }`}
               onClick={() => {
-                // 見えないTOPまたは社員番号000の場合はクリックを無効化
-                if (!employee.isInvisibleTop && employee.employeeNumber !== '000') {
+                // 見えないTOPまたは社員番号000、コピー社員の場合はクリックを無効化
+                if (!employee.isInvisibleTop && employee.employeeNumber !== '000' && employee.status !== 'copy') {
                   onEmployeeClick?.(employee)
                 }
               }}
@@ -566,6 +603,15 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                         </span>
                         <span className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-1 rounded">
                           変更不可
+                        </span>
+                      </div>
+                    )}
+                    {/* コピー社員の制限表示を追加 */}
+                    {employee.status === 'copy' && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-slate-600 font-semibold bg-slate-100 px-2 py-1 rounded">
+                          <Copy className="w-3 h-3 inline mr-1" />
+                          編集不可
                         </span>
                       </div>
                     )}
@@ -657,6 +703,21 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                           削除（削除不可）
                         </DropdownMenuItem>
                       </>
+                    ) : employee.status === 'copy' ? (
+                      <>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          編集（コピー社員のため編集不可）
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          人事考課表を開く（コピー社員のため利用不可）
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled className="text-slate-400">
+                          コピー（コピー社員は再コピー不可）
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
+                          削除
+                        </DropdownMenuItem>
+                      </>
                     ) : (
                       <>
                         <DropdownMenuItem
@@ -675,6 +736,19 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                             }}
                           >
                             人事考課表を開く
+                          </DropdownMenuItem>
+                        )}
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`${employee.name} さんの情報をコピーしますか？`)) {
+                                handleCopyEmployee(employee.id)
+                              }
+                            }}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            コピー
                           </DropdownMenuItem>
                         )}
                         <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>

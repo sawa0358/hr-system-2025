@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useAuth } from "@/lib/auth-context"
 
 interface EmployeeFiltersProps {
   onFiltersChange?: (filters: {
@@ -17,6 +18,7 @@ interface EmployeeFiltersProps {
 }
 
 export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
+  const { currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
@@ -137,6 +139,9 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
             <SelectItem value="leave">休職中</SelectItem>
             <SelectItem value="retired">退職</SelectItem>
             <SelectItem value="suspended">外注停止</SelectItem>
+            {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+              <SelectItem value="copy">コピー社員</SelectItem>
+            )}
           </SelectContent>
         </Select>
 

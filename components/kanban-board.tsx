@@ -37,6 +37,7 @@ interface Task {
   title: string
   description: string
   assignee: string
+  members?: { id: string; name: string; email?: string }[]
   dueDate: string
   priority: "low" | "medium" | "high"
   comments: number
@@ -186,11 +187,30 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
               <p className="text-xs text-slate-600 mb-2 leading-relaxed line-clamp-2">{task.description}</p>
 
               <div className="flex items-center justify-between">
-                <Avatar className="w-6 h-6">
-                  <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
-                    {task.assignee.slice(0, 3)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="flex -space-x-1">
+                  {task.members && task.members.length > 0 ? (
+                    task.members.slice(0, 3).map((member, index) => (
+                      <Avatar key={member.id} className="w-6 h-6 border-2 border-white">
+                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
+                          {member.name.slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))
+                  ) : (
+                    <Avatar className="w-6 h-6">
+                      <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold">
+                        未
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  {task.members && task.members.length > 3 && (
+                    <div className="w-6 h-6 bg-gray-100 border-2 border-white rounded-full flex items-center justify-center">
+                      <span className="text-xs font-semibold text-gray-600">
+                        +{task.members.length - 3}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-1 mt-2 text-xs text-slate-500">
@@ -247,11 +267,37 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
       <Badge variant="secondary" className={`text-xs flex-shrink-0 ${getPriorityColor(task.priority)}`}>
         {getPriorityLabel(task.priority)}
       </Badge>
-      <div className="flex items-center gap-1 text-xs text-slate-500 flex-shrink-0 min-w-[90px]">
-        <Calendar className="w-3 h-3" />
-        <span>
-          {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
-        </span>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex -space-x-1">
+          {task.members && task.members.length > 0 ? (
+            task.members.slice(0, 3).map((member, index) => (
+              <Avatar key={member.id} className="w-5 h-5 border border-white">
+                <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
+                  {member.name.slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+            ))
+          ) : (
+            <Avatar className="w-5 h-5">
+              <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold">
+                未
+              </AvatarFallback>
+            </Avatar>
+          )}
+          {task.members && task.members.length > 3 && (
+            <div className="w-5 h-5 bg-gray-100 border border-white rounded-full flex items-center justify-center">
+              <span className="text-xs font-semibold text-gray-600">
+                +{task.members.length - 3}
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 text-xs text-slate-500 min-w-[90px]">
+          <Calendar className="w-3 h-3" />
+          <span>
+            {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -616,11 +662,17 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
       })
 
       // Update database
+      if (!currentUserId) {
+        console.error('No current user ID available for authentication')
+        return
+      }
+      
       try {
         const response = await fetch(`/api/cards/${activeId}`, {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
+            'x-employee-id': currentUserId,
           },
           body: JSON.stringify({
             listId: targetList.id,
@@ -629,8 +681,14 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
         })
 
         if (!response.ok) {
-          console.error('Failed to update card position:', response.statusText)
+          const errorText = await response.text()
+          console.error('Failed to update card position:', response.status, errorText)
+          if (response.status === 401) {
+            console.error('Authentication failed. Please check if user is logged in.')
+          }
           // Optionally revert local state change
+        } else {
+          console.log('Card position updated successfully')
         }
       } catch (error) {
         console.error('Error updating card position:', error)
@@ -727,6 +785,11 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
                    title: cardData.title,
                    description: cardData.description || "",
                    assignee: result.card.members?.[0]?.employee?.name || "未割り当て",
+                   members: result.card.members?.map((member: any) => ({
+                     id: member.employee?.id || member.id,
+                     name: member.employee?.name || member.name,
+                     email: member.employee?.email || member.email
+                   })) || [],
                    dueDate: result.card.dueDate || "",
                    priority: (cardData.priority as "low" | "medium" | "high") || "medium",
                    comments: 0,

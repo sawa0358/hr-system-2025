@@ -15,18 +15,33 @@ export async function GET(
       );
     }
 
-    // タスクのファイルを取得
+    const taskId = params.taskId;
+
+    // 特定のタスクに関連するファイルを取得
+    // まず、そのタスクのカードのattachmentsからファイルIDを取得
+    const card = await prisma.card.findUnique({
+      where: { id: taskId },
+      select: { attachments: true }
+    });
+
+    let fileIds: string[] = [];
+    if (card && card.attachments) {
+      const attachments = card.attachments as any[];
+      if (Array.isArray(attachments)) {
+        fileIds = attachments
+          .filter(attachment => attachment.id)
+          .map(attachment => attachment.id);
+      }
+    }
+
+    // ファイルIDに基づいてファイルを取得
     const files = await prisma.file.findMany({
       where: {
+        id: {
+          in: fileIds
+        },
         category: 'task',
-        // タスクに関連するファイルを取得（フォルダ名で判定）
-        OR: [
-          {
-            folderName: {
-              not: null
-            }
-          }
-        ]
+        employeeId: employeeId // アップロードしたユーザーのファイルのみ
       },
       orderBy: {
         createdAt: 'desc',

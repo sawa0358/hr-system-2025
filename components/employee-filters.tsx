@@ -129,21 +129,29 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           </SelectContent>
         </Select>
 
-        <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger>
-            <SelectValue placeholder="ステータス" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全ステータス</SelectItem>
-            <SelectItem value="active">在籍中</SelectItem>
-            <SelectItem value="leave">休職中</SelectItem>
-            <SelectItem value="retired">退職</SelectItem>
-            <SelectItem value="suspended">外注停止</SelectItem>
-            {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
-              <SelectItem value="copy">コピー社員</SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+        {/* 店長・マネージャー・総務・管理者のみステータスフィルターを変更可能 */}
+        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager' || currentUser?.role === 'store_manager') ? (
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger>
+              <SelectValue placeholder="ステータス" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全ステータス</SelectItem>
+              <SelectItem value="active">在籍中</SelectItem>
+              <SelectItem value="leave">休職中</SelectItem>
+              <SelectItem value="retired">退職</SelectItem>
+              <SelectItem value="suspended">外注停止</SelectItem>
+              {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                <SelectItem value="copy">コピー社員</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        ) : (
+          /* 一般ユーザーは「在籍中」固定表示 */
+          <div className="flex items-center justify-center h-10 px-3 bg-slate-50 border border-slate-200 rounded-md">
+            <span className="text-sm text-slate-700">在籍中</span>
+          </div>
+        )}
 
         <Button 
           onClick={handleClearFilters}

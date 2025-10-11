@@ -711,11 +711,40 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     }
   }
 
-  const handleArchive = () => {
-    setIsArchived(true)
-    console.log("[v0] Archiving task:", task?.title)
-    alert("タスクをアーカイブしました。後から呼び出すことができます。")
-    onOpenChange(false)
+
+  const handleArchive = async () => {
+    if (!task || !currentUser) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    try {
+      // カードをアーカイブ状態に設定（リストは移動しない）
+      const response = await fetch(`/api/cards/${task.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          isArchived: true,
+        }),
+      })
+
+      if (response.ok) {
+        console.log("Card archived successfully")
+        alert("カードをアーカイブしました")
+        onRefresh?.()
+        onOpenChange(false)
+      } else {
+        const error = await response.json()
+        console.error("Failed to archive card:", error)
+        alert(`アーカイブに失敗しました: ${error.error || '不明なエラー'}`)
+      }
+    } catch (error) {
+      console.error("Error archiving card:", error)
+      alert("アーカイブに失敗しました")
+    }
   }
 
   const handleSave = async () => {

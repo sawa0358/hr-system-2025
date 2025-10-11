@@ -97,6 +97,9 @@ interface Task {
   status: string
   cardColor?: string
   labels?: { id: string; name: string; color: string }[]
+  checklists?: any[]
+  isArchived?: boolean
+  boardId?: string
 }
 
 interface KanbanList {
@@ -149,9 +152,13 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
       className="mb-1"
     >
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        className={`shadow-sm hover:shadow-md transition-shadow ${
+          task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
+        }`}
         style={{ 
-          backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+          backgroundColor: task.isArchived 
+            ? "#f3f4f6" 
+            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
         }}
       >
         <CardContent className="p-2">
@@ -167,9 +174,16 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
             <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
               <span className="font-medium text-slate-900 text-xs truncate block">{task.title}</span>
             </div>
-            <Badge variant="secondary" className={`text-xs flex-shrink-0 ${getPriorityColor(task.priority)}`}>
-              {getPriorityLabel(task.priority)}
-            </Badge>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {task.isArchived && (
+                <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                  アーカイブ
+                </Badge>
+              )}
+              <Badge variant="secondary" className={`text-xs ${getPriorityColor(task.priority)}`}>
+                {getPriorityLabel(task.priority)}
+              </Badge>
+            </div>
             <div className="flex items-center gap-1 text-xs text-slate-500 flex-shrink-0">
               <Calendar className="w-3 h-3" />
               <span className="text-xs">
@@ -226,9 +240,13 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
       className="mb-2"
     >
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+        className={`shadow-sm hover:shadow-md transition-shadow ${
+          task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
+        }`}
         style={{ 
-          backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+          backgroundColor: task.isArchived 
+            ? "#f3f4f6" 
+            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
         }}
       >
         <CardContent className="p-2">
@@ -244,9 +262,16 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
             <div className="flex-1 cursor-pointer" onClick={onClick}>
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-slate-900 text-sm leading-relaxed">{task.title}</h3>
-                <Badge variant="secondary" className={`text-xs ${getPriorityColor(task.priority)}`}>
-                  {getPriorityLabel(task.priority)}
-                </Badge>
+                <div className="flex items-center gap-1">
+                  {task.isArchived && (
+                    <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+                      アーカイブ
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className={`text-xs ${getPriorityColor(task.priority)}`}>
+                    {getPriorityLabel(task.priority)}
+                  </Badge>
+                </div>
               </div>
 
               {task.labels && task.labels.length > 0 && (
@@ -332,18 +357,29 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-2 border border-slate-200 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
+      className={`flex items-center gap-4 px-4 py-2 border rounded-md hover:bg-slate-50 cursor-pointer transition-colors ${
+        task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
+      }`}
       onClick={onClick}
       style={{ 
-        backgroundColor: task.cardColor && task.cardColor !== "" ? task.cardColor : "white"
+        backgroundColor: task.isArchived 
+          ? "#f3f4f6" 
+          : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
       }}
     >
       <div className="flex-1 min-w-0">
         <h3 className="font-medium text-slate-900 text-sm truncate">{task.title}</h3>
       </div>
-      <Badge variant="secondary" className={`text-xs flex-shrink-0 ${getPriorityColor(task.priority)}`}>
-        {getPriorityLabel(task.priority)}
-      </Badge>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {task.isArchived && (
+          <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+            アーカイブ
+          </Badge>
+        )}
+        <Badge variant="secondary" className={`text-xs ${getPriorityColor(task.priority)}`}>
+          {getPriorityLabel(task.priority)}
+        </Badge>
+      </div>
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="flex -space-x-1">
           {task.members && task.members.length > 0 ? (
@@ -580,9 +616,12 @@ interface KanbanBoardProps {
   currentUserId?: string
   currentUserRole?: string
   onRefresh?: () => void
+  showArchived?: boolean
+  dateFrom?: string
+  dateTo?: string
 }
 
-export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh }, ref) => {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -606,7 +645,31 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     return boardData.lists.map((list: any) => ({
       id: list.id,
       title: list.title,
-      taskIds: list.cards ? list.cards.map((card: any) => card.id) : [],
+      taskIds: list.cards ? list.cards
+        .filter((card: any) => {
+          // アーカイブフィルターを適用
+          if (!showArchived && card.isArchived) {
+            return false // アーカイブされたカードをスキップ
+          }
+          if (showArchived && !card.isArchived) {
+            return false // アーカイブされていないカードをスキップ
+          }
+
+          // 日付フィルターを適用
+          if (dateFrom || dateTo) {
+            if (!card.dueDate) return false // 締切日がないカードをスキップ
+            
+            const cardDate = new Date(card.dueDate)
+            const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+            const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+            
+            if (fromDate && cardDate < fromDate) return false
+            if (toDate && cardDate > toDate) return false
+          }
+
+          return true
+        })
+        .map((card: any) => card.id) : [],
       color: list.color,
     }))
   }
@@ -620,6 +683,26 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     boardData.lists.forEach((list: any) => {
       if (list.cards) {
         list.cards.forEach((card: any) => {
+          // アーカイブフィルターを適用
+          if (!showArchived && card.isArchived) {
+            return // アーカイブされたカードをスキップ
+          }
+          if (showArchived && !card.isArchived) {
+            return // アーカイブされていないカードをスキップ
+          }
+
+          // 日付フィルターを適用
+          if (dateFrom || dateTo) {
+            if (!card.dueDate) return // 締切日がないカードをスキップ
+            
+            const cardDate = new Date(card.dueDate)
+            const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+            const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+            
+            if (fromDate && cardDate < fromDate) return
+            if (toDate && cardDate > toDate) return
+          }
+
           tasks[card.id] = {
             id: card.id,
             title: card.title,
@@ -637,6 +720,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               name: m.employee?.name || m.name,
             })) || [],
             checklists: card.checklists || [],
+            isArchived: card.isArchived || false,
+            boardId: boardData.id,
           }
         })
       }
@@ -665,10 +750,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   useEffect(() => {
     if (boardData) {
       console.log("KanbanBoard - Updating with board data:", boardData)
+      console.log("KanbanBoard - showArchived:", showArchived)
+      console.log("KanbanBoard - dateFrom:", dateFrom, "dateTo:", dateTo)
       setLists(generateListsFromBoardData(boardData))
       setTasksById(generateTasksFromBoardData(boardData))
     }
-  }, [boardData])
+  }, [boardData, showArchived, dateFrom, dateTo])
 
   const sensors = useSensors(
     useSensor(PointerSensor, {

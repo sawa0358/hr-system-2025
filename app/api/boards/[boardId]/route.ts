@@ -40,9 +40,6 @@ export async function GET(request: NextRequest, { params }: { params: { boardId:
         lists: {
           include: {
             cards: {
-              where: {
-                isArchived: false,
-              },
               include: {
                 creator: {
                   select: {

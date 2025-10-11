@@ -115,7 +115,18 @@ export function TaskSearchFilters({ onFilterChange }: TaskSearchFiltersProps) {
           <Checkbox
             id="showArchived"
             checked={showArchived}
-            onCheckedChange={(checked) => setShowArchived(checked as boolean)}
+            onCheckedChange={(checked) => {
+              const newShowArchived = checked as boolean
+              setShowArchived(newShowArchived)
+              // 即座にフィルターを適用
+              onFilterChange?.({
+                freeWord,
+                member,
+                showArchived: newShowArchived,
+                dateFrom,
+                dateTo,
+              })
+            }}
           />
           <Label htmlFor="showArchived" className="cursor-pointer text-sm whitespace-nowrap">
             アーカイブを表示

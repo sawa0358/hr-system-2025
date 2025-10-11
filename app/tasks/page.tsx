@@ -12,6 +12,7 @@ import { ExportMenu } from "@/components/export-menu"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
+import { ArchiveLargeView } from "@/components/archive-large-view"
 import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -580,7 +581,10 @@ export default function TasksPage() {
           <>
             {showFilters && (
               <div className="mb-6">
-                <TaskSearchFilters onFilterChange={setTaskFilters} />
+                <TaskSearchFilters onFilterChange={(filters) => {
+                  console.log("Task filters changed:", filters)
+                  setTaskFilters(filters)
+                }} />
               </div>
             )}
 
@@ -605,9 +609,19 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* カンバンボード */}
+      {/* アーカイブ表示またはカンバンボード */}
       <div style={{ backgroundColor: '#E6DDCD', padding: '0', width: '100%' }}>
-        {currentBoard ? (
+        {taskFilters.showArchived && currentBoard ? (
+          <ArchiveLargeView
+            boardId={currentBoard}
+            currentUserId={currentUser?.id}
+            currentUserRole={currentUser?.role}
+            onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+            onBack={() => {
+              setTaskFilters(prev => ({ ...prev, showArchived: false }))
+            }}
+          />
+        ) : currentBoard ? (
           <div 
             style={{ 
               transform: `scale(${boardScale})`,
@@ -623,6 +637,9 @@ export default function TasksPage() {
               currentUserId={currentUser?.id}
               currentUserRole={currentUser?.role}
               onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+              showArchived={false}
+              dateFrom={taskFilters.dateFrom}
+              dateTo={taskFilters.dateTo}
             />
           </div>
         ) : (

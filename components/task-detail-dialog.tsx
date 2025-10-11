@@ -37,6 +37,7 @@ import { format } from "date-fns"
 import { ja } from "date-fns/locale"
 import { employees } from "@/lib/mock-data"
 import { useAuth } from "@/lib/auth-context"
+import { checkCardPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 
 interface Label {
   id: string
@@ -135,6 +136,14 @@ const STATUS_OPTIONS = [
 
 export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUpdate }: TaskDetailDialogProps) {
   const { currentUser } = useAuth()
+  
+  // カード権限をチェック
+  const cardPermissions = task && currentUser ? checkCardPermissions(
+    currentUser.role as any,
+    currentUser.id,
+    task.createdBy || '',
+    task.members?.map((m: any) => m.id) || []
+  ) : null
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
@@ -376,6 +385,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const handleRemoveMember = (memberId: string) => {
+    // メンバー追加権限をチェック
+    if (cardPermissions && !cardPermissions.canAddMembers) {
+      alert(getPermissionErrorMessage("店長"))
+      return
+    }
+    
     setMembers(members.filter((m) => m.id !== memberId))
   }
 
@@ -665,6 +680,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const handleSave = async () => {
     if (!task || !currentUser) {
       alert("ユーザー情報が取得できません")
+      return
+    }
+
+    // カード編集権限をチェック
+    if (cardPermissions && !cardPermissions.canEdit) {
+      alert(cardPermissions.reason || "このカードを編集する権限がありません")
       return
     }
 
@@ -1048,16 +1069,20 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-sm">{member.name}</span>
-                  <button onClick={() => handleRemoveMember(member.id)} className="hover:opacity-70">
-                    <X className="w-3 h-3" />
-                  </button>
+                  {cardPermissions?.canAddMembers && (
+                    <button onClick={() => handleRemoveMember(member.id)} className="hover:opacity-70">
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowEmployeeSelector(true)}>
-              <Plus className="w-3 h-3 mr-1" />
-              メンバーを追加
-            </Button>
+            {cardPermissions?.canAddMembers && (
+              <Button variant="outline" size="sm" onClick={() => setShowEmployeeSelector(true)}>
+                <Plus className="w-3 h-3 mr-1" />
+                メンバーを追加
+              </Button>
+            )}
 
             {showEmployeeSelector && (
               <div className="mt-3 p-4 border rounded-lg bg-white shadow-lg">

@@ -66,6 +66,9 @@ export interface Permission {
   createBoards: boolean
   editBoards: boolean
   deleteBoards: boolean
+  createLists: boolean // リストの追加
+  editLists: boolean // リストの編集
+  deleteLists: boolean // リストの削除
   addCardMembers: boolean // 他人のカードにメンバー追加できるか
   editOthersCards: boolean // 他人のカードを編集できるか
 }
@@ -115,6 +118,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: false,
     editBoards: false,
     deleteBoards: false,
+    createLists: false,
+    editLists: false,
+    deleteLists: false,
     addCardMembers: false,
     editOthersCards: false,
   },
@@ -162,6 +168,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true, // ボードは作成可能
     editBoards: false, // 自分のボードのみ編集（別途チェック）
     deleteBoards: false,
+    createLists: false, // リストの追加は店長以上
+    editLists: false,
+    deleteLists: false,
     addCardMembers: false, // カード新規作成時のみメンバー追加可
     editOthersCards: false,
   },
@@ -209,6 +218,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: false,
     deleteBoards: false,
+    createLists: false, // リストの追加は店長以上
+    editLists: false,
+    deleteLists: false,
     addCardMembers: false, // サブマネは他人のカードにメンバー追加不可
     editOthersCards: false,
   },
@@ -256,6 +268,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: true,
     deleteBoards: false,
+    createLists: true, // 店長以上はリストの追加可能
+    editLists: true,
+    deleteLists: true,
     addCardMembers: true, // 店長は他人のカードにメンバー追加可能
     editOthersCards: false,
   },
@@ -303,6 +318,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: true,
     deleteBoards: true,
+    createLists: true, // マネージャーはリストの追加可能
+    editLists: true,
+    deleteLists: true,
     addCardMembers: true, // マネージャーは他人のカードにメンバー追加可能
     editOthersCards: false,
   },
@@ -350,6 +368,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: true,
     deleteBoards: true,
+    createLists: true, // 総務はリストの追加可能
+    editLists: true,
+    deleteLists: true,
     addCardMembers: true, // 総務は他人のカードにメンバー追加可能
     editOthersCards: true, // 総務は他人のカードも編集可能
   },
@@ -397,6 +418,9 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: true,
     deleteBoards: true,
+    createLists: true, // 管理者はリストの追加可能
+    editLists: true,
+    deleteLists: true,
     addCardMembers: true, // 管理者は他人のカードにメンバー追加可能
     editOthersCards: true, // 管理者は他人のカードも編集可能
   },
@@ -521,4 +545,101 @@ export function checkWorkspacePermissions(
     canDelete: isCreator && permissions.deleteWorkspace,
     canAddMembers: permissions.addWorkspaceMembers,
   }
+}
+
+/**
+ * ボードの権限をチェックする
+ * @param userRole ユーザーの権限ロール
+ * @param userId ユーザーID
+ * @param boardCreatorId ボード作成者ID
+ * @returns 権限チェック結果
+ */
+export function checkBoardPermissions(
+  userRole: UserRole,
+  userId: string,
+  boardCreatorId: string,
+): {
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  reason?: string
+} {
+  const permissions = getPermissions(userRole)
+  const isCreator = userId === boardCreatorId
+
+  // 作成権限は店長・マネージャー・総務・管理者のみ
+  if (!permissions.createBoards) {
+    return {
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+      reason: "この操作は店長権限以上が必要です",
+    }
+  }
+
+  // 編集権限は店長・マネージャー・総務・管理者のみ
+  if (!permissions.editBoards) {
+    return {
+      canCreate: true,
+      canEdit: false,
+      canDelete: false,
+      reason: "この操作は店長権限以上が必要です",
+    }
+  }
+
+  // 削除権限はマネージャー・総務・管理者のみ
+  if (!permissions.deleteBoards) {
+    return {
+      canCreate: true,
+      canEdit: true,
+      canDelete: false,
+      reason: "この操作はマネージャー権限以上が必要です",
+    }
+  }
+
+  return {
+    canCreate: true,
+    canEdit: true,
+    canDelete: true,
+  }
+}
+
+/**
+ * リストの権限をチェックする
+ * @param userRole ユーザーの権限ロール
+ * @returns 権限チェック結果
+ */
+export function checkListPermissions(userRole: UserRole): {
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  reason?: string
+} {
+  const permissions = getPermissions(userRole)
+
+  // リスト操作は店長・マネージャー・総務・管理者のみ
+  if (!permissions.createLists) {
+    return {
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+      reason: "この操作は店長権限以上が必要です",
+    }
+  }
+
+  return {
+    canCreate: permissions.createLists,
+    canEdit: permissions.editLists,
+    canDelete: permissions.deleteLists,
+  }
+}
+
+/**
+ * 権限エラーメッセージを生成する
+ * @param userRole ユーザーの権限ロール
+ * @param requiredRole 必要な権限ロール
+ * @returns エラーメッセージ
+ */
+export function getPermissionErrorMessage(requiredRole: string): string {
+  return `この操作は${requiredRole}権限以上が必要です`
 }

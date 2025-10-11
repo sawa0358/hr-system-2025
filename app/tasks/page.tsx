@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { getPermissions } from "@/lib/permissions"
+import { getPermissions, checkWorkspacePermissions, checkBoardPermissions, checkListPermissions } from "@/lib/permissions"
 import { WorkspaceSelector } from "@/components/workspace-selector"
 import { WorkspaceManagerDialog } from "@/components/workspace-manager-dialog"
 import { BoardManagerDialog } from "@/components/board-manager-dialog"
@@ -13,22 +13,34 @@ import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
 import { DefaultCardSettingsDialog } from "@/components/default-card-settings-dialog"
-import { Plus, Filter, LayoutGrid, Calendar, Settings } from "lucide-react"
+import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { employees } from "@/lib/mock-data"
 
 export default function TasksPage() {
   const { currentUser } = useAuth()
   const permissions = currentUser?.role ? getPermissions(currentUser.role) : null
+  const kanbanBoardRef = useRef<any>(null)
   
   // デバッグ用ログ
   console.log("TasksPage - currentUser:", currentUser)
   console.log("TasksPage - permissions:", permissions)
 
   const [workspaces, setWorkspaces] = useState<any[]>([])
-  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('currentWorkspace')
+    }
+    return null
+  })
   const [boards, setBoards] = useState<any[]>([])
-  const [currentBoard, setCurrentBoard] = useState<string | null>(null)
+  const [currentBoard, setCurrentBoard] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('currentBoard')
+    }
+    return null
+  })
   const [currentBoardData, setCurrentBoardData] = useState<any>(null)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -53,22 +65,35 @@ export default function TasksPage() {
     }
   }, [currentUser])
 
-  // ワークスペースが変更されたらボード一覧を取得
+  // ワークスペースが変更されたらlocalStorageに保存し、ボード一覧を取得
   useEffect(() => {
     if (currentWorkspace) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('currentWorkspace', currentWorkspace)
+      }
       fetchBoards(currentWorkspace)
     } else {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentWorkspace')
+      }
       setBoards([])
       setCurrentBoard(null)
     }
   }, [currentWorkspace])
 
-  // ボード選択時にデータを取得
+  // ボード選択時にlocalStorageに保存し、データを取得
   useEffect(() => {
     if (currentBoard) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('currentBoard', currentBoard)
+      }
       // ボード変更時は現在のボードデータをクリアしてから新しいデータを取得
       setCurrentBoardData(null)
       fetchBoardData(currentBoard)
+    } else {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentBoard')
+      }
     }
   }, [currentBoard])
 
@@ -82,9 +107,17 @@ export default function TasksPage() {
       const data = await response.json()
       if (data.workspaces) {
         setWorkspaces(data.workspaces)
-        // 最初のワークスペースを選択
-        if (data.workspaces.length > 0 && !currentWorkspace) {
-          setCurrentWorkspace(data.workspaces[0].id)
+        // 保存されたワークスペースが存在するか確認
+        const savedWorkspace = typeof window !== 'undefined' ? localStorage.getItem('currentWorkspace') : null
+        const workspaceExists = savedWorkspace && data.workspaces.some((w: any) => w.id === savedWorkspace)
+        
+        // 保存されたワークスペースが存在すれば復元、なければ最初のワークスペースを選択
+        if (!currentWorkspace && data.workspaces.length > 0) {
+          if (workspaceExists) {
+            setCurrentWorkspace(savedWorkspace)
+          } else {
+            setCurrentWorkspace(data.workspaces[0].id)
+          }
         }
       }
     } catch (error) {
@@ -102,13 +135,24 @@ export default function TasksPage() {
       const data = await response.json()
       if (data.workspace?.boards) {
         setBoards(data.workspace.boards)
-        // ワークスペース変更時は常に最初のボードを選択
+        
         if (data.workspace.boards.length > 0) {
-          const firstBoard = data.workspace.boards[0]
-          setCurrentBoard(firstBoard.id)
-          // ボード選択時にリストとカードを取得
-          fetchBoardData(firstBoard.id)
-          console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
+          // 保存されたボードが存在するか確認
+          const savedBoard = typeof window !== 'undefined' ? localStorage.getItem('currentBoard') : null
+          const boardExists = savedBoard && data.workspace.boards.some((b: any) => b.id === savedBoard)
+          
+          // 保存されたボードが存在し、かつ現在のワークスペースのボードであれば復元
+          if (boardExists) {
+            setCurrentBoard(savedBoard)
+            fetchBoardData(savedBoard)
+            console.log("Restored saved board:", savedBoard, "from workspace:", workspaceId)
+          } else {
+            // なければ最初のボードを選択
+            const firstBoard = data.workspace.boards[0]
+            setCurrentBoard(firstBoard.id)
+            fetchBoardData(firstBoard.id)
+            console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
+          }
         } else {
           // ボードがない場合は現在のボードをクリア
           setCurrentBoard(null)
@@ -154,8 +198,10 @@ export default function TasksPage() {
 
   const handleEditWorkspace = () => {
     const workspace = workspaces.find((w) => w.id === currentWorkspace)
-    setEditingWorkspace(workspace)
-    setWorkspaceDialogOpen(true)
+    if (workspace) {
+      setEditingWorkspace(workspace)
+      setWorkspaceDialogOpen(true)
+    }
   }
 
   const handleSaveWorkspace = async (data: { name: string; description: string; memberIds: string[] }) => {
@@ -283,6 +329,15 @@ export default function TasksPage() {
     setBoardDialogOpen(true)
   }
 
+  const handleEditBoard = () => {
+    if (!currentBoard) return
+    const board = boards.find((b) => b.id === currentBoard)
+    if (board) {
+      setEditingBoard(board)
+      setBoardDialogOpen(true)
+    }
+  }
+
   const handleSaveBoard = async (data: { name: string; description: string; workspaceId: string }) => {
     try {
       if (editingBoard?.id) {
@@ -345,7 +400,16 @@ export default function TasksPage() {
     }
   }
 
-  const allTasks = [] // TODO: カードデータを取得
+  // ボードデータからすべてのタスクを取得
+  const allTasks = currentBoardData?.lists?.flatMap((list: any) => 
+    list.cards?.map((card: any) => ({
+      id: card.id,
+      title: card.title,
+      dueDate: card.dueDate || "",
+      priority: card.priority || "medium",
+      status: card.status || list.id,
+    })) || []
+  ) || []
 
   return (
     <main className="overflow-y-auto">
@@ -361,18 +425,36 @@ export default function TasksPage() {
             currentWorkspace={currentWorkspace}
             onWorkspaceChange={handleWorkspaceChange}
             onCreateWorkspace={handleCreateWorkspace}
+            onEditWorkspace={handleEditWorkspace}
+            onDeleteWorkspace={handleDeleteWorkspace}
             canCreateWorkspace={permissions?.createWorkspace || false}
+            canEditWorkspace={(() => {
+              if (!currentWorkspace || !currentUser?.role) return false
+              const workspace = workspaces.find(w => w.id === currentWorkspace)
+              if (!workspace) return false
+              return checkWorkspacePermissions(
+                currentUser.role,
+                currentUser.id,
+                workspace.createdBy || '',
+                workspace.members?.map((m: any) => m.employeeId) || []
+              ).canEdit
+            })()}
+            canDeleteWorkspace={(() => {
+              if (!currentWorkspace || !currentUser?.role) return false
+              const workspace = workspaces.find(w => w.id === currentWorkspace)
+              if (!workspace) return false
+              return checkWorkspacePermissions(
+                currentUser.role,
+                currentUser.id,
+                workspace.createdBy || '',
+                workspace.members?.map((m: any) => m.employeeId) || []
+              ).canDelete
+            })()}
           />
           <div className="flex gap-3">
             <AIAskButton context="タスク管理" />
             <ExportMenu />
             <DefaultCardSettingsDialog />
-            {currentWorkspace && (
-              <Button variant="outline" onClick={handleEditWorkspace} className="border-slate-300">
-                <Settings className="w-4 h-4 mr-2" />
-                ワークスペース設定
-              </Button>
-            )}
           </div>
         </div>
 
@@ -408,7 +490,19 @@ export default function TasksPage() {
 
             {showCalendar && (
               <div className="mb-8">
-                <TaskCalendar tasks={allTasks} />
+                <TaskCalendar 
+                  tasks={allTasks} 
+                  onTaskClick={(task) => {
+                    // タスククリック時にカンバンボードからタスクを探して詳細ダイアログを開く
+                    const fullTask = currentBoardData?.lists
+                      ?.flatMap((list: any) => list.cards || [])
+                      ?.find((card: any) => card.id === task.id)
+                    
+                    if (fullTask && kanbanBoardRef.current?.handleTaskClick) {
+                      kanbanBoardRef.current.handleTaskClick(fullTask)
+                    }
+                  }}
+                />
               </div>
             )}
 
@@ -427,19 +521,74 @@ export default function TasksPage() {
                   ))}
                 </SelectContent>
               </Select>
-              {permissions?.createBoards && (
+              {(() => {
+                if (!currentUser?.role) return false
+                const workspace = workspaces.find(w => w.id === currentWorkspace)
+                if (!workspace) return false
+                return checkBoardPermissions(
+                  currentUser.role,
+                  currentUser.id,
+                  workspace.createdBy || ''
+                ).canCreate
+              })() && (
                 <Button variant="outline" size="sm" onClick={handleCreateBoard}>
                   <Plus className="w-4 h-4 mr-2" />
                   ボード追加
                 </Button>
               )}
+              {(() => {
+                if (!currentUser?.role || !currentBoard) return null
+                const workspace = workspaces.find(w => w.id === currentWorkspace)
+                if (!workspace) return null
+                const boardPermissions = checkBoardPermissions(
+                  currentUser.role,
+                  currentUser.id,
+                  workspace.createdBy || ''
+                )
+                const canEdit = boardPermissions.canEdit
+                const canDelete = boardPermissions.canDelete
+                
+                if (!canEdit && !canDelete) return null
+                
+                return (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button 
+                        type="button"
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canEdit && (
+                        <DropdownMenuItem onClick={handleEditBoard}>
+                          <Edit className="w-4 h-4 mr-2" />
+                          編集
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem 
+                          onClick={handleDeleteBoard}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          削除
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              })()}
             </div>
 
             {/* カンバンボード */}
             {currentBoard ? (
               <KanbanBoard 
+                ref={kanbanBoardRef}
                 boardData={currentBoardData} 
                 currentUserId={currentUser?.id}
+                currentUserRole={currentUser?.role}
                 onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
               />
             ) : (
@@ -487,7 +636,16 @@ export default function TasksPage() {
           workspaceId={currentWorkspace}
           onSave={handleSaveBoard}
           onDelete={handleDeleteBoard}
-          canDelete={permissions?.deleteBoards || false}
+          canDelete={(() => {
+            if (!currentUser?.role || !editingBoard) return false
+            const workspace = workspaces.find(w => w.id === currentWorkspace)
+            if (!workspace) return false
+            return checkBoardPermissions(
+              currentUser.role,
+              currentUser.id,
+              workspace.createdBy || ''
+            ).canDelete
+          })()}
         />
       )}
     </main>

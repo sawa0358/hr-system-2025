@@ -1,14 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2 } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { kanbanTasks, taskTemplates } from "@/lib/mock-data"
+import { checkListPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 import { TaskDetailDialog } from "./task-detail-dialog"
 import {
   DndContext,
@@ -90,14 +92,23 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
   }
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className="mb-1"
+    >
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow mb-1"
+        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
         style={{ backgroundColor: task.cardColor || "white" }}
       >
         <CardContent className="p-2">
           <div className="flex items-center gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1">
+            <div
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200/50 rounded transition-colors flex-shrink-0"
+              {...attributes}
+              {...listeners}
+              title="ドラッグして移動"
+            >
               <GripVertical className="w-3 h-3 text-slate-400" />
             </div>
             <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
@@ -156,15 +167,24 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
   }
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className="mb-2"
+    >
       <Card
-        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow mb-2"
+        className="border-slate-200 shadow-sm hover:shadow-md transition-shadow"
         style={{ backgroundColor: task.cardColor || "white" }}
       >
         <CardContent className="p-2">
           <div className="flex items-start gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing mt-1 p-1">
-              <GripVertical className="w-4 h-4 text-slate-400" />
+            <div
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200/50 rounded transition-colors flex-shrink-0 mt-1"
+              {...attributes}
+              {...listeners}
+              title="ドラッグして移動"
+            >
+              <GripVertical className="w-3 h-3 text-slate-400" />
             </div>
             <div className="flex-1 cursor-pointer" onClick={onClick}>
               <div className="flex items-start justify-between mb-2">
@@ -310,6 +330,8 @@ function KanbanColumn({
   onTaskClick,
   onAddCard,
   onAddFromTemplate,
+  onEditList,
+  onDeleteList,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -317,6 +339,8 @@ function KanbanColumn({
   onTaskClick: (task: Task) => void
   onAddCard: () => void
   onAddFromTemplate: () => void
+  onEditList: (listId: string) => void
+  onDeleteList: (listId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [isCollapsed, setIsCollapsed] = useState(false)
@@ -351,26 +375,63 @@ function KanbanColumn({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="flex-1 min-w-[300px]">
-      <div className="bg-slate-100 rounded-lg p-4">
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className="flex-1 min-w-[300px]"
+    >
+      <div className="bg-slate-100 rounded-lg p-4 relative z-0">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
-              <GripVertical className="w-4 h-4 text-slate-500" />
-            </div>
+          <div className="flex items-center gap-2 flex-1">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsCollapsed(true)}
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsCollapsed(true)
+              }}
               className="h-6 w-6 p-0 flex-shrink-0"
             >
               <ChevronLeft className="w-4 h-4" />
             </Button>
+            <div
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200 rounded transition-colors"
+              {...attributes}
+              {...listeners}
+              title="ドラッグしてリストを移動"
+            >
+              <GripVertical className="w-4 h-4 text-slate-500" />
+            </div>
             <h2 className="font-semibold text-slate-900">{list.title}</h2>
           </div>
-          <Badge variant="secondary" className="bg-slate-200 text-slate-700">
-            {tasks.length}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="bg-slate-200 text-slate-700">
+              {tasks.length}
+            </Badge>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button 
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-6 w-6 p-0"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEditList(list.id)}>
+                  <Edit className="w-4 h-4 mr-2" />
+                  編集
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => onDeleteList(list.id)}
+                  className="text-red-600 focus:text-red-600"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  削除
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
@@ -448,10 +509,11 @@ function KanbanColumn({
 interface KanbanBoardProps {
   boardData?: any
   currentUserId?: string
+  currentUserRole?: string
   onRefresh?: () => void
 }
 
-export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoardProps) {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -539,7 +601,7 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -698,6 +760,17 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
   }
 
   const handleAddList = () => {
+    if (!currentUserRole) {
+      alert(getPermissionErrorMessage("店長"))
+      return
+    }
+
+    const listPermissions = checkListPermissions(currentUserRole as any)
+    if (!listPermissions.canCreate) {
+      alert(listPermissions.reason || getPermissionErrorMessage("店長"))
+      return
+    }
+
     const listName = prompt("リスト名を入力してください")
     if (listName) {
       const newList: KanbanList = {
@@ -710,10 +783,94 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
     }
   }
 
+  const handleEditList = async (listId: string) => {
+    if (!currentUserRole) {
+      alert(getPermissionErrorMessage("店長"))
+      return
+    }
+
+    const listPermissions = checkListPermissions(currentUserRole as any)
+    if (!listPermissions.canEdit) {
+      alert(listPermissions.reason || getPermissionErrorMessage("店長"))
+      return
+    }
+
+    const list = lists.find(l => l.id === listId)
+    if (!list) return
+
+    const newTitle = prompt("リスト名を入力してください", list.title)
+    if (newTitle && newTitle !== list.title) {
+      try {
+        const response = await fetch(`/api/boards/${boardData?.id}/lists/${listId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUserId || '',
+          },
+          body: JSON.stringify({ title: newTitle }),
+        })
+
+        if (response.ok) {
+          setLists(lists.map(l => 
+            l.id === listId ? { ...l, title: newTitle } : l
+          ))
+          if (onRefresh) onRefresh()
+        } else {
+          alert('リストの更新に失敗しました')
+        }
+      } catch (error) {
+        console.error('Error updating list:', error)
+        alert('リストの更新に失敗しました')
+      }
+    }
+  }
+
+  const handleDeleteList = async (listId: string) => {
+    if (!currentUserRole) {
+      alert(getPermissionErrorMessage("店長"))
+      return
+    }
+
+    const listPermissions = checkListPermissions(currentUserRole as any)
+    if (!listPermissions.canDelete) {
+      alert(listPermissions.reason || getPermissionErrorMessage("店長"))
+      return
+    }
+
+    const list = lists.find(l => l.id === listId)
+    if (!list) return
+
+    if (confirm(`リスト「${list.title}」を削除してもよろしいですか？`)) {
+      try {
+        const response = await fetch(`/api/boards/${boardData?.id}/lists/${listId}`, {
+          method: 'DELETE',
+          headers: {
+            'x-employee-id': currentUserId || '',
+          },
+        })
+
+        if (response.ok) {
+          setLists(lists.filter(l => l.id !== listId))
+          if (onRefresh) onRefresh()
+        } else {
+          alert('リストの削除に失敗しました')
+        }
+      } catch (error) {
+        console.error('Error deleting list:', error)
+        alert('リストの削除に失敗しました')
+      }
+    }
+  }
+
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task)
     setDialogOpen(true)
   }
+
+  // refを通じて外部からhandleTaskClickを呼び出せるようにする
+  useImperativeHandle(ref, () => ({
+    handleTaskClick
+  }))
 
   const handleTaskUpdate = (updatedTask: Task) => {
     // タスクが更新されたときにローカル状態を更新
@@ -869,19 +1026,29 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
                   onTaskClick={handleTaskClick}
                   onAddCard={() => handleAddCard(list.id)}
                   onAddFromTemplate={() => console.log("[v0] Adding from template to:", list.title)}
+                  onEditList={handleEditList}
+                  onDeleteList={handleDeleteList}
                 />
               )
             })}
           </SortableContext>
 
           <div className="flex-shrink-0 w-[300px]">
-            <button
-              onClick={handleAddList}
-              className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
-            >
-              <Plus className="w-5 h-5" />
-              リストを追加
-            </button>
+            {(() => {
+              if (!currentUserRole) return null
+              const listPermissions = checkListPermissions(currentUserRole as any)
+              if (!listPermissions.canCreate) return null
+              
+              return (
+                <button
+                  onClick={handleAddList}
+                  className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
+                >
+                  <Plus className="w-5 h-5" />
+                  リストを追加
+                </button>
+              )
+            })()}
           </div>
         </div>
 
@@ -912,7 +1079,7 @@ export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoard
       />
     </div>
   )
-}
+})
 
 // カード追加ダイアログコンポーネント
 function AddCardDialog({ 

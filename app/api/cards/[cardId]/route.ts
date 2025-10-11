@@ -176,15 +176,34 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           where: { cardId: params.cardId },
         })
 
-        // 新しいメンバーを追加
+        // 新しいメンバーを追加（存在する従業員IDのみ）
         if (members && members.length > 0) {
-          await tx.cardMember.createMany({
-            data: members.map((member: any) => ({
-              cardId: params.cardId,
-              employeeId: member.id,
-              addedBy: userId,
-            })),
-          })
+          // 有効な従業員IDを検証
+          const validMemberIds = []
+          for (const member of members) {
+            if (member.id) {
+              const employeeExists = await tx.employee.findUnique({
+                where: { id: member.id },
+                select: { id: true }
+              })
+              if (employeeExists) {
+                validMemberIds.push(member.id)
+              } else {
+                console.warn(`Invalid employee ID: ${member.id}`)
+              }
+            }
+          }
+
+          // 有効なメンバーのみ追加
+          if (validMemberIds.length > 0) {
+            await tx.cardMember.createMany({
+              data: validMemberIds.map((employeeId: string) => ({
+                cardId: params.cardId,
+                employeeId: employeeId,
+                addedBy: userId,
+              })),
+            })
+          }
         }
       }
 

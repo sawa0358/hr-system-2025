@@ -69,14 +69,19 @@ export function BoardManagerDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutGrid className="w-5 h-5" />
-            {board?.id ? `ボードを編集: ${board.name}` : "新しいボードを作成"}
+            {board?.id ? `ボードを編集: "${board.name}"` : "新しいボードを作成"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div>
             <Label htmlFor="name" className="text-sm font-medium">
-              ボード名 *
+              {board?.id ? "新しいボード名 *" : "ボード名 *"}
+              {board?.id && (
+                <span className="text-xs text-slate-500 ml-2">
+                  (現在: "{board.name}")
+                </span>
+              )}
             </Label>
             <Input
               id="name"

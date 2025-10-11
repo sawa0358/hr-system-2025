@@ -432,7 +432,7 @@ function KanbanColumn({
   viewMode: "card" | "list"
   onTaskClick: (task: Task) => void
   onAddCard: () => void
-  onAddFromTemplate: () => void
+  onAddFromTemplate: (template: any) => void
   onEditList: (listId: string) => void
   onDeleteList: (listId: string) => void
   onListColorChange: (listId: string) => void
@@ -440,6 +440,16 @@ function KanbanColumn({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
+  const [savedTemplates, setSavedTemplates] = useState<any[]>([])
+
+  // localStorageからテンプレートを読み込む
+  useEffect(() => {
+    if (showTemplateDialog) {
+      const templates = JSON.parse(localStorage.getItem('cardTemplates') || '[]')
+      console.log('[v0] Loaded templates from localStorage:', templates)
+      setSavedTemplates(templates)
+    }
+  }, [showTemplateDialog])
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -574,12 +584,12 @@ function KanbanColumn({
             <DialogTitle>テンプレートを選択</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 max-h-[60vh] overflow-y-auto">
-            {taskTemplates.map((template) => (
+            {savedTemplates.map((template) => (
               <Card
                 key={template.id}
                 className="border-slate-200 hover:border-blue-400 cursor-pointer transition-colors"
                 onClick={() => {
-                  onAddFromTemplate()
+                  onAddFromTemplate(template)
                   setShowTemplateDialog(false)
                 }}
               >
@@ -593,7 +603,7 @@ function KanbanColumn({
                   <p className="text-sm text-slate-600 mb-3">{template.description}</p>
                   {template.labels && template.labels.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {template.labels.map((label) => (
+                      {template.labels.map((label: any) => (
                         <Badge key={label.id} style={{ backgroundColor: label.color }} className="text-white text-xs">
                           {label.name}
                         </Badge>
@@ -603,7 +613,7 @@ function KanbanColumn({
                 </CardContent>
               </Card>
             ))}
-            {taskTemplates.length === 0 && <p className="text-center text-slate-500 py-8">テンプレートがありません</p>}
+            {savedTemplates.length === 0 && <p className="text-center text-slate-500 py-8">テンプレートがありません</p>}
           </div>
         </DialogContent>
       </Dialog>
@@ -1157,6 +1167,84 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     setAddCardDialogOpen(true)
   }
 
+  const handleAddFromTemplate = async (listId: string, template: any) => {
+    if (!boardData?.id || !currentUserId) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    try {
+      console.log("[v0] Creating card from template:", template, "in list:", listId)
+      
+      // テンプレートから新しいカードを作成
+      const cardData = {
+        title: template.title.replace(' (テンプレート)', ''), // テンプレートの文字を削除
+        description: template.description,
+        priority: template.priority || 'medium',
+        cardColor: template.cardColor,
+        boardId: boardData.id,
+        listId: listId,
+        memberIds: [currentUserId], // 現在のユーザーをメンバーに追加
+      }
+      
+      const response = await fetch("/api/cards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUserId,
+        },
+        body: JSON.stringify(cardData),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("[v0] Card created from template successfully:", result)
+        
+        // ラベルを追加
+        if (template.labels && template.labels.length > 0) {
+          for (const label of template.labels) {
+            await fetch(`/api/cards/${result.card.id}/labels`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-employee-id": currentUserId,
+              },
+              body: JSON.stringify({ labelId: label.id }),
+            })
+          }
+        }
+        
+        // チェックリストを追加
+        if (template.checklists && template.checklists.length > 0) {
+          for (const checklist of template.checklists) {
+            await fetch(`/api/cards/${result.card.id}/checklists`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-employee-id": currentUserId,
+              },
+              body: JSON.stringify({
+                title: checklist.title,
+                items: checklist.items,
+              }),
+            })
+          }
+        }
+        
+        // ボードデータを再取得
+        onRefresh?.()
+        alert("テンプレートからカードを作成しました")
+      } else {
+        const error = await response.json()
+        console.error("[v0] Failed to create card from template:", error)
+        alert(`カードの作成に失敗しました: ${error.error || '不明なエラー'}`)
+      }
+    } catch (error) {
+      console.error("[v0] Error creating card from template:", error)
+      alert("カードの作成中にエラーが発生しました")
+    }
+  }
+
   const handleCreateCard = async (cardData: { title: string; description?: string; priority?: string }) => {
     if (!selectedListId || !boardData?.id || !currentUserId) {
       alert("ユーザー情報が取得できません")
@@ -1272,7 +1360,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   viewMode={viewMode}
                   onTaskClick={handleTaskClick}
                   onAddCard={() => handleAddCard(list.id)}
-                  onAddFromTemplate={() => console.log("[v0] Adding from template to:", list.title)}
+                  onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
                   onEditList={handleEditList}
                   onDeleteList={handleDeleteList}
                   onListColorChange={(listId) => {

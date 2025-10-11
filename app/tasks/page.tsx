@@ -12,7 +12,7 @@ import { ExportMenu } from "@/components/export-menu"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
-import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2 } from "lucide-react"
+import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { employees } from "@/lib/mock-data"
@@ -414,7 +414,38 @@ export default function TasksPage() {
     <main className="overflow-y-auto">
       <div className="p-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
+            <div className="relative">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  console.log("オプションボタンがクリックされました")
+                  setShowCalendar(!showCalendar)
+                }}
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                {showCalendar ? "カレンダー非表示" : "カレンダー表示"}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="ml-2"
+                onClick={() => {
+                  console.log("フィルターボタンがクリックされました")
+                  setShowFilters(!showFilters)
+                }}
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? "フィルター非表示" : "フィルター表示"}
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <AIAskButton context="タスク管理" />
+            <ExportMenu />
+          </div>
         </div>
 
         {/* ワークスペース選択 */}
@@ -450,35 +481,11 @@ export default function TasksPage() {
               ).canDelete
             })()}
           />
-          <div className="flex gap-3">
-            <AIAskButton context="タスク管理" />
-            <ExportMenu />
-          </div>
         </div>
 
         {/* ボード選択とフィルター */}
         {currentWorkspace && (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex gap-3">
-                <Button
-                  variant={showCalendar ? "default" : "outline"}
-                  onClick={() => setShowCalendar(!showCalendar)}
-                  className={showCalendar ? "" : "border-slate-300"}
-                >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  カレンダー表示
-                </Button>
-                <Button
-                  variant={showFilters ? "default" : "outline"}
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={showFilters ? "" : "border-slate-300 bg-transparent"}
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  フィルター
-                </Button>
-              </div>
-            </div>
 
             {showFilters && (
               <div className="mb-6">
@@ -549,33 +556,18 @@ export default function TasksPage() {
                 if (!canEdit && !canDelete) return null
                 
                 return (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button 
-                        type="button"
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {canEdit && (
-                        <DropdownMenuItem onClick={handleEditBoard}>
-                          <Edit className="w-4 h-4 mr-2" />
-                          編集
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && (
-                        <DropdownMenuItem 
-                          onClick={handleDeleteBoard}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          削除
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  canEdit && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        console.log("ボード編集ボタンがクリックされました")
+                        handleEditBoard()
+                      }}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                  )
                 )
               })()}
             </div>

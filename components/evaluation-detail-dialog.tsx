@@ -45,13 +45,19 @@ interface EvaluationDetailDialogProps {
 
 export function EvaluationDetailDialog({ employee, open, onOpenChange }: EvaluationDetailDialogProps) {
   const permissions = usePermissions()
-  const defaultFolders = ["基本情報", "契約書類", "評価資料"]
+  const defaultFolders = ["2025", "2026", "2027"]
   
   // localStorageからフォルダ情報を読み込む
   const getStoredFolders = () => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(`evaluation-folders-${employee.id}`)
-      return stored ? JSON.parse(stored) : defaultFolders
+      if (stored) {
+        return JSON.parse(stored)
+      } else {
+        // 新規社員の場合、デフォルトフォルダをlocalStorageに保存
+        localStorage.setItem(`evaluation-folders-${employee.id}`, JSON.stringify(defaultFolders))
+        return defaultFolders
+      }
     }
     return defaultFolders
   }
@@ -102,7 +108,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           type: file.type || 'excel',
           uploadDate: new Date(file.createdAt).toISOString().split('T')[0],
           size: formatFileSize(file.size),
-          folderName: file.folderName || '基本情報'
+          folderName: file.folderName || '2025'
         }))
         
         console.log('処理後のファイルリスト:', fileList)

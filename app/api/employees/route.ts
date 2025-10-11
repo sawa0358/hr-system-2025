@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
     // メールアドレスの重複チェック
     // 空文字列やnullの場合はチェックをスキップ
     if (body.email && body.email.trim() !== '') {
-      const existingEmail = await prisma.employee.findUnique({
+      const existingEmail = await prisma.employee.findFirst({
         where: { email: body.email }
       });
       if (existingEmail) {

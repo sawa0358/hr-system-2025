@@ -261,10 +261,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (savedFolders) {
           const parsedFolders = JSON.parse(savedFolders)
           setFolders(parsedFolders)
-          setCurrentFolder(parsedFolders[0] || "基本情報")
+          setCurrentFolder(parsedFolders[0] || "契約書類")
         } else {
-          setFolders(["基本情報", "契約書類", "評価資料"])
-          setCurrentFolder("基本情報")
+          setFolders(["契約書類", "履歴書等", "事前資料"])
+          setCurrentFolder("契約書類")
         }
       }
       
@@ -314,8 +314,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           localStorage.removeItem(key)
         })
       }
-      setFolders(["基本情報", "契約書類", "評価資料"])
-      setCurrentFolder("基本情報")
+      setFolders(["契約書類", "履歴書等", "事前資料"])
+      setCurrentFolder("契約書類")
     }
   }, [employee])
 
@@ -328,7 +328,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         return JSON.parse(savedFolders)
       }
     }
-    return ["基本情報", "契約書類", "評価資料"]
+    return ["契約書類", "履歴書等", "事前資料"]
   })
   const [files, setFiles] = useState<File[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([])

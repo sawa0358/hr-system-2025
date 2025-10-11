@@ -349,6 +349,7 @@ function DraggableOrgNodeCard({
   const [departmentLabel, setDepartmentLabel] = useState(getInitialLabel())
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   
   // 部門ラベル編集権限のチェック（マネージャー・総務・管理者のみ）
   const canEditDepartmentLabel = canEdit && (
@@ -374,7 +375,7 @@ function DraggableOrgNodeCard({
   } = useDraggable({
     id: node.id,
     data: { node },
-    disabled: !canEdit,
+    disabled: !canEdit || isMenuOpen, // メニューが開いている時のみドラッグを無効化
   })
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -418,10 +419,25 @@ function DraggableOrgNodeCard({
         }}
         className={`relative ${isOver ? 'ring-2 ring-green-500 bg-green-50' : ''}`}
         onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
+        onMouseLeave={() => {
+          setIsHovered(false)
+          setIsMenuOpen(false)
+        }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const relativeY = e.clientY - rect.top
+          const cardHeight = rect.height
+          
+          // カードの下半分（50%以下）でホバーメニューを表示
+          if (relativeY > cardHeight * 0.5) {
+            setIsMenuOpen(true)
+          } else {
+            setIsMenuOpen(false)
+          }
+        }}
       >
         <Card
-          className={`${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all ${
+          className={`relative z-0 ${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all ${
             canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
           } ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
@@ -429,12 +445,21 @@ function DraggableOrgNodeCard({
             isDraggingThis ? "opacity-50 bg-blue-50 border-blue-300" : ""
           }`}
           onClick={(e) => {
+            // メニュー表示時はカードクリックを無効化
+            if (isMenuOpen) {
+              e.stopPropagation()
+              e.preventDefault()
+              return
+            }
             // ドラッグ中でない場合のみクリックイベントを実行
             if (!isDraggingThis) {
-              onEmployeeClick?.(node)
+              console.log('カードがクリックされました')
+              if (onEmployeeClick && node) {
+                onEmployeeClick(node)
+              }
             }
           }}
-          {...(canEdit ? { ...listeners, ...attributes } : {})}
+          {...(canEdit && !isMenuOpen ? { ...listeners, ...attributes } : {})} // メニュー表示時はドラッグ属性を無効化
         >
           <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
             <div className="flex items-center gap-2">
@@ -467,33 +492,51 @@ function DraggableOrgNodeCard({
             </div>
           </CardContent>
 
-          {isHovered && !isDraggingThis && (
-            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 rounded-b-lg shadow-lg z-10 flex gap-1 p-1">
+          {isMenuOpen && !isDraggingThis && (
+            <div 
+              className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 rounded-b-lg shadow-lg z-50 flex gap-1 p-1"
+              onMouseDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+              onClick={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+              onDragStart={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+              }}
+            >
               {hasChildren && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="text-xs flex-1"
-                  onClick={(e) => {
+                <button
+                  className="text-xs flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 flex items-center justify-center gap-1 transition-colors relative z-[60]"
+                  onMouseDown={(e) => {
                     e.stopPropagation()
-                    onShowSubordinates?.(node)
+                    e.preventDefault()
+                    console.log('配下の表示ボタンがクリックされました')
+                    if (onShowSubordinates && node) {
+                      onShowSubordinates(node)
+                    }
                   }}
                 >
-                  <Users className="w-3 h-3 mr-1" />
+                  <Users className="w-3 h-3" />
                   配下の表示
-                </Button>
+                </button>
               )}
-              <Button
-                size="sm"
-                variant="secondary"
-                className="text-xs flex-1"
-                onClick={(e) => {
+              <button
+                className="text-xs flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 flex items-center justify-center gap-1 transition-colors relative z-[60]"
+                onMouseDown={(e) => {
                   e.stopPropagation()
-                  onEmployeeClick?.(node)
+                  e.preventDefault()
+                  console.log('社員情報表示ボタンがクリックされました')
+                  if (onEmployeeClick && node) {
+                    onEmployeeClick(node)
+                  }
                 }}
               >
                 社員情報表示
-              </Button>
+              </button>
             </div>
           )}
         </Card>
@@ -615,8 +658,8 @@ function UnassignedEmployeeCard({
       } ${isSelected ? "bg-green-50 border-green-300 ring-2 ring-green-200" : ""}`}
       onClick={(e) => {
         // ドラッグ中でない場合のみクリックイベントを実行
-        if (!isDraggingThis) {
-          onEmployeeClick?.({
+        if (!isDraggingThis && onEmployeeClick) {
+          onEmployeeClick({
             id: employee.id,
             name: employee.name,
             position: employee.position,

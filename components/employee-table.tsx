@@ -381,7 +381,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     if (isSuspended || status === 'suspended') {
       return (
         <Badge variant="secondary" className="bg-red-50 text-red-700 border-red-200">
-          停止中
+          外注停止
         </Badge>
       )
     }

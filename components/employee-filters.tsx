@@ -136,6 +136,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
             <SelectItem value="active">在籍中</SelectItem>
             <SelectItem value="leave">休職中</SelectItem>
             <SelectItem value="retired">退職</SelectItem>
+            <SelectItem value="suspended">外注停止</SelectItem>
           </SelectContent>
         </Select>
 

@@ -393,13 +393,17 @@ function KanbanColumn({
 
 interface KanbanBoardProps {
   boardData?: any
+  currentUserId?: string
+  onRefresh?: () => void
 }
 
-export function KanbanBoard({ boardData }: KanbanBoardProps) {
+export function KanbanBoard({ boardData, currentUserId, onRefresh }: KanbanBoardProps) {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [addCardDialogOpen, setAddCardDialogOpen] = useState(false)
+  const [selectedListId, setSelectedListId] = useState<string | null>(null)
 
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
@@ -590,6 +594,75 @@ export function KanbanBoard({ boardData }: KanbanBoardProps) {
     setDialogOpen(true)
   }
 
+  const handleAddCard = (listId: string) => {
+    setSelectedListId(listId)
+    setAddCardDialogOpen(true)
+  }
+
+  const handleCreateCard = async (cardData: { title: string; description?: string; priority?: string }) => {
+    if (!selectedListId || !boardData?.id || !currentUserId) {
+      alert("ユーザー情報が取得できません")
+      return
+    }
+
+    try {
+      console.log("Creating card:", cardData, "in list:", selectedListId)
+      
+      const response = await fetch("/api/cards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUserId,
+        },
+        body: JSON.stringify({
+          ...cardData,
+          boardId: boardData.id,
+          listId: selectedListId,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log("Card created successfully:", result)
+        
+        // ローカル状態を更新
+        const newTask: Task = {
+          id: result.card.id,
+          title: cardData.title,
+          description: cardData.description || "",
+          assignee: "未割り当て",
+          dueDate: "",
+          priority: (cardData.priority as "low" | "medium" | "high") || "medium",
+          comments: 0,
+          attachments: 0,
+          status: selectedListId,
+          cardColor: "",
+          labels: [],
+        }
+
+        setTasksById((prev) => ({ ...prev, [newTask.id]: newTask }))
+        setLists((prev) =>
+          prev.map((list) =>
+            list.id === selectedListId ? { ...list, taskIds: [...list.taskIds, newTask.id] } : list
+          )
+        )
+        
+        setAddCardDialogOpen(false)
+        
+        // ボードデータを再取得
+        if (onRefresh) {
+          onRefresh()
+        }
+      } else {
+        console.error("Failed to create card:", await response.text())
+        alert("カードの作成に失敗しました")
+      }
+    } catch (error) {
+      console.error("Error creating card:", error)
+      alert("カードの作成に失敗しました")
+    }
+  }
+
   const activeTask = activeId && tasksById[activeId] ? tasksById[activeId] : null
 
   return (
@@ -635,7 +708,7 @@ export function KanbanBoard({ boardData }: KanbanBoardProps) {
                   tasks={listTasks}
                   viewMode={viewMode}
                   onTaskClick={handleTaskClick}
-                  onAddCard={() => console.log("[v0] Adding card to:", list.title)}
+                  onAddCard={() => handleAddCard(list.id)}
                   onAddFromTemplate={() => console.log("[v0] Adding from template to:", list.title)}
                 />
               )
@@ -665,6 +738,95 @@ export function KanbanBoard({ boardData }: KanbanBoardProps) {
       </DndContext>
 
       <TaskDetailDialog task={selectedTask} open={dialogOpen} onOpenChange={setDialogOpen} />
+      
+      {/* カード追加ダイアログ */}
+      <AddCardDialog 
+        open={addCardDialogOpen} 
+        onOpenChange={setAddCardDialogOpen}
+        onCreateCard={handleCreateCard}
+      />
     </div>
+  )
+}
+
+// カード追加ダイアログコンポーネント
+function AddCardDialog({ 
+  open, 
+  onOpenChange, 
+  onCreateCard 
+}: { 
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onCreateCard: (data: { title: string; description?: string; priority?: string }) => void
+}) {
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [priority, setPriority] = useState("medium")
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) {
+      alert("カードタイトルを入力してください")
+      return
+    }
+    onCreateCard({ title, description, priority })
+    setTitle("")
+    setDescription("")
+    setPriority("medium")
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>新規カード追加</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-1 block">タイトル *</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="カードのタイトルを入力"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="text-sm font-medium mb-1 block">説明</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+              placeholder="カードの説明を入力"
+            />
+          </div>
+          
+          <div>
+            <label className="text-sm font-medium mb-1 block">優先度</label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="low">低</option>
+              <option value="medium">中</option>
+              <option value="high">高</option>
+            </select>
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              キャンセル
+            </Button>
+            <Button type="submit">
+              作成
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

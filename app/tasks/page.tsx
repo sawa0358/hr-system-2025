@@ -197,6 +197,33 @@ export default function TasksPage() {
               const boardResult = await boardResponse.json()
               setCurrentBoard(boardResult.board.id)
               fetchBoards(result.workspace.id)
+              
+              // デフォルトリストを作成
+              try {
+                const defaultLists = [
+                  { title: "未着手" },
+                  { title: "進行中" },
+                  { title: "レビュー" },
+                  { title: "完了" }
+                ]
+                
+                for (const listData of defaultLists) {
+                  const listResponse = await fetch(`/api/boards/${boardResult.board.id}/lists`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "x-employee-id": currentUser?.id || "",
+                    },
+                    body: JSON.stringify(listData),
+                  })
+                  
+                  if (listResponse.ok) {
+                    console.log("Default list created:", listData.title)
+                  }
+                }
+              } catch (error) {
+                console.error("Failed to create default lists:", error)
+              }
             }
           } catch (error) {
             console.error("Failed to create default board:", error)
@@ -395,7 +422,11 @@ export default function TasksPage() {
 
             {/* カンバンボード */}
             {currentBoard ? (
-              <KanbanBoard boardData={currentBoardData} />
+              <KanbanBoard 
+                boardData={currentBoardData} 
+                currentUserId={currentUser?.id}
+                onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+              />
             ) : (
               <div className="text-center py-12 text-slate-500">
                 <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />

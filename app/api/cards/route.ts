@@ -25,8 +25,26 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { title, description, listId, boardId, dueDate, priority, memberIds = [] } = body
 
+    console.log("POST /api/cards - Request data:", { title, description, boardId, listId, dueDate, priority, memberIds })
+
     if (!title || !listId || !boardId) {
       return NextResponse.json({ error: "タイトル、リストID、ボードIDは必須です" }, { status: 400 })
+    }
+
+    // リストIDの存在確認
+    const list = await prisma.boardList.findUnique({
+      where: { id: listId },
+      select: { id: true, boardId: true }
+    })
+
+    if (!list) {
+      console.log("POST /api/cards - List not found:", listId)
+      return NextResponse.json({ error: "指定されたリストが見つかりません" }, { status: 404 })
+    }
+
+    if (list.boardId !== boardId) {
+      console.log("POST /api/cards - List boardId mismatch:", { listBoardId: list.boardId, requestBoardId: boardId })
+      return NextResponse.json({ error: "リストとボードが一致しません" }, { status: 400 })
     }
 
     // ボードとワークスペースの権限チェック

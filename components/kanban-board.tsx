@@ -768,6 +768,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             members: card.members?.map((m: any) => ({
               id: m.employee?.id || m.id,
               name: m.employee?.name || m.name,
+              email: m.employee?.email || m.email,
             })) || [],
             checklists: card.checklists || [],
             isArchived: card.isArchived || false,

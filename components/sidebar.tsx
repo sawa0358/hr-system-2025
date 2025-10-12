@@ -11,6 +11,7 @@ import {
   DollarSign,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Building2,
   FileText,
   Clock,
@@ -26,8 +27,11 @@ import { LoginModal } from "@/components/login-modal"
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
   { icon: KanbanSquare, label: "タスク管理", href: "/tasks", permission: "viewOwnTasks" as const },
-  { icon: Users, label: "社員情報", href: "/employees", permission: "viewOwnProfile" as const },
   { icon: Sitemap, label: "組織図", href: "/organization", permission: "viewOrgChart" as const },
+]
+
+const dropdownMenuItems = [
+  { icon: Users, label: "社員情報", href: "/employees", permission: "viewOwnProfile" as const },
   { icon: Clock, label: "勤怠管理", href: "/attendance", permission: "viewOwnAttendance" as const },
   { icon: Calendar, label: "有給管理", href: "/leave", permission: "viewLeaveManagement" as const },
   { icon: DollarSign, label: "給与管理", href: "/payroll", permission: "viewOwnPayroll" as const },
@@ -46,11 +50,13 @@ const roleLabels: Record<string, string> = {
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(true)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   const pathname = usePathname()
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
 
   const visibleMenuItems = menuItems.filter((item) => hasPermission(item.permission))
+  const visibleDropdownItems = dropdownMenuItems.filter((item) => hasPermission(item.permission))
   const visibleAdminMenuItems = adminMenuItems.filter((item) => hasPermission(item.permission))
 
   return (
@@ -100,6 +106,59 @@ export function Sidebar() {
                 </li>
               )
             })}
+
+            {/* プルダウンメニュー */}
+            {visibleDropdownItems.length > 0 && (
+              <li>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                    "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
+                  )}
+                  title={collapsed ? "人事管理" : undefined}
+                >
+                  <Users className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="text-sm font-medium flex-1 text-left">人事管理</span>
+                      <ChevronDown
+                        className={cn(
+                          "w-4 h-4 transition-transform",
+                          dropdownOpen && "transform rotate-180"
+                        )}
+                      />
+                    </>
+                  )}
+                </button>
+                
+                {/* サブメニュー */}
+                {!collapsed && dropdownOpen && (
+                  <ul className="mt-1 ml-4 space-y-1">
+                    {visibleDropdownItems.map((item) => {
+                      const Icon = item.icon
+                      const isActive = pathname === item.href
+
+                      return (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
+                              "hover:bg-blue-50 hover:text-blue-600",
+                              isActive ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-600",
+                            )}
+                          >
+                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <span className="font-medium">{item.label}</span>
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </li>
+            )}
           </ul>
 
           {visibleAdminMenuItems.length > 0 && !collapsed && (

@@ -171,6 +171,7 @@ const PRIORITY_OPTIONS = [
 
 // デフォルトの状態オプション（削除不可）
 const DEFAULT_STATUS_OPTIONS = [
+  { value: "operational", label: "常時運用タスク", isDefault: true },
   { value: "scheduled", label: "予定リスト", isDefault: true },
   { value: "in-progress", label: "進行中", isDefault: true },
   { value: "done", label: "完了", isDefault: true },

@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
 
     // テンプレートボードからリスト情報を取得
     let defaultLists = [
-      { title: "未着手", position: 0, color: null },
-      { title: "進行中", position: 1, color: null },
-      { title: "レビュー", position: 2, color: null },
+      { title: "常時運用タスク", position: 0, color: null },
+      { title: "予定リスト", position: 1, color: null },
+      { title: "進行中", position: 2, color: null },
       { title: "完了", position: 3, color: null },
     ]
 

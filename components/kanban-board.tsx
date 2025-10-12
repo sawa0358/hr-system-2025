@@ -445,6 +445,11 @@ function KanbanColumn({
 
   // localStorageから折りたたみ状態を読み込む
   const [isCollapsed, setIsCollapsed] = useState(() => {
+    // 常時運用タスクリストはデフォルトで畳んだ状態
+    if (list.title === "常時運用タスク") {
+      const saved = localStorage.getItem(`list-collapsed-${list.id}`)
+      return saved === 'true' || saved === null // 保存されていない場合は畳んだ状態
+    }
     const saved = localStorage.getItem(`list-collapsed-${list.id}`)
     return saved === 'true'
   })

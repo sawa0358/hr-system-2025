@@ -688,9 +688,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const generateListsFromBoardData = (boardData: any) => {
     if (!boardData?.lists) {
       return [
-        { id: "todo", title: "未着手", taskIds: [] },
+        { id: "always-running", title: "常時運用タスク", taskIds: [] },
+        { id: "scheduled", title: "予定リスト", taskIds: [] },
         { id: "in-progress", title: "進行中", taskIds: [] },
-        { id: "review", title: "レビュー", taskIds: [] },
         { id: "done", title: "完了", taskIds: [] },
       ]
     }

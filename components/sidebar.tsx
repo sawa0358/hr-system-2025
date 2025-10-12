@@ -74,7 +74,10 @@ export function Sidebar() {
           {!collapsed && (
             <div className="flex items-center gap-2">
               <Building2 className="w-6 h-6 text-blue-600" />
-              <span className="font-bold text-slate-900">HR System</span>
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold text-slate-900">HR System</span>
+                <span className="text-xs text-slate-500 font-medium">v1.0.1</span>
+              </div>
             </div>
           )}
           <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">

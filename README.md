@@ -8,7 +8,8 @@
 - **UI**: Tailwind CSS, Radix UI
 - **データベース**: Prisma ORM, SQLite (開発) / PostgreSQL (本番)
 - **認証**: NextAuth.js
-- **ファイル管理**: AWS S3
+- **ファイルストレージ**: AWS S3（東京リージョン）
+- **AI統合**: Google Gemini API
 - **デプロイ**: Heroku
 
 ## 📦 セットアップ
@@ -26,8 +27,24 @@ pnpm install
 `.env.local`ファイルを作成し、必要な環境変数を設定してください：
 
 ```bash
-cp .env.local.example .env.local
+# データベース（開発環境）
+DATABASE_URL="file:./prisma/dev.db"
+
+# Gemini API
+GEMINI_API_KEY="your_gemini_api_key"
+
+# AWS S3（ファイルストレージ）
+AWS_ACCESS_KEY_ID="your_access_key"
+AWS_SECRET_ACCESS_KEY="your_secret_key"
+AWS_REGION="ap-northeast-1"
+AWS_S3_BUCKET_NAME="your-bucket-name"
+
+# NextAuth
+NEXTAUTH_SECRET="your_secret"
+NEXTAUTH_URL="http://localhost:3000"
 ```
+
+**詳細は `ENV_TEMPLATE.md` を参照してください。**
 
 ### 3. データベースの初期化
 
@@ -73,25 +90,50 @@ npm run dev
 
 ## 🚀 デプロイ
 
-### Heroku + AWS S3
+### Heroku + AWS S3（本番環境）
+
+#### 前提条件
+- AWS S3バケットの作成（東京リージョン推奨）
+- IAMユーザーの作成とS3アクセス権限設定
+- Heroku CLIのインストール
+
+#### クイックスタート
 
 1. **Herokuアプリの作成**
 ```bash
-heroku create your-hr-app
+heroku create your-hr-app-name
+heroku addons:create heroku-postgresql:essential-0
 ```
 
 2. **環境変数の設定**
 ```bash
-heroku config:set DATABASE_URL="postgresql://..."
-heroku config:set AWS_ACCESS_KEY_ID="your-key"
-heroku config:set AWS_SECRET_ACCESS_KEY="your-secret"
-heroku config:set AWS_S3_BUCKET_NAME="your-bucket"
+# AWS S3
+heroku config:set \
+  AWS_ACCESS_KEY_ID="your_access_key" \
+  AWS_SECRET_ACCESS_KEY="your_secret_key" \
+  AWS_REGION="ap-northeast-1" \
+  AWS_S3_BUCKET_NAME="your-bucket-name"
+
+# Gemini API
+heroku config:set GEMINI_API_KEY="your_gemini_key"
+
+# NextAuth
+heroku config:set \
+  NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
+  NEXTAUTH_URL="https://your-hr-app-name.herokuapp.com"
 ```
 
 3. **デプロイ**
 ```bash
 git push heroku main
+heroku run npx prisma migrate deploy
+heroku run npx prisma db seed
 ```
+
+#### 📖 詳細ガイド
+- **デプロイ手順**: `deploy-guide.md`
+- **チェックリスト**: `DEPLOYMENT_CHECKLIST.md`
+- **環境変数**: `ENV_TEMPLATE.md`
 
 ## 📁 プロジェクト構造
 

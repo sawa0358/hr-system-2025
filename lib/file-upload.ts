@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import { prisma } from './prisma';
-import { writeFile, unlink, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { uploadFileToS3, deleteFileFromS3 } from './s3-client';
 
 export interface FileUploadData {
   filename: string;
@@ -16,7 +14,7 @@ export interface FileUploadData {
 }
 
 /**
- * ファイルアップロード処理
+ * ファイルアップロード処理（S3使用）
  */
 export async function handleFileUpload(
   request: NextRequest,
@@ -65,23 +63,30 @@ export async function handleFileUpload(
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${file.name}`;
     
-    // ローカルファイルシステムに保存
-    const uploadDir = join(process.cwd(), 'uploads', employeeId, category || 'general');
+    // S3のフォルダパス構成: employeeId/category/fileName
+    const s3Folder = `${employeeId}/${category || 'general'}`;
     
-    // ディレクトリが存在しない場合は作成
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+    // S3にアップロード
+    const uploadResult = await uploadFileToS3(
+      buffer,
+      fileName,
+      file.type,
+      s3Folder
+    );
+
+    if (!uploadResult.success || !uploadResult.filePath) {
+      return { 
+        success: false, 
+        error: uploadResult.error || 'S3へのアップロードに失敗しました' 
+      };
     }
-    
-    const filePath = join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
 
     // データベースにファイル情報を保存
     const fileRecord = await prisma.file.create({
       data: {
         filename: fileName,
         originalName: file.name,
-        filePath: filePath,
+        filePath: uploadResult.filePath, // S3のキーパスを保存
         fileSize: file.size,
         mimeType: file.type,
         category: category || 'general',
@@ -104,7 +109,7 @@ export async function handleFileUpload(
         if (card) {
           const currentAttachments = card.attachments as any[] || [];
           
-          // ファイル情報をattachmentsに追加（シンプルな実装）
+          // ファイル情報をattachmentsに追加
           const fileInfo = {
             id: fileRecord.id,
             name: file.name,
@@ -123,7 +128,6 @@ export async function handleFileUpload(
           });
 
           console.log("Card attachments updated with new file:", fileInfo);
-          console.log("Updated attachments structure:", updatedAttachments);
         }
       } catch (error) {
         console.error("Error updating card attachments:", error);
@@ -142,7 +146,7 @@ export async function handleFileUpload(
 }
 
 /**
- * ファイルダウンロード処理
+ * ファイルダウンロード処理（S3使用）
  */
 export async function handleFileDownload(
   fileId: string,
@@ -161,7 +165,7 @@ export async function handleFileDownload(
       return { success: false, error: 'ファイルが見つかりません' };
     }
 
-    // ローカルファイルのURLを生成
+    // APIエンドポイントのURLを返す（署名付きURL取得はAPIで行う）
     const fileUrl = `/api/files/download/${fileId}`;
     
     return { success: true, url: fileUrl };
@@ -175,7 +179,7 @@ export async function handleFileDownload(
 }
 
 /**
- * ファイル削除処理
+ * ファイル削除処理（S3使用）
  */
 export async function handleFileDelete(
   fileId: string,
@@ -195,12 +199,11 @@ export async function handleFileDelete(
       return { success: false, error: 'ファイルが見つかりません' };
     }
 
-    // ローカルファイルを削除
-    try {
-      await unlink(file.filePath);
-    } catch (error) {
-      console.error('ファイル削除エラー:', error);
-      // ファイルが存在しない場合は無視
+    // S3からファイルを削除
+    const deleteResult = await deleteFileFromS3(file.filePath);
+    if (!deleteResult.success) {
+      console.error('S3削除エラー:', deleteResult.error);
+      // S3削除に失敗してもデータベースからは削除する（孤立ファイル回避）
     }
 
     // タスクカードのファイルの場合は、カードのattachmentsフィールドからも削除
@@ -237,7 +240,6 @@ export async function handleFileDelete(
           });
 
           console.log("File removed from card attachments:", fileId);
-          console.log("Updated attachments structure after deletion:", updatedAttachments);
         }
       } catch (error) {
         console.error("Error updating card attachments after file deletion:", error);

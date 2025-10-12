@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { readFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { getSignedDownloadUrl } from '@/lib/s3-client';
 
 export async function GET(
   request: NextRequest,
@@ -63,29 +62,19 @@ export async function GET(
       }
     }
 
-    // ファイルが存在するかチェック
-    if (!existsSync(file.filePath)) {
+    // S3から署名付きURLを取得（1時間有効）
+    const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
+
+    if (!downloadResult.success || !downloadResult.url) {
+      console.error('S3署名付きURL取得エラー:', downloadResult.error);
       return NextResponse.json(
-        { error: 'ファイルが見つかりません' },
-        { status: 404 }
+        { error: downloadResult.error || 'ファイルのダウンロードURLの取得に失敗しました' },
+        { status: 500 }
       );
     }
 
-    // ファイルを読み込み
-    const fileBuffer = await readFile(file.filePath);
-
-    // レスポンスヘッダーを設定
-    const headers = new Headers();
-    headers.set('Content-Type', file.mimeType);
-    // ファイル名をURLエンコードして日本語対応
-    const encodedFileName = encodeURIComponent(file.originalName);
-    headers.set('Content-Disposition', `attachment; filename*=UTF-8''${encodedFileName}`);
-    headers.set('Content-Length', file.fileSize.toString());
-
-    return new NextResponse(fileBuffer as BodyInit, {
-      status: 200,
-      headers,
-    });
+    // 署名付きURLにリダイレクト
+    return NextResponse.redirect(downloadResult.url);
   } catch (error) {
     console.error('ファイルダウンロードAPIエラー:', error);
     return NextResponse.json(

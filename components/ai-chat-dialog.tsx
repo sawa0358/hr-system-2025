@@ -174,10 +174,33 @@ export function AIChatDialog({ open, onOpenChange, title = "総合AI", context }
       setMessages([...newMessages, aiMessage])
     } catch (error: any) {
       console.error("AI応答エラー:", error)
+      
+      let errorContent = ""
+      if (error.message.includes("AIチャット機能を利用するには")) {
+        errorContent = `🔧 **APIキー設定が必要です**
+
+AIチャット機能を利用するには、Gemini APIキーの設定が必要です。
+
+**設定方法:**
+1. プロジェクトルートに \`.env.local\` ファイルを作成
+2. 以下の内容を追加:
+   \`\`\`
+   GEMINI_API_KEY=your_actual_api_key_here
+   \`\`\`
+3. 開発サーバーを再起動
+
+**APIキーの取得:**
+- [Google AI Studio](https://makersuite.google.com/app/apikey) でAPIキーを取得してください
+
+管理者にお問い合わせください。`
+      } else {
+        errorContent = `エラーが発生しました: ${error.message}`
+      }
+      
       const errorMessage: Message = {
         id: Date.now().toString(),
         role: "assistant",
-        content: `エラーが発生しました: ${error.message}\n\nGEMINI_API_KEYが設定されているか確認してください。`,
+        content: errorContent,
         timestamp: new Date(),
         userId: currentUser?.id, // ユーザーIDを追加
       }

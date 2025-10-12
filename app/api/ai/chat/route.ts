@@ -8,10 +8,13 @@ export async function POST(request: NextRequest) {
   try {
     const { message, context, history } = await request.json()
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "your_gemini_api_key_here") {
       return NextResponse.json(
-        { error: "GEMINI_API_KEYが設定されていません。環境変数を確認してください。" },
-        { status: 500 }
+        { 
+          error: "AIチャット機能を利用するには、Gemini APIキーの設定が必要です。",
+          details: "管理者にお問い合わせください。APIキーは.env.localファイルに設定されます。"
+        },
+        { status: 503 }
       )
     }
 

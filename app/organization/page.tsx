@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react"
 import { OrganizationChart } from "@/components/organization-chart"
-import { ExportMenu } from "@/components/export-menu"
 import { EmployeeDetailDialog } from "@/components/employee-detail-dialog"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { useAuth } from "@/lib/auth-context"
@@ -75,7 +74,6 @@ ${isAdminOrHR ? `- 組織構造の編集
           </div>
           <div className="flex gap-3">
             <AIAskButton context={buildAIContext()} />
-            <ExportMenu />
           </div>
         </div>
 

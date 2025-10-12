@@ -8,7 +8,6 @@ import { WorkspaceManagerDialog } from "@/components/workspace-manager-dialog"
 import { BoardManagerDialog } from "@/components/board-manager-dialog"
 import { KanbanBoard } from "@/components/kanban-board"
 import { TaskCalendar } from "@/components/task-calendar"
-import { ExportMenu } from "@/components/export-menu"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
@@ -555,7 +554,6 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
           </div>
           <div className="flex gap-3">
             <AIAskButton context={buildAIContext()} />
-            <ExportMenu />
           </div>
         </div>
 

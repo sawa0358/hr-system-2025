@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { EmployeeTable } from "@/components/employee-table"
 import { EmployeeFilters } from "@/components/employee-filters"
-import { ExportMenu } from "@/components/export-menu"
 import { EmployeeDetailDialog } from "@/components/employee-detail-dialog"
 import { EvaluationDetailDialog } from "@/components/evaluation-detail-dialog"
 import { AIAskButton } from "@/components/ai-ask-button"
@@ -144,7 +143,6 @@ ${isAdminOrHR ? `- 新規社員登録
           {isAdminOrHR && (
             <div className="flex gap-3">
               <AIAskButton context={buildAIContext()} />
-              <ExportMenu />
               <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddEmployee}>
                 <Plus className="w-4 h-4 mr-2" />
                 新規登録

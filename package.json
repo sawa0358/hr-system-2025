@@ -12,7 +12,7 @@
     "lint": "next lint",
     "start": "next start",
     "db:seed": "tsx prisma/seed.ts",
-    "heroku-postbuild": "npx prisma generate && npx prisma db push --accept-data-loss",
+    "heroku-postbuild": "npm run build && npx prisma generate && npx prisma db push --accept-data-loss",
     "postdeploy": "node scripts/auto-create-invisible-top.js"
   },
   "dependencies": {

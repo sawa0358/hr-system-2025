@@ -195,15 +195,52 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     task.members?.map((m: any) => m.id) || []
   ) : null
   
-  // 実際の社員データを取得
+  // 実際の社員データを取得（ワークスペースメンバーのみ）
   const [employees, setEmployees] = useState<any[]>([])
   
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        // タスクが所属するワークスペースのメンバーのみを取得
+        if (task?.boardId) {
+          // まずボード情報を取得してワークスペースIDを取得
+          const boardResponse = await fetch(`/api/boards/${task.boardId}`, {
+            headers: {
+              'x-employee-id': currentUser?.id || ''
+            }
+          })
+          
+          if (boardResponse.ok) {
+            const boardData = await boardResponse.json()
+            const workspaceId = boardData.board?.workspaceId
+            
+            if (workspaceId) {
+              // ワークスペース情報を取得（メンバー情報を含む）
+              const workspaceResponse = await fetch(`/api/workspaces/${workspaceId}`, {
+                headers: {
+                  'x-employee-id': currentUser?.id || ''
+                }
+              })
+              
+              if (workspaceResponse.ok) {
+                const workspaceData = await workspaceResponse.json()
+                const workspaceMembers = workspaceData.workspace?.members || []
+                
+                // ワークスペースメンバーの社員情報を取得
+                const memberEmployees = workspaceMembers.map((member: any) => member.employee).filter(Boolean)
+                console.log('Workspace members loaded:', memberEmployees.length, 'members')
+                setEmployees(memberEmployees)
+                return
+              }
+            }
+          }
+        }
+        
+        // フォールバック: 全社員を取得
         const response = await fetch('/api/employees')
         if (response.ok) {
           const data = await response.json()
+          console.log('All employees loaded as fallback:', data.employees?.length || 0, 'employees')
           setEmployees(data.employees || [])
         }
       } catch (error) {
@@ -211,8 +248,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       }
     }
     
-    fetchEmployees()
-  }, [])
+    if (task && currentUser) {
+      fetchEmployees()
+    }
+  }, [task?.boardId, currentUser?.id])
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
@@ -346,9 +385,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       
       // membersの構造を正しく処理
       const processedMembers = (task.members || []).map((member: any) => ({
-        id: member.id || member.employee?.id || "",
+        id: member.id || member.employee?.id || member.employeeId || "",
         name: member.name || member.employee?.name || "未設定",
+        email: member.email || member.employee?.email || "",
       }))
+      console.log("Processing task members:", task.members, "->", processedMembers)
       setMembers(processedMembers)
       
       setCardColor(task.cardColor || "")
@@ -888,9 +929,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         if (result.card) {
           // レスポンスからメンバー情報を正しく処理
           const processedMembers = (result.card.members || []).map((member: any) => ({
-            id: member.employee?.id || member.id || "",
+            id: member.employee?.id || member.employeeId || member.id || "",
             name: member.employee?.name || member.name || "未設定",
+            email: member.employee?.email || member.email || "",
           }))
+          
+          console.log("Card saved - received members:", result.card.members)
+          console.log("Card saved - processed members:", processedMembers)
 
           setTitle(result.card.title || "")
           setDescription(result.card.description || "")

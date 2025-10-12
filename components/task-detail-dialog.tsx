@@ -35,7 +35,7 @@ import {
 } from "lucide-react"
 import { format } from "date-fns"
 import { ja } from "date-fns/locale"
-import { employees } from "@/lib/mock-data"
+// import { employees } from "@/lib/mock-data" // 実際のデータベースから取得するように変更
 import { useAuth } from "@/lib/auth-context"
 import { checkCardPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 
@@ -193,6 +193,25 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     task.createdBy || '',
     task.members?.map((m: any) => m.id) || []
   ) : null
+  
+  // 実際の社員データを取得
+  const [employees, setEmployees] = useState<any[]>([])
+  
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const data = await response.json()
+          setEmployees(data.employees || [])
+        }
+      } catch (error) {
+        console.error('社員データの取得に失敗しました:', error)
+      }
+    }
+    
+    fetchEmployees()
+  }, [])
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)

@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Users } from "lucide-react"
-import { mockEmployees } from "@/lib/mock-data"
+// import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { PayrollUploadDialog } from "@/components/payroll-upload-dialog"
 import { useAuth } from "@/lib/auth-context"
 
@@ -32,13 +32,11 @@ export default function PayrollPage() {
           setEmployees(data)
         } else {
           console.error('社員データの取得に失敗しました')
-          // フォールバック: モックデータを使用
-          setEmployees(mockEmployees)
+          setEmployees([])
         }
       } catch (error) {
         console.error('社員データの取得エラー:', error)
-        // フォールバック: モックデータを使用
-        setEmployees(mockEmployees)
+        setEmployees([])
       }
     }
 

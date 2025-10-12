@@ -189,6 +189,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ワークスペースを作成（作成者を自動的にメンバーに追加）
+    console.log("Creating workspace with data:", { name, description, createdBy: userId, memberIds })
+    
     const workspace = await prisma.workspace.create({
       data: {
         name,
@@ -238,15 +240,27 @@ export async function POST(request: NextRequest) {
     console.error("[v0] Error creating workspace:", error)
     
     if (error instanceof Error) {
+      console.error("Error message:", error.message)
+      console.error("Error stack:", error.stack)
+      
       // Prismaエラーの詳細を表示
       if (error.message.includes('Foreign key constraint')) {
         return NextResponse.json({ 
           error: "データベースの制約エラーが発生しました。指定されたメンバーが存在しない可能性があります。" 
         }, { status: 400 })
       }
+      
+      if (error.message.includes('Unique constraint')) {
+        return NextResponse.json({ 
+          error: "データベースの一意制約エラーが発生しました。" 
+        }, { status: 400 })
+      }
     }
     
-    return NextResponse.json({ error: "ワークスペースの作成に失敗しました" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "ワークスペースの作成に失敗しました",
+      details: error instanceof Error ? error.message : "不明なエラー"
+    }, { status: 500 })
   }
 }
 

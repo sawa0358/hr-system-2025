@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, AlertCircle } from "lucide-react"
-import { mockEmployees } from "@/lib/mock-data"
+// import { mockEmployees } from "@/lib/mock-data" // 実際のAPIから取得するため不要
 import { prisma } from "@/lib/prisma"
 
 interface LoginModalProps {

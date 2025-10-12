@@ -3,14 +3,14 @@
 import { ExportMenu } from "@/components/export-menu"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { mockEmployees } from "@/lib/mock-data"
+// import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { useState, useEffect } from "react"
 import { EvaluationDetailDialog } from "@/components/evaluation-detail-dialog"
 import { useAuth } from "@/lib/auth-context"
 
 export default function EvaluationsPage() {
   const { currentUser } = useAuth()
-  const [selectedEmployee, setSelectedEmployee] = useState<(typeof mockEmployees)[0] | null>(null)
+  const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
 
@@ -24,13 +24,11 @@ export default function EvaluationsPage() {
           setEmployees(data)
         } else {
           console.error('社員データの取得に失敗しました')
-          // フォールバック: モックデータを使用
-          setEmployees(mockEmployees)
+          setEmployees([])
         }
       } catch (error) {
         console.error('社員データの取得エラー:', error)
-        // フォールバック: モックデータを使用
-        setEmployees(mockEmployees)
+        setEmployees([])
       }
     }
 
@@ -53,7 +51,7 @@ export default function EvaluationsPage() {
     return isActive && matchesSystemStatus
   })
 
-  const handleEmployeeClick = (employee: (typeof mockEmployees)[0]) => {
+  const handleEmployeeClick = (employee: any) => {
     setSelectedEmployee(employee)
     setIsDialogOpen(true)
   }

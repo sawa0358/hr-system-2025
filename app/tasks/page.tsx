@@ -16,7 +16,7 @@ import { ArchiveLargeView } from "@/components/archive-large-view"
 import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { employees } from "@/lib/mock-data"
+// import { employees } from "@/lib/mock-data" // モックデータの代わりに実際のデータベースから取得
 
 export default function TasksPage() {
   const { currentUser } = useAuth()
@@ -58,6 +58,14 @@ export default function TasksPage() {
   const [boardDialogOpen, setBoardDialogOpen] = useState(false)
   const [editingWorkspace, setEditingWorkspace] = useState<any>(null)
   const [editingBoard, setEditingBoard] = useState<any>(null)
+  
+  // 社員データ
+  const [employees, setEmployees] = useState<any[]>([])
+
+  // 社員データを取得
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
 
   // ワークスペース一覧を取得
   useEffect(() => {
@@ -97,6 +105,35 @@ export default function TasksPage() {
       }
     }
   }, [currentBoard])
+
+  const fetchEmployees = async () => {
+    try {
+      console.log("Fetching employees from /api/employees")
+      const response = await fetch("/api/employees")
+      console.log("Response status:", response.status, "Response ok:", response.ok)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log("Raw response data:", data)
+      
+      // レスポンスが配列の場合とオブジェクトの場合の両方に対応
+      const employeesArray = Array.isArray(data) ? data : data.employees || []
+      
+      if (employeesArray.length > 0) {
+        setEmployees(employeesArray)
+        console.log("Employees fetched successfully:", employeesArray.length, "employees")
+      } else {
+        console.warn("No employees found in response")
+        setEmployees([])
+      }
+    } catch (error) {
+      console.error("Failed to fetch employees:", error)
+      setEmployees([])
+    }
+  }
 
   const fetchWorkspaces = async () => {
     try {
@@ -186,6 +223,8 @@ export default function TasksPage() {
 
   const handleCreateWorkspace = () => {
     setEditingWorkspace(null)
+    // ダイアログを開く前に社員データを再取得
+    fetchEmployees()
     setWorkspaceDialogOpen(true)
   }
 
@@ -200,6 +239,8 @@ export default function TasksPage() {
   const handleEditWorkspace = () => {
     const workspace = workspaces.find((w) => w.id === currentWorkspace)
     if (workspace) {
+      // ダイアログを開く前に社員データを再取得
+      fetchEmployees()
       setEditingWorkspace(workspace)
       setWorkspaceDialogOpen(true)
     }
@@ -231,6 +272,7 @@ export default function TasksPage() {
           },
           body: JSON.stringify(data),
         })
+        console.log("Response status:", response.status)
         if (response.ok) {
           const result = await response.json()
           console.log("Workspace created successfully:", result.workspace)
@@ -290,11 +332,15 @@ export default function TasksPage() {
           } catch (error) {
             console.error("Failed to create default board:", error)
           }
+        } else {
+          const errorData = await response.json()
+          console.error("Failed to create workspace:", errorData)
+          alert(`ワークスペースの作成に失敗しました: ${errorData.error || '不明なエラー'}`)
         }
       }
     } catch (error) {
       console.error("Failed to save workspace:", error)
-      alert("ワークスペースの保存に失敗しました")
+      alert(`ワークスペースの保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
 
@@ -738,6 +784,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         onDelete={handleDeleteWorkspace}
         canDelete={permissions?.deleteWorkspace || false}
       />
+      
 
       {currentWorkspace && (
         <BoardManagerDialog

@@ -107,6 +107,61 @@ async function main() {
     console.log(`社員を作成しました: ${employee.name} (${employee.role})`)
   }
 
+  // ワークスペースの作成
+  const adminEmployee = await prisma.employee.findFirst({
+    where: { role: 'admin' }
+  })
+
+  if (adminEmployee) {
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: "デフォルトワークスペース",
+        description: "初期のワークスペース",
+        createdBy: adminEmployee.id,
+      },
+    })
+
+    // ワークスペースメンバーの追加
+    const allEmployees = await prisma.employee.findMany()
+    await prisma.workspaceMember.createMany({
+      data: allEmployees.map(emp => ({
+        workspaceId: workspace.id,
+        employeeId: emp.id,
+        role: emp.role === 'admin' ? 'workspace_admin' : 'workspace_member',
+      })),
+    })
+    console.log('ワークスペースを作成しました:', workspace.name)
+
+    // デフォルトボードを作成
+    const board = await prisma.board.create({
+      data: {
+        name: "メインボード",
+        description: "デフォルトのボードです",
+        workspaceId: workspace.id,
+        createdBy: adminEmployee.id,
+      },
+    })
+
+    // デフォルトリストを作成
+    const defaultLists = [
+      { title: "常時運用タスク", position: 0 },
+      { title: "予定リスト", position: 1 },
+      { title: "進行中", position: 2 },
+      { title: "完了", position: 3 },
+    ]
+
+    for (const list of defaultLists) {
+      await prisma.boardList.create({
+        data: {
+          title: list.title,
+          position: list.position,
+          boardId: board.id,
+        },
+      })
+    }
+    console.log('デフォルトボードとリストを作成しました')
+  }
+
   console.log('シードデータの投入が完了しました')
 }
 

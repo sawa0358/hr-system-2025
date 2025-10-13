@@ -688,12 +688,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
     if (!boardData?.lists) {
-      return [
-        { id: "always-running", title: "常時運用タスク", taskIds: [] },
-        { id: "scheduled", title: "予定リスト", taskIds: [] },
-        { id: "in-progress", title: "進行中", taskIds: [] },
-        { id: "done", title: "完了", taskIds: [] },
-      ]
+      // ボードデータがない場合は空配列を返す（デフォルトリストはAPI側で作成される）
+      return []
     }
 
     return boardData.lists

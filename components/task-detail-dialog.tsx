@@ -1084,10 +1084,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 <Tag className="w-4 h-4" />
                 ラベル
               </label>
-              <Button variant="ghost" size="sm" onClick={() => setShowLabelManager(!showLabelManager)}>
-                <Edit2 className="w-3 h-3 mr-1" />
-                管理
-              </Button>
+              {/* 総務・管理者のみ編集ボタンを表示 */}
+              {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                <Button variant="ghost" size="sm" onClick={() => setShowLabelManager(!showLabelManager)}>
+                  <Edit2 className="w-3 h-3 mr-1" />
+                  管理
+                </Button>
+              )}
             </div>
             <div className="flex flex-wrap gap-2 mb-2">
               {selectedLabels.map((label) => (
@@ -1179,9 +1182,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium">重要度</label>
-                <Button variant="ghost" size="sm" onClick={() => setShowPriorityManager(!showPriorityManager)}>
-                  <Settings className="w-3 h-3" />
-                </Button>
+                {/* 総務・管理者のみ編集ボタンを表示 */}
+                {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                  <Button variant="ghost" size="sm" onClick={() => setShowPriorityManager(!showPriorityManager)}>
+                    <Settings className="w-3 h-3" />
+                  </Button>
+                )}
               </div>
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger>
@@ -1225,9 +1231,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium">状態</label>
-                <Button variant="ghost" size="sm" onClick={() => setShowStatusManager(!showStatusManager)}>
-                  <Settings className="w-3 h-3" />
-                </Button>
+                {/* 総務・管理者のみ編集ボタンを表示 */}
+                {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                  <Button variant="ghost" size="sm" onClick={() => setShowStatusManager(!showStatusManager)}>
+                    <Settings className="w-3 h-3" />
+                  </Button>
+                )}
               </div>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>

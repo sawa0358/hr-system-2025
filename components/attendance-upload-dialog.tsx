@@ -26,10 +26,22 @@ export function AttendanceUploadDialog({
   employee,
   isAllEmployeesMode = false,
 }: AttendanceUploadDialogProps) {
-  const [yearFolders, setYearFolders] = useState<string[]>(["2024年", "2025年"])
+  // 2020年から2070年までの年を生成
+  const generateYears = () => {
+    const years: string[] = []
+    for (let year = 2020; year <= 2070; year++) {
+      years.push(`${year}年`)
+    }
+    return years
+  }
+  
+  // 現在の年を取得
+  const currentYear = new Date().getFullYear()
+  
+  const [yearFolders, setYearFolders] = useState<string[]>(generateYears())
   const [otherFolders, setOtherFolders] = useState<string[]>(["その他"])
   const [selectedOtherFolder, setSelectedOtherFolder] = useState("その他")
-  const [selectedYear, setSelectedYear] = useState("2025年")
+  const [selectedYear, setSelectedYear] = useState(`${currentYear}年`)
   const [selectedMonth, setSelectedMonth] = useState("1月")
   const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: string[] }>({})
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
@@ -168,12 +180,6 @@ export function AttendanceUploadDialog({
     }
   }
 
-  const addYearFolder = () => {
-    const year = prompt("年を入力してください（例: 2026年）")
-    if (year && !yearFolders.includes(year)) {
-      setYearFolders([...yearFolders, year])
-    }
-  }
 
   const addOtherFolder = () => {
     const folderName = prompt("フォルダ名を入力してください")
@@ -354,10 +360,6 @@ export function AttendanceUploadDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={addYearFolder} size="sm" variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                年を追加
-              </Button>
             </div>
 
             {/* 月ごとのタブ表示 */}

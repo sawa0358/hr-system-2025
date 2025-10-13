@@ -781,7 +781,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     if (!members.find((m) => m.id === employee.id)) {
       setMembers([...members, { id: employee.id, name: employee.name }])
     }
-    setShowEmployeeSelector(false)
+    // ダイアログは開いたままにして、複数人選択できるようにする
+    // setShowEmployeeSelector(false)
     setEmployeeSearch("")
   }
 
@@ -1306,28 +1307,52 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   />
                 </div>
                 <div className="max-h-64 overflow-y-auto space-y-1">
-                  {filteredEmployees.map((employee) => (
-                    <button
-                      key={employee.id}
-                      onClick={() => handleAddEmployee(employee)}
-                      className="w-full text-left p-3 rounded hover:bg-slate-50 flex items-center gap-3 transition-colors"
-                    >
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-blue-100 text-blue-700 text-sm">
-                          {(employee.name || "未").slice(0, 3)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{employee.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {employee.department} / {employee.position}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                  {filteredEmployees.map((employee) => {
+                    const isSelected = members.find((m) => m.id === employee.id)
+                    return (
+                      <button
+                        key={employee.id}
+                        onClick={() => handleAddEmployee(employee)}
+                        className={`w-full text-left p-3 rounded hover:bg-slate-50 flex items-center gap-3 transition-colors ${
+                          isSelected ? 'bg-blue-50 border-2 border-blue-200' : 'border border-transparent'
+                        }`}
+                      >
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className={`text-sm ${
+                            isSelected ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {(employee.name || "未").slice(0, 3)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{employee.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {employee.department} / {employee.position}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <Badge variant="default" className="bg-green-600 text-white text-xs">
+                            ✓ 選択済み
+                          </Badge>
+                        )}
+                      </button>
+                    )
+                  })}
                   {filteredEmployees.length === 0 && (
                     <p className="text-center text-slate-500 py-4 text-sm">該当する社員が見つかりません</p>
                   )}
+                </div>
+                <div className="mt-3 pt-3 border-t flex justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setShowEmployeeSelector(false)
+                      setEmployeeSearch("")
+                    }}
+                  >
+                    完了
+                  </Button>
                 </div>
               </div>
             )}

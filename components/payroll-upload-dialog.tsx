@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, Folder, Plus, FileText, Download, Trash2, Edit2 } from "lucide-react"
+import { Upload, Folder, Plus, FileText, Download, Trash2, Edit2, X } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AIAskButton } from "@/components/ai-ask-button"
+import { Card, CardContent } from "@/components/ui/card"
 
 interface PayrollUploadDialogProps {
   open: boolean
@@ -26,14 +27,14 @@ export function PayrollUploadDialog({
   isAllEmployeesMode = false,
 }: PayrollUploadDialogProps) {
   const [yearFolders, setYearFolders] = useState<string[]>(["2024年", "2025年"])
-  const [otherFolders, setOtherFolders] = useState<{ id: string; name: string }[]>([
-    { id: "1", name: "賞与" },
-    { id: "2", name: "その他" },
-  ])
+  const [otherFolders, setOtherFolders] = useState<string[]>(["その他"])
+  const [selectedOtherFolder, setSelectedOtherFolder] = useState("その他")
   const [selectedYear, setSelectedYear] = useState("2025年")
+  const [selectedMonth, setSelectedMonth] = useState("1月")
   const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: string[] }>({})
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState("")
+  const [isDragging, setIsDragging] = useState(false)
 
   const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
   const yearEndFolders = ["年末調整", "その他"]
@@ -47,20 +48,26 @@ export function PayrollUploadDialog({
 
   const addOtherFolder = () => {
     const folderName = prompt("フォルダ名を入力してください")
-    if (folderName) {
-      const newFolder = { id: Date.now().toString(), name: folderName }
-      setOtherFolders([...otherFolders, newFolder])
+    if (folderName && !otherFolders.includes(folderName)) {
+      setOtherFolders([...otherFolders, folderName])
+      setSelectedOtherFolder(folderName)
     }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    setIsDragging(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragging(false)
   }
 
   const handleDrop = (e: React.DragEvent, folderKey: string) => {
     e.preventDefault()
     e.stopPropagation()
+    setIsDragging(false)
     const files = Array.from(e.dataTransfer.files)
     files.forEach((file) => {
       handleFileUpload(folderKey, file.name)
@@ -87,15 +94,31 @@ export function PayrollUploadDialog({
     })
   }
 
-  const startEditingFolder = (folderId: string, currentName: string) => {
-    setEditingFolderId(folderId)
-    setEditingFolderName(currentName)
+  const startEditingFolder = (folderName: string) => {
+    setEditingFolderId(folderName)
+    setEditingFolderName(folderName)
   }
 
-  const saveEditingFolder = (folderId: string) => {
-    setOtherFolders(otherFolders.map((f) => (f.id === folderId ? { ...f, name: editingFolderName } : f)))
+  const saveEditingFolder = (oldFolderName: string) => {
+    if (editingFolderName.trim() && editingFolderName !== oldFolderName) {
+      const newFolders = otherFolders.map(f => f === oldFolderName ? editingFolderName.trim() : f)
+      setOtherFolders(newFolders)
+      if (selectedOtherFolder === oldFolderName) {
+        setSelectedOtherFolder(editingFolderName.trim())
+      }
+    }
     setEditingFolderId(null)
     setEditingFolderName("")
+  }
+
+  const deleteOtherFolder = (folderName: string) => {
+    if (otherFolders.length > 1) {
+      const newFolders = otherFolders.filter(f => f !== folderName)
+      setOtherFolders(newFolders)
+      if (selectedOtherFolder === folderName) {
+        setSelectedOtherFolder(newFolders[0])
+      }
+    }
   }
 
   if (!employee) return null
@@ -141,161 +164,312 @@ export function PayrollUploadDialog({
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {/* 月ごとのタブ表示 */}
+            <Tabs value={selectedMonth} onValueChange={setSelectedMonth} className="w-full">
+              {/* 月タブを6列で2行表示 + 年末調整・その他 */}
+              <div className="space-y-2 mb-4">
+                <div className="grid grid-cols-6 gap-2">
+                  {months.map((month) => {
+                    const folderKey = `${selectedYear}-${month}`
+                    const files = uploadedFiles[folderKey] || []
+                    return (
+                      <Button
+                        key={month}
+                        variant={selectedMonth === month ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedMonth(month)}
+                        className="relative"
+                      >
+                        {month}
+                        {files.length > 0 && (
+                          <span className="ml-1 bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded-full">
+                            {files.length}
+                          </span>
+                        )}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <div className="grid grid-cols-6 gap-2">
+                  {yearEndFolders.map((folder) => {
+                    const folderKey = `${selectedYear}-${folder}`
+                    const files = uploadedFiles[folderKey] || []
+                    return (
+                      <Button
+                        key={folder}
+                        variant={selectedMonth === folder ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedMonth(folder)}
+                        className="relative"
+                      >
+                        {folder}
+                        {files.length > 0 && (
+                          <span className="ml-1 bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded-full">
+                            {files.length}
+                          </span>
+                        )}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 各月・フォルダのコンテンツ */}
               {[...months, ...yearEndFolders].map((month) => {
                 const folderKey = `${selectedYear}-${month}`
                 const files = uploadedFiles[folderKey] || []
 
                 return (
-                  <div key={month} className="border rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Folder className="w-4 h-4 text-blue-600" />
-                      <h3 className="font-semibold text-sm">{month}</h3>
-                    </div>
-
+                  <TabsContent key={month} value={month} className="space-y-4 m-0">
+                    {/* ドロップエリア */}
                     <div
-                      className="border-2 border-dashed border-slate-300 rounded-lg p-2 text-center cursor-pointer hover:border-blue-400 transition-colors"
-                      onClick={() => handleFileUpload(folderKey)}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                        isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+                      }`}
                       onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, folderKey)}
                     >
-                      <Upload className="w-5 h-5 mx-auto mb-1 text-slate-400" />
-                      <p className="text-xs text-slate-600">ドロップ or クリック</p>
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-slate-600 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
+                      <p className="text-xs text-slate-500 mb-2">または</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const input = document.createElement("input")
+                          input.type = "file"
+                          input.multiple = true
+                          input.accept = ".pdf,.xlsx,.xls,.csv"
+                          input.onchange = (e) => {
+                            const files = Array.from((e.target as HTMLInputElement).files || [])
+                            files.forEach((file) => handleFileUpload(folderKey, file.name))
+                          }
+                          input.click()
+                        }}
+                      >
+                        <Upload className="w-3 h-3 mr-1" />
+                        ファイルを選択
+                      </Button>
+                      <p className="text-xs text-slate-500 mt-2">対応形式: PDF, Excel, CSV</p>
                     </div>
 
+                    {/* アップロード済みファイル一覧 */}
                     {files.length > 0 && (
-                      <div className="space-y-1">
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
                         {files.map((file, index) => (
-                          <div key={index} className="flex items-center gap-1 text-xs bg-slate-50 p-1.5 rounded">
-                            <FileText className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                            <span className="flex-1 truncate text-xs">{file}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-5 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                downloadFile(folderKey, file)
-                              }}
-                              title="ダウンロード"
-                            >
-                              <Download className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-5 w-5 p-0 text-red-600 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeFile(folderKey, file)
-                              }}
-                              title="削除"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
+                          <Card key={index} className="border-slate-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <FileText className="w-8 h-8 text-emerald-600" />
+                                  <div>
+                                    <p className="font-medium text-slate-900">{file}</p>
+                                    <p className="text-sm text-slate-500">
+                                      {new Date().toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => downloadFile(folderKey, file)}
+                                    title="ダウンロード"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeFile(folderKey, file)}
+                                    title="削除"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </TabsContent>
                 )
               })}
-            </div>
+            </Tabs>
           </TabsContent>
 
           <TabsContent value="other" className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Label>その他フォルダ:</Label>
+              </div>
               <Button onClick={addOtherFolder} size="sm" variant="outline">
                 <Plus className="w-4 h-4 mr-2" />
                 フォルダを追加
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {otherFolders.map((folder) => {
-                const folderKey = `other-${folder.id}`
-                const files = uploadedFiles[folderKey] || []
-                const isEditing = editingFolderId === folder.id
+            {/* その他フォルダのタブ表示 */}
+            <Tabs value={selectedOtherFolder} onValueChange={setSelectedOtherFolder} className="w-full">
+              {/* フォルダタブ */}
+              <div className="flex items-center gap-2 mb-4">
+                <TabsList className="flex-1 justify-start overflow-x-auto">
+                  {otherFolders.map((folder) => {
+                    const folderKey = `other-${folder}`
+                    const files = uploadedFiles[folderKey] || []
+                    const isEditing = editingFolderId === folder
 
-                return (
-                  <div key={folder.id} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Folder className="w-5 h-5 text-amber-600" />
-                      {isEditing ? (
-                        <Input
-                          value={editingFolderName}
-                          onChange={(e) => setEditingFolderName(e.target.value)}
-                          onBlur={() => saveEditingFolder(folder.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEditingFolder(folder.id)
-                          }}
-                          className="h-7 text-sm flex-1"
-                          autoFocus
-                        />
-                      ) : (
-                        <>
-                          <h3 className="font-semibold flex-1">{folder.name}</h3>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0"
-                            onClick={() => startEditingFolder(folder.id, folder.name)}
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-
-                    <div
-                      className="border-2 border-dashed border-slate-300 rounded-lg p-3 text-center cursor-pointer hover:border-blue-400 transition-colors"
-                      onClick={() => handleFileUpload(folderKey)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, folderKey)}
-                    >
-                      <Upload className="w-6 h-6 mx-auto mb-1 text-slate-400" />
-                      <p className="text-xs text-slate-600">ドラッグ&ドロップ or クリック</p>
-                    </div>
-
-                    {files.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-slate-700">アップロード済み:</p>
-                        {files.map((file, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm bg-slate-50 p-2 rounded">
-                            <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                            <span className="flex-1 truncate">{file}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                downloadFile(folderKey, file)
-                              }}
-                              title="ダウンロード"
-                            >
-                              <Download className="w-3 h-3" />
+                    return (
+                      <div key={folder} className="flex items-center">
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 px-3 py-2">
+                            <Input
+                              value={editingFolderName}
+                              onChange={(e) => setEditingFolderName(e.target.value)}
+                              onKeyDown={(e) => e.key === "Enter" && saveEditingFolder(folder)}
+                              className="w-32 h-8"
+                              autoFocus
+                            />
+                            <Button size="sm" onClick={() => saveEditingFolder(folder)}>
+                              保存
                             </Button>
                             <Button
-                              variant="ghost"
                               size="sm"
-                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                removeFile(folderKey, file)
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingFolderId(null)
+                                setEditingFolderName("")
                               }}
-                              title="削除"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <X className="w-4 h-4" />
                             </Button>
                           </div>
+                        ) : (
+                          <TabsTrigger value={folder} className="flex items-center">
+                            {folder}
+                            {files.length > 0 && (
+                              <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                {files.length}
+                              </span>
+                            )}
+                          </TabsTrigger>
+                        )}
+                        {!isEditing && (
+                          <div className="flex items-center ml-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => startEditingFolder(folder)}
+                              className="h-6 w-6 p-0 text-slate-400 hover:text-blue-500"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                            {otherFolders.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteOtherFolder(folder)}
+                                className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </TabsList>
+              </div>
+
+              {/* 各フォルダのコンテンツ */}
+              {otherFolders.map((folder) => {
+                const folderKey = `other-${folder}`
+                const files = uploadedFiles[folderKey] || []
+
+                return (
+                  <TabsContent key={folder} value={folder} className="space-y-4 m-0">
+                    {/* ドロップエリア */}
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                        isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+                      }`}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, folderKey)}
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                      <p className="text-slate-600 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
+                      <p className="text-xs text-slate-500 mb-2">または</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const input = document.createElement("input")
+                          input.type = "file"
+                          input.multiple = true
+                          input.accept = ".pdf,.xlsx,.xls,.csv"
+                          input.onchange = (e) => {
+                            const files = Array.from((e.target as HTMLInputElement).files || [])
+                            files.forEach((file) => handleFileUpload(folderKey, file.name))
+                          }
+                          input.click()
+                        }}
+                      >
+                        <Upload className="w-3 h-3 mr-1" />
+                        ファイルを選択
+                      </Button>
+                      <p className="text-xs text-slate-500 mt-2">対応形式: PDF, Excel, CSV</p>
+                    </div>
+
+                    {/* アップロード済みファイル一覧 */}
+                    {files.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
+                        {files.map((file, index) => (
+                          <Card key={index} className="border-slate-200">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <FileText className="w-8 h-8 text-emerald-600" />
+                                  <div>
+                                    <p className="font-medium text-slate-900">{file}</p>
+                                    <p className="text-sm text-slate-500">
+                                      {new Date().toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => downloadFile(folderKey, file)}
+                                    title="ダウンロード"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeFile(folderKey, file)}
+                                    title="削除"
+                                  >
+                                    <Trash2 className="w-4 h-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         ))}
                       </div>
                     )}
-                  </div>
+                  </TabsContent>
                 )
               })}
-            </div>
+            </Tabs>
           </TabsContent>
         </Tabs>
 
@@ -303,7 +477,17 @@ export function PayrollUploadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             閉じる
           </Button>
-          <Button className="bg-blue-600 hover:bg-blue-700">保存する</Button>
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => {
+              // ファイル保存処理
+              console.log('保存する:', uploadedFiles)
+              alert('ファイルが保存されました')
+              onOpenChange(false)
+            }}
+          >
+            保存する
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,22 +1,24 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { AIAskButton } from "@/components/ai-ask-button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Users } from "lucide-react"
+import { Users } from "lucide-react"
 // import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { PayrollUploadDialog } from "@/components/payroll-upload-dialog"
 import { useAuth } from "@/lib/auth-context"
+import { SharedEmployeeFilters } from "@/components/shared-employee-filters"
 
 export default function PayrollPage() {
   const { currentUser } = useAuth()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [department, setDepartment] = useState("all")
-  const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("all")
+  const [filters, setFilters] = useState({
+    searchQuery: "",
+    department: "all",
+    position: "all",
+    status: "active",
+    employeeType: "all"
+  })
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isAllEmployeesMode, setIsAllEmployeesMode] = useState(false)
@@ -44,14 +46,58 @@ export default function PayrollPage() {
   }, [])
 
   const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.employeeNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.department.toLowerCase().includes(searchQuery.toLowerCase())
+    // 見えないTOP社員は管理者のみに表示
+    const isInvisibleTop = emp.isInvisibleTop || emp.employeeNumber === '000'
+    if (isInvisibleTop) {
+      return currentUser?.role === 'admin'
+    }
 
-    const matchesDepartment = department === "all" || emp.department === department
-    const matchesStatus = status === "all" || emp.status === status
-    const matchesType = employeeType === "all" || emp.employeeType === employeeType
+    // 休職・退職・停止中の社員はマネージャー・総務・管理者のみに表示
+    const isManagerOrHR = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
+    const isInactive = emp.status === 'leave' || emp.status === 'retired' || emp.status === 'suspended' || emp.isSuspended
+    if (isInactive) {
+      return isManagerOrHR
+    }
+
+    // フリーワード検索（複数の組織名・部署・役職も含む）
+    let matchesSearch = true
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase()
+      // 複数の組織名・部署・役職を配列として取得
+      const departments = Array.isArray(emp.departments) ? emp.departments : [emp.department]
+      const positions = Array.isArray(emp.positions) ? emp.positions : [emp.position]
+      const organizations = Array.isArray(emp.organizations) ? emp.organizations : [emp.organization]
+      
+      const searchableText = [
+        emp.name,
+        emp.employeeNumber || emp.employeeId,
+        ...departments,
+        ...positions,
+        ...organizations,
+        emp.email,
+        emp.phone
+      ].join(' ').toLowerCase()
+      
+      matchesSearch = searchableText.includes(query)
+    }
+
+    // 雇用形態フィルター
+    const matchesType = filters.employeeType === "all" || emp.employeeType === filters.employeeType
+
+    // 部署フィルター（複数の部署も含む）
+    const matchesDepartment = filters.department === "all" || (() => {
+      const departments = Array.isArray(emp.departments) ? emp.departments : [emp.department]
+      return departments.includes(filters.department)
+    })()
+
+    // 役職フィルター（複数の役職も含む）
+    const matchesPosition = filters.position === "all" || (() => {
+      const positions = Array.isArray(emp.positions) ? emp.positions : [emp.position]
+      return positions.includes(filters.position)
+    })()
+
+    // ステータスフィルター
+    const matchesStatus = filters.status === "all" || emp.status === filters.status
 
     // システム使用状態のフィルタリング
     const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
@@ -63,7 +109,16 @@ export default function PayrollPage() {
       matchesSystemStatus = emp.role && emp.role !== ''
     }
 
-    return matchesSearch && matchesDepartment && matchesStatus && matchesType && matchesSystemStatus
+    // ダミー社員（見えないTOP社員または社員番号000）の表示制限
+    // 管理者・総務以外は、見えないTOP社員または社員番号000を非表示にする
+    if (!isAdminOrHR) {
+      // 見えないTOP社員または社員番号000を除外
+      if (emp.isInvisibleTop || emp.employeeNumber === '000') {
+        return false
+      }
+    }
+
+    return matchesSearch && matchesDepartment && matchesPosition && matchesStatus && matchesType && matchesSystemStatus
   })
 
   const handleEmployeeClick = (employee: any) => {
@@ -84,10 +139,11 @@ export default function PayrollPage() {
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
     const filterDescriptions = []
-    if (searchQuery) filterDescriptions.push(`検索キーワード: ${searchQuery}`)
-    if (department !== 'all') filterDescriptions.push(`部署: ${department}`)
-    if (status !== 'active') filterDescriptions.push(`ステータス: ${status}`)
-    if (employeeType !== 'all') filterDescriptions.push(`雇用形態: ${employeeType}`)
+    if (filters.searchQuery) filterDescriptions.push(`検索キーワード: ${filters.searchQuery}`)
+    if (filters.department !== 'all') filterDescriptions.push(`部署: ${filters.department}`)
+    if (filters.position !== 'all') filterDescriptions.push(`役職: ${filters.position}`)
+    if (filters.status !== 'active') filterDescriptions.push(`ステータス: ${filters.status}`)
+    if (filters.employeeType !== 'all') filterDescriptions.push(`雇用形態: ${filters.employeeType}`)
 
     return `【現在のページ】給与管理
 【ページの説明】社員の給与明細をアップロード・管理するページです
@@ -132,57 +188,13 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
           <AIAskButton context={buildAIContext()} />
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                type="text"
-                placeholder="社員名、社員番号で検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Select value={employeeType} onValueChange={setEmployeeType}>
-              <SelectTrigger>
-                <SelectValue placeholder="雇用形態" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全て</SelectItem>
-                <SelectItem value="employee">社員</SelectItem>
-                <SelectItem value="contractor">外注</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={department} onValueChange={setDepartment}>
-              <SelectTrigger>
-                <SelectValue placeholder="部署" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部署</SelectItem>
-                <SelectItem value="engineering">エンジニアリング</SelectItem>
-                <SelectItem value="sales">営業</SelectItem>
-                <SelectItem value="marketing">マーケティング</SelectItem>
-                <SelectItem value="hr">人事</SelectItem>
-                <SelectItem value="finance">経理</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="ステータス" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全ステータス</SelectItem>
-                <SelectItem value="active">在籍中</SelectItem>
-                <SelectItem value="leave">休職中</SelectItem>
-                <SelectItem value="retired">退職</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <SharedEmployeeFilters
+          onFiltersChange={setFilters}
+          showStatusFilter={true}
+          showClearButton={true}
+          placeholder="社員名、社員番号、部署、役職で検索..."
+          className="mb-6"
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {isAdminOrHR && (

@@ -2,6 +2,14 @@
 
 import type React from "react"
 
+// マウス座標を追跡するための型定義
+declare global {
+  interface Window {
+    mouseX?: number
+    mouseY?: number
+  }
+}
+
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -428,6 +436,89 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       console.log("TaskDetailDialog - Processed members:", processedMembers)
     }
   }, [task])
+
+  // モーダルが閉じられる際に設定やメンバー追加の状態をリセット
+  useEffect(() => {
+    if (!open) {
+      // 設定系の状態をリセット
+      setShowLabelManager(false)
+      setShowLabelSelector(false)
+      setShowPriorityManager(false)
+      setShowStatusManager(false)
+      setShowEmployeeSelector(false)
+      setShowCalendarSelector(false)
+      
+      // 入力中の状態をリセット
+      setNewLabelName("")
+      setNewLabelColor("#3b82f6")
+      setNewPriorityLabel("")
+      setNewStatusLabel("")
+      setEmployeeSearch("")
+      setIsAddingFileFolder(false)
+      setNewFileFolderName("")
+      setIsDragging(false)
+    }
+  }, [open])
+
+  // スクロール時に設定やメンバー追加の状態をリセット（カーソルが設定パネル上にある時は除外）
+  useEffect(() => {
+    const handleScroll = () => {
+      // 設定パネルが表示されているかチェック
+      const hasOpenPanels = showLabelManager || showLabelSelector || showPriorityManager || 
+                           showStatusManager || showEmployeeSelector || showCalendarSelector
+      
+      if (!hasOpenPanels) {
+        return // 設定パネルが開いていない場合は何もしない
+      }
+
+      // カーソルが設定パネル上にあるかチェック
+      const mouseX = window.mouseX || 0
+      const mouseY = window.mouseY || 0
+      
+      // 設定パネルの要素を取得してカーソル位置をチェック
+      const labelManagerEl = document.querySelector('[data-panel="label-manager"]')
+      const labelSelectorEl = document.querySelector('[data-panel="label-selector"]')
+      const priorityManagerEl = document.querySelector('[data-panel="priority-manager"]')
+      const statusManagerEl = document.querySelector('[data-panel="status-manager"]')
+      const employeeSelectorEl = document.querySelector('[data-panel="employee-selector"]')
+      const calendarSelectorEl = document.querySelector('[data-panel="calendar-selector"]')
+      
+      const isOverPanel = [labelManagerEl, labelSelectorEl, priorityManagerEl, 
+                          statusManagerEl, employeeSelectorEl, calendarSelectorEl]
+        .some(el => {
+          if (!el) return false
+          const rect = el.getBoundingClientRect()
+          return mouseX >= rect.left && mouseX <= rect.right && 
+                 mouseY >= rect.top && mouseY <= rect.bottom
+        })
+      
+      // カーソルが設定パネル上にない場合のみ状態をリセット
+      if (!isOverPanel) {
+        setShowLabelManager(false)
+        setShowLabelSelector(false)
+        setShowPriorityManager(false)
+        setShowStatusManager(false)
+        setShowEmployeeSelector(false)
+        setShowCalendarSelector(false)
+      }
+    }
+
+    // マウス位置を追跡
+    const handleMouseMove = (e: MouseEvent) => {
+      window.mouseX = e.clientX
+      window.mouseY = e.clientY
+    }
+
+    // イベントリスナーを追加
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('mousemove', handleMouseMove)
+    
+    // クリーンアップ
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('mousemove', handleMouseMove)
+    }
+  }, [showLabelManager, showLabelSelector, showPriorityManager, showStatusManager, showEmployeeSelector, showCalendarSelector])
 
   const handleAddLabel = (label: Label) => {
     console.log("handleAddLabel called with:", label)
@@ -1114,7 +1205,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             </Button>
 
             {showLabelManager && (
-              <div className="mt-4 p-4 border rounded-lg bg-slate-50">
+              <div className="mt-4 p-4 border rounded-lg bg-slate-50" data-panel="label-manager">
                 <h4 className="font-medium mb-3">ラベル管理</h4>
                 <div className="space-y-2 mb-3">
                   {customLabels.map((label) => (
@@ -1202,7 +1293,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 </SelectContent>
               </Select>
               {showPriorityManager && (
-                <div className="mt-3 p-3 border rounded-lg bg-slate-50">
+                <div className="mt-3 p-3 border rounded-lg bg-slate-50" data-panel="priority-manager">
                   <h4 className="font-medium mb-2 text-sm">重要度管理</h4>
                   <div className="space-y-2 mb-3">
                     {priorityOptions.map((option) => (
@@ -1251,7 +1342,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 </SelectContent>
               </Select>
               {showStatusManager && (
-                <div className="mt-3 p-3 border rounded-lg bg-slate-50">
+                <div className="mt-3 p-3 border rounded-lg bg-slate-50" data-panel="status-manager">
                   <h4 className="font-medium mb-2 text-sm">状態管理</h4>
                   <div className="space-y-2 mb-3">
                     {statusOptions.map((option) => (
@@ -1323,7 +1414,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             )}
 
             {showEmployeeSelector && (
-              <div className="mt-3 p-4 border rounded-lg bg-white shadow-lg">
+              <div className="mt-3 p-4 border rounded-lg bg-white shadow-lg" data-panel="employee-selector">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium">社員を選択</h4>
                   <Button variant="ghost" size="sm" onClick={() => setShowEmployeeSelector(false)}>
@@ -1746,7 +1837,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
       {/* ラベル選択ダイアログ */}
       <Dialog open={showLabelSelector} onOpenChange={setShowLabelSelector}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" data-panel="label-selector">
           <DialogHeader>
             <DialogTitle>ラベルを選択</DialogTitle>
           </DialogHeader>
@@ -1781,7 +1872,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
       {/* カレンダー選択ダイアログ */}
       <Dialog open={showCalendarSelector} onOpenChange={setShowCalendarSelector}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm" data-panel="calendar-selector">
           <DialogHeader>
             <DialogTitle>締切日を選択</DialogTitle>
           </DialogHeader>

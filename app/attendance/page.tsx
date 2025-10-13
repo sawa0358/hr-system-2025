@@ -291,7 +291,7 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
         </div>
 
         {isAdminOrHR && (
-          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
+          <div className="rounded-xl border border-slate-200 p-4 shadow-sm mb-6" style={{ backgroundColor: '#b4d5e7' }}>
             <div className="mb-3">
               <h2 className="text-lg font-semibold text-slate-900 mb-1">共通テンプレート</h2>
               <p className="text-sm text-slate-600">勤怠管理用のテンプレートをアップロード・管理（総務・管理者のみ）</p>
@@ -349,13 +349,16 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
           </div>
         )}
 
-        <SharedEmployeeFilters
-          onFiltersChange={setFilters}
-          showStatusFilter={true}
-          showClearButton={true}
-          placeholder="社員名、社員番号、部署、役職で検索..."
-          className="mb-6"
-        />
+        {isAdminOrHR && (
+          <SharedEmployeeFilters
+            onFiltersChange={setFilters}
+            showStatusFilter={true}
+            showClearButton={true}
+            placeholder="社員名、社員番号、部署、役職で検索..."
+            className="mb-6"
+            style={{ backgroundColor: '#b4d5e7' }}
+          />
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {isAdminOrHR && (

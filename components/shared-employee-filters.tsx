@@ -19,6 +19,7 @@ interface SharedEmployeeFiltersProps {
   showClearButton?: boolean
   placeholder?: string
   className?: string
+  style?: React.CSSProperties
 }
 
 export function SharedEmployeeFilters({ 
@@ -26,7 +27,8 @@ export function SharedEmployeeFilters({
   showStatusFilter = true,
   showClearButton = true,
   placeholder = "社員名、社員番号、部署、役職で検索...",
-  className = ""
+  className = "",
+  style
 }: SharedEmployeeFiltersProps) {
   const { currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
@@ -95,7 +97,7 @@ export function SharedEmployeeFilters({
                    showStatusFilter || showClearButton ? "md:grid-cols-5" : "md:grid-cols-4"
 
   return (
-    <div className={`bg-white rounded-xl border border-slate-200 p-4 shadow-sm ${className}`}>
+    <div className={`bg-white rounded-xl border border-slate-200 p-4 shadow-sm ${className}`} style={style}>
       <div className={`grid grid-cols-1 ${gridCols} gap-4`}>
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

@@ -196,13 +196,16 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
           <AIAskButton context={buildAIContext()} />
         </div>
 
-        <SharedEmployeeFilters
-          onFiltersChange={setFilters}
-          showStatusFilter={true}
-          showClearButton={true}
-          placeholder="社員名、社員番号、部署、役職で検索..."
-          className="mb-6"
-        />
+        {isAdminOrHR && (
+          <SharedEmployeeFilters
+            onFiltersChange={setFilters}
+            showStatusFilter={true}
+            showClearButton={true}
+            placeholder="社員名、社員番号、部署、役職で検索..."
+            className="mb-6"
+            style={{ backgroundColor: '#b4d5e7' }}
+          />
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {isAdminOrHR && (

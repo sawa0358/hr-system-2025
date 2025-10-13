@@ -81,7 +81,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 p-4 shadow-sm" style={{ backgroundColor: '#b4d5e7' }}>
       <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <div className="md:col-span-2 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />

@@ -152,7 +152,7 @@ function DisplayOrgChartWithoutTop({
       <div key="virtual-root-container" className="flex gap-8 relative">
         {visibleChildren.map((child, index) => (
           <div key={`virtual-child-${child.id}-${index}`} className="relative">
-            {visibleChildren.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+            {visibleChildren.length > 1 && <div className="absolute w-0.5 h-8 left-1/2 -top-8" style={{ backgroundColor: '#bbbfc1' }} />}
             <DraggableOrgNodeCard
               node={child}
               level={0}
@@ -556,14 +556,14 @@ function DraggableOrgNodeCard({
 
       {hasChildren && (
         <>
-          <div className="w-0.5 h-8 bg-slate-300 my-2" />
+          <div className="w-0.5 h-8 my-2" style={{ backgroundColor: '#bbbfc1' }} />
           <div className="flex gap-8 relative">
             {node.children!.length > 1 && (
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-300" style={{ top: "-8px" }} />
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ top: "-8px", backgroundColor: '#bbbfc1' }} />
             )}
             {node.children!.map((child, index) => (
               <div key={`child-${child.id}-${index}`} className="relative">
-                {node.children!.length > 1 && <div className="absolute w-0.5 h-8 bg-slate-300 left-1/2 -top-8" />}
+                {node.children!.length > 1 && <div className="absolute w-0.5 h-8 left-1/2 -top-8" style={{ backgroundColor: '#bbbfc1' }} />}
                 <DraggableOrgNodeCard
                   node={child}
                   level={level + 1}
@@ -1458,7 +1458,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   return (
     <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+      <div className="rounded-xl border border-slate-200 shadow-sm" style={{ backgroundColor: '#b4d5e7' }}>
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
             <h3 className="font-semibold text-slate-900">組織図</h3>
@@ -1600,10 +1600,10 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           canEdit={canEdit}
                           isCompactMode={isCompactMode}
                         />
-                        {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 bg-slate-300 mx-auto my-2" />}
+                        {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 mx-auto my-2" style={{ backgroundColor: '#bbbfc1' }} />}
                       </div>
                     ))}
-                    <div className="w-0.5 h-8 bg-slate-300 my-2" />
+                    <div className="w-0.5 h-8 my-2" style={{ backgroundColor: '#bbbfc1' }} />
                   </div>
                 </div>
               )}
@@ -1628,7 +1628,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           isCompactMode={isCompactMode}
                           onHorizontalMove={handleHorizontalMove}
                         />
-                        <div className="w-0.5 h-8 bg-slate-300 my-2" />
+                        <div className="w-0.5 h-8 my-2" style={{ backgroundColor: '#bbbfc1' }} />
                       </div>
                     </div>
                   ) : (

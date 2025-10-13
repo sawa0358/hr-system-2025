@@ -767,7 +767,6 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
               boardData={currentBoardData} 
               currentUserId={currentUser?.id}
               currentUserRole={currentUser?.role}
-              workspaceData={workspaces.find(w => w.id === currentWorkspace)} // ワークスペース情報を渡す
               onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
               showArchived={false}
               dateFrom={taskFilters.dateFrom}

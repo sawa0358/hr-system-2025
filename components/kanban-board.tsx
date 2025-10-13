@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { taskTemplates } from "@/lib/mock-data"
-import { checkListPermissions, getPermissionErrorMessage } from "@/lib/permissions"
+import { checkListPermissions, checkCardPermissions, getPermissionErrorMessage } from "@/lib/permissions"
 import { TaskDetailDialog } from "./task-detail-dialog"
 
 // 18色のカラーパレット（段階的配色）
@@ -668,14 +668,13 @@ interface KanbanBoardProps {
   boardData?: any
   currentUserId?: string
   currentUserRole?: string
-  workspaceData?: any // ワークスペース情報（権限チェック用）
   onRefresh?: () => void
   showArchived?: boolean
   dateFrom?: string
   dateTo?: string
 }
 
-export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, workspaceData, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -1155,18 +1154,21 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }
 
   const handleTaskClick = (task: Task) => {
-    // カード閲覧権限をチェック
+    // カード閲覧権限をチェック（簡略化版）
     if (currentUserRole && currentUserId) {
-      const cardPermissions = checkCardPermissions(
-        currentUserRole as any,
-        currentUserId,
-        task.id, // カード作成者ID（実際にはtaskオブジェクトに含まれていないため、仮でIDを使用）
-        task.members?.map(m => m.id) || [],
-        workspaceData?.members?.map((m: any) => m.employeeId) || []
-      )
+      // 管理者は全てのカードを開ける
+      if (currentUserRole === 'admin') {
+        setSelectedTask(task)
+        setDialogOpen(true)
+        return
+      }
       
-      if (!cardPermissions.canOpen) {
-        alert(cardPermissions.reason || "このカードを開く権限がありません")
+      // 他のロールは、カードのメンバーであるか作成者である場合のみ開ける
+      const isMember = task.members?.some(m => m.id === currentUserId)
+      const isCreator = task.assignee === currentUserId // assigneeを作成者として扱う
+      
+      if (!isMember && !isCreator) {
+        alert("このカードを開く権限がありません")
         return
       }
     }

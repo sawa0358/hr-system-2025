@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { AIAskButton } from "@/components/ai-ask-button"
-import { Users, Upload, FileText } from "lucide-react"
+import { Users, Upload, FileText, X } from "lucide-react"
 // import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { AttendanceUploadDialog } from "@/components/attendance-upload-dialog"
 import { Button } from "@/components/ui/button"
@@ -24,10 +24,8 @@ export default function AttendancePage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isAllEmployeesMode, setIsAllEmployeesMode] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
-  const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[] }[]>([
-    { id: "1", name: "共通テンプレート1", employees: [] },
-    { id: "2", name: "共通テンプレート2", employees: [] },
-  ])
+  const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[]; content?: string; type?: string }[]>([])
+  const [isDraggingTemplate, setIsDraggingTemplate] = useState(false)
 
   // 社員データを取得
   useEffect(() => {
@@ -138,17 +136,99 @@ export default function AttendancePage() {
     setIsUploadDialogOpen(true)
   }
 
-  const handleTemplateUpload = () => {
-    alert("テンプレートファイルをアップロードしました")
+  // テンプレートファイルの保存・読み込み
+  const saveTemplatesToStorage = (templates: { id: string; name: string; employees: string[]; content?: string; type?: string }[]) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('attendance-templates', JSON.stringify(templates))
+    }
   }
 
-  const handleTemplateClick = (template: any) => {
-    alert(`${template.name}を開きました`)
+  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string; type?: string }[] => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('attendance-templates')
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
   }
 
-  // Mock user role - in real app, this would come from auth context
-  const userRole = "admin" // or "hr" or "employee"
-  const isAdminOrHR = userRole === "admin" || userRole === "hr"
+  // コンポーネント初期化時にテンプレートを読み込み
+  useEffect(() => {
+    const loadedTemplates = loadTemplatesFromStorage()
+    setTemplates(loadedTemplates)
+  }, [])
+
+  const handleTemplateDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingTemplate(true)
+  }
+
+  const handleTemplateDragLeave = () => {
+    setIsDraggingTemplate(false)
+  }
+
+  const handleTemplateDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDraggingTemplate(false)
+    const files = Array.from(e.dataTransfer.files)
+    files.forEach((file) => {
+      // ファイルの内容を読み込んで保存
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const fileContent = event.target?.result as string
+        const newTemplate = {
+          id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          employees: [],
+          content: fileContent,
+          type: file.type
+        }
+        const updatedTemplates = [...templates, newTemplate]
+        setTemplates(updatedTemplates)
+        saveTemplatesToStorage(updatedTemplates)
+      }
+      reader.readAsText(file)
+    })
+  }
+
+  const handleTemplateFileSelect = () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.multiple = true
+    input.accept = ".xlsx,.xls,.pdf,.csv"
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || [])
+      files.forEach((file) => {
+        // ファイルの内容を読み込んで保存
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const fileContent = event.target?.result as string
+          const newTemplate = {
+            id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: file.name,
+            employees: [],
+            content: fileContent,
+            type: file.type
+          }
+          const updatedTemplates = [...templates, newTemplate]
+          setTemplates(updatedTemplates)
+          saveTemplatesToStorage(updatedTemplates)
+        }
+        reader.readAsText(file)
+      })
+    }
+    input.click()
+  }
+
+  const removeTemplate = (templateId: string) => {
+    const updatedTemplates = templates.filter(t => t.id !== templateId)
+    setTemplates(updatedTemplates)
+    saveTemplatesToStorage(updatedTemplates)
+  }
+
+  // 現在のユーザーの権限を取得
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
@@ -203,41 +283,61 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
         </div>
 
         {isAdminOrHR && (
-          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900 mb-1">共通テンプレート</h2>
-                <p className="text-sm text-slate-600">勤怠管理用のテンプレートをアップロード・管理</p>
-              </div>
-              <Button onClick={handleTemplateUpload} className="bg-blue-600 hover:bg-blue-700">
-                <Upload className="w-4 h-4 mr-2" />
-                テンプレート追加
-              </Button>
+          <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm mb-6">
+            <div className="mb-3">
+              <h2 className="text-lg font-semibold text-slate-900 mb-1">共通テンプレート</h2>
+              <p className="text-sm text-slate-600">勤怠管理用のテンプレートをアップロード・管理（総務・管理者のみ）</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {templates.map((template) => (
-                <Card
-                  key={template.id}
-                  className="cursor-pointer hover:shadow-md transition-shadow border-slate-200"
-                  onClick={() => handleTemplateClick(template)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                        <FileText className="w-5 h-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-900 truncate">{template.name}</h3>
-                        <p className="text-xs text-slate-500">
-                          {template.employees.length > 0 ? `${template.employees.length}名登録済み` : "未登録"}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            {/* ドラッグドロップエリア */}
+            <div
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors mb-4 ${
+                isDraggingTemplate ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+              }`}
+              onDragOver={handleTemplateDragOver}
+              onDragLeave={handleTemplateDragLeave}
+              onDrop={handleTemplateDrop}
+            >
+              <Upload className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+              <p className="text-slate-600 text-sm mb-1">テンプレートファイルをドラッグ&ドロップ</p>
+              <p className="text-xs text-slate-500 mb-2">または</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTemplateFileSelect}
+                className="text-xs"
+              >
+                <Upload className="w-3 h-3 mr-1" />
+                ファイルを選択
+              </Button>
+              <p className="text-xs text-slate-500 mt-2">対応形式: Excel, PDF, CSV</p>
             </div>
+
+            {/* テンプレート一覧（コンパクト表示） */}
+            {templates.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-slate-900 text-sm">アップロード済みテンプレート</h3>
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="flex items-center justify-between p-2 bg-slate-50 rounded border"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-emerald-600" />
+                      <span className="text-sm text-slate-900">{template.name}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTemplate(template.id)}
+                      className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

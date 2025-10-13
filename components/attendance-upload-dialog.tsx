@@ -80,8 +80,92 @@ export function AttendanceUploadDialog({
 
   const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
-  const handleTemplateDownload = () => {
-    alert("勤怠管理テンプレートをダウンロードしました")
+  // 共通テンプレートの読み込み
+  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string; type?: string }[] => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('attendance-templates')
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
+  }
+
+  const handleTemplateDownload = (templateName?: string) => {
+    if (templateName) {
+      // 特定のテンプレートをダウンロード
+      downloadTemplateFile(templateName)
+    } else {
+      // デフォルトテンプレートをダウンロード
+      downloadDefaultTemplate()
+    }
+  }
+
+  // デフォルトテンプレートのダウンロード
+  const downloadDefaultTemplate = () => {
+    // デフォルトの勤怠管理テンプレートデータを作成
+    const templateData = {
+      headers: ['日付', '出勤時間', '退勤時間', '休憩時間', '勤務時間', '残業時間', '備考'],
+      sampleData: [
+        ['2025-01-01', '09:00', '18:00', '60', '8.0', '0', ''],
+        ['2025-01-02', '09:00', '18:00', '60', '8.0', '0', ''],
+        ['2025-01-03', '09:00', '18:00', '60', '8.0', '0', '']
+      ]
+    }
+
+    // CSV形式でテンプレートを作成
+    const csvContent = [
+      templateData.headers.join(','),
+      ...templateData.sampleData.map(row => row.join(','))
+    ].join('\n')
+
+    // ファイルをダウンロード
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', '勤怠管理テンプレート.csv')
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  // 共通テンプレートのダウンロード
+  const downloadTemplateFile = (templateName: string) => {
+    // 実際のファイルデータを取得（localStorageから）
+    const templates = loadTemplatesFromStorage()
+    console.log('保存されているテンプレート:', templates) // デバッグ用
+    const template = templates.find(t => t.name === templateName)
+    console.log('検索対象テンプレート:', template) // デバッグ用
+    
+    if (template) {
+      if (template.content) {
+        // 実際のファイル内容を使用
+        const mimeType = template.type || 'text/plain'
+        const blob = new Blob([template.content], { type: mimeType })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', templateName)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      } else {
+        // ファイル内容がない場合は、テンプレート名に基づいてダミーファイルを作成
+        const templateContent = `勤怠管理テンプレート: ${templateName}\n\nこのファイルは勤怠管理用のテンプレートです。\n適切な形式でデータを入力してください。`
+        const blob = new Blob([templateContent], { type: 'text/plain;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', templateName)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+    } else {
+      alert(`テンプレートファイル「${templateName}」が見つかりません。\n保存されているテンプレート: ${templates.map(t => t.name).join(', ')}`)
+    }
   }
 
   const addYearFolder = () => {
@@ -186,23 +270,65 @@ export function AttendanceUploadDialog({
           </div>
         </DialogHeader>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center gap-3 mb-3">
             <FileText className="w-5 h-5 text-blue-600" />
             <div>
               <p className="font-medium text-blue-900">勤怠管理テンプレート</p>
               <p className="text-sm text-blue-700">標準フォーマットをダウンロード</p>
             </div>
           </div>
-          <Button
-            onClick={handleTemplateDownload}
-            variant="outline"
-            size="sm"
-            className="border-blue-300 bg-transparent"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            テンプレートDL
-          </Button>
+          
+          {/* 共通テンプレート一覧 */}
+          {(() => {
+            const templates = loadTemplatesFromStorage()
+            console.log('ダイアログで読み込まれたテンプレート:', templates) // デバッグ用
+            return templates.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-blue-800">共通テンプレート ({templates.length}件):</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="flex items-center justify-between p-2 bg-white rounded border border-blue-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <span className="text-sm text-blue-900">{template.name}</span>
+                        {template.content ? (
+                          <span className="text-xs text-green-600">✓</span>
+                        ) : (
+                          <span className="text-xs text-orange-600">!</span>
+                        )}
+                      </div>
+                      <Button
+                        onClick={() => handleTemplateDownload(template.name)}
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        DL
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-blue-700">共通テンプレートが登録されていません</p>
+                <Button
+                  onClick={() => handleTemplateDownload()}
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 bg-transparent"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  標準テンプレートDL
+                </Button>
+              </div>
+            )
+          })()}
         </div>
 
         <Tabs defaultValue="year" className="w-full">

@@ -319,9 +319,9 @@ export default function TasksPage() {
               // デフォルトリストを作成
               try {
                 const defaultLists = [
-                  { title: "未着手" },
+                  { title: "常時運用タスク" },
+                  { title: "予定リスト" },
                   { title: "進行中" },
-                  { title: "レビュー" },
                   { title: "完了" }
                 ]
                 
@@ -577,6 +577,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
           <WorkspaceSelector
             workspaces={workspaces}
             currentWorkspace={currentWorkspace}
+            currentUserId={currentUser?.id}
             onWorkspaceChange={handleWorkspaceChange}
             onCreateWorkspace={handleCreateWorkspace}
             onEditWorkspace={handleEditWorkspace}

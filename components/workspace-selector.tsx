@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Select,
   SelectContent,
@@ -17,6 +17,7 @@ interface Workspace {
   id: string
   name: string
   description?: string
+  createdBy?: string
   _count?: {
     boards: number
     members: number
@@ -26,6 +27,7 @@ interface Workspace {
 interface WorkspaceSelectorProps {
   workspaces: Workspace[]
   currentWorkspace: string | null
+  currentUserId?: string // 現在のユーザーID（マイワークスペース判定用）
   onWorkspaceChange: (workspaceId: string) => void
   onCreateWorkspace?: () => void
   onEditWorkspace?: () => void
@@ -39,6 +41,7 @@ interface WorkspaceSelectorProps {
 export function WorkspaceSelector({
   workspaces,
   currentWorkspace,
+  currentUserId,
   onWorkspaceChange,
   onCreateWorkspace,
   onEditWorkspace,
@@ -49,18 +52,47 @@ export function WorkspaceSelector({
   showSearch = false,
 }: WorkspaceSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+
+  // debounce処理（日本語入力対応）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300) // 300ms待ってから検索実行
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // 検索フィルタリング
   const filteredWorkspaces = useMemo(() => {
-    if (!searchQuery.trim()) {
+    // 検索クエリがない場合
+    if (!debouncedSearchQuery.trim()) {
+      if (showSearch && currentUserId) {
+        // 管理者の場合：自分のマイワークスペース + 自分がメンバーのワークスペースをデフォルト表示
+        return workspaces.filter(workspace => {
+          const isMyWorkspace = workspace.name.includes("マイワークスペース") && workspace.createdBy === currentUserId
+          const isOthersMyWorkspace = workspace.name.includes("マイワークスペース") && workspace.createdBy !== currentUserId
+          
+          // 自分のマイワークスペースは表示
+          if (isMyWorkspace) return true
+          
+          // 他人のマイワークスペースは非表示（検索時のみ表示）
+          if (isOthersMyWorkspace) return false
+          
+          // 通常のワークスペース（自分がメンバーの場合）は表示
+          return true
+        })
+      }
       return workspaces
     }
-    const query = searchQuery.toLowerCase()
+    
+    // 検索時は全ワークスペースから検索（部分一致）
+    const query = debouncedSearchQuery.toLowerCase()
     return workspaces.filter(workspace => 
       workspace.name.toLowerCase().includes(query) ||
       workspace.description?.toLowerCase().includes(query)
     )
-  }, [workspaces, searchQuery])
+  }, [workspaces, debouncedSearchQuery, showSearch, currentUserId])
 
   return (
     <div className="flex items-center gap-2">

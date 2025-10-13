@@ -129,10 +129,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get("x-employee-id")
-    console.log("POST /api/workspaces - employeeId:", userId)
     
     if (!userId) {
-      console.log("POST /api/workspaces - No employee ID provided")
       return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
     }
 
@@ -143,11 +141,8 @@ export async function POST(request: NextRequest) {
     })
 
     if (!user) {
-      console.log("POST /api/workspaces - User not found for ID:", userId)
       return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
     }
-    
-    console.log("POST /api/workspaces - User found:", user.role)
 
     const userRole = user.role as any
 
@@ -159,8 +154,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { name, description, memberIds = [] } = body
-
-    console.log("POST /api/workspaces - memberIds:", memberIds)
 
     if (!name) {
       return NextResponse.json({ error: "ワークスペース名は必須です" }, { status: 400 })
@@ -179,18 +172,13 @@ export async function POST(request: NextRequest) {
       const invalidIds = memberIds.filter((id: string) => !existingIds.includes(id))
       
       if (invalidIds.length > 0) {
-        console.log("POST /api/workspaces - Invalid member IDs:", invalidIds)
         return NextResponse.json({ 
           error: `無効なメンバーID: ${invalidIds.join(', ')}` 
         }, { status: 400 })
       }
-      
-      console.log("POST /api/workspaces - Valid members:", existingEmployees.map(emp => `${emp.name} (${emp.id})`))
     }
 
     // ワークスペースを作成（作成者を自動的にメンバーに追加）
-    console.log("Creating workspace with data:", { name, description, createdBy: userId, memberIds })
-    
     const workspace = await prisma.workspace.create({
       data: {
         name,

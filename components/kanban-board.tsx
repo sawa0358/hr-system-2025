@@ -668,13 +668,14 @@ interface KanbanBoardProps {
   boardData?: any
   currentUserId?: string
   currentUserRole?: string
+  workspaceData?: any // ワークスペース情報（権限チェック用）
   onRefresh?: () => void
   showArchived?: boolean
   dateFrom?: string
   dateTo?: string
 }
 
-export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, workspaceData, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -1158,6 +1159,22 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }
 
   const handleTaskClick = (task: Task) => {
+    // カード閲覧権限をチェック
+    if (currentUserRole && currentUserId) {
+      const cardPermissions = checkCardPermissions(
+        currentUserRole as any,
+        currentUserId,
+        task.id, // カード作成者ID（実際にはtaskオブジェクトに含まれていないため、仮でIDを使用）
+        task.members?.map(m => m.id) || [],
+        workspaceData?.members?.map((m: any) => m.employeeId) || []
+      )
+      
+      if (!cardPermissions.canOpen) {
+        alert(cardPermissions.reason || "このカードを開く権限がありません")
+        return
+      }
+    }
+    
     setSelectedTask(task)
     setDialogOpen(true)
   }

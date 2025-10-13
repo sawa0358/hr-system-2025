@@ -141,7 +141,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     moveEmployeeCards: false,
     viewOwnTasks: true,
     editOwnTasks: true,
-    createTaskBoards: false,
+    createTaskBoards: false, // ボードの追加・編集ボタンは表示しない
     manageSubordinateTasks: false,
     viewOwnAttendance: true,
     viewSubordinateAttendance: false,
@@ -160,13 +160,13 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: false,
     editEvaluations: false,
-    createWorkspace: true, // ワークスペースは作成可能
-    editWorkspace: false, // 自分のワークスペースのみ編集（別途チェック）
+    createWorkspace: false, // ワークスペース新規作成は総務・管理者のみ
+    editWorkspace: false, // ワークスペース編集は総務・管理者のみ
     deleteWorkspace: false,
     addWorkspaceMembers: false,
     viewAllWorkspaces: false,
-    createBoards: true, // ボードは作成可能
-    editBoards: false, // 自分のボードのみ編集（別途チェック）
+    createBoards: false, // マイワークスペース内のみ可能（別途チェック）
+    editBoards: false, // マイワークスペース内のみ可能（別途チェック）
     deleteBoards: false,
     createLists: false, // リストの追加は店長以上
     editLists: false,
@@ -451,11 +451,12 @@ export interface CardPermissionCheck {
 }
 
 /**
- * カードの編集権限をチェックする
+ * カードの閲覧・編集権限をチェックする
  * @param userRole ユーザーの権限ロール
  * @param userId ユーザーID
  * @param cardCreatorId カード作成者ID
  * @param cardMemberIds カードメンバーのID配列
+ * @param workspaceMemberIds ワークスペースメンバーのID配列
  * @returns 権限チェック結果
  */
 export function checkCardPermissions(
@@ -463,35 +464,59 @@ export function checkCardPermissions(
   userId: string,
   cardCreatorId: string,
   cardMemberIds: string[],
-): CardPermissionCheck {
+  workspaceMemberIds?: string[],
+): CardPermissionCheck & { canOpen: boolean; canCreate: boolean } {
   const permissions = getPermissions(userRole)
   const isCardMember = cardMemberIds.includes(userId)
   const isCreator = userId === cardCreatorId
+  const isWorkspaceMember = workspaceMemberIds?.includes(userId) || false
 
-  // 管理者・総務は全権限
-  if (permissions.editOthersCards) {
+  // 管理者は全ワークスペース・ボード・カードが見える＆編集可能
+  if (userRole === "admin") {
     return {
+      canOpen: true,
       canEdit: true,
       canAddMembers: true,
       canDelete: true,
+      canCreate: true,
     }
   }
 
-  // カードメンバーでない場合
+  // 店長・マネージャー・総務はワークスペースのメンバーになっている場合、全てのボード・カードが見える
+  const canViewAllInWorkspace = (userRole === "store_manager" || userRole === "manager" || userRole === "hr") && isWorkspaceMember
+
+  if (canViewAllInWorkspace) {
+    return {
+      canOpen: true,
+      canEdit: permissions.editOthersCards, // 総務のみ他人のカード編集可能
+      canAddMembers: permissions.addCardMembers,
+      canDelete: isCreator || permissions.editOthersCards,
+      canCreate: true,
+    }
+  }
+
+  // 閲覧者権限は新規カード追加不可
+  const canCreateCard = userRole !== "viewer"
+
+  // カードメンバーでない場合は開けない（見るだけ）
   if (!isCardMember) {
     return {
+      canOpen: false, // 自分がメンバーではないカードは開けない
       canEdit: false,
-      canAddMembers: permissions.addCardMembers, // 店長・マネージャーは追加可能
+      canAddMembers: false,
       canDelete: false,
+      canCreate: canCreateCard,
       reason: "カードメンバーではありません",
     }
   }
 
   // カードメンバーの場合
   return {
+    canOpen: true, // 自分がメンバーのカードは開ける
     canEdit: true,
-    canAddMembers: permissions.addCardMembers, // 店長・マネージャー・総務・管理者のみ
-    canDelete: isCreator, // 作成者のみ削除可能
+    canAddMembers: permissions.addCardMembers,
+    canDelete: isCreator,
+    canCreate: canCreateCard,
   }
 }
 
@@ -501,6 +526,7 @@ export function checkCardPermissions(
  * @param userId ユーザーID
  * @param workspaceCreatorId ワークスペース作成者ID
  * @param workspaceMemberIds ワークスペースメンバーのID配列
+ * @param workspaceName ワークスペース名（マイワークスペース判定用）
  * @returns 権限チェック結果
  */
 export function checkWorkspacePermissions(
@@ -508,23 +534,29 @@ export function checkWorkspacePermissions(
   userId: string,
   workspaceCreatorId: string,
   workspaceMemberIds: string[],
+  workspaceName?: string,
 ): {
   canView: boolean
   canEdit: boolean
   canDelete: boolean
   canAddMembers: boolean
+  canCreate: boolean
 } {
   const permissions = getPermissions(userRole)
   const isCreator = userId === workspaceCreatorId
   const isMember = workspaceMemberIds.includes(userId)
 
+  // マイワークスペースの場合は編集・削除不可（マイワークスペースは削除できない）
+  const isMyWS = workspaceName && isMyWorkspace(workspaceName, workspaceCreatorId, userId)
+
   // 管理者・総務は全ワークスペースに全権限
   if (permissions.viewAllWorkspaces) {
     return {
       canView: true,
-      canEdit: true,
-      canDelete: true,
-      canAddMembers: true,
+      canEdit: !isMyWS, // マイワークスペースは編集不可
+      canDelete: !isMyWS, // マイワークスペースは削除不可
+      canAddMembers: !isMyWS,
+      canCreate: permissions.createWorkspace, // 総務・管理者のみ
     }
   }
 
@@ -535,16 +567,34 @@ export function checkWorkspacePermissions(
       canEdit: false,
       canDelete: false,
       canAddMembers: false,
+      canCreate: false,
     }
   }
 
   // ワークスペースメンバーの場合
   return {
     canView: true,
-    canEdit: isCreator && permissions.editWorkspace,
-    canDelete: isCreator && permissions.deleteWorkspace,
-    canAddMembers: permissions.addWorkspaceMembers,
+    canEdit: false, // マイワークスペース以外は総務・管理者のみ編集可能
+    canDelete: false,
+    canAddMembers: false,
+    canCreate: false, // 総務・管理者のみ
   }
+}
+
+/**
+ * マイワークスペースかどうかを判定する
+ * @param workspaceName ワークスペース名
+ * @param workspaceCreatorId ワークスペース作成者ID
+ * @param userId ユーザーID
+ * @returns マイワークスペースかどうか
+ */
+export function isMyWorkspace(
+  workspaceName: string,
+  workspaceCreatorId: string,
+  userId: string,
+): boolean {
+  // ワークスペース名に「マイワークスペース」が含まれ、作成者が自分の場合
+  return workspaceName.includes("マイワークスペース") && workspaceCreatorId === userId
 }
 
 /**
@@ -552,12 +602,16 @@ export function checkWorkspacePermissions(
  * @param userRole ユーザーの権限ロール
  * @param userId ユーザーID
  * @param boardCreatorId ボード作成者ID
+ * @param workspaceName ワークスペース名（マイワークスペース判定用）
+ * @param workspaceCreatorId ワークスペース作成者ID（マイワークスペース判定用）
  * @returns 権限チェック結果
  */
 export function checkBoardPermissions(
   userRole: UserRole,
   userId: string,
   boardCreatorId: string,
+  workspaceName?: string,
+  workspaceCreatorId?: string,
 ): {
   canCreate: boolean
   canEdit: boolean
@@ -567,23 +621,24 @@ export function checkBoardPermissions(
   const permissions = getPermissions(userRole)
   const isCreator = userId === boardCreatorId
 
-  // 作成権限は店長・マネージャー・総務・管理者のみ
-  if (!permissions.createBoards) {
+  // マイワークスペース内の場合は全員がボードの追加・編集・削除可能
+  if (workspaceName && workspaceCreatorId && isMyWorkspace(workspaceName, workspaceCreatorId, userId)) {
+    return {
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+    }
+  }
+
+  // マネージャー・総務・管理者のみボードの追加・編集ボタンを表示
+  const canManageBoards = userRole === "manager" || userRole === "hr" || userRole === "admin"
+  
+  if (!canManageBoards) {
     return {
       canCreate: false,
       canEdit: false,
       canDelete: false,
-      reason: "この操作は店長権限以上が必要です",
-    }
-  }
-
-  // 編集権限は店長・マネージャー・総務・管理者のみ
-  if (!permissions.editBoards) {
-    return {
-      canCreate: true,
-      canEdit: false,
-      canDelete: false,
-      reason: "この操作は店長権限以上が必要です",
+      reason: "この操作はマネージャー・総務・管理者のみ可能です",
     }
   }
 

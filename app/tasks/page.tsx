@@ -590,7 +590,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                 currentUser.role,
                 currentUser.id,
                 workspace.createdBy || '',
-                workspace.members?.map((m: any) => m.employeeId) || []
+                workspace.members?.map((m: any) => m.employeeId) || [],
+                workspace.name
               ).canEdit
             })()}
             canDeleteWorkspace={(() => {
@@ -601,9 +602,11 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                 currentUser.role,
                 currentUser.id,
                 workspace.createdBy || '',
-                workspace.members?.map((m: any) => m.employeeId) || []
+                workspace.members?.map((m: any) => m.employeeId) || [],
+                workspace.name
               ).canDelete
             })()}
+            showSearch={currentUser?.role === 'admin'} // 管理者のみ検索機能を表示
           />
           
           {currentWorkspace && (
@@ -626,10 +629,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                   if (!currentUser?.role) return false
                   const workspace = workspaces.find(w => w.id === currentWorkspace)
                   if (!workspace) return false
+                  const board = boards.find(b => b.id === currentBoard)
                   return checkBoardPermissions(
                     currentUser.role,
                     currentUser.id,
-                    workspace.createdBy || ''
+                    board?.createdBy || workspace.createdBy || '',
+                    workspace.name,
+                    workspace.createdBy
                   ).canCreate
                 })() && (
                   <Button variant="outline" size="sm" onClick={handleCreateBoard}>
@@ -641,10 +647,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                   if (!currentUser?.role || !currentBoard) return null
                   const workspace = workspaces.find(w => w.id === currentWorkspace)
                   if (!workspace) return null
+                  const board = boards.find(b => b.id === currentBoard)
                   const boardPermissions = checkBoardPermissions(
                     currentUser.role,
                     currentUser.id,
-                    workspace.createdBy || ''
+                    board?.createdBy || workspace.createdBy || '',
+                    workspace.name,
+                    workspace.createdBy
                   )
                   const canEdit = boardPermissions.canEdit
                   const canDelete = boardPermissions.canDelete
@@ -757,6 +766,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
               boardData={currentBoardData} 
               currentUserId={currentUser?.id}
               currentUserRole={currentUser?.role}
+              workspaceData={workspaces.find(w => w.id === currentWorkspace)} // ワークスペース情報を渡す
               onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
               showArchived={false}
               dateFrom={taskFilters.dateFrom}

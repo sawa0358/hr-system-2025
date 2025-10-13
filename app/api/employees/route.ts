@@ -245,6 +245,67 @@ export async function POST(request: NextRequest) {
 
     console.log('社員データ作成成功:', employee);
 
+    // マイワークスペースの自動作成
+    try {
+      console.log('マイワークスペース作成開始:', employee.id);
+      
+      // マイワークスペースを作成
+      const myWorkspace = await prisma.workspace.create({
+        data: {
+          name: `${employee.name}のマイワークスペース`,
+          description: '個人用のワークスペースです',
+          createdBy: employee.id,
+        },
+      });
+
+      console.log('マイワークスペース作成成功:', myWorkspace.id);
+
+      // ワークスペースメンバーに自分を追加
+      await prisma.workspaceMember.create({
+        data: {
+          workspaceId: myWorkspace.id,
+          employeeId: employee.id,
+          role: 'workspace_admin',
+        },
+      });
+
+      console.log('ワークスペースメンバー追加成功');
+
+      // デフォルトボード「マイボード」を作成
+      const myBoard = await prisma.board.create({
+        data: {
+          name: 'マイボード',
+          description: '個人用のボードです',
+          workspaceId: myWorkspace.id,
+          createdBy: employee.id,
+        },
+      });
+
+      console.log('マイボード作成成功:', myBoard.id);
+
+      // デフォルトリストを作成
+      const defaultLists = [
+        { title: 'ToDo', position: 0 },
+        { title: '進行中', position: 1 },
+        { title: '完了', position: 2 },
+      ];
+
+      for (const list of defaultLists) {
+        await prisma.boardList.create({
+          data: {
+            title: list.title,
+            position: list.position,
+            boardId: myBoard.id,
+          },
+        });
+      }
+
+      console.log('デフォルトリスト作成成功');
+    } catch (workspaceError) {
+      console.error('マイワークスペース作成エラー:', workspaceError);
+      // ワークスペース作成失敗は警告のみで、社員登録自体は成功とする
+    }
+
     return NextResponse.json({
       success: true,
       employee

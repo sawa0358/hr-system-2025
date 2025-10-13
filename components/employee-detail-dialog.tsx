@@ -1704,30 +1704,33 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   )}
                 </div>
 
-                <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
-                  <div className="space-y-2">
-                    <Label>電話番号（携帯・非公開です）</Label>
-                    <Input 
-                      type="tel" 
-                      value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
-                      onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.mobilePhone}
-                      className={(!canEditProfile || !privacySettings.mobilePhone) ? "text-[#374151] bg-[#edeaed]" : ""}
-                    />
-                    {!privacySettings.mobilePhone && (
-                      <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                {/* 携帯電話番号は総務・管理者または本人のみ閲覧可能 */}
+                {(isOwnProfile || isAdminOrHR) && (
+                  <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
+                    <div className="space-y-2">
+                      <Label>電話番号（携帯・非公開です）</Label>
+                      <Input 
+                        type="tel" 
+                        value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
+                        onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
+                        disabled={!canEditProfile || !privacySettings.mobilePhone}
+                        className={(!canEditProfile || !privacySettings.mobilePhone) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      />
+                      {!privacySettings.mobilePhone && (
+                        <p className="text-xs text-slate-500">この項目は非公開に設定されています</p>
+                      )}
+                    </div>
+                    {canEditProfile && isAdminOrHR && (
+                      <div className="flex items-center gap-2 pt-6">
+                        <Switch
+                          checked={privacySettings.mobilePhone}
+                          onCheckedChange={(checked) => setPrivacySettings({ ...privacySettings, mobilePhone: checked })}
+                        />
+                        <span className="text-sm text-slate-600">公開</span>
+                      </div>
                     )}
                   </div>
-                  {canEditProfile && isAdminOrHR && (
-                    <div className="flex items-center gap-2 pt-6">
-                      <Switch
-                        checked={privacySettings.mobilePhone}
-                        onCheckedChange={(checked) => setPrivacySettings({ ...privacySettings, mobilePhone: checked })}
-                      />
-                      <span className="text-sm text-slate-600">公開</span>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 

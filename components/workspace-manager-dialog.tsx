@@ -20,6 +20,7 @@ interface Employee {
   department?: string
   position?: string
   role?: string
+  isInvisibleTop?: boolean
 }
 
 interface WorkspaceMember {
@@ -118,9 +119,10 @@ export function WorkspaceManagerDialog({
 
   const filteredEmployees = employees.filter(
     (emp) =>
-      emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      !emp.isInvisibleTop && // 見えないTOP社員を除外
+      (emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      emp.position?.toLowerCase().includes(searchQuery.toLowerCase()),
+      emp.position?.toLowerCase().includes(searchQuery.toLowerCase())),
   )
 
   return (

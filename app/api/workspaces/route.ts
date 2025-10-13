@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const permissions = getPermissions(userRole)
 
-    // 管理者・総務は全ワークスペースを取得
+    // 管理者のみ全ワークスペースを取得
     if (permissions.viewAllWorkspaces) {
       const workspaces = await prisma.workspace.findMany({
         include: {

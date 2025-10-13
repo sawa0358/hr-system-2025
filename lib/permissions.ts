@@ -364,7 +364,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     editWorkspace: true,
     deleteWorkspace: true,
     addWorkspaceMembers: true,
-    viewAllWorkspaces: true, // 総務は全ワークスペース閲覧可能
+    viewAllWorkspaces: false, // 総務は自分のマイワークスペースのみ閲覧可能
     createBoards: true,
     editBoards: true,
     deleteBoards: true,
@@ -482,15 +482,15 @@ export function checkCardPermissions(
     }
   }
 
-  // 店長・マネージャー・総務はワークスペースのメンバーになっている場合、全てのボード・カードが見える
-  const canViewAllInWorkspace = (userRole === "store_manager" || userRole === "manager" || userRole === "hr") && isWorkspaceMember
+  // 店長・マネージャーはワークスペースのメンバーになっている場合、全てのボード・カードが見える
+  const canViewAllInWorkspace = (userRole === "store_manager" || userRole === "manager") && isWorkspaceMember
 
   if (canViewAllInWorkspace) {
     return {
       canOpen: true,
-      canEdit: permissions.editOthersCards, // 総務のみ他人のカード編集可能
+      canEdit: false, // 店長・マネージャーは閲覧のみ
       canAddMembers: permissions.addCardMembers,
-      canDelete: isCreator || permissions.editOthersCards,
+      canDelete: isCreator,
       canCreate: true,
     }
   }

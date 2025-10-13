@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,48 @@ export function AttendanceUploadDialog({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
+
+  // 個人別ファイル管理のためのキー生成
+  const getStorageKey = (folderKey: string) => {
+    if (isAllEmployeesMode) {
+      return `attendance-files-all-${folderKey}`
+    }
+    return `attendance-files-${employee?.id}-${folderKey}`
+  }
+
+  // ファイルデータの保存
+  const saveFilesToStorage = (folderKey: string, files: string[]) => {
+    if (typeof window !== 'undefined') {
+      const storageKey = getStorageKey(folderKey)
+      localStorage.setItem(storageKey, JSON.stringify(files))
+    }
+  }
+
+  // ファイルデータの読み込み
+  const loadFilesFromStorage = (folderKey: string): string[] => {
+    if (typeof window !== 'undefined') {
+      const storageKey = getStorageKey(folderKey)
+      const stored = localStorage.getItem(storageKey)
+      return stored ? JSON.parse(stored) : []
+    }
+    return []
+  }
+
+  // コンポーネント初期化時にファイルデータを読み込み
+  useEffect(() => {
+    if (employee || isAllEmployeesMode) {
+      const allFolders = [
+        ...yearFolders.flatMap(year => months.map(month => `${year}-${month}`)),
+        ...otherFolders.map(folder => `other-${folder}`)
+      ]
+      
+      const loadedFiles: { [key: string]: string[] } = {}
+      allFolders.forEach(folderKey => {
+        loadedFiles[folderKey] = loadFilesFromStorage(folderKey)
+      })
+      setUploadedFiles(loadedFiles)
+    }
+  }, [employee, isAllEmployeesMode, yearFolders, otherFolders])
 
   const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
@@ -79,10 +121,13 @@ export function AttendanceUploadDialog({
 
   const handleFileUpload = (folderKey: string, fileName?: string) => {
     const name = fileName || `勤怠データ_${new Date().toLocaleDateString()}.xlsx`
+    const newFiles = [...(uploadedFiles[folderKey] || []), name]
     setUploadedFiles({
       ...uploadedFiles,
-      [folderKey]: [...(uploadedFiles[folderKey] || []), name],
+      [folderKey]: newFiles,
     })
+    // localStorageに保存
+    saveFilesToStorage(folderKey, newFiles)
   }
 
   const downloadFile = (folderKey: string, fileName: string) => {
@@ -91,10 +136,13 @@ export function AttendanceUploadDialog({
   }
 
   const removeFile = (folderKey: string, fileName: string) => {
+    const newFiles = uploadedFiles[folderKey].filter((f) => f !== fileName)
     setUploadedFiles({
       ...uploadedFiles,
-      [folderKey]: uploadedFiles[folderKey].filter((f) => f !== fileName),
+      [folderKey]: newFiles,
     })
+    // localStorageに保存
+    saveFilesToStorage(folderKey, newFiles)
   }
 
   const startEditingFolder = (folderName: string) => {

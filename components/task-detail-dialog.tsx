@@ -270,7 +270,19 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [cardColor, setCardColor] = useState("")
   const [showLabelManager, setShowLabelManager] = useState(false)
   const [showLabelSelector, setShowLabelSelector] = useState(false)
-  const [customLabels, setCustomLabels] = useState<Label[]>(PRESET_LABELS)
+  
+  // localStorageからラベルを取得
+  const getStoredLabels = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('task-custom-labels')
+      if (stored) {
+        return JSON.parse(stored)
+      }
+    }
+    return PRESET_LABELS
+  }
+  
+  const [customLabels, setCustomLabels] = useState<Label[]>(getStoredLabels)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
 
@@ -440,15 +452,27 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         name: newLabelName,
         color: newLabelColor,
       }
-      setCustomLabels([...customLabels, newLabel])
+      const newLabels = [...customLabels, newLabel]
+      setCustomLabels(newLabels)
       setNewLabelName("")
       setNewLabelColor("#3b82f6")
+      
+      // localStorageに保存
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('task-custom-labels', JSON.stringify(newLabels))
+      }
     }
   }
 
   const handleDeleteLabel = (labelId: string) => {
-    setCustomLabels(customLabels.filter((l) => l.id !== labelId))
+    const newLabels = customLabels.filter((l) => l.id !== labelId)
+    setCustomLabels(newLabels)
     setSelectedLabels(selectedLabels.filter((l) => l.id !== labelId))
+    
+    // localStorageに保存
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('task-custom-labels', JSON.stringify(newLabels))
+    }
   }
 
   const handleAddChecklist = () => {

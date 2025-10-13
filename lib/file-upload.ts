@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from './prisma';
 import { uploadFileToS3, deleteFileFromS3 } from './s3-client';
+import { uploadFileToLocal, deleteFileFromLocal } from './local-file-storage';
 
 export interface FileUploadData {
   filename: string;
@@ -63,21 +64,36 @@ export async function handleFileUpload(
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${file.name}`;
     
-    // S3のフォルダパス構成: employeeId/category/fileName
-    const s3Folder = `${employeeId}/${category || 'general'}`;
+    // 開発環境ではローカルファイルシステムを使用、本番環境ではS3を使用
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
     
-    // S3にアップロード
-    const uploadResult = await uploadFileToS3(
-      buffer,
-      fileName,
-      file.type,
-      s3Folder
-    );
+    let uploadResult;
+    
+    if (isProduction) {
+      // 本番環境：S3にアップロード
+      const s3Folder = `${employeeId}/${category || 'general'}`;
+      uploadResult = await uploadFileToS3(
+        buffer,
+        fileName,
+        file.type,
+        s3Folder
+      );
+    } else {
+      // 開発環境：ローカルファイルシステムにアップロード
+      uploadResult = await uploadFileToLocal(
+        buffer,
+        fileName,
+        file.type,
+        employeeId,
+        category || 'general',
+        folderName || folder
+      );
+    }
 
     if (!uploadResult.success || !uploadResult.filePath) {
       return { 
         success: false, 
-        error: uploadResult.error || 'S3へのアップロードに失敗しました' 
+        error: uploadResult.error || 'ファイルアップロードに失敗しました' 
       };
     }
 
@@ -199,11 +215,19 @@ export async function handleFileDelete(
       return { success: false, error: 'ファイルが見つかりません' };
     }
 
-    // S3からファイルを削除
-    const deleteResult = await deleteFileFromS3(file.filePath);
+    // 開発環境ではローカルファイルシステムから削除、本番環境ではS3から削除
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
+    
+    let deleteResult;
+    if (isProduction) {
+      deleteResult = await deleteFileFromS3(file.filePath);
+    } else {
+      deleteResult = await deleteFileFromLocal(file.filePath);
+    }
+    
     if (!deleteResult.success) {
-      console.error('S3削除エラー:', deleteResult.error);
-      // S3削除に失敗してもデータベースからは削除する（孤立ファイル回避）
+      console.error('ファイル削除エラー:', deleteResult.error);
+      // ファイル削除に失敗してもデータベースからは削除する（孤立ファイル回避）
     }
 
     // タスクカードのファイルの場合は、カードのattachmentsフィールドからも削除

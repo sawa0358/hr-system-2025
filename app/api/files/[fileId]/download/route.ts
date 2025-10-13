@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSignedDownloadUrl } from '@/lib/s3-client';
+import { getLocalDownloadUrl } from '@/lib/local-file-storage';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 export async function GET(
   request: NextRequest,
@@ -62,19 +65,51 @@ export async function GET(
       }
     }
 
-    // S3から署名付きURLを取得（1時間有効）
-    const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
+    // 開発環境ではローカルファイルシステムから、本番環境ではS3からダウンロード
+    const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
+    
+    if (isProduction) {
+      // 本番環境：S3から署名付きURLを取得（1時間有効）
+      const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
 
-    if (!downloadResult.success || !downloadResult.url) {
-      console.error('S3署名付きURL取得エラー:', downloadResult.error);
-      return NextResponse.json(
-        { error: downloadResult.error || 'ファイルのダウンロードURLの取得に失敗しました' },
-        { status: 500 }
-      );
+      if (!downloadResult.success || !downloadResult.url) {
+        console.error('S3署名付きURL取得エラー:', downloadResult.error);
+        return NextResponse.json(
+          { error: downloadResult.error || 'ファイルのダウンロードURLの取得に失敗しました' },
+          { status: 500 }
+        );
+      }
+
+      // 署名付きURLにリダイレクト
+      return NextResponse.redirect(downloadResult.url);
+    } else {
+      // 開発環境：ローカルファイルシステムから直接ファイルを配信
+      try {
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        const absolutePath = path.join(uploadDir, file.filePath);
+        
+        // ファイルの存在確認
+        await fs.access(absolutePath);
+        
+        // ファイルを読み込み
+        const fileBuffer = await fs.readFile(absolutePath);
+        
+        // レスポンスヘッダーを設定
+        const headers = new Headers();
+        headers.set('Content-Type', file.mimeType);
+        headers.set('Content-Disposition', `attachment; filename="${file.originalName}"`);
+        headers.set('Content-Length', fileBuffer.length.toString());
+        
+        // ファイルを返す
+        return new NextResponse(fileBuffer, { headers });
+      } catch (error) {
+        console.error('ローカルファイル読み込みエラー:', error);
+        return NextResponse.json(
+          { error: 'ファイルの読み込みに失敗しました' },
+          { status: 500 }
+        );
+      }
     }
-
-    // 署名付きURLにリダイレクト
-    return NextResponse.redirect(downloadResult.url);
   } catch (error) {
     console.error('ファイルダウンロードAPIエラー:', error);
     return NextResponse.json(

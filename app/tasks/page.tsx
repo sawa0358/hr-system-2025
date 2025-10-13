@@ -249,6 +249,7 @@ export default function TasksPage() {
     try {
       if (editingWorkspace?.id) {
         // 更新
+        console.log("Updating workspace:", editingWorkspace.id, "with data:", data)
         const response = await fetch(`/api/workspaces/${editingWorkspace.id}`, {
           method: "PATCH",
           headers: {
@@ -258,7 +259,21 @@ export default function TasksPage() {
           body: JSON.stringify(data),
         })
         if (response.ok) {
-          fetchWorkspaces()
+          const result = await response.json()
+          console.log("Workspace updated successfully:", result.workspace)
+          await fetchWorkspaces() // ワークスペースリストを更新
+          
+          // 現在選択中のワークスペースの場合、ボードもリフレッシュ
+          if (currentWorkspace === editingWorkspace.id && currentBoard) {
+            await fetchBoardData()
+          }
+          
+          setWorkspaceDialogOpen(false)
+          setEditingWorkspace(null)
+        } else {
+          const errorData = await response.json()
+          console.error("Failed to update workspace:", errorData)
+          alert(`ワークスペースの更新に失敗しました: ${errorData.error || '不明なエラー'}`)
         }
       } else {
         // 新規作成

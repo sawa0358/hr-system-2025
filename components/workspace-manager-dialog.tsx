@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,6 +65,22 @@ export function WorkspaceManagerDialog({
     workspace?.members?.map((m) => m.employeeId) || [],
   )
   const [searchQuery, setSearchQuery] = useState("")
+
+  // ダイアログが開いたときに最新のworkspace情報で状態を更新
+  useEffect(() => {
+    if (open && workspace) {
+      setName(workspace.name || "")
+      setDescription(workspace.description || "")
+      setSelectedMembers(workspace.members?.map((m) => m.employeeId) || [])
+      setSearchQuery("")
+    } else if (open && !workspace) {
+      // 新規作成の場合
+      setName("")
+      setDescription("")
+      setSelectedMembers([])
+      setSearchQuery("")
+    }
+  }, [open, workspace])
 
   const handleReset = () => {
     setName(workspace?.name || "")

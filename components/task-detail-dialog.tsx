@@ -248,10 +248,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       }
     }
     
-    if (task && currentUser) {
+    // ダイアログが開いているときのみ、最新のメンバーリストを取得
+    if (open && task && currentUser) {
       fetchEmployees()
     }
-  }, [task?.boardId, currentUser?.id])
+  }, [open, task?.boardId, task?.id, currentUser?.id])
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)

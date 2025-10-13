@@ -119,15 +119,50 @@ export async function PATCH(request: NextRequest, { params }: { params: { worksp
     }
 
     // 権限チェック
-    const memberIds = workspace.members.map((m) => m.employeeId)
-    const workspacePerms = checkWorkspacePermissions(userRole, userId, workspace.createdBy, memberIds)
+    const currentMemberIds = workspace.members.map((m) => m.employeeId)
+    const workspacePerms = checkWorkspacePermissions(userRole, userId, workspace.createdBy, currentMemberIds)
 
     if (!workspacePerms.canEdit) {
       return NextResponse.json({ error: "ワークスペースを編集する権限がありません" }, { status: 403 })
     }
 
     const body = await request.json()
-    const { name, description } = body
+    const { name, description, memberIds } = body
+
+    console.log('[v0] Updating workspace with data:', { name, description, memberIds })
+
+    // メンバーの更新が必要な場合
+    if (memberIds && Array.isArray(memberIds)) {
+      // 削除するメンバー（現在のメンバーで新しいリストにないもの）
+      const membersToRemove = currentMemberIds.filter(id => !memberIds.includes(id))
+      
+      // 追加するメンバー（新しいリストで現在のメンバーにないもの）
+      const membersToAdd = memberIds.filter((id: string) => !currentMemberIds.includes(id))
+      
+      console.log('[v0] Members to remove:', membersToRemove)
+      console.log('[v0] Members to add:', membersToAdd)
+      
+      // メンバーを削除
+      if (membersToRemove.length > 0) {
+        await prisma.workspaceMember.deleteMany({
+          where: {
+            workspaceId: params.workspaceId,
+            employeeId: { in: membersToRemove },
+          },
+        })
+      }
+      
+      // メンバーを追加
+      if (membersToAdd.length > 0) {
+        await prisma.workspaceMember.createMany({
+          data: membersToAdd.map((employeeId: string) => ({
+            workspaceId: params.workspaceId,
+            employeeId,
+            role: 'workspace_member',
+          })),
+        })
+      }
+    }
 
     const updatedWorkspace = await prisma.workspace.update({
       where: { id: params.workspaceId },
@@ -159,6 +194,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { worksp
       },
     })
 
+    console.log('[v0] Workspace updated successfully, member count:', updatedWorkspace.members.length)
     return NextResponse.json({ workspace: updatedWorkspace })
   } catch (error) {
     console.error("[v0] Error updating workspace:", error)

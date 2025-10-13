@@ -368,7 +368,6 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [showCalendarSelector, setShowCalendarSelector] = useState(false)
   const [employeeSearch, setEmployeeSearch] = useState("")
 
-  const [isGoogleCalendarSynced, setIsGoogleCalendarSynced] = useState(false)
   const [isArchived, setIsArchived] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -792,11 +791,6 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       emp.position.toLowerCase().includes(employeeSearch.toLowerCase()),
   )
 
-  const handleGoogleCalendarSync = () => {
-    setIsGoogleCalendarSynced(!isGoogleCalendarSynced)
-    console.log("[v0] Google Calendar sync:", !isGoogleCalendarSynced ? "enabled" : "disabled")
-  }
-
   const handleMakeTemplate = async () => {
     if (!task || !currentUser) {
       alert("ユーザー情報が取得できません")
@@ -1151,18 +1145,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               >
                 {dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}
               </Button>
-              <Button
-                variant={isGoogleCalendarSynced ? "default" : "outline"}
-                onClick={handleGoogleCalendarSync}
-                className="whitespace-nowrap"
-              >
-                <CalendarIcon className="w-4 h-4 mr-2" />
-                {isGoogleCalendarSynced ? "Google連携中" : "Google連携"}
-              </Button>
             </div>
-            {isGoogleCalendarSynced && (
-              <p className="text-xs text-green-600 mt-2">✓ Googleカレンダーと同期されています</p>
-            )}
           </div>
 
           {/* Priority and Status with Management */}

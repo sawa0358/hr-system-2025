@@ -46,6 +46,15 @@ export default function PayrollPage() {
   }, [])
 
   const filteredEmployees = employees.filter((emp) => {
+    // 権限チェック: 総務・管理者以外は自分のデータのみ表示
+    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    if (!isAdminOrHR) {
+      // 自分以外のデータは表示しない
+      if (emp.id !== currentUser?.id) {
+        return false
+      }
+    }
+
     // 見えないTOP社員は管理者のみに表示
     const isInvisibleTop = emp.isInvisibleTop || emp.employeeNumber === '000'
     if (isInvisibleTop) {
@@ -100,7 +109,6 @@ export default function PayrollPage() {
     const matchesStatus = filters.status === "all" || emp.status === filters.status
 
     // システム使用状態のフィルタリング
-    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
     const isManager = currentUser?.role === 'manager'
     
     let matchesSystemStatus = true

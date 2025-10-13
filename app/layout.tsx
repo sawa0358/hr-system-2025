@@ -11,9 +11,9 @@ import { ClientOnly } from "@/components/client-only"
 import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.app",
+  title: "HR System",
+  description: "Human Resources Management System",
+  generator: "Next.js",
 }
 
 export default function RootLayout({

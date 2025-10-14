@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Employee {
@@ -52,7 +52,6 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   originalEmployeeId    String?
-  orgChartLabel         String?
   activityLogs          ActivityLog[]
   attendance            Attendance[]
   evaluations           Evaluation[]

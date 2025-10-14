@@ -188,7 +188,6 @@ export async function PUT(
         parentEmployeeId: body.parentEmployeeId || null,
         isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
         retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
-        orgChartLabel: body.orgChartLabel || null,
         // 公開設定
         privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
         privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,

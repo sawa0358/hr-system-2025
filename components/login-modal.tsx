@@ -93,7 +93,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
             <Input
               id="name"
               type="text"
-              placeholder="田中 太郎 または admin"
+              placeholder="フルネーム（スペースを入れない）"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -140,8 +140,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
         </form>
 
         <div className="mt-4 text-center text-xs text-slate-500">
-          <p>パスワードを忘れた場合は管理者にお問い合わせください</p>
-          <p className="mt-1 text-blue-600">管理者ログイン: admin / admin</p>
+          <p>パスワードを忘れた場合は伊藤or大澤にお問合せください</p>
         </div>
       </DialogContent>
     </Dialog>

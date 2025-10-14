@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { AIAskButton } from "@/components/ai-ask-button"
-import { Users, Upload, FileText, X } from "lucide-react"
+import { Users, Upload, FileText, X, ChevronDown, ChevronUp } from "lucide-react"
 // import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { AttendanceUploadDialog } from "@/components/attendance-upload-dialog"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ export default function AttendancePage() {
   const [employees, setEmployees] = useState<any[]>([])
   const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[]; content?: string; type?: string }[]>([])
   const [isDraggingTemplate, setIsDraggingTemplate] = useState(false)
+  const [isTemplateExpanded, setIsTemplateExpanded] = useState(false)
 
   // 社員データを取得
   useEffect(() => {
@@ -136,12 +137,14 @@ export default function AttendancePage() {
     setSelectedEmployee(employee)
     setIsAllEmployeesMode(false)
     setIsUploadDialogOpen(true)
+    setIsTemplateExpanded(false) // テンプレートセクションを閉じる
   }
 
   const handleAllEmployeesClick = () => {
     setSelectedEmployee({ name: "全員分", employeeNumber: "ALL", department: "全部署" })
     setIsAllEmployeesMode(true)
     setIsUploadDialogOpen(true)
+    setIsTemplateExpanded(false) // テンプレートセクションを閉じる
   }
 
   // テンプレートファイルの保存・読み込み
@@ -169,6 +172,7 @@ export default function AttendancePage() {
     e.preventDefault()
     e.stopPropagation()
     setIsDraggingTemplate(true)
+    setIsTemplateExpanded(true) // ドラッグ中はセクションを開く
   }
 
   const handleTemplateDragLeave = () => {
@@ -179,6 +183,7 @@ export default function AttendancePage() {
     e.preventDefault()
     e.stopPropagation()
     setIsDraggingTemplate(false)
+    setIsTemplateExpanded(true) // ドロップ後もセクションを開いたまま
     const files = Array.from(e.dataTransfer.files)
     files.forEach((file) => {
       // ファイルの内容を読み込んで保存
@@ -291,14 +296,26 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
         </div>
 
         {isAdminOrHR && (
-          <div className="rounded-xl border border-slate-200 p-4 shadow-sm mb-6" style={{ backgroundColor: '#b4d5e7' }}>
-            <div className="mb-3">
-              <h2 className="text-lg font-semibold text-slate-900 mb-1">共通テンプレート</h2>
-              <p className="text-sm text-slate-600">勤怠管理用のテンプレートをアップロード・管理（総務・管理者のみ）</p>
+          <div className="rounded-xl border border-slate-200 shadow-sm mb-6" style={{ backgroundColor: '#b4d5e7' }}>
+            <div 
+              className="p-4 cursor-pointer flex items-center justify-between"
+              onClick={() => setIsTemplateExpanded(!isTemplateExpanded)}
+            >
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900 mb-1">共通テンプレート</h2>
+                <p className="text-sm text-slate-600">勤怠管理用のテンプレートをアップロード・管理（総務・管理者のみ）</p>
+              </div>
+              {isTemplateExpanded ? (
+                <ChevronUp className="w-5 h-5 text-slate-600" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-600" />
+              )}
             </div>
 
-            {/* ドラッグドロップエリア */}
-            <div
+            {isTemplateExpanded && (
+              <div className="px-4 pb-4">
+                {/* ドラッグドロップエリア */}
+                <div
               className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors mb-4 ${
                 isDraggingTemplate ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
               }`}
@@ -344,6 +361,8 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
                     </Button>
                   </div>
                 ))}
+              </div>
+            )}
               </div>
             )}
           </div>

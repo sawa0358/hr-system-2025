@@ -359,11 +359,17 @@ export default function TasksPage() {
   }
 
   const handleDeleteWorkspace = async () => {
-    if (!editingWorkspace?.id) return
-    if (!confirm("このワークスペースを削除してもよろしいですか？すべてのボードとカードも削除されます。")) return
+    // 編集中のワークスペースまたは現在選択中のワークスペースを削除
+    const workspaceIdToDelete = editingWorkspace?.id || currentWorkspace
+    if (!workspaceIdToDelete) return
+    
+    const workspace = workspaces.find(w => w.id === workspaceIdToDelete)
+    const workspaceName = workspace?.name || "このワークスペース"
+    
+    if (!confirm(`${workspaceName}を削除してもよろしいですか？すべてのボードとカードも削除されます。`)) return
 
     try {
-      const response = await fetch(`/api/workspaces/${editingWorkspace.id}`, {
+      const response = await fetch(`/api/workspaces/${workspaceIdToDelete}`, {
         method: "DELETE",
         headers: {
           "x-employee-id": currentUser?.id || "",
@@ -374,6 +380,9 @@ export default function TasksPage() {
         setEditingWorkspace(null)
         setCurrentWorkspace(null)
         fetchWorkspaces()
+      } else {
+        const errorData = await response.json()
+        alert(`ワークスペースの削除に失敗しました: ${errorData.error || '不明なエラー'}`)
       }
     } catch (error) {
       console.error("Failed to delete workspace:", error)
@@ -445,11 +454,17 @@ export default function TasksPage() {
   }
 
   const handleDeleteBoard = async () => {
-    if (!editingBoard?.id) return
-    if (!confirm("このボードを削除してもよろしいですか？すべてのカードも削除されます。")) return
+    // 編集中のボードまたは現在選択中のボードを削除
+    const boardIdToDelete = editingBoard?.id || currentBoard
+    if (!boardIdToDelete) return
+    
+    const board = boards.find(b => b.id === boardIdToDelete)
+    const boardName = board?.name || "このボード"
+    
+    if (!confirm(`${boardName}を削除してもよろしいですか？すべてのカードも削除されます。`)) return
 
     try {
-      const response = await fetch(`/api/boards/${editingBoard.id}`, {
+      const response = await fetch(`/api/boards/${boardIdToDelete}`, {
         method: "DELETE",
         headers: {
           "x-employee-id": currentUser?.id || "",
@@ -460,6 +475,9 @@ export default function TasksPage() {
         setEditingBoard(null)
         setCurrentBoard(null)
         fetchBoards(currentWorkspace!)
+      } else {
+        const errorData = await response.json()
+        alert(`ボードの削除に失敗しました: ${errorData.error || '不明なエラー'}`)
       }
     } catch (error) {
       console.error("Failed to delete board:", error)

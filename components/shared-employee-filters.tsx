@@ -37,7 +37,7 @@ export function SharedEmployeeFilters({
   const [status, setStatus] = useState("active")
   const [employeeType, setEmployeeType] = useState("employee")
   const [position, setPosition] = useState("all")
-  const [showInOrgChart, setShowInOrgChart] = useState("all")
+  const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
 
@@ -93,7 +93,7 @@ export function SharedEmployeeFilters({
     setStatus("active")
     setEmployeeType("employee")
     setPosition("all")
-    setShowInOrgChart("all")
+    setShowInOrgChart("1")
   }
 
   // グリッドの列数を動的に決定

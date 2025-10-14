@@ -17,7 +17,8 @@ export default function PayrollPage() {
     department: "all",
     position: "all",
     status: "active",
-    employeeType: "all"
+    employeeType: "employee",
+    showInOrgChart: "1"
   })
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -55,10 +56,28 @@ export default function PayrollPage() {
       }
     }
 
-    // 見えないTOP社員は管理者のみに表示
+    // 見えないTOP社員は管理者のみに表示（社員情報ページと同じロジック）
     const isInvisibleTop = emp.isInvisibleTop || emp.employeeNumber === '000'
     if (isInvisibleTop) {
       return currentUser?.role === 'admin'
+    }
+
+    // ステータスフィルター（社員情報ページと同じロジック）
+    let matchesStatus = true
+    if (filters.status === 'active') {
+      // 「在籍中」フィルターの場合、コピー社員は除外する
+      matchesStatus = emp.status === 'active'
+    } else if (filters.status !== 'all') {
+      matchesStatus = emp.status === filters.status
+    } else {
+      // 「全ステータス」の場合でも、デフォルトではコピー社員は除外する
+      // コピー社員を見たい場合は明示的に「コピー社員」フィルターを選択する必要がある
+      matchesStatus = emp.status !== 'copy'
+    }
+
+    // ステータスフィルターで除外された場合は早期リターン
+    if (!matchesStatus) {
+      return false
     }
 
     // 休職・退職・停止中の社員はマネージャー・総務・管理者のみに表示
@@ -105,9 +124,6 @@ export default function PayrollPage() {
       return positions.includes(filters.position)
     })()
 
-    // ステータスフィルター
-    const matchesStatus = filters.status === "all" || emp.status === filters.status
-
     // システム使用状態のフィルタリング
     const isManager = currentUser?.role === 'manager'
     
@@ -117,16 +133,17 @@ export default function PayrollPage() {
       matchesSystemStatus = emp.role && emp.role !== ''
     }
 
-    // ダミー社員（見えないTOP社員または社員番号000）の表示制限
-    // 管理者・総務以外は、見えないTOP社員または社員番号000を非表示にする
-    if (!isAdminOrHR) {
-      // 見えないTOP社員または社員番号000を除外
-      if (emp.isInvisibleTop || emp.employeeNumber === '000') {
-        return false
-      }
-    }
+    // 組織図表示フィルター
+    const matchesOrgChart = filters.showInOrgChart === "all" || 
+      (filters.showInOrgChart === "1" && emp.showInOrgChart) ||
+      (filters.showInOrgChart === "0" && !emp.showInOrgChart)
 
-    return matchesSearch && matchesDepartment && matchesPosition && matchesStatus && matchesType && matchesSystemStatus
+    return matchesSearch && matchesDepartment && matchesPosition && matchesStatus && matchesType && matchesSystemStatus && matchesOrgChart
+  }).sort((a, b) => {
+    // 五十音順（ふりがながあればふりがな、なければ名前）でソート
+    const aName = (a.furigana || a.name).toLowerCase()
+    const bName = (b.furigana || b.name).toLowerCase()
+    return aName.localeCompare(bName, 'ja')
   })
 
   const handleEmployeeClick = (employee: any) => {
@@ -213,14 +230,13 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
               className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-blue-500 bg-blue-50"
               onClick={handleAllEmployeesClick}
             >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center">
-                    <Users className="w-6 h-6 text-white" />
+              <CardContent className="p-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-4 h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-blue-900 truncate">全員分</h3>
-                    <p className="text-sm text-blue-700 truncate">全社員の給与管理</p>
+                    <h3 className="text-sm font-semibold text-blue-900 truncate">全員分</h3>
                     <p className="text-xs text-blue-600 font-mono">管理者・総務専用</p>
                   </div>
                 </div>
@@ -234,17 +250,16 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
               className="cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => handleEmployeeClick(employee)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar className="w-12 h-12">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
+              <CardContent className="p-2">
+                <div className="flex items-center gap-2">
+                  <Avatar className="w-8 h-8 flex-shrink-0">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
                       {employee.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 truncate">{employee.name}</h3>
-                    <p className="text-sm text-slate-600 truncate">{employee.department}</p>
-                    <p className="text-xs text-slate-500 font-mono">{employee.employeeNumber}</p>
+                    <h3 className="text-sm font-semibold text-slate-900 truncate">{employee.name}</h3>
+                    <p className="text-xs text-slate-500 truncate">{employee.department} / {employee.employeeNumber}</p>
                   </div>
                 </div>
               </CardContent>

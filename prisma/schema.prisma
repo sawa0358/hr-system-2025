@@ -328,15 +328,3 @@ enum EmployeeStatus {
   suspended
   copy
 }
-
-enum EmployeeType {
-  employee
-  contractor
-  part_time
-  dispatched
-  contract
-  outsourcing
-  advisor
-  non_regular
-  intern
-}

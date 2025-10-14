@@ -789,9 +789,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   // 見えないTOP社員は除外するが、その子ノードは表示する
   const showInChartEmployees = employees.filter(emp =>
     emp.showInOrgChart &&
-    emp.status !== 'leave' &&
-    emp.status !== 'retired' &&
-    emp.status !== 'suspended' &&
+    (emp.status === 'active' || emp.status === 'leave') && // 在籍中・休職中のみ表示
     !emp.isSuspended &&
     !emp.isInvisibleTop &&
     emp.employeeNumber !== '000'

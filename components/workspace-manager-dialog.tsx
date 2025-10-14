@@ -21,6 +21,8 @@ interface Employee {
   position?: string
   role?: string
   isInvisibleTop?: boolean
+  showInOrgChart?: boolean
+  status?: string
 }
 
 interface WorkspaceMember {
@@ -120,6 +122,8 @@ export function WorkspaceManagerDialog({
   const filteredEmployees = employees.filter(
     (emp) =>
       !emp.isInvisibleTop && // 見えないTOP社員を除外
+      emp.showInOrgChart !== false && // 組織図に表示する社員のみ
+      (emp.status === 'active' || emp.status === 'leave') && // 在籍中・休職中のみ
       (emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.department?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       emp.position?.toLowerCase().includes(searchQuery.toLowerCase())),

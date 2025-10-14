@@ -903,9 +903,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
   const filteredEmployees = employees.filter(
     (emp) =>
-      emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+      !emp.isInvisibleTop && // 見えないTOP社員を除外
+      emp.showInOrgChart !== false && // 組織図に表示する社員のみ
+      (emp.status === 'active' || emp.status === 'leave') && // 在籍中・休職中のみ
+      (emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
       emp.department.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-      emp.position.toLowerCase().includes(employeeSearch.toLowerCase()),
+      emp.position.toLowerCase().includes(employeeSearch.toLowerCase())),
   )
 
   const handleMakeTemplate = async () => {

@@ -99,7 +99,9 @@ export function WorkspaceSelector({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <Briefcase className="w-5 h-5 text-slate-600" />
+        <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+          1
+        </div>
         <Select value={currentWorkspace || undefined} onValueChange={onWorkspaceChange}>
           <SelectTrigger className="w-[280px]">
             <SelectValue placeholder="ワークスペースを選択" />

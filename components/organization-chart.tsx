@@ -458,7 +458,9 @@ function DraggableOrgNodeCard({
         <Card
           className={`relative z-0 ${isCompactMode ? 'w-32' : 'w-48'} border-slate-200 shadow-sm hover:shadow-md transition-all ${
             node.employee?.status === 'copy'
-              ? "cursor-not-allowed opacity-50 bg-slate-50 border-slate-300"
+              ? (currentUser?.role === 'admin' || currentUser?.role === 'hr')
+                ? "cursor-pointer opacity-50 bg-slate-50 border-slate-300"
+                : "cursor-not-allowed opacity-50 bg-slate-50 border-slate-300"
               : canEdit ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
           } ${
             selectedNodeId === node.id ? "ring-2 ring-blue-500" : ""
@@ -472,11 +474,14 @@ function DraggableOrgNodeCard({
               e.preventDefault()
               return
             }
-            // コピー社員の場合はクリックを無効化
+            // コピー社員の場合は総務・管理者のみクリック可能
             if (node.employee?.status === 'copy') {
-              e.stopPropagation()
-              e.preventDefault()
-              return
+              const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+              if (!isAdminOrHR) {
+                e.stopPropagation()
+                e.preventDefault()
+                return
+              }
             }
             // ドラッグ中でない場合のみクリックイベントを実行
             if (!isDraggingThis) {
@@ -554,22 +559,27 @@ function DraggableOrgNodeCard({
               <button
                 className={`text-xs flex-1 border rounded px-2 py-1 flex items-center justify-center gap-1 transition-colors relative z-[60] ${
                   node.employee?.status === 'copy'
-                    ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
+                    ? (currentUser?.role === 'admin' || currentUser?.role === 'hr')
+                      ? 'bg-slate-200 text-slate-600 border-slate-300 cursor-pointer hover:bg-slate-300'
+                      : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
                     : 'bg-slate-100 hover:bg-slate-200 border-slate-300'
                 }`}
                 onMouseDown={(e) => {
                   e.stopPropagation()
                   e.preventDefault()
-                  // コピー社員の場合は社員情報表示を無効化
+                  // コピー社員の場合は総務・管理者のみ社員情報表示可能
                   if (node.employee?.status === 'copy') {
-                    return
+                    const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+                    if (!isAdminOrHR) {
+                      return
+                    }
                   }
                   console.log('社員情報表示ボタンがクリックされました')
                   if (onEmployeeClick && node) {
                     onEmployeeClick(node)
                   }
                 }}
-                disabled={node.employee?.status === 'copy'}
+                disabled={node.employee?.status === 'copy' && (currentUser?.role !== 'admin' && currentUser?.role !== 'hr')}
               >
                 社員情報表示
               </button>
@@ -744,6 +754,7 @@ interface OrganizationChartProps {
 export const OrganizationChart = forwardRef<{ refresh: () => void }, OrganizationChartProps>(
   ({ onEmployeeClick }, ref) => {
   const { permissions } = usePermissions()
+  const { currentUser } = useAuth()
   const canEdit = permissions.editOrgChart
 
   const [zoom, setZoom] = useState(90)

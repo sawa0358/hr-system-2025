@@ -85,10 +85,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
-  const canEditProfile = isAdminOrHR && !isCopyEmployee
+  const canEditProfile = isAdminOrHR && !isCopyEmployee // 通常の編集権限
+  const canEditCopyEmployee = isAdminOrHR && isCopyEmployee // コピー社員の編集権限（名前・フリガナのみ）
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
-  const canEditUserInfo = (permissions.permissions.editAllProfiles || isAdminOrHR) && !isCopyEmployee
+  const canEditUserInfo = (permissions.permissions.editAllProfiles || isAdminOrHR) // コピー社員も編集可能（制限あり）
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
   
@@ -992,8 +993,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee}
-                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      disabled={!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee}
+                      className={(!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1001,9 +1002,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={formData.furigana}
                       onChange={(e) => setFormData({ ...formData, furigana: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee}
+                      disabled={!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee}
                       placeholder="ヤマダタロウ"
-                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      className={(!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   {canViewMyNumber && (
@@ -2184,7 +2185,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 戻る
               </Button>
-              {!isCopyEmployee && (canEditUserInfo || isNewEmployee || isAdminOrHR) && canEditInvisibleTop && (
+              {((!isCopyEmployee && (canEditUserInfo || isNewEmployee || isAdminOrHR)) || canEditCopyEmployee) && canEditInvisibleTop && (
                 <Button 
                   onClick={handleSave} 
                   disabled={saving}

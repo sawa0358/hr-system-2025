@@ -72,6 +72,14 @@ export async function PUT(
     console.log('retirementDate value:', body.retirementDate);
     console.log('furigana value:', body.furigana);
     
+    // 現在の社員データを取得してコピー社員かどうか確認
+    const currentEmployee = await prisma.employee.findUnique({
+      where: { id: params.id },
+      select: { status: true }
+    });
+    
+    const isCopyEmployee = currentEmployee?.status === 'copy';
+    
     // メールアドレスの重複チェック（自分以外）
     // 空文字列やnullの場合はチェックをスキップ
     if (body.email && body.email.trim() !== '') {
@@ -142,66 +150,78 @@ export async function PUT(
       isEmpty: body.furigana === '' || body.furigana === null || body.furigana === undefined
     })
 
+    // コピー社員の場合は名前とフリガナのみ更新可能
+    const updateData = isCopyEmployee ? {
+      name: body.name,
+      furigana: (() => {
+        if (!body.furigana || body.furigana === '' || body.furigana === null || body.furigana === undefined) {
+          return null;
+        }
+        const trimmed = String(body.furigana).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+    } : {
+      name: body.name,
+      furigana: (() => {
+        if (!body.furigana || body.furigana === '' || body.furigana === null || body.furigana === undefined) {
+          return null;
+        }
+        const trimmed = String(body.furigana).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      email: body.email && body.email.trim() !== '' ? body.email : null,
+      phone: body.phone,
+      department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
+      position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : body.position,
+      organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : body.organization,
+      team: body.team,
+      joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
+      status: body.status,
+      password: body.password,
+      role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
+      myNumber: body.myNumber || null,
+      employeeNumber: body.employeeNumber,
+      employeeType: body.employeeType,
+      userId: body.userId,
+      url: body.url,
+      address: body.address,
+      selfIntroduction: body.selfIntroduction,
+      phoneInternal: body.phoneInternal,
+      phoneMobile: body.phoneMobile,
+      birthDate: (() => {
+        if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
+          return null;
+        }
+        try {
+          const date = new Date(body.birthDate);
+          return isNaN(date.getTime()) ? null : date;
+        } catch (error) {
+          console.error('birthDate parsing error:', error);
+          return null;
+        }
+      })(),
+      showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
+      parentEmployeeId: body.parentEmployeeId || null,
+      isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
+      retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
+      orgChartLabel: body.orgChartLabel !== undefined ? (body.orgChartLabel || null) : undefined,
+      // 公開設定
+      privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
+      privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,
+      privacyDepartment: body.privacyDepartment !== undefined ? body.privacyDepartment : true,
+      privacyPosition: body.privacyPosition !== undefined ? body.privacyPosition : true,
+      privacyUrl: body.privacyUrl !== undefined ? body.privacyUrl : true,
+      privacyAddress: body.privacyAddress !== undefined ? body.privacyAddress : true,
+      privacyBio: body.privacyBio !== undefined ? body.privacyBio : true,
+      privacyEmail: body.privacyEmail !== undefined ? body.privacyEmail : true,
+      privacyWorkPhone: body.privacyWorkPhone !== undefined ? body.privacyWorkPhone : true,
+      privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
+      privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
+    };
+
     const employee = await prisma.employee.update({
       where: { id: params.id },
-      data: {
-        name: body.name,
-        furigana: (() => {
-          if (!body.furigana || body.furigana === '' || body.furigana === null || body.furigana === undefined) {
-            return null;
-          }
-          const trimmed = String(body.furigana).trim();
-          return trimmed !== '' ? trimmed : null;
-        })(),
-        email: body.email && body.email.trim() !== '' ? body.email : null,
-        phone: body.phone,
-        department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
-        position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : body.position,
-        organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : body.organization,
-        team: body.team,
-        joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
-        status: body.status,
-        password: body.password,
-        role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
-        myNumber: body.myNumber || null,
-        employeeNumber: body.employeeNumber,
-        employeeType: body.employeeType,
-        userId: body.userId,
-        url: body.url,
-        address: body.address,
-        selfIntroduction: body.selfIntroduction,
-        phoneInternal: body.phoneInternal,
-        phoneMobile: body.phoneMobile,
-        birthDate: (() => {
-          if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
-            return null;
-          }
-          try {
-            const date = new Date(body.birthDate);
-            return isNaN(date.getTime()) ? null : date;
-          } catch (error) {
-            console.error('birthDate parsing error:', error);
-            return null;
-          }
-        })(),
-        showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
-        parentEmployeeId: body.parentEmployeeId || null,
-        isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
-        retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
-        orgChartLabel: body.orgChartLabel !== undefined ? (body.orgChartLabel || null) : undefined,
-        // 公開設定
-        privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
-        privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,
-        privacyDepartment: body.privacyDepartment !== undefined ? body.privacyDepartment : true,
-        privacyPosition: body.privacyPosition !== undefined ? body.privacyPosition : true,
-        privacyUrl: body.privacyUrl !== undefined ? body.privacyUrl : true,
-        privacyAddress: body.privacyAddress !== undefined ? body.privacyAddress : true,
-        privacyBio: body.privacyBio !== undefined ? body.privacyBio : true,
-        privacyEmail: body.privacyEmail !== undefined ? body.privacyEmail : true,
-        privacyWorkPhone: body.privacyWorkPhone !== undefined ? body.privacyWorkPhone : true,
-        privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
-        privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
-      }
+      data: updateData
     });
 
     console.log('更新成功:', employee.id, employee.name, employee.furigana)
@@ -274,18 +294,109 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.employee.delete({
-      where: { id: params.id }
+    // 削除対象の社員を取得
+    const employeeToDelete = await prisma.employee.findUnique({
+      where: { id: params.id },
+      include: {
+        workspacesCreated: true,
+        boardsCreated: true,
+        cardsCreated: true,
+        workspaceMemberships: true,
+        cardMemberships: true
+      }
+    });
+
+    if (!employeeToDelete) {
+      return NextResponse.json(
+        { error: '社員が見つかりません' },
+        { status: 404 }
+      );
+    }
+
+    // 管理者またはHRアカウントを取得（代替の作成者として使用）
+    const adminEmployee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { role: 'admin' },
+          { role: 'hr' }
+        ],
+        id: { not: params.id } // 削除対象の社員以外
+      }
+    });
+
+    if (!adminEmployee) {
+      return NextResponse.json(
+        { error: '管理者アカウントが見つかりません。社員を削除するには管理者アカウントが必要です。' },
+        { status: 400 }
+      );
+    }
+
+    // トランザクションで関連データを処理してから削除
+    await prisma.$transaction(async (tx) => {
+      // 1. ワークスペースの作成者を管理者に変更
+      if (employeeToDelete.workspacesCreated.length > 0) {
+        await tx.workspace.updateMany({
+          where: { createdBy: params.id },
+          data: { createdBy: adminEmployee.id }
+        });
+        console.log(`${employeeToDelete.workspacesCreated.length}件のワークスペースの作成者を管理者に変更`);
+      }
+
+      // 2. ボードの作成者を管理者に変更
+      if (employeeToDelete.boardsCreated.length > 0) {
+        await tx.board.updateMany({
+          where: { createdBy: params.id },
+          data: { createdBy: adminEmployee.id }
+        });
+        console.log(`${employeeToDelete.boardsCreated.length}件のボードの作成者を管理者に変更`);
+      }
+
+      // 3. カードの作成者を管理者に変更
+      if (employeeToDelete.cardsCreated.length > 0) {
+        await tx.card.updateMany({
+          where: { createdBy: params.id },
+          data: { createdBy: adminEmployee.id }
+        });
+        console.log(`${employeeToDelete.cardsCreated.length}件のカードの作成者を管理者に変更`);
+      }
+
+      // 4. ワークスペースメンバーシップを削除
+      if (employeeToDelete.workspaceMemberships.length > 0) {
+        await tx.workspaceMember.deleteMany({
+          where: { employeeId: params.id }
+        });
+        console.log(`${employeeToDelete.workspaceMemberships.length}件のワークスペースメンバーシップを削除`);
+      }
+
+      // 5. カードメンバーシップを削除
+      if (employeeToDelete.cardMemberships.length > 0) {
+        await tx.cardMember.deleteMany({
+          where: { employeeId: params.id }
+        });
+        console.log(`${employeeToDelete.cardMemberships.length}件のカードメンバーシップを削除`);
+      }
+
+      // 6. 最終的に社員を削除（カスケード削除される関連データ: familyMembers, evaluations, attendance, payroll, files, folders, tasks, activityLogs）
+      await tx.employee.delete({
+        where: { id: params.id }
+      });
+
+      console.log(`社員 ${employeeToDelete.name} を削除しました`);
     });
 
     return NextResponse.json({
       success: true,
-      message: '社員が削除されました'
+      message: `社員 ${employeeToDelete.name} が削除されました。関連するワークスペース、ボード、カードの作成者は管理者に変更されました。`
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('社員削除エラー:', error);
+    
+    // より詳細なエラー情報を提供
+    const errorMessage = error.message || '社員の削除に失敗しました';
+    console.error('詳細エラー:', errorMessage);
+    
     return NextResponse.json(
-      { error: '社員の削除に失敗しました' },
+      { error: errorMessage, details: error },
       { status: 500 }
     );
   }

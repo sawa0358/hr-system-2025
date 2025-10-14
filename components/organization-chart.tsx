@@ -541,10 +541,6 @@ function DraggableOrgNodeCard({
                   onMouseDown={(e) => {
                     e.stopPropagation()
                     e.preventDefault()
-                    // コピー社員の場合は配下の表示を無効化
-                    if (node.employee?.status === 'copy') {
-                      return
-                    }
                     console.log('配下の表示ボタンがクリックされました')
                     if (onShowSubordinates && node) {
                       onShowSubordinates(node)
@@ -556,15 +552,24 @@ function DraggableOrgNodeCard({
                 </button>
               )}
               <button
-                className="text-xs flex-1 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 flex items-center justify-center gap-1 transition-colors relative z-[60]"
+                className={`text-xs flex-1 border rounded px-2 py-1 flex items-center justify-center gap-1 transition-colors relative z-[60] ${
+                  node.employee?.status === 'copy'
+                    ? 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
+                    : 'bg-slate-100 hover:bg-slate-200 border-slate-300'
+                }`}
                 onMouseDown={(e) => {
                   e.stopPropagation()
                   e.preventDefault()
+                  // コピー社員の場合は社員情報表示を無効化
+                  if (node.employee?.status === 'copy') {
+                    return
+                  }
                   console.log('社員情報表示ボタンがクリックされました')
                   if (onEmployeeClick && node) {
                     onEmployeeClick(node)
                   }
                 }}
+                disabled={node.employee?.status === 'copy'}
               >
                 社員情報表示
               </button>

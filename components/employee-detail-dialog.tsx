@@ -1184,11 +1184,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {employmentTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
+                        {employmentTypes
+                          .filter((type) => type.value && type.value.trim() !== '')
+                          .map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1454,11 +1456,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           <SelectValue placeholder="部署を選択" />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableDepartments.map((availDept) => (
-                            <SelectItem key={availDept} value={availDept}>
-                              {availDept}
-                            </SelectItem>
-                          ))}
+                          {availableDepartments
+                            .filter((availDept) => availDept && availDept.trim() !== '')
+                            .map((availDept) => (
+                              <SelectItem key={availDept} value={availDept}>
+                                {availDept}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                       <div className="flex items-center gap-2">
@@ -1528,11 +1532,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             <SelectValue placeholder="役職を選択" />
                           </SelectTrigger>
                           <SelectContent>
-                            {availablePositions.map((availablePos) => (
-                              <SelectItem key={availablePos} value={availablePos}>
-                                {availablePos}
-                              </SelectItem>
-                            ))}
+                            {availablePositions
+                              .filter((availablePos) => availablePos && availablePos.trim() !== '')
+                              .map((availablePos) => (
+                                <SelectItem key={availablePos} value={availablePos}>
+                                  {availablePos}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                         <Input

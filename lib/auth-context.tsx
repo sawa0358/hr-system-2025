@@ -26,7 +26,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 古い形式のID（"admin"など）や無効なIDの場合はキャッシュをクリア
         if (user.id === "admin" || user.id === "manager" || user.id === "sub" || 
             user.id === "ippan" || user.id === "etsuran" || 
-            user.id === "cmgkljr1000008z81edjq66sl") {
+            user.id === "cmgkljr1000008z81edjq66sl" ||
+            user.id === "cmgorkhkh00008z11nhm08dt7") {
           console.log("Clearing old cached user data:", user.id)
           localStorage.removeItem("currentUser")
         } else {

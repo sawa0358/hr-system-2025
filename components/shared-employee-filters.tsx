@@ -14,6 +14,7 @@ interface SharedEmployeeFiltersProps {
     status: string
     employeeType: string
     position: string
+    showInOrgChart: string
   }) => void
   showStatusFilter?: boolean
   showClearButton?: boolean
@@ -34,8 +35,9 @@ export function SharedEmployeeFilters({
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("all")
+  const [employeeType, setEmployeeType] = useState("employee")
   const [position, setPosition] = useState("all")
+  const [showInOrgChart, setShowInOrgChart] = useState("all")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
 
@@ -79,22 +81,24 @@ export function SharedEmployeeFilters({
         department,
         status,
         employeeType,
-        position
+        position,
+        showInOrgChart
       })
     }
-  }, [searchQuery, department, status, employeeType, position])
+  }, [searchQuery, department, status, employeeType, position, showInOrgChart])
 
   const handleClearFilters = () => {
     setSearchQuery("")
     setDepartment("all")
     setStatus("active")
-    setEmployeeType("all")
+    setEmployeeType("employee")
     setPosition("all")
+    setShowInOrgChart("all")
   }
 
   // グリッドの列数を動的に決定
-  const gridCols = showStatusFilter && showClearButton ? "md:grid-cols-6" : 
-                   showStatusFilter || showClearButton ? "md:grid-cols-5" : "md:grid-cols-4"
+  const gridCols = showStatusFilter && showClearButton ? "md:grid-cols-7" : 
+                   showStatusFilter || showClearButton ? "md:grid-cols-6" : "md:grid-cols-5"
 
   return (
     <div className={`bg-white rounded-xl border border-slate-200 p-4 shadow-sm ${className}`} style={style}>
@@ -142,6 +146,17 @@ export function SharedEmployeeFilters({
             {availablePositions.map((pos) => (
               <SelectItem key={pos} value={pos}>{cleanText(pos)}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={showInOrgChart} onValueChange={setShowInOrgChart}>
+          <SelectTrigger>
+            <SelectValue placeholder="組織図表示" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">組織図表示</SelectItem>
+            <SelectItem value="1">表示ON</SelectItem>
+            <SelectItem value="0">表示OFF</SelectItem>
           </SelectContent>
         </Select>
 

@@ -19,6 +19,7 @@ interface EmployeeTableProps {
     status: string
     employeeType: string
     position: string
+    showInOrgChart: string
   }
 }
 
@@ -380,6 +381,12 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       // 「全ステータス」の場合でも、デフォルトではコピー社員は除外する
       // コピー社員を見たい場合は明示的に「コピー社員」フィルターを選択する必要がある
       filtered = filtered.filter(employee => employee.status !== 'copy')
+    }
+
+    // 組織図表示フィルター
+    if (filters.showInOrgChart !== 'all') {
+      const showValue = filters.showInOrgChart === '1'
+      filtered = filtered.filter(employee => employee.showInOrgChart === showValue)
     }
 
     // システム使用状態のフィルタリング

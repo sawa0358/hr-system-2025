@@ -31,8 +31,9 @@ export default function EmployeesPage() {
     searchQuery: "",
     department: "all",
     status: "active",
-    employeeType: "all",
-    position: "all"
+    employeeType: "employee",
+    position: "all",
+    showInOrgChart: "1"
   })
 
   // 管理者・総務権限のチェック

@@ -51,6 +51,7 @@ interface Employee {
   isInvisibleTop?: boolean
   isSuspended?: boolean
   retirementDate?: string
+  orgChartLabel?: string
   createdAt: string
   updatedAt: string
 }
@@ -334,13 +335,11 @@ function DraggableOrgNodeCard({
   const { currentUser } = useAuth()
   const hasChildren = node.children && node.children.length > 0
   
-  // ローカルストレージから編集済みラベルを取得、なければ役職を使用（ダブルクォーテーションを削除）
+  // データベースまたはデフォルト値からラベルを取得
   const getInitialLabel = () => {
-    if (typeof window !== 'undefined' && node.id) {
-      const savedLabel = localStorage.getItem(`org-chart-label-${node.id}`)
-      if (savedLabel) {
-        return savedLabel
-      }
+    // データベースに保存されたラベルがあればそれを使用、なければ役職を使用
+    if (node.employee?.orgChartLabel) {
+      return node.employee.orgChartLabel
     }
     // デフォルトは役職から引用（[]と""を削除）
     return node.position?.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '') || ''
@@ -351,19 +350,39 @@ function DraggableOrgNodeCard({
   const [isHovered, setIsHovered] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   
-  // 部門ラベル編集権限のチェック（マネージャー・総務・管理者のみ）
+  // 部門ラベル編集権限のチェック（総務・管理者のみ）
   const canEditDepartmentLabel = canEdit && (
-    currentUser?.role === 'manager' || 
     currentUser?.role === 'hr' || 
     currentUser?.role === 'admin'
   )
   
-  // ラベル編集終了時に保存
-  const handleLabelBlur = () => {
+  // ラベル編集終了時にデータベースに保存
+  const handleLabelBlur = async () => {
     setIsEditingLabel(false)
-    if (typeof window !== 'undefined' && node.id) {
-      localStorage.setItem(`org-chart-label-${node.id}`, departmentLabel)
-      console.log(`ラベルを保存: ${node.id} -> ${departmentLabel}`)
+    if (node.employee?.id) {
+      try {
+        const response = await fetch(`/api/employees/${node.employee.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...node.employee,
+            orgChartLabel: departmentLabel
+          }),
+        })
+
+        if (response.ok) {
+          console.log(`ラベルを保存: ${node.id} -> ${departmentLabel}`)
+        } else {
+          const errorData = await response.text()
+          console.error('ラベルの保存に失敗:', response.status, errorData)
+          alert(`ラベルの保存に失敗しました: ${response.status}`)
+        }
+      } catch (error) {
+        console.error('ラベルの保存に失敗:', error)
+        alert(`ラベルの保存に失敗しました: ${error}`)
+      }
     }
   }
 

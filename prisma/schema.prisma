@@ -52,6 +52,7 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   originalEmployeeId    String?
+  orgChartLabel         String?
   activityLogs          ActivityLog[]
   attendance            Attendance[]
   evaluations           Evaluation[]

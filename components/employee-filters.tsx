@@ -26,9 +26,10 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [position, setPosition] = useState("all")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
+  const [availableEmploymentTypes, setAvailableEmploymentTypes] = useState<{value: string, label: string}[]>([])
 
-  // 部署と役職の一覧をlocalStorageから取得
-  useEffect(() => {
+  // データ取得関数
+  const loadData = () => {
     if (typeof window !== 'undefined') {
       // 部署管理から取得
       const savedDepartments = localStorage.getItem('available-departments')
@@ -51,6 +52,47 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           console.error('役職データの取得エラー:', error)
         }
       }
+
+      // 雇用形態管理から取得
+      const savedEmploymentTypes = localStorage.getItem('employment-types')
+      if (savedEmploymentTypes) {
+        try {
+          const employmentTypes = JSON.parse(savedEmploymentTypes)
+          setAvailableEmploymentTypes(employmentTypes)
+        } catch (error) {
+          console.error('雇用形態データの取得エラー:', error)
+        }
+      }
+    }
+  }
+
+  // 初期読み込み
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  // localStorage変更を監視
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'available-departments' || e.key === 'available-positions' || e.key === 'employment-types') {
+        loadData()
+      }
+    }
+
+    const handleCustomStorageChange = () => {
+      loadData()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('employmentTypesChanged', handleCustomStorageChange)
+    window.addEventListener('departmentsChanged', handleCustomStorageChange)
+    window.addEventListener('positionsChanged', handleCustomStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('employmentTypesChanged', handleCustomStorageChange)
+      window.removeEventListener('departmentsChanged', handleCustomStorageChange)
+      window.removeEventListener('positionsChanged', handleCustomStorageChange)
     }
   }, [])
 
@@ -100,8 +142,13 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">雇用形態</SelectItem>
-            <SelectItem value="employee">正社員</SelectItem>
-            <SelectItem value="contractor">契約社員</SelectItem>
+            {availableEmploymentTypes
+              .filter((type) => type.value && type.value.trim() !== '')
+              .map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
@@ -111,9 +158,11 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部署</SelectItem>
-            {availableDepartments.map((dept) => (
-              <SelectItem key={dept} value={dept}>{cleanText(dept)}</SelectItem>
-            ))}
+            {availableDepartments
+              .filter((dept) => dept && dept.trim() !== '')
+              .map((dept) => (
+                <SelectItem key={dept} value={dept}>{cleanText(dept)}</SelectItem>
+              ))}
           </SelectContent>
         </Select>
 
@@ -123,9 +172,11 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全役職</SelectItem>
-            {availablePositions.map((pos) => (
-              <SelectItem key={pos} value={pos}>{cleanText(pos)}</SelectItem>
-            ))}
+            {availablePositions
+              .filter((pos) => pos && pos.trim() !== '')
+              .map((pos) => (
+                <SelectItem key={pos} value={pos}>{cleanText(pos)}</SelectItem>
+              ))}
           </SelectContent>
         </Select>
 

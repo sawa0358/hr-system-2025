@@ -26,27 +26,73 @@ export function EmploymentTypeManagerDialog({
   onEmploymentTypesChange,
 }: EmploymentTypeManagerDialogProps) {
   const [localTypes, setLocalTypes] = useState<EmploymentType[]>(employmentTypes)
-  const [newTypeValue, setNewTypeValue] = useState("")
   const [newTypeLabel, setNewTypeLabel] = useState("")
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const [editValue, setEditValue] = useState("")
   const [editLabel, setEditLabel] = useState("")
 
+  // ラベルから自動的に値を生成する関数
+  const generateValueFromLabel = (label: string): string => {
+    // 日本語の雇用形態名を英語の値に変換するマッピング
+    const japaneseToEnglishMap: { [key: string]: string } = {
+      '正社員': 'employee',
+      '契約社員': 'contractor',
+      'パートタイム': 'part_time',
+      'アルバイト': 'part_time',
+      '派遣社員': 'dispatched',
+      '業務委託': 'contract',
+      '外注先': 'outsourcing',
+      '嘱託': 'advisor',
+      '非常勤': 'non_regular',
+      'インターン': 'intern'
+    }
+
+    // 日本語マッピングをチェック
+    if (japaneseToEnglishMap[label]) {
+      return japaneseToEnglishMap[label]
+    }
+
+    // マッピングにない日本語の場合は、ローマ字変換の代わりに簡易的な英数字IDを生成
+    if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(label)) {
+      // 日本語文字が含まれている場合、ラベルのハッシュ値を基にIDを生成
+      let hash = 0
+      for (let i = 0; i < label.length; i++) {
+        const char = label.charCodeAt(i)
+        hash = ((hash << 5) - hash) + char
+        hash = hash & hash // 32bit整数に変換
+      }
+      return `employment_type_${Math.abs(hash)}`
+    }
+
+    // 英語の場合はそのまま処理
+    return label
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^\w]/g, '')
+      .replace(/^_+|_+$/g, '')
+  }
+
   const handleAddType = () => {
-    if (newTypeValue.trim() && newTypeLabel.trim()) {
+    if (newTypeLabel.trim()) {
+      const generatedValue = generateValueFromLabel(newTypeLabel.trim())
+      
+      // 生成された値が空でないことを確認
+      if (!generatedValue || generatedValue.trim() === '') {
+        alert("有効な雇用形態名を入力してください")
+        return
+      }
+      
       // 既に同じ値が存在するかチェック
-      const existingType = localTypes.find(type => type.value === newTypeValue.trim())
+      const existingType = localTypes.find(type => type.value === generatedValue)
       if (existingType) {
-        alert("この値は既に存在します")
+        alert("この雇用形態は既に存在します")
         return
       }
       
       const newType: EmploymentType = {
-        value: newTypeValue.trim(),
+        value: generatedValue,
         label: newTypeLabel.trim()
       }
       setLocalTypes([...localTypes, newType])
-      setNewTypeValue("")
       setNewTypeLabel("")
     }
   }
@@ -54,36 +100,41 @@ export function EmploymentTypeManagerDialog({
   const handleEditType = (index: number) => {
     const type = localTypes[index]
     setEditingIndex(index)
-    setEditValue(type.value)
     setEditLabel(type.label)
   }
 
   const handleSaveEdit = () => {
-    if (editingIndex !== null && editValue.trim() && editLabel.trim()) {
+    if (editingIndex !== null && editLabel.trim()) {
+      const generatedValue = generateValueFromLabel(editLabel.trim())
+      
+      // 生成された値が空でないことを確認
+      if (!generatedValue || generatedValue.trim() === '') {
+        alert("有効な雇用形態名を入力してください")
+        return
+      }
+      
       // 既に同じ値が存在するかチェック（自分以外）
       const existingType = localTypes.find((type, index) => 
-        type.value === editValue.trim() && index !== editingIndex
+        type.value === generatedValue && index !== editingIndex
       )
       if (existingType) {
-        alert("この値は既に存在します")
+        alert("この雇用形態は既に存在します")
         return
       }
       
       const updatedTypes = [...localTypes]
       updatedTypes[editingIndex] = {
-        value: editValue.trim(),
+        value: generatedValue,
         label: editLabel.trim()
       }
       setLocalTypes(updatedTypes)
       setEditingIndex(null)
-      setEditValue("")
       setEditLabel("")
     }
   }
 
   const handleCancelEdit = () => {
     setEditingIndex(null)
-    setEditValue("")
     setEditLabel("")
   }
 
@@ -107,23 +158,16 @@ export function EmploymentTypeManagerDialog({
           {/* 新規追加 */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium">新規追加</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>値</Label>
-                <Input
-                  value={newTypeValue}
-                  onChange={(e) => setNewTypeValue(e.target.value)}
-                  placeholder="例: part_time, intern, consultant"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>表示名</Label>
-                <Input
-                  value={newTypeLabel}
-                  onChange={(e) => setNewTypeLabel(e.target.value)}
-                  placeholder="正社員, 契約社員, etc."
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>雇用形態名</Label>
+              <Input
+                value={newTypeLabel}
+                onChange={(e) => setNewTypeLabel(e.target.value)}
+                placeholder="例: 正社員, 契約社員, パートタイム"
+              />
+              <p className="text-xs text-slate-500">
+                値は自動的に生成されます（例: 正社員 → employee）
+              </p>
             </div>
             <Button onClick={handleAddType} className="w-full">
               <Plus className="w-4 h-4 mr-2" />
@@ -139,17 +183,15 @@ export function EmploymentTypeManagerDialog({
                 <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
                   {editingIndex === index ? (
                     <>
-                      <div className="flex-1 grid grid-cols-2 gap-2">
-                        <Input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          placeholder="例: part_time, intern, consultant"
-                        />
+                      <div className="flex-1 space-y-2">
                         <Input
                           value={editLabel}
                           onChange={(e) => setEditLabel(e.target.value)}
-                          placeholder="表示名"
+                          placeholder="雇用形態名"
                         />
+                        <p className="text-xs text-slate-500">
+                          値は自動的に生成されます
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" onClick={handleSaveEdit}>

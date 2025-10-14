@@ -2207,6 +2207,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           setAvailableDepartments(newDepts)
           if (typeof window !== 'undefined') {
             localStorage.setItem('available-departments', JSON.stringify(newDepts))
+            // カスタムイベントを発火して他のコンポーネントに通知
+            window.dispatchEvent(new CustomEvent('departmentsChanged'))
           }
         }}
       />
@@ -2219,6 +2221,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           setAvailablePositions(newPos)
           if (typeof window !== 'undefined') {
             localStorage.setItem('available-positions', JSON.stringify(newPos))
+            // カスタムイベントを発火して他のコンポーネントに通知
+            window.dispatchEvent(new CustomEvent('positionsChanged'))
           }
         }}
       />
@@ -2231,6 +2235,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           setEmploymentTypes(newTypes)
           if (typeof window !== 'undefined') {
             localStorage.setItem('employment-types', JSON.stringify(newTypes))
+            // カスタムイベントを発火して他のコンポーネントに通知
+            window.dispatchEvent(new CustomEvent('employmentTypesChanged'))
           }
         }}
       />

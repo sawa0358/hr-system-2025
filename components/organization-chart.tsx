@@ -765,10 +765,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       setEmployees(data)
       
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
+      // ステータスが「在籍中・休職中・コピー社員」のみを表示
       const unassigned = data.filter((emp: Employee) => 
         !emp.showInOrgChart && 
         !emp.isInvisibleTop && 
-        emp.employeeNumber !== '000'
+        emp.employeeNumber !== '000' &&
+        (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
       )
       setUnassignedEmployees(unassigned)
       

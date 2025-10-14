@@ -6,6 +6,7 @@ import { getPermissions, checkWorkspacePermissions, checkBoardPermissions, check
 import { WorkspaceSelector } from "@/components/workspace-selector"
 import { WorkspaceManagerDialog } from "@/components/workspace-manager-dialog"
 import { BoardManagerDialog } from "@/components/board-manager-dialog"
+import { TaskStructureGuide } from "@/components/task-structure-guide"
 import { KanbanBoard } from "@/components/kanban-board"
 import { TaskCalendar } from "@/components/task-calendar"
 import { AIAskButton } from "@/components/ai-ask-button"
@@ -588,12 +589,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             </div>
           </div>
           <div className="flex gap-3">
+            <TaskStructureGuide />
             <AIAskButton context={buildAIContext()} />
           </div>
         </div>
 
         {/* ワークスペースとボード選択 */}
-        <div className="flex items-center gap-6 mb-6">
+        <div className="flex items-center gap-6 mb-3">
           <WorkspaceSelector
             workspaces={workspaces}
             currentWorkspace={currentWorkspace}
@@ -632,96 +634,103 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
           
           {currentWorkspace && (
             <>
-              <div className="flex items-center gap-3">
-                <LayoutGrid className="w-5 h-5 text-slate-600" />
-                <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
-                  <SelectTrigger className="w-64">
-                    <SelectValue placeholder="ボードを選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {boards.map((board) => (
-                      <SelectItem key={board.id} value={board.id}>
-                        {board.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {(() => {
-                  if (!currentUser?.role) return false
-                  const workspace = workspaces.find(w => w.id === currentWorkspace)
-                  if (!workspace) return false
-                  const board = boards.find(b => b.id === currentBoard)
-                  return checkBoardPermissions(
-                    currentUser.role,
-                    currentUser.id,
-                    board?.createdBy || workspace.createdBy || '',
-                    workspace.name,
-                    workspace.createdBy
-                  ).canCreate
-                })() && (
-                  <Button variant="outline" size="sm" onClick={handleCreateBoard}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    ボード追加
-                  </Button>
-                )}
-                {(() => {
-                  if (!currentUser?.role || !currentBoard) return null
-                  const workspace = workspaces.find(w => w.id === currentWorkspace)
-                  if (!workspace) return null
-                  const board = boards.find(b => b.id === currentBoard)
-                  const boardPermissions = checkBoardPermissions(
-                    currentUser.role,
-                    currentUser.id,
-                    board?.createdBy || workspace.createdBy || '',
-                    workspace.name,
-                    workspace.createdBy
-                  )
-                  const canEdit = boardPermissions.canEdit
-                  const canDelete = boardPermissions.canDelete
-                  
-                  if (!canEdit && !canDelete) return null
-                  
-                  return (
-                    canEdit && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          console.log("ボード編集ボタンがクリックされました")
-                          handleEditBoard()
-                        }}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <LayoutGrid className="w-5 h-5 text-slate-600" />
+                  <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue placeholder="ボードを選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {boards.map((board) => (
+                        <SelectItem key={board.id} value={board.id}>
+                          {board.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(() => {
+                    if (!currentUser?.role) return false
+                    const workspace = workspaces.find(w => w.id === currentWorkspace)
+                    if (!workspace) return false
+                    const board = boards.find(b => b.id === currentBoard)
+                    return checkBoardPermissions(
+                      currentUser.role,
+                      currentUser.id,
+                      board?.createdBy || workspace.createdBy || '',
+                      workspace.name,
+                      workspace.createdBy
+                    ).canCreate
+                  })() && (
+                    <Button variant="outline" size="sm" onClick={handleCreateBoard}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      ボード追加
+                    </Button>
+                  )}
+                  {(() => {
+                    if (!currentUser?.role || !currentBoard) return null
+                    const workspace = workspaces.find(w => w.id === currentWorkspace)
+                    if (!workspace) return null
+                    const board = boards.find(b => b.id === currentBoard)
+                    const boardPermissions = checkBoardPermissions(
+                      currentUser.role,
+                      currentUser.id,
+                      board?.createdBy || workspace.createdBy || '',
+                      workspace.name,
+                      workspace.createdBy
                     )
-                  )
-                })()}
-                
-                {/* ボードサイズ調整 */}
-                <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-600">サイズ:</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
-                  disabled={boardScale <= 0.5}
-                  className="h-8 w-8 p-0"
-                >
-                  <span className="text-sm">-</span>
-                </Button>
-                <span className="text-sm font-medium w-12 text-center">
-                  {Math.round(boardScale * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
-                  disabled={boardScale >= 1.5}
-                  className="h-8 w-8 p-0"
-                >
-                  <span className="text-sm">+</span>
-                </Button>
+                    const canEdit = boardPermissions.canEdit
+                    const canDelete = boardPermissions.canDelete
+                    
+                    if (!canEdit && !canDelete) return null
+                    
+                    return (
+                      canEdit && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            console.log("ボード編集ボタンがクリックされました")
+                            handleEditBoard()
+                          }}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      )
+                    )
+                  })()}
+                  
+                  {/* ボードサイズ調整 */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-slate-600">サイズ:</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
+                      disabled={boardScale <= 0.5}
+                      className="h-8 w-8 p-0"
+                    >
+                      <span className="text-sm">-</span>
+                    </Button>
+                    <span className="text-sm font-medium w-12 text-center">
+                      {Math.round(boardScale * 100)}%
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
+                      disabled={boardScale >= 1.5}
+                      className="h-8 w-8 p-0"
+                    >
+                      <span className="text-sm">+</span>
+                    </Button>
+                  </div>
                 </div>
+                {boards.find(b => b.id === currentBoard)?.description && (
+                  <div className="ml-8 text-xs text-slate-500 max-w-[280px] break-words whitespace-pre-wrap">
+                    {boards.find(b => b.id === currentBoard)?.description}
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -731,7 +740,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         {currentWorkspace && (
           <>
             {showFilters && (
-              <div className="mb-6">
+              <div className="mb-3">
                 <TaskSearchFilters onFilterChange={(filters) => {
                   console.log("Task filters changed:", filters)
                   setTaskFilters(filters)
@@ -740,7 +749,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             )}
 
             {showCalendar && (
-              <div className="mb-8">
+              <div className="mb-4">
                 <TaskCalendar 
                   tasks={allTasks} 
                   onTaskClick={(task) => {

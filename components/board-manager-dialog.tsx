@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +36,12 @@ export function BoardManagerDialog({
 }: BoardManagerDialogProps) {
   const [name, setName] = useState(board?.name || "")
   const [description, setDescription] = useState(board?.description || "")
+
+  // boardプロップが変更されたときに状態を更新
+  useEffect(() => {
+    setName(board?.name || "")
+    setDescription(board?.description || "")
+  }, [board])
 
   const handleReset = () => {
     setName(board?.name || "")

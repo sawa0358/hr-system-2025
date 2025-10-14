@@ -164,8 +164,17 @@ function DisplayOrgChartWithoutTop({
               isCompactMode={isCompactMode}
               onHorizontalMove={onHorizontalMove}
             />
-            {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
-            {canEdit && (
+            {/* 各社員の左側に「左へ移動」ドロップゾーンを配置（最初の要素以外） */}
+            {canEdit && index > 0 && (
+              <LeftMoveDropZone
+                parentId={node.id}
+                targetIndex={index}
+                canEdit={canEdit}
+                onDrop={onHorizontalMove || (() => {})}
+              />
+            )}
+            {/* 各社員の右側に「右へ移動」ドロップゾーンを配置（最後の要素以外） */}
+            {canEdit && index < visibleChildren.length - 1 && (
               <RightMoveDropZone
                 parentId={node.id}
                 targetIndex={index + 1}
@@ -307,17 +316,62 @@ function RightMoveDropZone({ parentId, targetIndex, canEdit, onDrop }: Horizonta
   return (
     <div
       ref={setNodeRef}
-      className={`absolute top-1/2 right-0 w-8 h-16 -translate-y-1/2 transition-all duration-200 ${
+      className={`absolute top-1/2 right-0 w-10 h-20 -translate-y-1/2 transition-all duration-200 ${
         isOver 
           ? 'bg-blue-400 opacity-90 border-2 border-blue-500' 
-          : 'bg-transparent hover:bg-blue-200 hover:opacity-60'
+          : 'bg-transparent hover:bg-blue-300 hover:opacity-70'
       }`}
       style={{ 
-        right: "-16px",
+        right: "-20px",
         borderRadius: "8px"
       }}
       title={`右へ移動: 位置 ${targetIndex + 1}`}
-    />
+    >
+      {isOver && (
+        <div className="flex items-center justify-center h-full text-white text-xs font-bold">
+          →
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 左へ移動用のドロップゾーンコンポーネント
+function LeftMoveDropZone({ parentId, targetIndex, canEdit, onDrop }: HorizontalDropZoneProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `left-move-${parentId}-${targetIndex}`,
+    data: { 
+      type: 'left-move',
+      parentId,
+      targetIndex 
+    },
+    disabled: !canEdit,
+  })
+
+  if (!canEdit) {
+    return null
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`absolute top-1/2 left-0 w-10 h-20 -translate-y-1/2 transition-all duration-200 ${
+        isOver 
+          ? 'bg-purple-400 opacity-90 border-2 border-purple-500' 
+          : 'bg-transparent hover:bg-purple-300 hover:opacity-70'
+      }`}
+      style={{ 
+        left: "-20px",
+        borderRadius: "8px"
+      }}
+      title={`左へ移動: 位置 ${targetIndex}`}
+    >
+      {isOver && (
+        <div className="flex items-center justify-center h-full text-white text-xs font-bold">
+          ←
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -608,8 +662,17 @@ function DraggableOrgNodeCard({
                   isCompactMode={isCompactMode}
                   onHorizontalMove={onHorizontalMove}
                 />
-                {/* 各社員の右側に「右へ移動」ドロップゾーンを配置 */}
-                {canEdit && (
+                {/* 各社員の左側に「左へ移動」ドロップゾーンを配置（最初の要素以外） */}
+                {canEdit && index > 0 && (
+                  <LeftMoveDropZone
+                    parentId={node.id}
+                    targetIndex={index}
+                    canEdit={canEdit}
+                    onDrop={onHorizontalMove || (() => {})}
+                  />
+                )}
+                {/* 各社員の右側に「右へ移動」ドロップゾーンを配置（最後の要素以外） */}
+                {canEdit && index < node.children!.length - 1 && (
                   <RightMoveDropZone
                     parentId={node.id}
                     targetIndex={index + 1}
@@ -1022,6 +1085,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
     // 右へ移動のドロップゾーンへのドロップの場合
     if (typeof over.id === 'string' && over.id.startsWith('right-move-')) {
+      const [, , parentId, targetIndexStr] = over.id.split('-')
+      const targetIndex = parseInt(targetIndexStr)
+      await handleHorizontalMove(draggedNode, targetIndex, parentId)
+      return
+    }
+
+    // 左へ移動のドロップゾーンへのドロップの場合
+    if (typeof over.id === 'string' && over.id.startsWith('left-move-')) {
       const [, , parentId, targetIndexStr] = over.id.split('-')
       const targetIndex = parseInt(targetIndexStr)
       await handleHorizontalMove(draggedNode, targetIndex, parentId)
@@ -1699,7 +1770,9 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           {canEdit ? (
             <p className="text-xs text-slate-500 text-center">
               ※ 部署名をクリックして編集 /
-              カードの左側をドラッグして組織を変更（同じ階層内で横移動、または別の上長の配下に移動） /
+              カードをドラッグして組織を変更 /
+              <span className="text-purple-600 font-medium">左側の紫色エリア</span>で左へ移動、
+              <span className="text-blue-600 font-medium">右側の青色エリア</span>で右へ移動 /
               カードにカーソルを乗せて操作メニューを表示
             </p>
           ) : (

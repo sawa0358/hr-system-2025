@@ -32,7 +32,7 @@ export function EmploymentTypeManagerDialog({
 
   // ラベルから自動的に値を生成する関数
   const generateValueFromLabel = (label: string): string => {
-    // 日本語の雇用形態名を英語の値に変換するマッピング
+    // Prisma EmployeeType enumで定義されている値のみを使用
     const japaneseToEnglishMap: { [key: string]: string } = {
       '正社員': 'employee',
       '契約社員': 'contractor',
@@ -51,24 +51,10 @@ export function EmploymentTypeManagerDialog({
       return japaneseToEnglishMap[label]
     }
 
-    // マッピングにない日本語の場合は、ローマ字変換の代わりに簡易的な英数字IDを生成
-    if (/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(label)) {
-      // 日本語文字が含まれている場合、ラベルのハッシュ値を基にIDを生成
-      let hash = 0
-      for (let i = 0; i < label.length; i++) {
-        const char = label.charCodeAt(i)
-        hash = ((hash << 5) - hash) + char
-        hash = hash & hash // 32bit整数に変換
-      }
-      return `employment_type_${Math.abs(hash)}`
-    }
-
-    // 英語の場合はそのまま処理
-    return label
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^\w]/g, '')
-      .replace(/^_+|_+$/g, '')
+    // Prisma enumで定義されていない値の場合は、最も近いものを選択
+    // または、デフォルトでemployeeを使用
+    console.warn(`未定義の雇用形態: ${label}。employeeにフォールバックします。`)
+    return 'employee'
   }
 
   const handleAddType = () => {

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -11,7 +11,7 @@ model Employee {
   id                    String            @id @default(cuid())
   employeeId            String            @unique
   employeeNumber        String            @unique
-  employeeType          EmployeeType
+  employeeType          String
   name                  String
   furigana              String?
   email                 String?
@@ -332,4 +332,11 @@ enum EmployeeStatus {
 enum EmployeeType {
   employee
   contractor
+  part_time
+  dispatched
+  contract
+  outsourcing
+  advisor
+  non_regular
+  intern
 }

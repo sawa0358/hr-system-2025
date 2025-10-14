@@ -265,7 +265,7 @@ export default function TasksPage() {
           
           // 現在選択中のワークスペースの場合、ボードもリフレッシュ
           if (currentWorkspace === editingWorkspace.id && currentBoard) {
-            await fetchBoardData()
+            await fetchBoardData(currentBoard)
           }
           
           setWorkspaceDialogOpen(false)
@@ -475,6 +475,8 @@ export default function TasksPage() {
       dueDate: card.dueDate || "",
       priority: card.priority || "medium",
       status: card.status || list.id,
+      labels: card.labels || [],
+      cardColor: card.cardColor,
     })) || []
   ) || []
 

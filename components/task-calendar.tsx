@@ -14,6 +14,8 @@ interface Task {
   dueDate: string
   priority: "low" | "medium" | "high"
   status: string
+  labels?: { id: string; name: string; color: string }[]
+  cardColor?: string
 }
 
 interface TaskCalendarProps {
@@ -21,11 +23,22 @@ interface TaskCalendarProps {
   onTaskClick?: (task: Task) => void
 }
 
-const PRIORITY_COLORS = {
-  low: "bg-blue-100 text-blue-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  high: "bg-red-100 text-red-700",
+// ラベルの色からテキスト色を計算する関数
+const getTextColorForBackground = (hexColor: string): string => {
+  // ヘックスカラーをRGBに変換
+  const r = parseInt(hexColor.slice(1, 3), 16)
+  const g = parseInt(hexColor.slice(3, 5), 16)
+  const b = parseInt(hexColor.slice(5, 7), 16)
+  
+  // 輝度を計算 (ITU-R BT.709)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  
+  // 輝度が0.5以上なら黒、それ以外なら白
+  return luminance > 0.5 ? '#000000' : '#ffffff'
 }
+
+// デフォルトの色（ラベルがない場合）
+const DEFAULT_COLOR = "#94a3b8" // slate-400
 
 export function TaskCalendar({ tasks, onTaskClick }: TaskCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -51,6 +64,29 @@ export function TaskCalendar({ tasks, onTaskClick }: TaskCalendarProps) {
       const taskDate = new Date(task.dueDate)
       return isSameDay(taskDate, day)
     })
+  }
+
+  // タスクの表示色を取得（ラベルの色を優先）
+  const getTaskColor = (task: Task) => {
+    if (task.labels && task.labels.length > 0) {
+      return task.labels[0].color
+    }
+    return DEFAULT_COLOR
+  }
+
+  // すべてのラベルを集めてユニークなものだけを取得（凡例用）
+  const getAllUniqueLabels = () => {
+    const labelMap = new Map<string, { name: string; color: string }>()
+    tasks.forEach(task => {
+      if (task.labels) {
+        task.labels.forEach(label => {
+          if (!labelMap.has(label.id)) {
+            labelMap.set(label.id, { name: label.name, color: label.color })
+          }
+        })
+      }
+    })
+    return Array.from(labelMap.values())
   }
 
   return (
@@ -118,15 +154,23 @@ export function TaskCalendar({ tasks, onTaskClick }: TaskCalendarProps) {
                   {format(day, "d")}
                 </div>
                 <div className="space-y-1">
-                  {dayTasks.slice(0, 3).map((task) => (
-                    <button
-                      key={task.id}
-                      onClick={() => onTaskClick?.(task)}
-                      className={`w-full text-left px-2 py-1 rounded text-xs truncate ${PRIORITY_COLORS[task.priority]} hover:opacity-80 transition-opacity`}
-                    >
-                      {task.title}
-                    </button>
-                  ))}
+                  {dayTasks.slice(0, 3).map((task) => {
+                    const bgColor = getTaskColor(task)
+                    const textColor = getTextColorForBackground(bgColor)
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => onTaskClick?.(task)}
+                        className="w-full text-left px-2 py-1 rounded text-xs truncate hover:opacity-80 transition-opacity"
+                        style={{
+                          backgroundColor: bgColor,
+                          color: textColor
+                        }}
+                      >
+                        {task.title}
+                      </button>
+                    )
+                  })}
                   {dayTasks.length > 3 && (
                     <div className="text-xs text-slate-500 text-center">+{dayTasks.length - 3}件</div>
                   )}
@@ -137,11 +181,23 @@ export function TaskCalendar({ tasks, onTaskClick }: TaskCalendarProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-          <span className="text-sm text-slate-600">重要度:</span>
-          <Badge className="bg-red-100 text-red-700">高</Badge>
-          <Badge className="bg-yellow-100 text-yellow-700">中</Badge>
-          <Badge className="bg-blue-100 text-blue-700">低</Badge>
+        <div className="flex items-center gap-4 mt-4 pt-4 border-t flex-wrap">
+          <span className="text-sm text-slate-600">ラベル:</span>
+          {getAllUniqueLabels().length > 0 ? (
+            getAllUniqueLabels().map((label, index) => (
+              <Badge 
+                key={index}
+                style={{
+                  backgroundColor: label.color,
+                  color: getTextColorForBackground(label.color)
+                }}
+              >
+                {label.name}
+              </Badge>
+            ))
+          ) : (
+            <span className="text-sm text-slate-400">ラベルが設定されているタスクはありません</span>
+          )}
         </div>
       </CardContent>
     </Card>

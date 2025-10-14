@@ -906,6 +906,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       !emp.isInvisibleTop && // 見えないTOP社員を除外
       emp.showInOrgChart !== false && // 組織図に表示する社員のみ
       (emp.status === 'active' || emp.status === 'leave') && // 在籍中・休職中のみ
+      emp.status !== 'copy' && // コピー社員を除外
       (emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
       emp.department.toLowerCase().includes(employeeSearch.toLowerCase()) ||
       emp.position.toLowerCase().includes(employeeSearch.toLowerCase())),

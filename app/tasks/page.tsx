@@ -297,7 +297,7 @@ export default function TasksPage() {
           setEditingWorkspace(null)
           console.log("Current workspace set to:", result.workspace.id)
           
-          // デフォルトボードを作成
+          // デフォルトボードを作成（APIでデフォルトリストも自動作成される）
           try {
             const boardResponse = await fetch("/api/boards", {
               method: "POST",
@@ -316,33 +316,6 @@ export default function TasksPage() {
               const boardResult = await boardResponse.json()
               setCurrentBoard(boardResult.board.id)
               fetchBoards(result.workspace.id)
-              
-              // デフォルトリストを作成
-              try {
-                const defaultLists = [
-                  { title: "常時運用タスク" },
-                  { title: "予定リスト" },
-                  { title: "進行中" },
-                  { title: "完了" }
-                ]
-                
-                for (const listData of defaultLists) {
-                  const listResponse = await fetch(`/api/boards/${boardResult.board.id}/lists`, {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "x-employee-id": currentUser?.id || "",
-                    },
-                    body: JSON.stringify(listData),
-                  })
-                  
-                  if (listResponse.ok) {
-                    console.log("Default list created:", listData.title)
-                  }
-                }
-              } catch (error) {
-                console.error("Failed to create default lists:", error)
-              }
             }
           } catch (error) {
             console.error("Failed to create default board:", error)
@@ -425,20 +398,14 @@ export default function TasksPage() {
           fetchBoards(currentWorkspace!)
         }
       } else {
-        // 新規作成 - 現在のボードをテンプレートとして使用
-        const requestData = {
-          ...data,
-          templateBoardId: currentBoard || undefined, // 現在のボードIDをテンプレートとして送信
-        }
-        console.log("[v0] Creating new board with template:", requestData)
-        
+        // 新規作成 - デフォルトリストを使用
         const response = await fetch("/api/boards", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "x-employee-id": currentUser?.id || "",
           },
-          body: JSON.stringify(requestData),
+          body: JSON.stringify(data),
         })
         if (response.ok) {
           const result = await response.json()

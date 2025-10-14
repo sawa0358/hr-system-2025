@@ -187,10 +187,7 @@ const DEFAULT_STATUS_OPTIONS = [
 
 // カスタム状態オプション（削除可能）
 // デフォルトと重複しないもののみ
-const CUSTOM_STATUS_OPTIONS = [
-  { value: "todo", label: "未着手", isDefault: false },
-  { value: "review", label: "レビュー", isDefault: false },
-]
+const CUSTOM_STATUS_OPTIONS: { value: string; label: string; isDefault: boolean }[] = []
 
 export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUpdate }: TaskDetailDialogProps) {
   const { currentUser } = useAuth()
@@ -237,6 +234,24 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 // ワークスペースメンバーの社員情報を取得
                 const memberEmployees = workspaceMembers.map((member: any) => member.employee).filter(Boolean)
                 console.log('Workspace members loaded:', memberEmployees.length, 'members')
+                console.log('Workspace members detail:', memberEmployees)
+                
+                // 各メンバーの詳細情報をログ出力
+                memberEmployees.forEach((emp: any, index: number) => {
+                  console.log(`Member ${index}:`, {
+                    id: emp.id,
+                    name: emp.name,
+                    email: emp.email,
+                    department: emp.department,
+                    position: emp.position,
+                    status: emp.status,
+                    statusType: typeof emp.status,
+                    statusValue: JSON.stringify(emp.status),
+                    isInvisibleTop: emp.isInvisibleTop,
+                    showInOrgChart: emp.showInOrgChart
+                  })
+                })
+                
                 setEmployees(memberEmployees)
                 return
               }
@@ -365,7 +380,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     const options = getStoredStatusOptions()
     // 初回読み込み時に重複をクリーンアップ
     const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+    
+    // 削除すべき古い値のリスト
+    const deprecatedValues = ['todo', 'review']
+    
     const cleanedOptions = options.filter((option, index, self) => {
+      // 古い値を除外
+      if (deprecatedValues.includes(option.value)) {
+        return false
+      }
       // デフォルト値との重複をチェック
       if (defaultValues.includes(option.value) && !option.isDefault) {
         return false
@@ -902,15 +925,35 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const filteredEmployees = employees.filter(
-    (emp) =>
-      !emp.isInvisibleTop && // 見えないTOP社員を除外
-      emp.showInOrgChart !== false && // 組織図に表示する社員のみ
-      (emp.status === 'active' || emp.status === 'leave') && // 在籍中・休職中のみ
-      emp.status !== 'copy' && // コピー社員を除外
-      (emp.name.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-      emp.department.toLowerCase().includes(employeeSearch.toLowerCase()) ||
-      emp.position.toLowerCase().includes(employeeSearch.toLowerCase())),
+    (emp) => {
+      const isNotInvisibleTop = !emp.isInvisibleTop
+      const isShownInOrgChart = emp.showInOrgChart !== false
+      const isActiveOrLeave = (emp.status === 'active' || emp.status === 'leave' || emp.status === undefined || emp.status === null)
+      const isNotCopy = emp.status !== 'copy'
+      const matchesSearch = (emp.name?.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+        emp.department?.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+        emp.position?.toLowerCase().includes(employeeSearch.toLowerCase()))
+      
+      const result = isNotInvisibleTop && isShownInOrgChart && isActiveOrLeave && isNotCopy && matchesSearch
+      
+      // デバッグログ
+      if (!result) {
+        console.log(`Employee ${emp.name} filtered out:`, {
+          isNotInvisibleTop,
+          isShownInOrgChart,
+          isActiveOrLeave,
+          isNotCopy,
+          matchesSearch,
+          emp
+        })
+      }
+      
+      return result
+    }
   )
+  
+  console.log('Filtered employees count:', filteredEmployees.length)
+  console.log('Employee search term:', employeeSearch)
 
   const handleMakeTemplate = async () => {
     if (!task || !currentUser) {
@@ -1435,16 +1478,19 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   />
                 </div>
                 <div className="max-h-64 overflow-y-auto space-y-1">
-                  {filteredEmployees.map((employee) => {
-                    const isSelected = members.find((m) => m.id === employee.id)
-                    return (
-                      <button
-                        key={employee.id}
-                        onClick={() => handleAddEmployee(employee)}
-                        className={`w-full text-left p-3 rounded hover:bg-slate-50 flex items-center gap-3 transition-colors ${
-                          isSelected ? 'bg-blue-50 border-2 border-blue-200' : 'border border-transparent'
-                        }`}
-                      >
+                  {(() => {
+                    console.log('Rendering filtered employees:', filteredEmployees.length)
+                    return filteredEmployees.map((employee) => {
+                      const isSelected = members.find((m) => m.id === employee.id)
+                      console.log('Rendering employee:', employee.name, 'isSelected:', isSelected)
+                      return (
+                        <button
+                          key={employee.id}
+                          onClick={() => handleAddEmployee(employee)}
+                          className={`w-full text-left p-3 rounded hover:bg-slate-50 flex items-center gap-3 transition-colors ${
+                            isSelected ? 'bg-blue-50 border-2 border-blue-200' : 'border border-transparent'
+                          }`}
+                        >
                         <Avatar className="w-8 h-8">
                           <AvatarFallback className={`text-sm ${
                             isSelected ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
@@ -1465,9 +1511,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                         )}
                       </button>
                     )
-                  })}
+                  })
+                  })()}
                   {filteredEmployees.length === 0 && (
-                    <p className="text-center text-slate-500 py-4 text-sm">該当する社員が見つかりません</p>
+                    <p className="text-center text-slate-500 py-4 text-sm">
+                      {employees.length === 0 
+                        ? 'ワークスペースにメンバーが登録されていません。ワークスペース設定からメンバーを追加してください。' 
+                        : '該当する社員が見つかりません'}
+                    </p>
                   )}
                 </div>
                 <div className="mt-3 pt-3 border-t flex justify-end">

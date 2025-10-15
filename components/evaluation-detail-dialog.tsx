@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Plus, Upload, FileSpreadsheet, Download, Trash2, Eye, X, Edit } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { usePermissions } from "@/hooks/use-permissions"
 
 interface Employee {
@@ -45,16 +46,44 @@ interface EvaluationDetailDialogProps {
 
 export function EvaluationDetailDialog({ employee, open, onOpenChange }: EvaluationDetailDialogProps) {
   const permissions = usePermissions()
-  const defaultFolders = ["2025", "2026", "2027"]
+  
+  // 2020年度から2070年度までの年度を生成
+  const generateAcademicYears = () => {
+    const academicYears: string[] = []
+    for (let year = 2020; year <= 2070; year++) {
+      academicYears.push(`${year}年度`)
+    }
+    return academicYears
+  }
+  
+  const defaultFolders = generateAcademicYears()
   
   // localStorageからフォルダ情報を読み込む
   const getStoredFolders = () => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(`evaluation-folders-${employee.id}`)
       if (stored) {
-        return JSON.parse(stored)
+        const parsedFolders = JSON.parse(stored)
+        console.log('localStorageから読み込んだフォルダ:', parsedFolders)
+        
+        // フォルダ形式を統一（「年」を「年度」に変換）
+        const normalizedFolders = parsedFolders.map((folder: string) => {
+          if (folder.endsWith('年') && !folder.endsWith('年度')) {
+            return folder.replace('年', '年度')
+          }
+          return folder
+        })
+        
+        // 形式が変更された場合はlocalStorageを更新
+        if (JSON.stringify(normalizedFolders) !== JSON.stringify(parsedFolders)) {
+          console.log('フォルダ形式を正規化:', normalizedFolders)
+          localStorage.setItem(`evaluation-folders-${employee.id}`, JSON.stringify(normalizedFolders))
+        }
+        
+        return normalizedFolders
       } else {
         // 新規社員の場合、デフォルトフォルダをlocalStorageに保存
+        console.log('新規社員のデフォルトフォルダを保存:', defaultFolders)
         localStorage.setItem(`evaluation-folders-${employee.id}`, JSON.stringify(defaultFolders))
         return defaultFolders
       }
@@ -62,18 +91,35 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
     return defaultFolders
   }
   
+  // 本年度（4月〜3月）を取得
+  const getCurrentAcademicYear = () => {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() + 1 // 0-11から1-12に変換
+    
+    // 4月以降はその年、3月以前は前年
+    if (currentMonth >= 4) {
+      return `${currentYear}年度`
+    } else {
+      return `${currentYear - 1}年度`
+    }
+  }
+  
   const [folders, setFolders] = useState<string[]>(getStoredFolders())
-  const [currentFolder, setCurrentFolder] = useState(getStoredFolders()[0])
+  const [currentFolder, setCurrentFolder] = useState(() => {
+    const currentAcademicYear = getCurrentAcademicYear()
+    const storedFolders = getStoredFolders()
+    // フォルダリストに現在の年度が存在するかチェック
+    return storedFolders.includes(currentAcademicYear) ? currentAcademicYear : (storedFolders[0] || currentAcademicYear)
+  })
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isAddingFolder, setIsAddingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
-  const [editingFolder, setEditingFolder] = useState<string | null>(null)
-  const [editingFolderName, setEditingFolderName] = useState("")
   const [viewingFile, setViewingFile] = useState<EvaluationFile | null>(null)
   
-  // 管理者・総務権限チェック
-  const canManageFolders = permissions.role === 'admin' || permissions.role === 'hr'
+  // フォルダ管理権限チェック（一般社員もフォルダ追加可能）
+  const canManageFolders = true
   
   // フォルダが変更されたらlocalStorageに保存
   useEffect(() => {
@@ -81,6 +127,25 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
       localStorage.setItem(`evaluation-folders-${employee.id}`, JSON.stringify(folders))
     }
   }, [folders, employee.id])
+
+  // ダイアログが開かれるたびに最新の年度を設定
+  useEffect(() => {
+    if (open) {
+      const currentAcademicYear = getCurrentAcademicYear()
+      console.log('年度計算結果:', currentAcademicYear)
+      console.log('利用可能なフォルダ:', folders)
+      // フォルダリストに現在の年度が存在することを確認
+      if (folders.includes(currentAcademicYear)) {
+        console.log('現在の年度を設定:', currentAcademicYear)
+        setCurrentFolder(currentAcademicYear)
+      } else {
+        // フォルダリストに現在の年度がない場合は、最初のフォルダを設定
+        const fallbackFolder = folders[0] || currentAcademicYear
+        console.log('フォールバック年度を設定:', fallbackFolder)
+        setCurrentFolder(fallbackFolder)
+      }
+    }
+  }, [open, folders])
 
   // ファイルデータを取得
   useEffect(() => {
@@ -142,41 +207,28 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
 
   const handleAddFolder = () => {
     if (newFolderName.trim()) {
-      setFolders([...folders, newFolderName])
-      setCurrentFolder(newFolderName)
+      // 年度フォルダのみ追加可能（例：2028年度）
+      const yearMatch = newFolderName.trim().match(/^(\d{4})年度?$/)
+      if (yearMatch) {
+        const year = parseInt(yearMatch[1])
+        if (year >= 2020 && year <= 2070) {
+          const academicYearStr = `${year}年度`
+          if (!folders.includes(academicYearStr)) {
+            const newFolders = [...folders, academicYearStr].sort((a, b) => {
+              const yearA = parseInt(a.replace('年度', ''))
+              const yearB = parseInt(b.replace('年度', ''))
+              return yearA - yearB
+            })
+            setFolders(newFolders)
+            setCurrentFolder(academicYearStr)
+          }
+        }
+      }
       setNewFolderName("")
       setIsAddingFolder(false)
     }
   }
 
-  const handleEditFolder = (folderName: string) => {
-    setEditingFolder(folderName)
-    setEditingFolderName(folderName)
-  }
-
-  const handleSaveFolderEdit = () => {
-    if (editingFolderName.trim() && editingFolder) {
-      const newFolders = folders.map(folder => 
-        folder === editingFolder ? editingFolderName.trim() : folder
-      )
-      setFolders(newFolders)
-      if (currentFolder === editingFolder) {
-        setCurrentFolder(editingFolderName.trim())
-      }
-      setEditingFolder(null)
-      setEditingFolderName("")
-    }
-  }
-
-  const handleDeleteFolder = (folderName: string) => {
-    if (folders.length > 1) {
-      const newFolders = folders.filter(folder => folder !== folderName)
-      setFolders(newFolders)
-      if (currentFolder === folderName) {
-        setCurrentFolder(newFolders[0])
-      }
-    }
-  }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -359,188 +411,145 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           </DialogHeader>
 
           <div className="mt-6">
-            <Tabs value={currentFolder} onValueChange={setCurrentFolder}>
-              <div className="flex items-center gap-2 mb-4">
-                <TabsList className="flex-1 justify-start overflow-x-auto">
-                  {folders.map((folder) => (
-                    <div key={folder} className="flex items-center">
-                      {editingFolder === folder ? (
-                        <div className="flex items-center gap-2 px-3 py-2">
-                          <Input
-                            value={editingFolderName}
-                            onChange={(e) => setEditingFolderName(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleSaveFolderEdit()}
-                            className="w-32 h-8"
-                            autoFocus
-                          />
-                          <Button size="sm" onClick={handleSaveFolderEdit}>
-                            保存
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingFolder(null)
-                              setEditingFolderName("")
-                            }}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <TabsTrigger value={folder} className="flex items-center">
-                          {folder}
-                          {filesByFolder[folder] && filesByFolder[folder].length > 0 && (
-                            <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                              {filesByFolder[folder].length}
-                            </span>
-                          )}
-                        </TabsTrigger>
-                      )}
-                      {canManageFolders && editingFolder !== folder && (
-                        <div className="flex items-center ml-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEditFolder(folder)}
-                            className="h-6 w-6 p-0 text-slate-400 hover:text-blue-500"
-                          >
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          {folders.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteFolder(folder)}
-                              className="h-6 w-6 p-0 text-slate-400 hover:text-red-500"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </TabsList>
-                {canManageFolders && !isAddingFolder ? (
-                  <Button variant="outline" size="sm" onClick={() => setIsAddingFolder(true)}>
-                    <Plus className="w-4 h-4 mr-1" />
-                    フォルダ追加
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-700">年度を選択:</span>
+                <Select value={currentFolder} onValueChange={setCurrentFolder}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folders.map((folder) => (
+                      <SelectItem key={folder} value={folder}>
+                        {folder}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {canManageFolders && !isAddingFolder ? (
+                <Button variant="outline" size="sm" onClick={() => setIsAddingFolder(true)}>
+                  <Plus className="w-4 h-4 mr-1" />
+                  年度追加
+                </Button>
+              ) : canManageFolders && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="年度（例：2028年度）"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddFolder()}
+                    className="w-40"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={handleAddFolder}>
+                    追加
                   </Button>
-                ) : canManageFolders && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="フォルダ名"
-                      value={newFolderName}
-                      onChange={(e) => setNewFolderName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleAddFolder()}
-                      className="w-40"
-                      autoFocus
-                    />
-                    <Button size="sm" onClick={handleAddFolder}>
-                      追加
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setIsAddingFolder(false)
-                        setNewFolderName("")
-                      }}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsAddingFolder(false)
+                      setNewFolderName("")
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              {/* 説明テキスト */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-blue-700 text-sm font-medium">
+                  📋 自分の書いた目標（考課表）はPDFでアップロードしてください
+                </p>
               </div>
 
-              {folders.map((folder) => (
-                <TabsContent key={folder} value={folder} className="space-y-4">
-                  {/* Drag & Drop Upload Area */}
-                  <div
-                    className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors h-32 flex flex-col justify-center ${
-                      isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
-                    }`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, folder)}
-                  >
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
-                    <p className="text-slate-600 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
-                    <p className="text-xs text-slate-500 mb-2">または</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const input = document.createElement("input")
-                        input.type = "file"
-                        input.multiple = true
-                        input.accept = ".xlsx,.xls,.pdf,.png,.jpg,.jpeg,.txt,.doc,.docx,.csv"
-                        input.onchange = (e) => {
-                          const files = Array.from((e.target as HTMLInputElement).files || [])
-                          handleFileUpload(files, folder)
-                        }
-                        input.click()
-                      }}
-                    >
-                      <Upload className="w-3 h-3 mr-1" />
-                      ファイルを選択
-                    </Button>
-                    <p className="text-xs text-slate-500 mt-1">対応形式: Excel, PDF, 画像, テキスト, Word, CSV</p>
-                  </div>
+              {/* Drag & Drop Upload Area */}
+              <div
+                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors h-32 flex flex-col justify-center ${
+                  isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, currentFolder)}
+              >
+                <Upload className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+                <p className="text-slate-600 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
+                <p className="text-xs text-slate-500 mb-2">または</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.multiple = true
+                    input.accept = ".xlsx,.xls,.pdf,.png,.jpg,.jpeg,.txt,.doc,.docx,.csv"
+                    input.onchange = (e) => {
+                      const files = Array.from((e.target as HTMLInputElement).files || [])
+                      handleFileUpload(files, currentFolder)
+                    }
+                    input.click()
+                  }}
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  ファイルを選択
+                </Button>
+                <p className="text-xs text-slate-500 mt-1">対応形式: Excel, PDF, 画像, テキスト, Word, CSV</p>
+              </div>
 
-                  {/* File List */}
-                  {filesByFolder[folder] && filesByFolder[folder].length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
-                      {filesByFolder[folder].map((file) => (
-                        <Card key={file.id} className="border-slate-200">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
-                                <div>
-                                  <p className="font-medium text-slate-900">{file.name}</p>
-                                  <p className="text-sm text-slate-500">
-                                    {file.uploadDate} • {file.size}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handlePreviewFile(file.id)}
-                                  title="プレビュー"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDownloadFile(file.id, file.name)}
-                                  title="ダウンロード"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => handleDeleteFile(file.id)}
-                                  title="削除"
-                                >
-                                  <Trash2 className="w-4 h-4 text-red-600" />
-                                </Button>
-                              </div>
+              {/* File List */}
+              {filesByFolder[currentFolder] && filesByFolder[currentFolder].length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
+                  {filesByFolder[currentFolder].map((file) => (
+                    <Card key={file.id} className="border-slate-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <FileSpreadsheet className="w-8 h-8 text-emerald-600" />
+                            <div>
+                              <p className="font-medium text-slate-900">{file.name}</p>
+                              <p className="text-sm text-slate-500">
+                                {file.uploadDate} • {file.size}
+                              </p>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              ))}
-            </Tabs>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handlePreviewFile(file.id)}
+                              title="プレビュー"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handleDownloadFile(file.id, file.name)}
+                              title="ダウンロード"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => handleDeleteFile(file.id)}
+                              title="削除"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

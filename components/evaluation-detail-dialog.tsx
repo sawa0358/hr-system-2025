@@ -105,12 +105,23 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
     }
   }
   
-  const [folders, setFolders] = useState<string[]>(getStoredFolders())
+  const [folders, setFolders] = useState<string[]>(() => {
+    const storedFolders = getStoredFolders()
+    console.log('初期フォルダ設定:', storedFolders)
+    // フォルダが空または不正な形式の場合はデフォルトフォルダを使用
+    if (!storedFolders || storedFolders.length === 0 || storedFolders.some(folder => !folder.includes('年度'))) {
+      console.log('デフォルトフォルダを設定')
+      return defaultFolders
+    }
+    return storedFolders
+  })
+  
   const [currentFolder, setCurrentFolder] = useState(() => {
     const currentAcademicYear = getCurrentAcademicYear()
-    const storedFolders = getStoredFolders()
+    const initialFolders = folders.length > 0 ? folders : defaultFolders
+    console.log('初期年度設定:', currentAcademicYear, 'フォルダ:', initialFolders)
     // フォルダリストに現在の年度が存在するかチェック
-    return storedFolders.includes(currentAcademicYear) ? currentAcademicYear : (storedFolders[0] || currentAcademicYear)
+    return initialFolders.includes(currentAcademicYear) ? currentAcademicYear : (initialFolders[0] || currentAcademicYear)
   })
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -132,6 +143,9 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
       const currentAcademicYear = getCurrentAcademicYear()
       console.log('年度計算結果:', currentAcademicYear)
       console.log('利用可能なフォルダ:', folders)
+      console.log('フォルダの長さ:', folders.length)
+      console.log('フォルダの最初の3つ:', folders.slice(0, 3))
+      
       // フォルダリストに現在の年度が存在することを確認
       if (folders.includes(currentAcademicYear)) {
         console.log('現在の年度を設定:', currentAcademicYear)

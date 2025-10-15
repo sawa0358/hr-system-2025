@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Upload, FileSpreadsheet, Download, Trash2, Eye, X, Edit } from "lucide-react"
+import { Upload, FileSpreadsheet, Download, Trash2, Eye } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { usePermissions } from "@/hooks/use-permissions"
@@ -114,8 +114,6 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   })
   const [loading, setLoading] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [isAddingFolder, setIsAddingFolder] = useState(false)
-  const [newFolderName, setNewFolderName] = useState("")
   const [viewingFile, setViewingFile] = useState<EvaluationFile | null>(null)
   
   // フォルダ管理権限チェック（一般社員もフォルダ追加可能）
@@ -205,29 +203,6 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
-  const handleAddFolder = () => {
-    if (newFolderName.trim()) {
-      // 年度フォルダのみ追加可能（例：2028年度）
-      const yearMatch = newFolderName.trim().match(/^(\d{4})年度?$/)
-      if (yearMatch) {
-        const year = parseInt(yearMatch[1])
-        if (year >= 2020 && year <= 2070) {
-          const academicYearStr = `${year}年度`
-          if (!folders.includes(academicYearStr)) {
-            const newFolders = [...folders, academicYearStr].sort((a, b) => {
-              const yearA = parseInt(a.replace('年度', ''))
-              const yearB = parseInt(b.replace('年度', ''))
-              return yearA - yearB
-            })
-            setFolders(newFolders)
-            setCurrentFolder(academicYearStr)
-          }
-        }
-      }
-      setNewFolderName("")
-      setIsAddingFolder(false)
-    }
-  }
 
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -427,36 +402,6 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                   </SelectContent>
                 </Select>
               </div>
-              {canManageFolders && !isAddingFolder ? (
-                <Button variant="outline" size="sm" onClick={() => setIsAddingFolder(true)}>
-                  <Plus className="w-4 h-4 mr-1" />
-                  年度追加
-                </Button>
-              ) : canManageFolders && (
-                <div className="flex items-center gap-2">
-                  <Input
-                    placeholder="年度（例：2028年度）"
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleAddFolder()}
-                    className="w-40"
-                    autoFocus
-                  />
-                  <Button size="sm" onClick={handleAddFolder}>
-                    追加
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsAddingFolder(false)
-                      setNewFolderName("")
-                    }}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
             </div>
 
             <div className="space-y-4">

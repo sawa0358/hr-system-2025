@@ -35,13 +35,10 @@ export function AttendanceUploadDialog({
     return years
   }
   
-  // 現在の年を取得
-  const currentYear = new Date().getFullYear()
-  
   const [yearFolders, setYearFolders] = useState<string[]>(generateYears())
   const [otherFolders, setOtherFolders] = useState<string[]>(["その他"])
   const [selectedOtherFolder, setSelectedOtherFolder] = useState("その他")
-  const [selectedYear, setSelectedYear] = useState(`${currentYear}年`)
+  const [selectedYear, setSelectedYear] = useState("")
   const [selectedMonth, setSelectedMonth] = useState("1月")
   const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: string[] }>({})
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
@@ -73,6 +70,21 @@ export function AttendanceUploadDialog({
     }
     return []
   }
+
+  // 現在の年を取得する関数
+  const getCurrentYear = () => {
+    return new Date().getFullYear()
+  }
+
+  // ダイアログが開かれるたびに最新の年を設定
+  useEffect(() => {
+    if (open) {
+      const currentYear = getCurrentYear()
+      const currentYearStr = `${currentYear}年`
+      console.log('勤怠管理: 現在の年を設定:', currentYearStr)
+      setSelectedYear(currentYearStr)
+    }
+  }, [open])
 
   // コンポーネント初期化時にファイルデータを読み込み
   useEffect(() => {

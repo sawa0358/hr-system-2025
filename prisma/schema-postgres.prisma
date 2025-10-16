@@ -63,9 +63,9 @@ model Employee {
   leaveRequests         LeaveRequest[]
   
   // 自己参照（上司・部下関係）
-  managerId             String?
-  manager               Employee? @relation("EmployeeHierarchy", fields: [managerId], references: [id])
-  subordinates          Employee[] @relation("EmployeeHierarchy")
+  // managerId             String?
+  // manager               Employee? @relation("EmployeeHierarchy", fields: [managerId], references: [id])
+  // subordinates          Employee[] @relation("EmployeeHierarchy")
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]

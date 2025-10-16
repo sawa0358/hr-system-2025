@@ -194,7 +194,9 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
               {task.members && task.members.length > 0 ? (
                 task.members.slice(0, 5).map((member, index) => (
                   <Avatar key={member.id} className="w-5 h-5 border border-white">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                    <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                      /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                    }`}>
                       {member.name.slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
@@ -315,7 +317,9 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
                   {task.members && task.members.length > 0 ? (
                     task.members.slice(0, 5).map((member, index) => (
                       <Avatar key={member.id} className="w-7 h-7 border-2 border-white">
-                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                        <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                          /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                        }`}>
                           {member.name.slice(0, 3)}
                         </AvatarFallback>
                       </Avatar>
@@ -409,7 +413,9 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
           {task.members && task.members.length > 0 ? (
             task.members.slice(0, 5).map((member, index) => (
               <Avatar key={member.id} className="w-6 h-6 border border-white">
-                <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                  /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                }`}>
                   {member.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>

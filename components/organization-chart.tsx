@@ -555,7 +555,9 @@ function DraggableOrgNodeCard({
                 </div>
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs whitespace-nowrap overflow-hidden">
+                <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                  /^[a-zA-Z\s]+$/.test(node.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                }`}>
                   {node.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
@@ -794,7 +796,9 @@ function UnassignedEmployeeCard({
               </div>
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
-              <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs whitespace-nowrap overflow-hidden">
+              <AvatarFallback className={`bg-slate-100 text-slate-700 font-semibold whitespace-nowrap overflow-hidden ${
+                /^[a-zA-Z\s]+$/.test(employee.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+              }`}>
                 {employee.name.slice(0, 3)}
               </AvatarFallback>
             </Avatar>

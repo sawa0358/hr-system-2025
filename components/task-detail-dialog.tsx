@@ -1440,7 +1440,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold whitespace-nowrap overflow-hidden">
+                    <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                      /^[a-zA-Z\s]+$/.test((member.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
+                    }`}>
                       {(member.name || "未").slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
@@ -1492,7 +1494,9 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           }`}
                         >
                         <Avatar className="w-10 h-10">
-                          <AvatarFallback className={`text-sm font-semibold whitespace-nowrap overflow-hidden ${
+                          <AvatarFallback className={`font-semibold whitespace-nowrap overflow-hidden ${
+                            /^[a-zA-Z\s]+$/.test((employee.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
+                          } ${
                             isSelected ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
                           }`}>
                             {(employee.name || "未").slice(0, 3)}

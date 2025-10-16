@@ -141,7 +141,9 @@ export async function PUT(
     console.log('更新データ:', {
       name: body.name,
       furigana: body.furigana,
-      email: body.email
+      email: body.email,
+      parentEmployeeId: body.parentEmployeeId,
+      isCopyEmployee: isCopyEmployee
     })
     console.log('furiganaフィールドの詳細:', {
       value: body.furigana,
@@ -150,7 +152,7 @@ export async function PUT(
       isEmpty: body.furigana === '' || body.furigana === null || body.furigana === undefined
     })
 
-    // コピー社員の場合は名前とフリガナのみ更新可能
+    // コピー社員の場合は名前、フリガナ、parentEmployeeIdのみ更新可能
     const updateData = isCopyEmployee ? {
       name: body.name,
       furigana: (() => {
@@ -160,6 +162,7 @@ export async function PUT(
         const trimmed = String(body.furigana).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      parentEmployeeId: body.parentEmployeeId || null,
     } : {
       name: body.name,
       furigana: (() => {
@@ -224,7 +227,7 @@ export async function PUT(
       data: updateData
     });
 
-    console.log('更新成功:', employee.id, employee.name, employee.furigana)
+    console.log('更新成功:', employee.id, employee.name, employee.furigana, employee.parentEmployeeId)
 
     // 家族データの保存
     if (body.familyMembers && Array.isArray(body.familyMembers)) {

@@ -29,6 +29,15 @@ export async function GET() {
       }
     });
     console.log('社員データ取得成功:', employees.length, '件');
+    
+    // コピー社員のparentEmployeeIdを確認
+    const copyEmployees = employees.filter(emp => emp.status === 'copy');
+    console.log('API: コピー社員のparentEmployeeId確認:', copyEmployees.map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      status: emp.status,
+      parentEmployeeId: emp.parentEmployeeId
+    })));
 
     // 複数の組織名・部署・役職をパースして返す
     const processedEmployees = employees.map(employee => {
@@ -38,6 +47,7 @@ export async function GET() {
           departments: parseJsonArray(employee.department),
           positions: parseJsonArray(employee.position),
           organizations: parseJsonArray(employee.organization),
+          parentEmployeeId: employee.parentEmployeeId, // parentEmployeeIdを明示的に含める
         };
       } catch (parseError) {
         console.error('社員データパースエラー:', employee.id, parseError);
@@ -47,11 +57,22 @@ export async function GET() {
           departments: [employee.department || ''],
           positions: [employee.position || ''],
           organizations: [employee.organization || ''],
+          parentEmployeeId: employee.parentEmployeeId, // parentEmployeeIdを明示的に含める
         };
       }
     });
 
     console.log('社員データ処理完了');
+    
+    // 処理後のコピー社員のparentEmployeeIdを確認
+    const processedCopyEmployees = processedEmployees.filter(emp => emp.status === 'copy');
+    console.log('API: 処理後のコピー社員のparentEmployeeId確認:', processedCopyEmployees.map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      status: emp.status,
+      parentEmployeeId: emp.parentEmployeeId
+    })));
+    
     return NextResponse.json(processedEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);

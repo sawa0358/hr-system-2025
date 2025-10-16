@@ -298,6 +298,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
         if (isInactive) {
           return isManagerOrHR
         }
+        // コピー社員は管理者のみに表示
+        if (employee.status === 'copy') {
+          return currentUser?.role === 'admin'
+        }
         return true
       })
     // ソートを適用
@@ -323,6 +327,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       const isInactive = employee.status === 'leave' || employee.status === 'retired' || employee.status === 'suspended' || employee.isSuspended
       if (isInactive) {
         return isManagerOrHR
+      }
+      // コピー社員は管理者のみに表示
+      if (employee.status === 'copy') {
+        return currentUser?.role === 'admin'
       }
       return true
     })

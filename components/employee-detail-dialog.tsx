@@ -146,9 +146,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     if (latestEmployee && !isNewEmployee) {
       setFormData(prev => ({
         ...prev,
-        isSuspended: latestEmployee.isSuspended ?? false
+        isSuspended: latestEmployee.isSuspended ?? false,
+        employeeType: latestEmployee.employeeType || '正社員'
       }))
       console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
+      console.log('formData更新 - employeeType:', latestEmployee.employeeType)
     }
   }, [latestEmployee, isNewEmployee])
 
@@ -171,7 +173,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         password: employee.password || '',
         role: employee.role || 'general',
         myNumber: employee.myNumber || '',
-        employeeType: employee.employeeType || 'employee',
+        employeeType: employee.employeeType || '正社員',
         employeeNumber: employee.employeeNumber || '',
         employeeId: employee.employeeId || '',
         userId: employee.userId || '',

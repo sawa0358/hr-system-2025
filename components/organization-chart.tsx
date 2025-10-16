@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
+import { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -568,6 +568,9 @@ function DraggableOrgNodeCard({
                     {node.employeeNumber && (
                       <p className="text-xs text-slate-500 font-mono">{node.employeeNumber}</p>
                     )}
+                    {node.employee?.employeeType && (
+                      <p className="text-xs text-blue-600 font-medium">{node.employee.employeeType}</p>
+                    )}
                     {node.organization && (
                       <p className="text-xs text-slate-600 truncate">{node.organization.replace(/^\[|\]$/g, '').replace(/^"|"$/g, '')}</p>
                     )}
@@ -800,7 +803,12 @@ function UnassignedEmployeeCard({
                 {employee.name}
               </h3>
               {!isCompactMode && (
-                <p className="text-xs text-slate-600 truncate">{employee.position}</p>
+                <>
+                  {employee.employeeType && (
+                    <p className="text-xs text-blue-600 font-medium">{employee.employeeType}</p>
+                  )}
+                  <p className="text-xs text-slate-600 truncate">{employee.position}</p>
+                </>
               )}
             </div>
           </div>
@@ -844,7 +852,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   // 社員データを取得
   useEffect(() => {
     fetchEmployees()
-  }, []) // 依存配列を空にして、初回のみ実行
+  }, [currentUser]) // currentUserが変更された時も再実行
 
   // 外部から呼び出せるメソッドを定義
   useImperativeHandle(ref, () => ({
@@ -854,27 +862,109 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
   }))
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       console.log('組織図: 社員データを取得中...')
+      console.log('組織図: 現在のユーザー情報:', currentUser)
+      console.log('組織図: 現在のユーザーロール:', currentUser?.role)
+      console.log('組織図: 管理者権限チェック:', currentUser?.role === 'admin')
+      console.log('組織図: 現在のユーザーID:', currentUser?.id)
+      console.log('組織図: 現在のユーザー名:', currentUser?.name)
       const response = await fetch('/api/employees')
       const data = await response.json()
       console.log('組織図: 取得した社員データ:', data.length, '件')
+      
+      // 社員データの詳細を確認
+      const adminEmployees = data.filter((emp: Employee) => emp.role === 'admin')
+      console.log('組織図: 管理者権限の社員:', adminEmployees.map((emp: Employee) => ({ id: emp.id, name: emp.name, role: emp.role })))
+      
+      const copyEmployeesData = data.filter((emp: Employee) => emp.status === 'copy')
+      console.log('組織図: コピー社員:', copyEmployeesData.map((emp: Employee) => ({ id: emp.id, name: emp.name, status: emp.status, parentEmployeeId: emp.parentEmployeeId })))
+      
+      // コピー社員のparentEmployeeIdの詳細を確認
+      copyEmployeesData.forEach((emp: Employee) => {
+        console.log(`コピー社員 ${emp.name} の詳細:`, {
+          id: emp.id,
+          parentEmployeeId: emp.parentEmployeeId,
+          showInOrgChart: emp.showInOrgChart,
+          isInvisibleTop: emp.isInvisibleTop,
+          isSuspended: emp.isSuspended
+        })
+        
+        // コピー社員の親社員を確認
+        if (emp.parentEmployeeId) {
+          const parentEmployee = data.find((p: Employee) => p.id === emp.parentEmployeeId)
+          console.log(`コピー社員 ${emp.name} の親社員:`, {
+            parentId: emp.parentEmployeeId,
+            parentName: parentEmployee?.name || '見つからない',
+            parentRole: parentEmployee?.role || '不明',
+            parentStatus: parentEmployee?.status || '不明',
+            parentShowInOrgChart: parentEmployee?.showInOrgChart || false
+          })
+          
+          // 親社員が見つからない場合の詳細ログ
+          if (!parentEmployee) {
+            console.log(`⚠️ コピー社員 ${emp.name} の親社員が見つかりません:`, {
+              parentId: emp.parentEmployeeId,
+              allEmployeeIds: data.map((e: Employee) => e.id),
+              parentExists: data.some((e: Employee) => e.id === emp.parentEmployeeId)
+            })
+          }
+        } else {
+          console.log(`コピー社員 ${emp.name} の親社員: なし (parentEmployeeId: null)`)
+        }
+      })
+      
       setEmployees(data)
       
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
-      // ステータスが「在籍中・休職中・コピー社員」のみを表示
+      // ステータスが「在籍中・休職中・コピー」のみを表示（コピー社員は全員に表示）
       const unassigned = data.filter((emp: Employee) => 
         !emp.showInOrgChart && 
         !emp.isInvisibleTop && 
         emp.employeeNumber !== '000' &&
         (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
       )
+      console.log('未配置社員フィルタリング結果:', unassigned.length, '件')
+      console.log('コピー社員の未配置:', unassigned.filter((emp: Employee) => emp.status === 'copy'))
+      
+      // コピー社員の未配置条件を詳しくチェック
+      const copyEmployeesUnassigned = data.filter((emp: Employee) => emp.status === 'copy')
+      console.log('組織図: 全コピー社員数:', copyEmployeesUnassigned.length)
+      copyEmployeesUnassigned.forEach((emp: Employee) => {
+        console.log(`コピー社員 ${emp.name} の未配置条件:`, {
+          showInOrgChart: emp.showInOrgChart,
+          isInvisibleTop: emp.isInvisibleTop,
+          employeeNumber: emp.employeeNumber,
+          isAdmin: currentUser?.role === 'admin',
+          parentEmployeeId: emp.parentEmployeeId,
+          shouldBeUnassigned: !emp.showInOrgChart && 
+                             !emp.isInvisibleTop && 
+                             emp.employeeNumber !== '000' &&
+                             (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
+        })
+      })
+      
+      // 現在のユーザーと一致する社員データを確認
+      const currentUserEmployee = data.find((emp: Employee) => emp.id === currentUser?.id)
+      if (currentUserEmployee) {
+        console.log('組織図: 現在のユーザーと一致する社員データ:', {
+          id: currentUserEmployee.id,
+          name: currentUserEmployee.name,
+          role: currentUserEmployee.role,
+          status: currentUserEmployee.status,
+          showInOrgChart: currentUserEmployee.showInOrgChart
+        })
+      } else {
+        console.log('組織図: 現在のユーザーと一致する社員データが見つかりません')
+      }
       setUnassignedEmployees(unassigned)
       
       // 組織図を構築
       const orgTree = buildOrgChartFromEmployees(data)
       console.log('構築された組織図:', orgTree)
+      console.log('組織図のルートノード数:', orgTree.children?.length || 0)
+      console.log('組織図のルートノード:', orgTree.children?.map(child => ({ name: child.name, status: child.employee?.status })) || [])
       setDisplayedTree(orgTree)
       
       setLoading(false)
@@ -882,14 +972,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       console.error('社員データの取得に失敗しました:', error)
       setLoading(false)
     }
-  }
+  }, [currentUser])
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
   // 見えないTOP社員は除外するが、その子ノードは表示する
   const showInChartEmployees = employees.filter(emp =>
     emp.showInOrgChart &&
-    (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') && // 在籍中・休職中・コピー社員を表示
+    (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') && // コピー社員は全員に表示
     !emp.isSuspended &&
     !emp.isInvisibleTop &&
     emp.employeeNumber !== '000'
@@ -899,6 +989,73 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     console.log('組織図構築 - 全社員数:', employees.length)
     console.log('組織図構築 - 表示対象社員数:', showInChartEmployees.length)
     console.log('店長の社員:', employees.filter(emp => emp.role === 'store_manager'))
+    console.log('コピー社員:', employees.filter(emp => emp.status === 'copy'))
+    console.log('現在のユーザーロール:', currentUser?.role)
+    console.log('表示対象のコピー社員:', showInChartEmployees.filter(emp => emp.status === 'copy'))
+    
+    // showInChartEmployeesの詳細を確認
+    console.log('🔍 showInChartEmployeesの詳細:', showInChartEmployees.map(emp => ({
+      id: emp.id,
+      name: emp.name,
+      status: emp.status,
+      parentEmployeeId: emp.parentEmployeeId,
+      showInOrgChart: emp.showInOrgChart,
+      isSuspended: emp.isSuspended,
+      isInvisibleTop: emp.isInvisibleTop,
+      employeeNumber: emp.employeeNumber
+    })))
+    
+    // コピー社員の詳細な表示条件をチェック
+    const copyEmployees = employees.filter(emp => emp.status === 'copy')
+    console.log('組織図構築: 全コピー社員数:', copyEmployees.length)
+    copyEmployees.forEach(emp => {
+      console.log(`コピー社員 ${emp.name} の表示条件:`, {
+        showInOrgChart: emp.showInOrgChart,
+        status: emp.status,
+        isAdmin: currentUser?.role === 'admin',
+        isSuspended: emp.isSuspended,
+        isInvisibleTop: emp.isInvisibleTop,
+        employeeNumber: emp.employeeNumber,
+        parentEmployeeId: emp.parentEmployeeId,
+        shouldShow: emp.showInOrgChart && 
+                   (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') &&
+                   !emp.isSuspended &&
+                   !emp.isInvisibleTop &&
+                   emp.employeeNumber !== '000'
+      })
+      
+      // コピー社員のparentEmployeeIdの詳細を確認
+      if (emp.parentEmployeeId) {
+        const parentEmployee = employees.find(p => p.id === emp.parentEmployeeId)
+        console.log(`コピー社員 ${emp.name} の親社員:`, {
+          parentId: emp.parentEmployeeId,
+          parentName: parentEmployee?.name || '見つからない',
+          parentRole: parentEmployee?.role || '不明',
+          parentStatus: parentEmployee?.status || '不明'
+        })
+      } else {
+        console.log(`コピー社員 ${emp.name} の親社員: なし (parentEmployeeId: null)`)
+      }
+    })
+    
+    // 現在のユーザーと一致する社員データを確認
+    const currentUserEmployee = employees.find(emp => emp.id === currentUser?.id)
+    if (currentUserEmployee) {
+      console.log('組織図構築: 現在のユーザーと一致する社員データ:', {
+        id: currentUserEmployee.id,
+        name: currentUserEmployee.name,
+        role: currentUserEmployee.role,
+        status: currentUserEmployee.status,
+        showInOrgChart: currentUserEmployee.showInOrgChart,
+        shouldShow: currentUserEmployee.showInOrgChart && 
+                   (currentUserEmployee.status === 'active' || currentUserEmployee.status === 'leave' || currentUserEmployee.status === 'copy') &&
+                   !currentUserEmployee.isSuspended &&
+                   !currentUserEmployee.isInvisibleTop &&
+                   currentUserEmployee.employeeNumber !== '000'
+      })
+    } else {
+      console.log('組織図構築: 現在のユーザーと一致する社員データが見つかりません')
+    }
     
     if (showInChartEmployees.length === 0) {
       return {
@@ -912,6 +1069,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
     // 階層構造を構築
     const buildHierarchy = (displayEmployees: Employee[], allEmployees: Employee[]): OrgNode[] => {
+      console.log('🔍 buildHierarchy関数開始:', {
+        displayEmployeesCount: displayEmployees.length,
+        allEmployeesCount: allEmployees.length,
+        copyEmployeesInDisplay: displayEmployees.filter(emp => emp.status === 'copy').map(emp => ({ id: emp.id, name: emp.name, parentEmployeeId: emp.parentEmployeeId }))
+      })
+      
       // 全社員のマップを作成（見えないTOP社員も含む）
       const allEmployeeMap = new Map<string, Employee>()
       allEmployees.forEach(emp => allEmployeeMap.set(emp.id, emp))
@@ -920,6 +1083,11 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       
       // 表示対象社員のノードを作成
       displayEmployees.forEach(emp => {
+        // コピー社員の場合は、parentEmployeeIdを明示的に保持
+        const employeeData = emp.status === 'copy' 
+          ? { ...emp, parentEmployeeId: emp.parentEmployeeId }
+          : emp
+        
         const node: OrgNode = {
           id: emp.id,
           name: emp.name,
@@ -929,7 +1097,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           organization: emp.organization,
           team: emp.team,
           description: emp.description,
-          employee: emp,
+          employee: employeeData,
           children: []
         }
         nodeMap.set(emp.id, node)
@@ -940,7 +1108,22 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       
       displayEmployees.forEach(emp => {
         const node = nodeMap.get(emp.id)!
-        console.log(`社員処理: ${emp.name} (${emp.role}), parentEmployeeId: ${emp.parentEmployeeId}`)
+        console.log(`社員処理: ${emp.name} (${emp.role}), status: ${emp.status}, parentEmployeeId: ${emp.parentEmployeeId}`)
+        
+        // コピー社員の場合は特別なログを追加
+        console.log(`🔍 社員ステータス詳細チェック: ${emp.name}`, {
+          status: emp.status,
+          statusType: typeof emp.status,
+          isCopy: emp.status === 'copy',
+          strictComparison: emp.status === 'copy',
+          statusLength: emp.status?.length,
+          statusCharCodes: emp.status?.split('').map(c => c.charCodeAt(0))
+        })
+        
+        if (emp.status === 'copy') {
+          console.log(`🔍 コピー社員処理開始: ${emp.name}, parentEmployeeId: ${emp.parentEmployeeId}`)
+          console.log(`🔍 ノード作成時のemployeeデータ:`, node.employee?.parentEmployeeId)
+        }
         
         // 親をチェック（見えないTOP社員も含む）
         let parentNode: OrgNode | null = null
@@ -948,11 +1131,39 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           // 親が表示対象社員の場合は親の子として追加
           if (nodeMap.has(emp.parentEmployeeId)) {
             parentNode = nodeMap.get(emp.parentEmployeeId)!
+            console.log(`  → 親が見つかりました: ${emp.name} → ${parentNode.name}`)
+            if (emp.status === 'copy') {
+              console.log(`🔍 コピー社員: 親が表示対象社員として見つかりました`)
+            }
           } else {
-            // 親が見えないTOP社員の場合は、この社員をルートノードとして追加
-            console.log(`  → 親が見えないTOP社員のため、ルートノードとして追加: ${emp.name}`)
-            rootNodes.push(node)
-            return
+            // 親が見えないTOP社員または表示対象外の場合は、全社員から親を探す
+            const parentEmployee = allEmployeeMap.get(emp.parentEmployeeId)
+            if (parentEmployee) {
+              console.log(`  → 親が見つかりましたが表示対象外: ${emp.name} → ${parentEmployee.name} (${parentEmployee.role})`)
+              // 親が見つかったが表示対象外の場合、この社員をルートノードとして追加
+              // ただし、コピー社員の場合は親の情報を保持
+              if (emp.status === 'copy') {
+                console.log(`🔍 コピー社員: 親が見つかりましたが表示対象外 - ルートノードとして追加`)
+                console.log(`🔍 コピー社員: 更新前のnode.employee.parentEmployeeId:`, node.employee?.parentEmployeeId)
+                // コピー社員の場合は、親の情報を保持したままルートノードとして追加
+                node.employee = { ...emp, parentEmployeeId: emp.parentEmployeeId }
+                console.log(`🔍 コピー社員: 更新後のnode.employee.parentEmployeeId:`, node.employee.parentEmployeeId)
+              }
+              rootNodes.push(node)
+              return
+            } else {
+              console.log(`  → 親が見つかりません: ${emp.name}, parentEmployeeId: ${emp.parentEmployeeId}`)
+              // 親が見つからない場合、この社員をルートノードとして追加
+              // コピー社員の場合は親の情報を保持
+              if (emp.status === 'copy') {
+                console.log(`🔍 コピー社員: 親が見つかりません - ルートノードとして追加`)
+                console.log(`🔍 コピー社員: 更新前のnode.employee.parentEmployeeId:`, node.employee?.parentEmployeeId)
+                node.employee = { ...emp, parentEmployeeId: emp.parentEmployeeId }
+                console.log(`🔍 コピー社員: 更新後のnode.employee.parentEmployeeId:`, node.employee.parentEmployeeId)
+              }
+              rootNodes.push(node)
+              return
+            }
           }
         }
         
@@ -965,6 +1176,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           console.log(`  → 親の子として追加: ${emp.name} → ${parentNode.name}`)
         } else {
           // 親がいない場合、ルートノードとして追加
+          // コピー社員の場合は親の情報を保持
+          if (emp.status === 'copy') {
+            console.log(`🔍 コピー社員: 親がいない場合 - ルートノードとして追加`)
+            console.log(`🔍 コピー社員: 更新前のnode.employee.parentEmployeeId:`, node.employee?.parentEmployeeId)
+            node.employee = { ...emp, parentEmployeeId: emp.parentEmployeeId }
+            console.log(`🔍 コピー社員: 更新後のnode.employee.parentEmployeeId:`, node.employee.parentEmployeeId)
+          }
           rootNodes.push(node)
           console.log(`  → ルートノードとして追加: ${emp.name}`)
         }
@@ -976,10 +1194,51 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return rootNodes
     }
 
+    console.log('🔍 buildHierarchy関数呼び出し前:', {
+      showInChartEmployeesCount: showInChartEmployees.length,
+      employeesCount: employees.length,
+      copyEmployeesInShowInChart: showInChartEmployees.filter(emp => emp.status === 'copy').map(emp => ({ id: emp.id, name: emp.name, status: emp.status, parentEmployeeId: emp.parentEmployeeId }))
+    })
+    
     const hierarchy = buildHierarchy(showInChartEmployees, employees)
     
+    console.log('🔍 buildHierarchy関数呼び出し後:', {
+      hierarchyCount: hierarchy.length,
+      hierarchyNames: hierarchy.map(h => ({ name: h.name, status: h.employee?.status, parentEmployeeId: h.employee?.parentEmployeeId }))
+    })
+    
     console.log('階層構築結果:', hierarchy.length, '個のルートノード')
-    console.log('階層詳細:', hierarchy.map(h => ({ name: h.name, role: h.employee?.role })))
+    console.log('階層詳細:', hierarchy.map(h => ({ name: h.name, role: h.employee?.role, status: h.employee?.status })))
+    
+    // コピー社員の階層構築結果を詳しくチェック
+    const copyNodes = hierarchy.filter(h => h.employee?.status === 'copy')
+    console.log('階層構築後のコピー社員ノード数:', copyNodes.length)
+    copyNodes.forEach(node => {
+      console.log(`🔍 最終確認 - コピー社員ノード ${node.name}:`, {
+        id: node.id,
+        parentEmployeeId: node.employee?.parentEmployeeId,
+        hasChildren: !!node.children,
+        childrenCount: node.children?.length || 0,
+        employeeStatus: node.employee?.status,
+        employeeParentId: node.employee?.parentEmployeeId
+      })
+      console.log(`🔍 最終確認 - node.employee全体:`, node.employee)
+    })
+    
+    // 現在のユーザーと一致するノードを確認
+    const currentUserNode = hierarchy.find(h => h.employee?.id === currentUser?.id)
+    if (currentUserNode) {
+      console.log('階層構築後の現在のユーザーノード:', {
+        id: currentUserNode.id,
+        name: currentUserNode.name,
+        role: currentUserNode.employee?.role,
+        status: currentUserNode.employee?.status,
+        hasChildren: !!currentUserNode.children,
+        childrenCount: currentUserNode.children?.length || 0
+      })
+    } else {
+      console.log('階層構築後の現在のユーザーノードが見つかりません')
+    }
     
     if (hierarchy.length === 0) {
       console.log('組織図に表示する社員がいません')
@@ -1312,6 +1571,19 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         ...employee,
         showInOrgChart: true,
         parentEmployeeId: targetEmployee.id
+      }
+      
+      // コピー社員の場合は、親の情報を正しく設定
+      if (employee.status === 'copy') {
+        console.log(`コピー社員 ${employee.name} を ${targetEmployee.name} の配下に移動`)
+        console.log(`更新前のparentEmployeeId: ${employee.parentEmployeeId}`)
+        console.log(`更新後のparentEmployeeId: ${targetEmployee.id}`)
+        console.log(`コピー社員の親社員情報:`, {
+          targetId: targetEmployee.id,
+          targetName: targetEmployee.name,
+          targetRole: targetEmployee.role,
+          targetStatus: targetEmployee.status
+        })
       }
       
       console.log('Sending update data for unassigned to org chart:', {

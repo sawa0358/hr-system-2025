@@ -206,7 +206,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       
       // アバター関連の初期化（employeeデータから復元）
       setAvatarText('')
-      setSelectedAvatarFile(null)
       
       // 画像データをローカルストレージから復元
       if (typeof window !== 'undefined') {
@@ -214,8 +213,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (savedAvatarText) {
           setAvatarText(savedAvatarText)
         }
-        // ファイルは復元できないので、nullのまま
-        setSelectedAvatarFile(null)
       }
       
       // 家族データも更新（初回のみ）
@@ -349,7 +346,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [avatarText, setAvatarText] = useState('')
-  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null)
   const [currentFolder, setCurrentFolder] = useState('')
 
   // 保存処理
@@ -1349,14 +1345,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Label>画像</Label>
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
-                        {selectedAvatarFile ? (
-                          <img 
-                            src={URL.createObjectURL(selectedAvatarFile)} 
-                            alt="プロフィール画像" 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : avatarText ? (
-                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 2)}</span>
+                        {avatarText ? (
+                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 3)}</span>
                         ) : employee?.avatar ? (
                           <img 
                             src={employee.avatar} 
@@ -1369,50 +1359,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       </div>
                       {canEditProfile && (
                         <div className="space-y-2">
-                          <div>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file) {
-                                  setSelectedAvatarFile(file)
-                                  setAvatarText('') // 画像選択時は文字をクリア
-                                  // ローカルストレージからもテキストをクリア
-                                  if (employee?.id && typeof window !== 'undefined') {
-                                    localStorage.removeItem(`employee-avatar-text-${employee.id}`)
-                                  }
-                                }
-                              }}
-                              className="hidden"
-                              id="avatar-upload"
-                            />
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => document.getElementById('avatar-upload')?.click()}
-                            >
-                              画像を選択
-                            </Button>
-                          </div>
                           <div className="flex items-center gap-2">
                             <Input
-                              placeholder="何文字でもOK"
+                              placeholder="何文字でも登録可能"
                               value={avatarText}
                               onChange={(e) => {
                                 const text = e.target.value
                                 setAvatarText(text)
-                                if (text) {
-                                  setSelectedAvatarFile(null) // 文字入力時は画像をクリア
-                                }
                                 // ローカルストレージに保存
                                 if (employee?.id && typeof window !== 'undefined') {
                                   localStorage.setItem(`employee-avatar-text-${employee.id}`, text)
                                 }
                               }}
-                              className="w-20 h-8 text-sm"
+                              className="w-32 h-8 text-sm"
                             />
-                            <span className="text-xs text-slate-500">または文字（表示は2文字）</span>
+                            <span className="text-xs text-slate-500">（表示は1-3文字）</span>
                           </div>
                         </div>
                       )}

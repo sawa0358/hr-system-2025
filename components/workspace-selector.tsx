@@ -58,7 +58,7 @@ export function WorkspaceSelector({
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery)
-    }, 300) // 300ms待ってから検索実行
+    }, 500) // 500ms待ってから検索実行（日本語入力対応で延長）
 
     return () => clearTimeout(timer)
   }, [searchQuery])

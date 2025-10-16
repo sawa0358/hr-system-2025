@@ -190,6 +190,30 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
                 {task.dueDate ? format(parseISO(task.dueDate), "yyyy/MM/dd") : ""}
               </span>
             </div>
+            <div className="flex -space-x-1 flex-shrink-0">
+              {task.members && task.members.length > 0 ? (
+                task.members.slice(0, 5).map((member, index) => (
+                  <Avatar key={member.id} className="w-5 h-5 border border-white">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                      {member.name.slice(0, 3)}
+                    </AvatarFallback>
+                  </Avatar>
+                ))
+              ) : (
+                <Avatar className="w-5 h-5">
+                  <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                    未
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              {task.members && task.members.length > 5 && (
+                <div className="w-5 h-5 bg-gray-100 border border-white rounded-full flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-600">
+                    +{task.members.length - 5}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -289,24 +313,24 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
               <div className="flex items-center justify-between">
                 <div className="flex -space-x-1">
                   {task.members && task.members.length > 0 ? (
-                    task.members.slice(0, 3).map((member, index) => (
-                      <Avatar key={member.id} className="w-6 h-6 border-2 border-white">
-                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
-                          {member.name.slice(0, 2)}
+                    task.members.slice(0, 5).map((member, index) => (
+                      <Avatar key={member.id} className="w-7 h-7 border-2 border-white">
+                        <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                          {member.name.slice(0, 3)}
                         </AvatarFallback>
                       </Avatar>
                     ))
                   ) : (
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold">
+                    <Avatar className="w-7 h-7">
+                      <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
                         未
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  {task.members && task.members.length > 3 && (
-                    <div className="w-6 h-6 bg-gray-100 border-2 border-white rounded-full flex items-center justify-center">
+                  {task.members && task.members.length > 5 && (
+                    <div className="w-7 h-7 bg-gray-100 border-2 border-white rounded-full flex items-center justify-center">
                       <span className="text-xs font-semibold text-gray-600">
-                        +{task.members.length - 3}
+                        +{task.members.length - 5}
                       </span>
                     </div>
                   )}
@@ -383,24 +407,24 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
       <div className="flex items-center gap-2 flex-shrink-0">
         <div className="flex -space-x-1">
           {task.members && task.members.length > 0 ? (
-            task.members.slice(0, 3).map((member, index) => (
-              <Avatar key={member.id} className="w-5 h-5 border border-white">
-                <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold">
-                  {member.name.slice(0, 2)}
+            task.members.slice(0, 5).map((member, index) => (
+              <Avatar key={member.id} className="w-6 h-6 border border-white">
+                <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                  {member.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
             ))
           ) : (
-            <Avatar className="w-5 h-5">
-              <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold">
+            <Avatar className="w-6 h-6">
+              <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
                 未
               </AvatarFallback>
             </Avatar>
           )}
-          {task.members && task.members.length > 3 && (
-            <div className="w-5 h-5 bg-gray-100 border border-white rounded-full flex items-center justify-center">
+          {task.members && task.members.length > 5 && (
+            <div className="w-6 h-6 bg-gray-100 border border-white rounded-full flex items-center justify-center">
               <span className="text-xs font-semibold text-gray-600">
-                +{task.members.length - 3}
+                +{task.members.length - 5}
               </span>
             </div>
           )}

@@ -555,8 +555,8 @@ function DraggableOrgNodeCard({
                 </div>
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
-                  {node.name.slice(0, 2)}
+                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs whitespace-nowrap overflow-hidden">
+                  {node.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
@@ -794,8 +794,8 @@ function UnassignedEmployeeCard({
               </div>
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
-              <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs">
-                {employee.name.slice(0, 2)}
+              <AvatarFallback className="bg-slate-100 text-slate-700 font-semibold text-xs whitespace-nowrap overflow-hidden">
+                {employee.name.slice(0, 3)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left min-w-0">

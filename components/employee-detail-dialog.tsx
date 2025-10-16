@@ -1346,7 +1346,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
                         {avatarText ? (
-                          <span className="text-lg font-medium text-slate-700">{avatarText.slice(0, 3)}</span>
+                          <span className="text-lg font-medium text-slate-700 whitespace-nowrap overflow-hidden">{avatarText.slice(0, 3)}</span>
                         ) : employee?.avatar ? (
                           <img 
                             src={employee.avatar} 
@@ -1354,7 +1354,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-2xl">{employee?.name?.[0] || "?"}</span>
+                          <span className="text-2xl whitespace-nowrap overflow-hidden">{employee?.name?.slice(0, 3) || "?"}</span>
                         )}
                       </div>
                       {canEditProfile && (

@@ -1439,8 +1439,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             <div className="flex flex-wrap gap-2 mb-2">
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
-                  <Avatar className="w-6 h-6">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                  <Avatar className="w-8 h-8">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold whitespace-nowrap overflow-hidden">
                       {(member.name || "未").slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>
@@ -1491,8 +1491,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                             isSelected ? 'bg-blue-50 border-2 border-blue-200' : 'border border-transparent'
                           }`}
                         >
-                        <Avatar className="w-8 h-8">
-                          <AvatarFallback className={`text-sm ${
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className={`text-sm font-semibold whitespace-nowrap overflow-hidden ${
                             isSelected ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
                           }`}>
                             {(employee.name || "未").slice(0, 3)}

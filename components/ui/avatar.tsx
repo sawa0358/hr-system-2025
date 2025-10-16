@@ -49,12 +49,12 @@ function AvatarFallback({
         return 'bg-[#dbeafe]'
       case '契約社員':
       case '派遣社員':
-        return 'bg-[#faebeb]'
+        return 'bg-[#f5d5d5]'
       case '業務委託':
       case '外注先':
-        return 'bg-[#e3fcec]'
+        return 'bg-[#d1f2d1]'
       case 'パートタイム':
-        return 'bg-[#feffdb]'
+        return 'bg-[#fff5cc]'
       default:
         return 'bg-[#dbeafe]' // デフォルト
     }

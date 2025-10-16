@@ -89,7 +89,7 @@ interface Task {
   title: string
   description: string
   assignee: string
-  members?: { id: string; name: string; email?: string }[]
+  members?: { id: string; name: string; email?: string; employeeType?: string }[]
   dueDate: string
   priority: "low" | "medium" | "high"
   comments: number

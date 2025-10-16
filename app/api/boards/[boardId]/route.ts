@@ -55,6 +55,7 @@ export async function GET(request: NextRequest, { params }: { params: { boardId:
                         name: true,
                         email: true,
                         department: true,
+                        employeeType: true,
                       },
                     },
                   },

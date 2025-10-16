@@ -68,6 +68,7 @@ interface Checklist {
 interface Member {
   id: string
   name: string
+  employeeType?: string
 }
 
 interface TaskFile {

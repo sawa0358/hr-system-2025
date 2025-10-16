@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: { cardId: 
                 email: true,
                 department: true,
                 position: true,
+                employeeType: true,
               },
             },
           },

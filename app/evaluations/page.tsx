@@ -77,7 +77,10 @@ export default function EvaluationsPage() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="w-14 h-14">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-lg">
+                    <AvatarFallback 
+                      employeeType={employee.employeeType}
+                      className="text-blue-700 font-semibold text-lg"
+                    >
                       {employee.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>

@@ -227,7 +227,10 @@ export function WorkspaceManagerDialog({
                         onCheckedChange={() => toggleMember(employee.id)}
                       />
                       <Avatar className="w-9 h-9">
-                        <AvatarFallback className="bg-blue-100 text-blue-700 text-sm font-semibold">
+                        <AvatarFallback 
+                          employeeType={employee.employeeType}
+                          className="text-blue-700 text-sm font-semibold"
+                        >
                           {employee.name.slice(0, 3)}
                         </AvatarFallback>
                       </Avatar>

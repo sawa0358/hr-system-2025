@@ -42,7 +42,10 @@ export function EvaluationList() {
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-4 flex-1">
                 <Avatar className="w-12 h-12">
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
+                <AvatarFallback 
+                  employeeType={evaluation.employeeType}
+                  className="text-blue-700 font-semibold"
+                >
                   {evaluation.employeeName.slice(0, 3)}
                 </AvatarFallback>
                 </Avatar>

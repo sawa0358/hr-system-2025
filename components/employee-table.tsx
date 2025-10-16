@@ -601,7 +601,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="w-10 h-10">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
+                    <AvatarFallback 
+                      employeeType={employee.employeeType}
+                      className="text-blue-700 font-semibold"
+                    >
                       {employee.name.slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>

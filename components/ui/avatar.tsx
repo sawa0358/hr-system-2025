@@ -36,13 +36,36 @@ function AvatarImage({
 
 function AvatarFallback({
   className,
+  employeeType,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback> & {
+  employeeType?: string
+}) {
+  const getBackgroundColor = (type?: string) => {
+    if (!type) return 'bg-[#dbeafe]' // デフォルト（正社員と同じ）
+    
+    switch (type) {
+      case '正社員':
+        return 'bg-[#dbeafe]'
+      case '契約社員':
+      case '派遣社員':
+        return 'bg-[#faebeb]'
+      case '業務委託':
+      case '外注先':
+        return 'bg-[#e3fcec]'
+      case 'パートタイム':
+        return 'bg-[#feffdb]'
+      default:
+        return 'bg-[#dbeafe]' // デフォルト
+    }
+  }
+
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        'bg-muted flex size-full items-center justify-center rounded-full',
+        'flex size-full items-center justify-center rounded-full',
+        getBackgroundColor(employeeType),
         className,
       )}
       {...props}

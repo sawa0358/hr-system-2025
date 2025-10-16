@@ -364,7 +364,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4">
               <Avatar className="w-12 h-12">
-                <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold">
+                <AvatarFallback 
+                  employeeType={employee.employeeType}
+                  className="text-blue-700 font-semibold"
+                >
                   {employee.name.slice(0, 2)}
                 </AvatarFallback>
               </Avatar>

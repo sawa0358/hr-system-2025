@@ -555,9 +555,12 @@ function DraggableOrgNodeCard({
                 </div>
               )}
               <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                  /^[a-zA-Z\s]+$/.test(node.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
-                }`}>
+                <AvatarFallback 
+                  employeeType={node.employee?.employeeType}
+                  className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                    /^[a-zA-Z\s]+$/.test(node.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                  }`}
+                >
                   {node.name.slice(0, 3)}
                 </AvatarFallback>
               </Avatar>
@@ -2066,7 +2069,10 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               <CardContent className={`${isCompactMode ? 'p-1' : 'p-2'}`}>
                 <div className="flex items-center gap-2">
                   <Avatar className={`${isCompactMode ? 'w-6 h-6' : 'w-8 h-8'} flex-shrink-0`}>
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
+                    <AvatarFallback 
+                      employeeType={activeNode.employee?.employeeType}
+                      className="text-blue-700 font-semibold text-xs"
+                    >
                       {activeNode.name.slice(0, 2)}
                     </AvatarFallback>
                   </Avatar>

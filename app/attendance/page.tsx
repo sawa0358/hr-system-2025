@@ -427,7 +427,10 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
               <CardContent className="p-2">
                 <div className="flex items-center gap-2">
                   <Avatar className="w-8 h-8 flex-shrink-0">
-                    <AvatarFallback className="bg-blue-100 text-blue-700 font-semibold text-xs">
+                    <AvatarFallback 
+                      employeeType={employee.employeeType}
+                      className="text-blue-700 font-semibold text-xs"
+                    >
                       {employee.name.charAt(0)}
                     </AvatarFallback>
                   </Avatar>

@@ -1440,9 +1440,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               {members.map((member) => (
                 <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className={`bg-blue-100 text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                      /^[a-zA-Z\s]+$/.test((member.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
-                    }`}>
+                    <AvatarFallback 
+                      employeeType={member.employeeType}
+                      className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
+                        /^[a-zA-Z\s]+$/.test((member.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
+                      }`}
+                    >
                       {(member.name || "未").slice(0, 3)}
                     </AvatarFallback>
                   </Avatar>

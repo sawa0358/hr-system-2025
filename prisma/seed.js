@@ -5,27 +5,19 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('シードデータの投入を開始します...')
 
-  // 既存のデータをクリア
-  await prisma.activityLog.deleteMany()
-  await prisma.file.deleteMany()
-  await prisma.folder.deleteMany()
-  await prisma.payroll.deleteMany()
-  await prisma.attendance.deleteMany()
-  await prisma.task.deleteMany()
-  await prisma.evaluation.deleteMany()
-  await prisma.employee.deleteMany()
+  // データベースは既にリセットされているので、削除は不要
 
-  // 社員データの作成
+  // 社員データの作成（新しいマスターデータに基づく）
   const employees = [
     {
       employeeId: "EMP-2015-001",
       employeeNumber: "EMP-2015-001",
-      employeeType: "employee",
+      employeeType: "正社員",
       name: "admin",
       email: "admin@company.com",
       phone: "090-0000-0000",
-      department: "総務・管理者",
-      position: "システム管理者",
+      department: "執行部",
+      position: "代表取締役",
       organization: "株式会社テックイノベーション",
       team: "システム管理",
       joinDate: new Date("2015-01-01"),
@@ -36,11 +28,11 @@ async function main() {
     {
       employeeId: "EMP-2015-002",
       employeeNumber: "EMP-2015-002",
-      employeeType: "employee",
+      employeeType: "正社員",
       name: "manager",
       email: "manager@company.com",
       phone: "090-0000-0001",
-      department: "総務・管理者",
+      department: "執行部",
       position: "管理者",
       organization: "株式会社テックイノベーション",
       team: "管理",
@@ -52,14 +44,14 @@ async function main() {
     {
       employeeId: "EMP-2016-001",
       employeeNumber: "EMP-2016-001",
-      employeeType: "employee",
+      employeeType: "正社員",
       name: "sub",
       email: "sub@company.com",
       phone: "090-0000-0002",
-      department: "営業部",
-      position: "サブマネージャー",
+      department: "執行部",
+      position: "管理者",
       organization: "株式会社テックイノベーション",
-      team: "営業",
+      team: "サブ管理",
       joinDate: new Date("2016-01-01"),
       status: "active",
       password: "sub",
@@ -68,12 +60,12 @@ async function main() {
     {
       employeeId: "EMP-2017-001",
       employeeNumber: "EMP-2017-001",
-      employeeType: "employee",
+      employeeType: "正社員",
       name: "ippan",
       email: "ippan@company.com",
       phone: "090-0000-0003",
-      department: "営業部",
-      position: "一般社員",
+      department: "広店",
+      position: "内勤",
       organization: "株式会社テックイノベーション",
       team: "営業",
       joinDate: new Date("2017-01-01"),
@@ -84,14 +76,14 @@ async function main() {
     {
       employeeId: "EMP-2018-001",
       employeeNumber: "EMP-2018-001",
-      employeeType: "employee",
+      employeeType: "正社員",
       name: "etsuran",
       email: "etsuran@company.com",
       phone: "090-0000-0004",
-      department: "総務部",
-      position: "閲覧者",
+      department: "広店",
+      position: "内勤",
       organization: "株式会社テックイノベーション",
-      team: "総務",
+      team: "営業",
       joinDate: new Date("2018-01-01"),
       status: "active",
       password: "etsuran",

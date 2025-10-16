@@ -56,7 +56,6 @@ model Employee {
   
   // リレーション
   evaluations           Evaluation[]
-  tasks                 Task[]
   attendance            Attendance[]
   payroll               Payroll[]
   files                 File[]
@@ -80,6 +79,9 @@ model Employee {
   // カード関係
   createdCards          Card[] @relation("CardCreator")
   cardMembers           CardMember[]
+  
+  // ボード関係
+  createdBoards         Board[] @relation("BoardCreator")
 
   @@map("employees")
 }

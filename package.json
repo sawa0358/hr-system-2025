@@ -17,7 +17,16 @@
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart app",
     "heroku-postbuild": "cp prisma/schema-postgres.prisma prisma/schema.prisma && npx prisma generate && npm run build",
-    "postdeploy": "node scripts/auto-create-invisible-top.js"
+    "postdeploy": "node scripts/auto-create-invisible-top.js",
+    "schema:dev": "node scripts/switch-schema.js dev",
+    "schema:prod": "node scripts/switch-schema.js prod",
+    "schema:sync": "node scripts/generate-schemas.js",
+    "deploy:prepare": "npm run schema:prod && npm run build",
+    "deploy:dev": "npm run schema:dev && npm run dev",
+    "auto:setup": "node scripts/setup-git-hooks.js",
+    "auto:deploy": "node scripts/auto-deploy.js",
+    "auto:schema": "node scripts/auto-schema-manager.js",
+    "heroku-postbuild": "node scripts/auto-schema-manager.js && npx prisma generate && npm run build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.901.0",

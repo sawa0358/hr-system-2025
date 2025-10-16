@@ -21,9 +21,6 @@ export async function GET() {
   try {
     console.log('社員一覧取得開始');
     const employees = await prisma.employee.findMany({
-      include: {
-        familyMembers: true
-      },
       orderBy: {
         createdAt: 'desc'
       }

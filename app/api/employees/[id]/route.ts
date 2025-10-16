@@ -20,10 +20,7 @@ export async function GET(
 ) {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id },
-      include: {
-        familyMembers: true
-      }
+      where: { id: params.id }
     });
 
     if (!employee) {
@@ -253,12 +250,9 @@ export async function PUT(
       }
     }
 
-    // 更新された社員データを家族情報と一緒に取得
+    // 更新された社員データを取得
     const updatedEmployee = await prisma.employee.findUnique({
-      where: { id: params.id },
-      include: {
-        familyMembers: true
-      }
+      where: { id: params.id }
     });
 
     return NextResponse.json({

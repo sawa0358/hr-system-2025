@@ -51,7 +51,6 @@ model Employee {
   privacyExtension      Boolean           @default(true)
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
-  privacyMyNumber       Boolean           @default(false)
   orgChartLabel         String?
   
   // リレーション

@@ -23,7 +23,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("正社員")
+  const [employeeType, setEmployeeType] = useState("all")
   const [position, setPosition] = useState("all")
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])

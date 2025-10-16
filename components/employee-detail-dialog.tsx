@@ -86,7 +86,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = isAdminOrHR && !isCopyEmployee // 通常の編集権限
-  const canEditCopyEmployee = isAdminOrHR && isCopyEmployee // コピー社員の編集権限（名前・フリガナのみ）
+  const canEditCopyEmployee = currentUser?.role === 'admin' && isCopyEmployee // コピー社員の編集権限（管理者のみ）
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
   const canEditUserInfo = (permissions.permissions.editAllProfiles || isAdminOrHR) // コピー社員も編集可能（制限あり）
@@ -121,7 +121,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       password: employee?.password || '',
       role: employee?.role || 'general',
       myNumber: employee?.myNumber || '',
-      employeeType: employee?.employeeType || 'employee',
+      employeeType: employee?.employeeType || '正社員',
       employeeNumber: employee?.employeeNumber || '',
       employeeId: employee?.employeeId || '',
       isSuspended: employee?.isSuspended ?? false,
@@ -459,6 +459,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
         // 新規登録の場合はダイアログを閉じて、テーブルをリフレッシュ
         if (isNewEmployee) {
+          // 新規登録後にファイルアップロードを再試行
+          if (files.length > 0) {
+            console.log('新規登録完了、ファイルアップロードを再試行します')
+            // 少し遅延してからファイルアップロードを再試行
+            setTimeout(() => {
+              handleFileUploadRetry(result.employee.id)
+            }, 1000)
+          }
           onOpenChange(false)
           if (onRefresh) {
             onRefresh()
@@ -531,7 +539,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // コピー処理
   const [copying, setCopying] = useState(false)
   const handleCopy = async () => {
-    if (!employee || (!isAdminOrHR && currentUser?.role !== 'manager')) return
+    if (!employee || currentUser?.role !== 'admin') return
     
     if (!confirm(`「${employee.name}」の情報をコピーしますか？コピー社員は編集できません。`)) {
       return
@@ -613,6 +621,55 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
   }
 
+  // 新規登録後のファイルアップロード再試行
+  const handleFileUploadRetry = async (employeeId: string) => {
+    console.log('ファイルアップロード再試行開始:', employeeId)
+    const filesToUpload = [...files]
+    
+    if (filesToUpload.length === 0) {
+      console.log('アップロードするファイルがありません')
+      return
+    }
+    
+    // ファイルリストをクリア
+    setFiles([])
+    
+    // 各ファイルをアップロード
+    for (const file of filesToUpload) {
+      try {
+        console.log('ファイルアップロード開始:', file.name)
+        
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('category', 'employee')
+        formData.append('folder', currentFolder)
+        
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          headers: {
+            'x-employee-id': employeeId
+          },
+          body: formData
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('ファイルアップロード成功:', result)
+          
+          // アップロード済みファイルリストを再取得
+          setTimeout(() => {
+            fetchUploadedFiles(employeeId)
+          }, 500)
+        } else {
+          const errorText = await response.text()
+          console.error('ファイルアップロード失敗:', response.status, errorText)
+        }
+      } catch (error) {
+        console.error('ファイルアップロードエラー:', error)
+      }
+    }
+  }
+
   // ファイル管理
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = event.target.files
@@ -628,10 +685,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         try {
           console.log('ファイルアップロード開始:', file.name)
           
-          // 新規登録の場合はアップロードをスキップ
+          // 新規登録の場合はアップロードをスキップ（保存後に再試行）
           if (!employee?.id) {
-            console.log('新規登録のため、ファイルアップロードをスキップ')
-            setFiles(prevFiles => prevFiles.filter(f => f !== file))
+            console.log('新規登録のため、ファイルアップロードをスキップ（保存後に再試行）')
             continue
           }
           
@@ -829,8 +885,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       }
     }
     return [
-      { value: "employee", label: "正社員" },
-      { value: "contractor", label: "契約社員" }
+      { value: "正社員", label: "正社員" },
+      { value: "契約社員", label: "契約社員" },
+      { value: "パートタイム", label: "パートタイム" },
+      { value: "派遣社員", label: "派遣社員" },
+      { value: "業務委託", label: "業務委託" },
+      { value: "外注先", label: "外注先" }
     ]
   })
   const [userPermission, setUserPermission] = useState<string>("general")
@@ -846,14 +906,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       }
     }
     return [
-      "エンジニアリング",
-      "営業",
-      "マーケティング",
-      "人事",
-      "経理",
-      "総務",
-      "CS",
-      "品質保証",
+      "執行部",
+      "広店",
+      "焼山店",
+      "不動産部",
+      "工務部",
+      "チカラもち",
+      "福祉部"
     ]
   })
   const [availablePositions, setAvailablePositions] = useState<string[]>(() => {
@@ -865,13 +924,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
     return [
       "代表取締役",
-      "取締役",
-      "部長",
-      "次長",
-      "課長",
-      "係長",
-      "主任",
-      "一般社員"
+      "執行役員",
+      "統括店長",
+      "店長",
+      "工務長",
+      "福祉長",
+      "アドバイザー",
+      "内勤",
+      "広報",
+      "総務",
+      "経理",
+      "工務",
+      "プランナー",
+      "チームリーダー",
+      "サービス管理責任者",
+      "管理者"
     ]
   })
 

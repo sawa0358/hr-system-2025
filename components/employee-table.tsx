@@ -377,11 +377,8 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       filtered = filtered.filter(employee => employee.status === 'active')
     } else if (filters.status !== 'all') {
       filtered = filtered.filter(employee => employee.status === filters.status)
-    } else {
-      // 「全ステータス」の場合でも、デフォルトではコピー社員は除外する
-      // コピー社員を見たい場合は明示的に「コピー社員」フィルターを選択する必要がある
-      filtered = filtered.filter(employee => employee.status !== 'copy')
     }
+    // 「全ステータス」の場合はフィルタリングしない（すべての社員を表示）
 
     // 組織図表示フィルター
     if (filters.showInOrgChart !== 'all') {
@@ -712,9 +709,20 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                       </>
                     ) : employee.status === 'copy' ? (
                       <>
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          編集（コピー社員のため編集不可）
-                        </DropdownMenuItem>
+                        {currentUser?.role === 'admin' ? (
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEmployeeClick?.(employee)
+                            }}
+                          >
+                            編集（管理者のみ）
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem disabled className="text-slate-400">
+                            編集（管理者のみ）
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem disabled className="text-slate-400">
                           人事考課表を開く（コピー社員のため利用不可）
                         </DropdownMenuItem>
@@ -745,7 +753,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                             人事考課表を開く
                           </DropdownMenuItem>
                         )}
-                        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                        {currentUser?.role === 'admin' && (
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation()

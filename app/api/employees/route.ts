@@ -98,10 +98,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 雇用形態のバリデーション
-    const validEmployeeTypes = ['employee', 'contractor'];
+    const validEmployeeTypes = ['正社員', '契約社員', 'パートタイム', '派遣社員', '業務委託', '外注先'];
     if (body.employeeType && !validEmployeeTypes.includes(body.employeeType)) {
       return NextResponse.json(
-        { error: '雇用形態は employee または contractor のみ有効です' },
+        { error: '雇用形態は 正社員、契約社員、パートタイム、派遣社員、業務委託、外注先 のみ有効です' },
         { status: 400 }
       );
     }

@@ -23,7 +23,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("employee")
+  const [employeeType, setEmployeeType] = useState("正社員")
   const [position, setPosition] = useState("all")
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
@@ -31,45 +31,110 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
   const [availableEmploymentTypes, setAvailableEmploymentTypes] = useState<{value: string, label: string}[]>([])
 
   // データ取得関数
-  const loadData = () => {
+  const loadData = async () => {
     if (typeof window !== 'undefined') {
-      // 部署管理から取得
-      const savedDepartments = localStorage.getItem('available-departments')
-      if (savedDepartments) {
-        try {
-          const departments = JSON.parse(savedDepartments)
-          setAvailableDepartments(departments)
-        } catch (error) {
-          console.error('部署データの取得エラー:', error)
+      try {
+        console.log('マスターデータの取得を開始します')
+        // APIエンドポイントからマスターデータを取得
+        const response = await fetch('/api/master-data')
+        console.log('マスターデータAPIレスポンス:', response.status)
+        const result = await response.json()
+        console.log('マスターデータAPI結果:', result)
+        
+        if (result.success && result.data) {
+          const masterData = result.data
+          console.log('マスターデータ:', masterData)
+          
+          // 部署データを設定
+          if (masterData.departments) {
+            console.log('部署データを設定:', masterData.departments)
+            setAvailableDepartments(masterData.departments)
+            // localStorageにも保存
+            localStorage.setItem('available-departments', JSON.stringify(masterData.departments))
+          } else {
+            console.warn('部署データが取得できませんでした')
+          }
+          
+          // 役職データを設定
+          if (masterData.positions) {
+            console.log('役職データを設定:', masterData.positions)
+            setAvailablePositions(masterData.positions)
+            // localStorageにも保存
+            localStorage.setItem('available-positions', JSON.stringify(masterData.positions))
+          } else {
+            console.warn('役職データが取得できませんでした')
+          }
+          
+          // 雇用形態データを設定
+          if (masterData.employmentTypes) {
+            const employmentTypes = masterData.employmentTypes.map((type: string) => ({
+              value: type,
+              label: type
+            }))
+            console.log('雇用形態データを設定:', employmentTypes)
+            setAvailableEmploymentTypes(employmentTypes)
+            // localStorageにも保存
+            localStorage.setItem('employment-types', JSON.stringify(employmentTypes))
+          } else {
+            console.warn('雇用形態データが取得できませんでした')
+          }
+        } else {
+          // APIから取得できない場合はlocalStorageから取得
+          console.warn('APIからマスターデータを取得できませんでした。localStorageから取得します。')
+          loadFromLocalStorage()
         }
+      } catch (error) {
+        console.error('マスターデータの取得エラー:', error)
+        // エラーの場合はlocalStorageから取得
+        loadFromLocalStorage()
       }
+    }
+  }
 
-      // 役職管理から取得
-      const savedPositions = localStorage.getItem('available-positions')
-      if (savedPositions) {
-        try {
-          const positions = JSON.parse(savedPositions)
-          setAvailablePositions(positions)
-        } catch (error) {
-          console.error('役職データの取得エラー:', error)
-        }
+  // localStorageからデータを取得する関数
+  const loadFromLocalStorage = () => {
+    // 部署管理から取得
+    const savedDepartments = localStorage.getItem('available-departments')
+    if (savedDepartments) {
+      try {
+        const departments = JSON.parse(savedDepartments)
+        setAvailableDepartments(departments)
+      } catch (error) {
+        console.error('部署データの取得エラー:', error)
       }
+    }
 
-      // 雇用形態管理から取得
-      const savedEmploymentTypes = localStorage.getItem('employment-types')
-      if (savedEmploymentTypes) {
-        try {
-          const employmentTypes = JSON.parse(savedEmploymentTypes)
-          setAvailableEmploymentTypes(employmentTypes)
-        } catch (error) {
-          console.error('雇用形態データの取得エラー:', error)
-        }
+    // 役職管理から取得
+    const savedPositions = localStorage.getItem('available-positions')
+    if (savedPositions) {
+      try {
+        const positions = JSON.parse(savedPositions)
+        setAvailablePositions(positions)
+      } catch (error) {
+        console.error('役職データの取得エラー:', error)
+      }
+    }
+
+    // 雇用形態管理から取得
+    const savedEmploymentTypes = localStorage.getItem('employment-types')
+    if (savedEmploymentTypes) {
+      try {
+        const employmentTypes = JSON.parse(savedEmploymentTypes)
+        setAvailableEmploymentTypes(employmentTypes)
+      } catch (error) {
+        console.error('雇用形態データの取得エラー:', error)
       }
     }
   }
 
   // 初期読み込み
   useEffect(() => {
+    // キャッシュをクリアしてからデータを読み込み
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('available-departments')
+      localStorage.removeItem('available-positions')
+      localStorage.removeItem('employment-types')
+    }
     loadData()
   }, [])
 
@@ -121,7 +186,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
     setSearchQuery("")
     setDepartment("all")
     setStatus("active")
-    setEmployeeType("employee")
+    setEmployeeType("正社員")
     setPosition("all")
     setShowInOrgChart("1")
   }
@@ -145,7 +210,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
             <SelectValue placeholder="雇用形態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">雇用形態</SelectItem>
+            <SelectItem value="all">全雇用形態</SelectItem>
             {availableEmploymentTypes
               .filter((type) => type.value && type.value.trim() !== '' && type.value !== '')
               .map((type) => (

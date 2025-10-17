@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { activityLogger, type ActivityLog } from "@/lib/activity-logger"
 import { Search, Download, Trash2, FileText } from "lucide-react"
+import { AIAskButton } from "@/components/ai-ask-button"
 
 export default function LogsPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([])
@@ -49,6 +50,46 @@ export default function LogsPage() {
 
   const modules = ["all", "社員情報", "組織図", "タスク管理", "給与管理"]
 
+  // AIに渡すコンテキスト情報を生成
+  const getAIContext = () => {
+    const totalLogs = logs.length
+    const filteredLogsCount = filteredLogs.length
+    const moduleStats = modules.slice(1).map(module => {
+      const count = logs.filter(log => log.module === module).length
+      return `${module}: ${count}件`
+    }).join(', ')
+    
+    const recentLogs = filteredLogs.slice(0, 10).map(log => ({
+      timestamp: new Date(log.timestamp).toLocaleString("ja-JP"),
+      user: log.userName,
+      action: log.action,
+      module: log.module,
+      details: log.details
+    }))
+
+    return `【システムログ分析コンテキスト】
+
+📊 ログ統計情報:
+- 総ログ数: ${totalLogs}件
+- 現在のフィルター結果: ${filteredLogsCount}件
+- モジュール別統計: ${moduleStats}
+- 検索クエリ: "${searchQuery || 'なし'}"
+- フィルターモジュール: ${filterModule}
+
+📝 最近のログ（最新10件）:
+${recentLogs.map(log => 
+  `• ${log.timestamp} | ${log.user} | ${log.module} | ${log.action}: ${log.details}`
+).join('\n')}
+
+🔍 利用可能な機能:
+- ログの検索・フィルタリング
+- モジュール別表示（社員情報、組織図、タスク管理、給与管理）
+- ログのエクスポート
+- ログのクリア
+
+💡 AIアシスタントとして、ログデータの分析、傾向の把握、問題の特定、改善提案などをサポートできます。`
+  }
+
   if (!isAdmin) {
     return (
       <main className="flex-1 flex items-center justify-center">
@@ -68,6 +109,7 @@ export default function LogsPage() {
             <p className="text-slate-600">すべての編集・変更履歴を表示</p>
           </div>
           <div className="flex gap-3">
+            <AIAskButton context={getAIContext()} />
             <Button variant="outline" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               エクスポート

@@ -269,7 +269,6 @@ model Board {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
   creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
-  position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
   createdAt   DateTime @default(now())
@@ -306,10 +305,6 @@ model Card {
   attachments Json?
   labels      Json?
   dueDate     DateTime?
-  priority    String   @default("medium")
-  status      String   @default("todo")
-  cardColor   String?
-  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

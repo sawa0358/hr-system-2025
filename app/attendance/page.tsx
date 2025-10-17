@@ -18,7 +18,7 @@ export default function AttendancePage() {
     department: "all",
     position: "all",
     status: "active",
-    employeeType: "employee",
+    employeeType: "all",
     showInOrgChart: "1"
   })
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)

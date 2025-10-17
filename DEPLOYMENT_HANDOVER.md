@@ -37,7 +37,7 @@ HRシステム（HR-system）のHerokuデプロイに関する問題と解決策
 ### package.jsonの重要な設定
 ```json
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "engines": {
     "node": "22.x",
     "npm": "10.x"

@@ -35,7 +35,7 @@ export function SharedEmployeeFilters({
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("employee")
+  const [employeeType, setEmployeeType] = useState("all")
   const [position, setPosition] = useState("all")
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
@@ -120,8 +120,12 @@ export function SharedEmployeeFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">雇用形態</SelectItem>
-            <SelectItem value="employee">正社員</SelectItem>
-            <SelectItem value="contractor">契約社員</SelectItem>
+            <SelectItem value="正社員">正社員</SelectItem>
+            <SelectItem value="契約社員">契約社員</SelectItem>
+            <SelectItem value="パートタイム">パートタイム</SelectItem>
+            <SelectItem value="業務委託">業務委託</SelectItem>
+            <SelectItem value="外注先">外注先</SelectItem>
+            <SelectItem value="派遣社員">派遣社員</SelectItem>
           </SelectContent>
         </Select>
 

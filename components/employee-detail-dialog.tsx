@@ -1144,7 +1144,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             <SelectItem value="store_manager">店長</SelectItem>
                             <SelectItem value="manager">マネージャー</SelectItem>
                             <SelectItem value="hr">総務権限</SelectItem>
-                            <SelectItem value="admin">管理者権限</SelectItem>
+                            {/* 管理者権限は管理者のみ選択可能 */}
+                            {currentUser?.role === 'admin' && (
+                              <SelectItem value="admin">管理者権限</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-slate-500">

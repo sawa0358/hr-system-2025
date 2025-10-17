@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Mail, Phone, FileText, ArrowUp, ArrowDown, ArrowUpDown, SortAsc, SortDesc, ChevronDown, Copy } from "lucide-react"
+import { MoreHorizontal, Mail, Phone, FileText, ArrowUpDown, SortAsc, SortDesc, ChevronDown, Copy } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
@@ -112,13 +112,6 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [customOrder, setCustomOrder] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('employee-custom-order')
-      return saved ? JSON.parse(saved) : []
-    }
-    return []
-  })
 
   // ソート機能
   const applySorting = (employeeList: any[]) => {
@@ -191,77 +184,7 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     }
   }
 
-  // カスタム順序を適用するヘルパー関数
-  const applyCustomOrder = (employeeList: any[]) => {
-    if (customOrder.length === 0) return employeeList
-    
-    const orderedEmployees: any[] = []
-    const unorderedEmployees: any[] = []
-    
-    // カスタム順序に従って並べ替え
-    customOrder.forEach(employeeId => {
-      const employee = employeeList.find(emp => emp.id === employeeId)
-      if (employee) {
-        orderedEmployees.push(employee)
-      }
-    })
-    
-    // カスタム順序にない社員を末尾に追加
-    employeeList.forEach(employee => {
-      if (!customOrder.includes(employee.id)) {
-        unorderedEmployees.push(employee)
-      }
-    })
-    
-    return [...orderedEmployees, ...unorderedEmployees]
-  }
 
-  // 順序入れ替え関数（localStorageで永続化）
-  const moveEmployee = (employeeId: string, direction: 'up' | 'down') => {
-    const currentIndex = filteredEmployees.findIndex(emp => emp.id === employeeId)
-    if (currentIndex === -1) return
-
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    if (newIndex < 0 || newIndex >= filteredEmployees.length) return
-
-    // フィルタリングされた社員の順序を入れ替える
-    const newFilteredEmployees = [...filteredEmployees]
-    const temp = newFilteredEmployees[currentIndex]
-    newFilteredEmployees[currentIndex] = newFilteredEmployees[newIndex]
-    newFilteredEmployees[newIndex] = temp
-    
-    // カスタム順序を更新
-    const newCustomOrder = [...customOrder]
-    const currentEmployeeId = filteredEmployees[currentIndex].id
-    const newEmployeeId = filteredEmployees[newIndex].id
-    
-    // カスタム順序に存在しない場合は追加
-    if (!newCustomOrder.includes(currentEmployeeId)) {
-      newCustomOrder.push(currentEmployeeId)
-    }
-    if (!newCustomOrder.includes(newEmployeeId)) {
-      newCustomOrder.push(newEmployeeId)
-    }
-    
-    // 順序を入れ替える
-    const currentOrderIndex = newCustomOrder.indexOf(currentEmployeeId)
-    const newOrderIndex = newCustomOrder.indexOf(newEmployeeId)
-    
-    if (currentOrderIndex !== -1 && newOrderIndex !== -1) {
-      [newCustomOrder[currentOrderIndex], newCustomOrder[newOrderIndex]] = 
-      [newCustomOrder[newOrderIndex], newCustomOrder[currentOrderIndex]]
-    }
-    
-    setCustomOrder(newCustomOrder)
-    
-    // localStorageに保存
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('employee-custom-order', JSON.stringify(newCustomOrder))
-    }
-    
-    // フィルタリングされたリストを更新
-    setFilteredEmployees(newFilteredEmployees)
-  }
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -411,10 +334,8 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       filtered = filtered.filter(employee => !employee.isInvisibleTop && employee.employeeNumber !== '000')
     }
 
-    // カスタム順序を適用
-    const orderedFiltered = applyCustomOrder(filtered)
     // ソートを適用
-    const sortedEmployees = applySorting(orderedFiltered)
+    const sortedEmployees = applySorting(filtered)
     setFilteredEmployees(sortedEmployees)
   }, [employees, filters, sortField, sortDirection])
 
@@ -475,7 +396,6 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50">
-            <TableHead className="font-semibold w-20">順序</TableHead>
             <TableHead className="font-semibold">番号・考課表</TableHead>
             <TableHead className="font-semibold">
               <div className="flex items-center gap-2">
@@ -539,37 +459,6 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 }
               }}
             >
-              <TableCell>
-                {/* 順序入れ替えボタン（管理者・総務のみ） */}
-                {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
-                  <div className="flex flex-col gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        moveEmployee(employee.id, 'up')
-                      }}
-                      disabled={index === 0}
-                    >
-                      <ArrowUp className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        moveEmployee(employee.id, 'down')
-                      }}
-                      disabled={index === filteredEmployees.length - 1}
-                    >
-                      <ArrowDown className="w-3 h-3" />
-                    </Button>
-                  </div>
-                )}
-              </TableCell>
               <TableCell>
                 <div className="space-y-1">
                   <div className="text-sm font-medium">

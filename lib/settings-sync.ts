@@ -1,5 +1,12 @@
 import { uploadFileToS3, getSignedDownloadUrl } from './s3-client'
 
+// TypeScript型定義の拡張
+declare global {
+  interface Window {
+    _isApplyingSettings?: boolean
+  }
+}
+
 /**
  * ユーザー設定をS3に保存・同期するシステム
  */
@@ -192,6 +199,9 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
   }
   
   try {
+    // 設定適用中フラグを設定（無限ループ防止）
+    window._isApplyingSettings = true
+    
     // 社員検索設定
     if (settings.employeeSearch) {
       localStorage.setItem('available-departments', JSON.stringify(settings.employeeSearch.departments))
@@ -220,6 +230,9 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
     console.log('設定をlocalStorageに適用しました')
   } catch (error) {
     console.error('localStorage設定適用エラー:', error)
+  } finally {
+    // 設定適用完了フラグをクリア
+    window._isApplyingSettings = false
   }
 }
 
@@ -299,6 +312,11 @@ export function setupAutoSave(userId: string): () => void {
   let saveTimeout: NodeJS.Timeout | null = null
   
   const handleStorageChange = () => {
+    // 設定適用中の場合は処理をスキップ（無限ループ防止）
+    if ((window as any)._isApplyingSettings) {
+      return
+    }
+    
     // デバウンス処理（500ms後に保存）
     if (saveTimeout) {
       clearTimeout(saveTimeout)

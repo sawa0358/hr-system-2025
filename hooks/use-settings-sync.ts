@@ -39,7 +39,7 @@ export function useSettingsSync() {
     } finally {
       setIsSyncing(false)
     }
-  }, [isSyncing])
+  }, [])
 
   /**
    * 手動で設定を保存
@@ -71,10 +71,10 @@ export function useSettingsSync() {
    * ユーザーがログインした時に設定を同期
    */
   useEffect(() => {
-    if (currentUser?.id) {
+    if (currentUser?.id && !isSyncing) {
       syncSettings(currentUser.id)
     }
-  }, [currentUser?.id, syncSettings])
+  }, [currentUser?.id])
 
   /**
    * 自動保存のセットアップ

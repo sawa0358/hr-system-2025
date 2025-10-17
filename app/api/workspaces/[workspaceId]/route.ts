@@ -61,9 +61,9 @@ export async function GET(request: NextRequest, { params }: { params: { workspac
               },
             },
           },
-          orderBy: {
-            position: "asc",
-          },
+      orderBy: {
+        position: "asc",
+      },
         },
       },
     })

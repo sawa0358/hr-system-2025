@@ -105,6 +105,7 @@ interface Task {
 interface KanbanList {
   id: string
   title: string
+  name?: string
   taskIds: string[]
   color?: string
 }
@@ -485,7 +486,7 @@ function KanbanColumn({
   // localStorageから折りたたみ状態を読み込む
   const [isCollapsed, setIsCollapsed] = useState(() => {
     // 常時運用タスクリストはデフォルトで畳んだ状態
-    if (list.title === "常時運用タスク") {
+    if ((list.name || list.title) === "常時運用タスク") {
       const saved = localStorage.getItem(`list-collapsed-${list.id}`)
       return saved === 'true' || saved === null // 保存されていない場合は畳んだ状態
     }
@@ -546,7 +547,7 @@ function KanbanColumn({
           </Button>
           <div className="flex-1 flex items-center justify-center">
             <div className="writing-mode-vertical text-sm font-semibold text-slate-900 whitespace-nowrap">
-              {list.title} ({tasks.length})
+              {list.name || list.title || 'No name'} ({tasks.length})
             </div>
           </div>
         </div>
@@ -585,7 +586,7 @@ function KanbanColumn({
             >
               <GripVertical className="w-4 h-4 text-slate-500" />
             </div>
-            <h2 className="font-semibold text-slate-900">{list.title}</h2>
+            <h2 className="font-semibold text-slate-900">{list.name || list.title || 'No name'}</h2>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="bg-slate-200 text-slate-700">
@@ -730,11 +731,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       return []
     }
 
-    return boardData.lists
+    console.log("generateListsFromBoardData - boardData.lists:", boardData.lists)
+    const generatedLists = boardData.lists
       .sort((a: any, b: any) => (a.position || 0) - (b.position || 0)) // position順にソート
       .map((list: any) => ({
         id: list.id,
-        title: list.title,
+        title: list.name,
+        name: list.name,
         taskIds: list.cards ? list.cards
           .filter((card: any) => {
             // アーカイブフィルターを適用
@@ -762,6 +765,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           .map((card: any) => card.id) : [],
         color: list.color,
       }))
+    
+    console.log("generateListsFromBoardData - generatedLists:", generatedLists)
+    return generatedLists
   }
 
   const generateTasksFromBoardData = (boardData: any) => {
@@ -1060,7 +1066,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             'x-employee-id': currentUserId || '',
           },
           body: JSON.stringify({
-            title: listName,
+            name: listName,
           }),
         })
 

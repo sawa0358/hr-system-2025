@@ -1,10 +1,33 @@
+// ベーススキーマ - 共通のモデル定義
+// このファイルを元に、環境別のスキーマを自動生成します
+
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
+}
+
+// ユーザーロール
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  store_manager
+  manager
+  hr
+  admin
+}
+
+// 社員ステータス
+enum EmployeeStatus {
+  active
+  leave
+  retired
+  suspended
+  copy
 }
 
 model Employee {
@@ -61,11 +84,6 @@ model Employee {
   folders               Folder[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
-  
-  // 自己参照（上司・部下関係）
-  // managerId             String?
-  // manager               Employee? @relation("EmployeeHierarchy", fields: [managerId], references: [id])
-  // subordinates          Employee[] @relation("EmployeeHierarchy")
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]
@@ -247,6 +265,7 @@ model Board {
   id          String   @id @default(cuid())
   name        String
   description String?
+  position    Int      @default(0)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
@@ -315,22 +334,4 @@ model FamilyMember {
   updatedAt  DateTime @updatedAt
 
   @@map("family_members")
-}
-
-enum UserRole {
-  viewer
-  general
-  sub_manager
-  store_manager
-  manager
-  hr
-  admin
-}
-
-enum EmployeeStatus {
-  active
-  leave
-  retired
-  suspended
-  copy
 }

@@ -34,6 +34,7 @@ interface ArchiveCard {
 interface ArchiveList {
   id: string
   title: string
+  name?: string
   createdAt: string
   cards: ArchiveCard[]
 }
@@ -240,7 +241,7 @@ export function ArchiveBoard({ boardId, currentUserId, currentUserRole, onClose,
           {filteredLists.map((list) => (
             <div key={list.id} className="bg-white rounded-lg border border-slate-200 p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-slate-900">{list.title}</h3>
+                <h3 className="font-semibold text-slate-900">{list.name || list.title}</h3>
                 <Badge variant="secondary" className="text-xs">
                   {list.cards.length}件
                 </Badge>

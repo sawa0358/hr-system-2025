@@ -3,163 +3,297 @@ const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
 async function main() {
-  console.log('シードデータの投入を開始します...')
+  console.log('🌱 シードデータの投入を開始します...')
 
-  // データベースは既にリセットされているので、削除は不要
-
-  // 社員データの作成（新しいマスターデータに基づく）
+  // 基本社員データを作成
   const employees = [
     {
-      employeeId: "EMP-2015-001",
-      employeeNumber: "EMP-2015-001",
-      employeeType: "正社員",
-      name: "admin",
-      email: "admin@company.com",
-      phone: "090-0000-0000",
-      department: "執行部",
-      position: "代表取締役",
-      organization: "株式会社テックイノベーション",
-      team: "システム管理",
-      joinDate: new Date("2015-01-01"),
-      status: "active",
-      password: "admin",
-      role: "admin",
+      id: 'cmgtfxlyt00008zx7gny1h5hn',
+      employeeId: 'EMP-2015-001',
+      employeeNumber: 'EMP-2015-001',
+      employeeType: 'employee',
+      name: 'admin',
+      furigana: 'アドミン',
+      email: 'admin@company.com',
+      phone: '03-1234-5678',
+      department: '["執行部"]',
+      position: '["代表取締役"]',
+      organization: '["本社"]',
+      team: '',
+      joinDate: new Date('2015-04-01'),
+      status: 'active',
+      password: 'admin123',
+      role: 'admin',
+      myNumber: null,
+      userId: 'admin',
+      url: '',
+      address: '東京都渋谷区',
+      selfIntroduction: 'システム管理者です',
+      phoneInternal: '001',
+      phoneMobile: '090-1234-5678',
+      birthDate: new Date('1980-01-01'),
+      showInOrgChart: true,
+      parentEmployeeId: null,
+      isInvisibleTop: false,
+      isSuspended: false,
+      retirementDate: null,
+      privacyDisplayName: true,
+      privacyOrganization: true,
+      privacyDepartment: true,
+      privacyPosition: true,
+      privacyUrl: true,
+      privacyAddress: true,
+      privacyBio: true,
+      privacyEmail: true,
+      privacyWorkPhone: true,
+      privacyExtension: true,
+      privacyMobilePhone: true,
+      privacyBirthDate: false,
+      orgChartLabel: 'admin'
     },
     {
-      employeeId: "EMP-2015-002",
-      employeeNumber: "EMP-2015-002",
-      employeeType: "正社員",
-      name: "manager",
-      email: "manager@company.com",
-      phone: "090-0000-0001",
-      department: "執行部",
-      position: "管理者",
-      organization: "株式会社テックイノベーション",
-      team: "管理",
-      joinDate: new Date("2015-01-01"),
-      status: "active",
-      password: "manager",
-      role: "manager",
+      id: 'cmgth6he100028z3i06ps75c7',
+      employeeId: 'EMP-2015-002',
+      employeeNumber: 'EMP-2015-002',
+      employeeType: 'employee',
+      name: 'manager',
+      furigana: 'マネージャー',
+      email: 'manager@company.com',
+      phone: '03-1234-5679',
+      department: '["広店"]',
+      position: '["店長"]',
+      organization: '["本社"]',
+      team: '',
+      joinDate: new Date('2015-04-01'),
+      status: 'active',
+      password: 'manager123',
+      role: 'manager',
+      myNumber: null,
+      userId: 'manager',
+      url: '',
+      address: '東京都新宿区',
+      selfIntroduction: '店長です',
+      phoneInternal: '002',
+      phoneMobile: '090-1234-5679',
+      birthDate: new Date('1985-05-15'),
+      showInOrgChart: true,
+      parentEmployeeId: 'cmgtfxlyt00008zx7gny1h5hn',
+      isInvisibleTop: false,
+      isSuspended: false,
+      retirementDate: null,
+      privacyDisplayName: true,
+      privacyOrganization: true,
+      privacyDepartment: true,
+      privacyPosition: true,
+      privacyUrl: true,
+      privacyAddress: true,
+      privacyBio: true,
+      privacyEmail: true,
+      privacyWorkPhone: true,
+      privacyExtension: true,
+      privacyMobilePhone: true,
+      privacyBirthDate: false,
+      orgChartLabel: 'manager'
     },
     {
-      employeeId: "EMP-2016-001",
-      employeeNumber: "EMP-2016-001",
-      employeeType: "正社員",
-      name: "sub",
-      email: "sub@company.com",
-      phone: "090-0000-0002",
-      department: "執行部",
-      position: "管理者",
-      organization: "株式会社テックイノベーション",
-      team: "サブ管理",
-      joinDate: new Date("2016-01-01"),
-      status: "active",
-      password: "sub",
-      role: "sub_manager",
-    },
-    {
-      employeeId: "EMP-2017-001",
-      employeeNumber: "EMP-2017-001",
-      employeeType: "正社員",
-      name: "ippan",
-      email: "ippan@company.com",
-      phone: "090-0000-0003",
-      department: "広店",
-      position: "内勤",
-      organization: "株式会社テックイノベーション",
-      team: "営業",
-      joinDate: new Date("2017-01-01"),
-      status: "active",
-      password: "ippan",
-      role: "general",
-    },
-    {
-      employeeId: "EMP-2018-001",
-      employeeNumber: "EMP-2018-001",
-      employeeType: "正社員",
-      name: "etsuran",
-      email: "etsuran@company.com",
-      phone: "090-0000-0004",
-      department: "広店",
-      position: "内勤",
-      organization: "株式会社テックイノベーション",
-      team: "営業",
-      joinDate: new Date("2018-01-01"),
-      status: "active",
-      password: "etsuran",
-      role: "viewer",
+      id: 'cmgtj2n3o00008zcwnsyk1k4n',
+      employeeId: 'EMP-2015-003',
+      employeeNumber: 'EMP-2015-003',
+      employeeType: 'employee',
+      name: '大澤仁志',
+      furigana: 'オオサワヒトシ',
+      email: 'ohsawa@company.com',
+      phone: '03-1234-5680',
+      department: '["執行部"]',
+      position: '["執行役員"]',
+      organization: '["本社"]',
+      team: '',
+      joinDate: new Date('2015-04-01'),
+      status: 'active',
+      password: 'ohsawa123',
+      role: 'hr',
+      myNumber: null,
+      userId: 'ohsawa',
+      url: '',
+      address: '東京都港区',
+      selfIntroduction: '人事担当です',
+      phoneInternal: '003',
+      phoneMobile: '090-1234-5680',
+      birthDate: new Date('1990-03-20'),
+      showInOrgChart: true,
+      parentEmployeeId: 'cmgtfxlyt00008zx7gny1h5hn',
+      isInvisibleTop: false,
+      isSuspended: false,
+      retirementDate: null,
+      privacyDisplayName: true,
+      privacyOrganization: true,
+      privacyDepartment: true,
+      privacyPosition: true,
+      privacyUrl: true,
+      privacyAddress: true,
+      privacyBio: true,
+      privacyEmail: true,
+      privacyWorkPhone: true,
+      privacyExtension: true,
+      privacyMobilePhone: true,
+      privacyBirthDate: false,
+      orgChartLabel: '大澤仁志'
     }
   ]
 
-  // 社員データをデータベースに挿入
-  for (const employeeData of employees) {
-    const employee = await prisma.employee.create({
-      data: employeeData
+  // 社員データを投入
+  for (const employee of employees) {
+    await prisma.employee.create({
+      data: employee
     })
-    console.log(`社員を作成しました: ${employee.name} (${employee.role})`)
+    console.log(`✅ 社員データを作成しました: ${employee.name}`)
   }
 
-  // ワークスペースの作成
-  const adminEmployee = await prisma.employee.findFirst({
-    where: { role: 'admin' }
-  })
-
-  if (adminEmployee) {
-    const workspace = await prisma.workspace.create({
-      data: {
-        name: "デフォルトワークスペース",
-        description: "初期のワークスペース",
-        createdBy: adminEmployee.id,
-      },
-    })
-
-    // ワークスペースメンバーの追加
-    const allEmployees = await prisma.employee.findMany()
-    await prisma.workspaceMember.createMany({
-      data: allEmployees.map(emp => ({
-        workspaceId: workspace.id,
-        employeeId: emp.id,
-        role: emp.role === 'admin' ? 'workspace_admin' : 'workspace_member',
-      })),
-    })
-    console.log('ワークスペースを作成しました:', workspace.name)
-
-    // デフォルトボードを作成
-    const board = await prisma.board.create({
-      data: {
-        name: "メインボード",
-        description: "デフォルトのボードです",
-        workspaceId: workspace.id,
-        createdBy: adminEmployee.id,
-      },
-    })
-
-    // デフォルトリストを作成
-    const defaultLists = [
-      { title: "常時運用タスク", position: 0 },
-      { title: "予定リスト", position: 1 },
-      { title: "進行中", position: 2 },
-      { title: "完了", position: 3 },
-    ]
-
-    for (const list of defaultLists) {
-      await prisma.boardList.create({
-        data: {
-          title: list.title,
-          position: list.position,
-          boardId: board.id,
-        },
-      })
+  // コピー社員も作成
+  const copyEmployees = [
+    {
+      id: 'cmgtljvhh00008zmi0ey1yp0r',
+      employeeId: 'EMP-2015-002-COPY',
+      employeeNumber: 'manager-COPY',
+      employeeType: 'employee',
+      name: 'manager',
+      furigana: 'マネージャー',
+      email: 'manager-copy@company.com',
+      phone: '03-1234-5679',
+      department: '["広店"]',
+      position: '["店長"]',
+      organization: '["本社"]',
+      team: '',
+      joinDate: new Date('2015-04-01'),
+      status: 'copy',
+      password: 'manager123',
+      role: 'manager',
+      myNumber: null,
+      userId: 'manager-copy',
+      url: '',
+      address: '東京都新宿区',
+      selfIntroduction: '店長です',
+      phoneInternal: '002',
+      phoneMobile: '090-1234-5679',
+      birthDate: new Date('1985-05-15'),
+      showInOrgChart: true,
+      parentEmployeeId: 'cmgth6he100028z3i06ps75c7',
+      isInvisibleTop: false,
+      isSuspended: false,
+      retirementDate: null,
+      privacyDisplayName: true,
+      privacyOrganization: true,
+      privacyDepartment: true,
+      privacyPosition: true,
+      privacyUrl: true,
+      privacyAddress: true,
+      privacyBio: true,
+      privacyEmail: true,
+      privacyWorkPhone: true,
+      privacyExtension: true,
+      privacyMobilePhone: true,
+      privacyBirthDate: false,
+      orgChartLabel: 'manager'
+    },
+    {
+      id: 'cmgtjqmcu000i8zcwhziu7gr2',
+      employeeId: 'EMP-2015-003-COPY',
+      employeeNumber: 'ohsawa-COPY',
+      employeeType: 'employee',
+      name: '大澤仁志',
+      furigana: 'オオサワヒトシ',
+      email: 'ohsawa-copy@company.com',
+      phone: '03-1234-5680',
+      department: '["執行部"]',
+      position: '["執行役員"]',
+      organization: '["本社"]',
+      team: '',
+      joinDate: new Date('2015-04-01'),
+      status: 'copy',
+      password: 'ohsawa123',
+      role: 'hr',
+      myNumber: null,
+      userId: 'ohsawa-copy',
+      url: '',
+      address: '東京都港区',
+      selfIntroduction: '人事担当です',
+      phoneInternal: '003',
+      phoneMobile: '090-1234-5680',
+      birthDate: new Date('1990-03-20'),
+      showInOrgChart: true,
+      parentEmployeeId: 'cmgtj2n3o00008zcwnsyk1k4n',
+      isInvisibleTop: false,
+      isSuspended: false,
+      retirementDate: null,
+      privacyDisplayName: true,
+      privacyOrganization: true,
+      privacyDepartment: true,
+      privacyPosition: true,
+      privacyUrl: true,
+      privacyAddress: true,
+      privacyBio: true,
+      privacyEmail: true,
+      privacyWorkPhone: true,
+      privacyExtension: true,
+      privacyMobilePhone: true,
+      privacyBirthDate: false,
+      orgChartLabel: '大澤仁志'
     }
-    console.log('デフォルトボードとリストを作成しました')
+  ]
+
+  // コピー社員データを投入
+  for (const employee of copyEmployees) {
+    await prisma.employee.create({
+      data: employee
+    })
+    console.log(`✅ コピー社員データを作成しました: ${employee.name}`)
   }
 
-  console.log('シードデータの投入が完了しました')
+  // ワークスペースを作成
+  const workspace = await prisma.workspace.create({
+    data: {
+      id: 'cmgtfxlz000068zx7tb1e6jqf',
+      name: 'メイン ワークスペース',
+      description: 'メインのワークスペースです',
+      createdBy: 'cmgtfxlyt00008zx7gny1h5hn',
+      members: {
+        create: [
+          {
+            employeeId: 'cmgtfxlyt00008zx7gny1h5hn',
+            role: 'workspace_admin'
+          },
+          {
+            employeeId: 'cmgth6he100028z3i06ps75c7',
+            role: 'workspace_member'
+          },
+          {
+            employeeId: 'cmgtj2n3o00008zcwnsyk1k4n',
+            role: 'workspace_member'
+          }
+        ]
+      }
+    }
+  })
+  console.log(`✅ ワークスペースを作成しました: ${workspace.name}`)
+
+  // ボードを作成
+  const board = await prisma.board.create({
+    data: {
+      id: 'cmgtfxlze000d8zx7dmjbntpz',
+      name: 'メイン ボード',
+      description: 'メインのボードです',
+      workspaceId: workspace.id,
+      createdBy: 'cmgtfxlyt00008zx7gny1h5hn'
+    }
+  })
+  console.log(`✅ ボードを作成しました: ${board.name}`)
+
+  console.log('🎉 シードデータの投入が完了しました！')
 }
 
 main()
   .catch((e) => {
-    console.error('シードデータの投入でエラーが発生しました:', e)
+    console.error('❌ シードデータの投入中にエラーが発生しました:', e)
     process.exit(1)
   })
   .finally(async () => {

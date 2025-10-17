@@ -217,7 +217,13 @@ function DisplayOrgChartWithoutTop({
 function TopDropZone({ canEdit, onDrop }: TopDropZoneProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'top-drop-zone',
-    data: { node: null },
+    data: { 
+      node: {
+        id: 'top-drop-zone',
+        name: 'TOP',
+        isTopDropZone: true
+      }
+    },
     disabled: !canEdit,
   })
 
@@ -1464,8 +1470,20 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     try {
-      // 見えないTOPのIDを取得
-      const invisibleTopId = 'cmgf1ihyn00008zsynjmy280x'
+      // 見えないTOPのIDを動的に取得
+      const response = await fetch('/api/employees')
+      const employees = await response.json()
+      const invisibleTopEmployee = employees.find((emp: any) => 
+        emp.isInvisibleTop || emp.employeeNumber === '000' || emp.name === '見えないTOP'
+      )
+      
+      if (!invisibleTopEmployee) {
+        console.error('見えないTOP社員が見つかりません')
+        alert('見えないTOP社員が見つかりません')
+        return
+      }
+      
+      const invisibleTopId = invisibleTopEmployee.id
       
       const updateData = {
         ...node.employee,
@@ -1478,7 +1496,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         updateData
       })
 
-      const response = await fetch(`/api/employees/${node.employee.id}`, {
+      const updateResponse = await fetch(`/api/employees/${node.employee.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1486,15 +1504,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         body: JSON.stringify(updateData),
       })
 
-      if (response.ok) {
+      if (updateResponse.ok) {
         // 社員データを更新（遅延実行で重複を避ける）
         setTimeout(() => fetchEmployees(), 100)
         console.log(`社員 ${node.name} をTOP位置に移動しました`)
         alert(`社員 ${node.name} をTOP位置に移動しました`)
       } else {
-        const errorData = await response.text()
-        console.error('Failed to move employee to top:', response.status, errorData)
-        alert(`社員の移動に失敗しました: ${response.status}`)
+        const errorData = await updateResponse.text()
+        console.error('Failed to move employee to top:', updateResponse.status, errorData)
+        alert(`社員の移動に失敗しました: ${updateResponse.status}`)
       }
     } catch (error) {
       console.error('社員の移動に失敗しました:', error)

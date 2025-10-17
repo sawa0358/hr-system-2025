@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
 
     // テンプレートボードからリスト情報を取得
     let defaultLists = [
-      { title: "常時運用タスク", position: 0, color: null },
-      { title: "予定リスト", position: 1, color: null },
-      { title: "進行中", position: 2, color: null },
-      { title: "完了", position: 3, color: null },
+      { name: "常時運用タスク", position: 0 },
+      { name: "予定リスト", position: 1 },
+      { name: "進行中", position: 2 },
+      { name: "完了", position: 3 },
     ]
 
     if (templateBoardId) {
@@ -76,9 +76,8 @@ export async function POST(request: NextRequest) {
       if (templateBoard && templateBoard.lists.length > 0) {
         console.log("[v0] Using template board lists:", templateBoard.lists)
         defaultLists = templateBoard.lists.map((list, index) => ({
-          title: list.title,
+          name: list.name,
           position: index,
-          color: list.color,
         }))
       }
     }
@@ -88,7 +87,7 @@ export async function POST(request: NextRequest) {
     // ボードの最大position値を取得
     const maxPositionBoard = await prisma.board.findFirst({
       where: { workspaceId },
-      orderBy: { position: "desc" },
+      orderBy: { createdAt: "desc" },
     })
 
     const board = await prisma.board.create({
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
         description,
         workspaceId,
         createdBy: userId,
-        position: (maxPositionBoard?.position ?? -1) + 1,
+        position: 0,
         lists: {
           create: defaultLists,
         },

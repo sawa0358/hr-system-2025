@@ -364,7 +364,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     editWorkspace: true,
     deleteWorkspace: true,
     addWorkspaceMembers: true,
-    viewAllWorkspaces: false, // 総務は自分のマイワークスペースのみ閲覧可能
+    viewAllWorkspaces: true, // 総務は全ワークスペースを閲覧・編集可能
     createBoards: true,
     editBoards: true,
     deleteBoards: true,

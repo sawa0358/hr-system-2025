@@ -28,11 +28,13 @@ export default function AttendancePage() {
   const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[]; content?: string; type?: string }[]>([])
   const [isDraggingTemplate, setIsDraggingTemplate] = useState(false)
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // 社員データを取得
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        setIsLoading(true)
         const response = await fetch('/api/employees')
         if (response.ok) {
           const data = await response.json()
@@ -44,6 +46,8 @@ export default function AttendancePage() {
       } catch (error) {
         console.error('社員データの取得エラー:', error)
         setEmployees([])
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -404,27 +408,35 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
         )}
 
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {isAdminOrHR && (
-            <Card
-              className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-blue-500 bg-blue-50"
-              onClick={handleAllEmployeesClick}
-            >
-              <CardContent className="p-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-                    <Users className="w-4 h-4 text-white" />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-slate-600">社員データを読み込み中...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {isAdminOrHR && (
+              <Card
+                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-blue-500 bg-blue-50"
+                onClick={handleAllEmployeesClick}
+              >
+                <CardContent className="p-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-blue-900 truncate">全員分</h3>
+                      <p className="text-xs text-blue-600 font-mono">管理者・総務専用</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-blue-900 truncate">全員分</h3>
-                    <p className="text-xs text-blue-600 font-mono">管理者・総務専用</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
 
-          {filteredEmployees.map((employee) => (
+            {filteredEmployees.map((employee) => (
             <Card
               key={employee.id}
               className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -447,12 +459,13 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
 
-        {filteredEmployees.length === 0 && !isAdminOrHR && (
-          <div className="text-center py-12 text-slate-500">
-            <p>該当する社員が見つかりません</p>
+            {filteredEmployees.length === 0 && !isAdminOrHR && (
+              <div className="text-center py-12 text-slate-500">
+                <p>該当する社員が見つかりません</p>
+              </div>
+            )}
           </div>
         )}
       </div>

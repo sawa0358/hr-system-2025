@@ -13,11 +13,13 @@ export default function EvaluationsPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // 社員データを取得
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
+        setIsLoading(true)
         const response = await fetch('/api/employees')
         if (response.ok) {
           const data = await response.json()
@@ -29,6 +31,8 @@ export default function EvaluationsPage() {
       } catch (error) {
         console.error('社員データの取得エラー:', error)
         setEmployees([])
+      } finally {
+        setIsLoading(false)
       }
     }
 
@@ -67,8 +71,16 @@ export default function EvaluationsPage() {
           <ExportMenu />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activeEmployees.map((employee) => (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-slate-600">社員データを読み込み中...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeEmployees.map((employee) => (
             <Card
               key={employee.id}
               className="border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-blue-300"
@@ -92,8 +104,9 @@ export default function EvaluationsPage() {
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedEmployee && (

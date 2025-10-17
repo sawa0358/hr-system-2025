@@ -30,14 +30,26 @@ export default function TasksPage() {
   const [workspaces, setWorkspaces] = useState<any[]>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('currentWorkspace')
+      const stored = localStorage.getItem('currentWorkspace')
+      // 古いワークスペースIDをクリア
+      if (stored === 'cmgu9j0rv000c8zk87f9j152y') {
+        localStorage.removeItem('currentWorkspace')
+        return null
+      }
+      return stored
     }
     return null
   })
   const [boards, setBoards] = useState<any[]>([])
   const [currentBoard, setCurrentBoard] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('currentBoard')
+      const stored = localStorage.getItem('currentBoard')
+      // 古いボードIDをクリア（古いワークスペースに関連するボードID）
+      if (stored === 'cmgqp7gq7001m2r0lohbwodtd') {
+        localStorage.removeItem('currentBoard')
+        return null
+      }
+      return stored
     }
     return null
   })
@@ -215,9 +227,23 @@ export default function TasksPage() {
       if (data.board) {
         setCurrentBoardData(data.board)
         console.log("Current board data set:", data.board)
+      } else if (data.error) {
+        console.error("Board not found:", data.error)
+        // ボードが見つからない場合、ボード選択をクリア
+        setCurrentBoard(null)
+        setCurrentBoardData(null)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('currentBoard')
+        }
       }
     } catch (error) {
       console.error("Failed to fetch board data:", error)
+      // エラーが発生した場合もボード選択をクリア
+      setCurrentBoard(null)
+      setCurrentBoardData(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentBoard')
+      }
     }
   }
 

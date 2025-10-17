@@ -29,8 +29,14 @@ export interface UserSettings {
       defaultListColor: string
     }
     priorityOptions: Array<{ value: string; label: string }>
+    statusOptions: Array<{ value: string; label: string; isDefault?: boolean }>
+    customLabels: Array<{ id: string; name: string; color: string }>
     workspaceSelection?: string
     boardSelection?: string
+    listCollapseStates: Record<string, boolean> // リストの折りたたみ状態
+    cardColors: Record<string, string> // カードの色設定
+    listColors: Record<string, string> // リストの色設定
+    taskFolders: Record<string, string[]> // タスクごとのフォルダ設定 {taskId: [folder1, folder2, ...]}
   }
   
   // 勤怠管理設定
@@ -42,6 +48,28 @@ export interface UserSettings {
       content?: string
       type?: string
     }>
+  }
+  
+  // ダッシュボード設定
+  dashboard: {
+    announcements: Array<{
+      id: string
+      title: string
+      content: string
+      category: string
+      createdAt: string
+    }>
+    categories: Array<{
+      id: string
+      name: string
+      color: string
+    }>
+  }
+  
+  // 社員詳細設定
+  employeeDetails: {
+    customFields: Record<string, any>
+    preferences: Record<string, any>
   }
   
   // その他の設定
@@ -151,10 +179,34 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
     // タスク管理設定
     const defaultCardSettings = localStorage.getItem('default-card-settings')
     const priorityOptions = localStorage.getItem('task-priority-options')
+    const statusOptions = localStorage.getItem('task-status-options')
+    const customLabels = localStorage.getItem('task-custom-labels')
     const workspaceSelection = localStorage.getItem('currentWorkspace')
     const boardSelection = localStorage.getItem('currentBoard')
+    const listCollapseStates = localStorage.getItem('task-list-collapse-states')
+    const cardColors = localStorage.getItem('task-card-colors')
+    const listColors = localStorage.getItem('task-list-colors')
     
-    if (defaultCardSettings || priorityOptions || workspaceSelection || boardSelection) {
+    // タスクフォルダ設定を取得（動的キー）
+    const taskFolders: Record<string, string[]> = {}
+    if (typeof window !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('task-folders-')) {
+          const taskId = key.replace('task-folders-', '')
+          try {
+            const folders = JSON.parse(localStorage.getItem(key) || '[]')
+            taskFolders[taskId] = folders
+          } catch (error) {
+            console.error(`タスクフォルダ設定の読み込みエラー (${key}):`, error)
+          }
+        }
+      }
+    }
+    
+    if (defaultCardSettings || priorityOptions || statusOptions || customLabels || 
+        workspaceSelection || boardSelection || listCollapseStates || cardColors || listColors || 
+        Object.keys(taskFolders).length > 0) {
       settings.taskManagement = {
         defaultCardSettings: defaultCardSettings ? JSON.parse(defaultCardSettings) : {
           labels: [],
@@ -164,8 +216,14 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
           defaultListColor: '#64748b'
         },
         priorityOptions: priorityOptions ? JSON.parse(priorityOptions) : [],
+        statusOptions: statusOptions ? JSON.parse(statusOptions) : [],
+        customLabels: customLabels ? JSON.parse(customLabels) : [],
         workspaceSelection: workspaceSelection || undefined,
-        boardSelection: boardSelection || undefined
+        boardSelection: boardSelection || undefined,
+        listCollapseStates: listCollapseStates ? JSON.parse(listCollapseStates) : {},
+        cardColors: cardColors ? JSON.parse(cardColors) : {},
+        listColors: listColors ? JSON.parse(listColors) : {},
+        taskFolders: taskFolders
       }
     }
     
@@ -177,10 +235,30 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
       }
     }
     
+    // ダッシュボード設定
+    const dashboardAnnouncements = localStorage.getItem('dashboard-announcements')
+    const dashboardCategories = localStorage.getItem('dashboard-categories')
+    if (dashboardAnnouncements || dashboardCategories) {
+      settings.dashboard = {
+        announcements: dashboardAnnouncements ? JSON.parse(dashboardAnnouncements) : [],
+        categories: dashboardCategories ? JSON.parse(dashboardCategories) : []
+      }
+    }
+    
+    // 社員詳細設定
+    const employeeCustomFields = localStorage.getItem('employee-custom-fields')
+    const employeePreferences = localStorage.getItem('employee-preferences')
+    if (employeeCustomFields || employeePreferences) {
+      settings.employeeDetails = {
+        customFields: employeeCustomFields ? JSON.parse(employeeCustomFields) : {},
+        preferences: employeePreferences ? JSON.parse(employeePreferences) : {}
+      }
+    }
+    
     // メタデータ
     settings.misc = {
       lastUpdated: new Date().toISOString(),
-      version: '1.0.0'
+      version: '1.6.0'
     }
     
   } catch (error) {
@@ -214,6 +292,28 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
       localStorage.setItem('default-card-settings', JSON.stringify(settings.taskManagement.defaultCardSettings))
       localStorage.setItem('task-priority-options', JSON.stringify(settings.taskManagement.priorityOptions))
       
+      if (settings.taskManagement.statusOptions) {
+        localStorage.setItem('task-status-options', JSON.stringify(settings.taskManagement.statusOptions))
+      }
+      if (settings.taskManagement.customLabels) {
+        localStorage.setItem('task-custom-labels', JSON.stringify(settings.taskManagement.customLabels))
+      }
+      if (settings.taskManagement.listCollapseStates) {
+        localStorage.setItem('task-list-collapse-states', JSON.stringify(settings.taskManagement.listCollapseStates))
+      }
+      if (settings.taskManagement.cardColors) {
+        localStorage.setItem('task-card-colors', JSON.stringify(settings.taskManagement.cardColors))
+      }
+      if (settings.taskManagement.listColors) {
+        localStorage.setItem('task-list-colors', JSON.stringify(settings.taskManagement.listColors))
+      }
+      if (settings.taskManagement.taskFolders) {
+        // タスクフォルダ設定を適用
+        Object.entries(settings.taskManagement.taskFolders).forEach(([taskId, folders]) => {
+          localStorage.setItem(`task-folders-${taskId}`, JSON.stringify(folders))
+        })
+      }
+      
       if (settings.taskManagement.workspaceSelection) {
         localStorage.setItem('currentWorkspace', settings.taskManagement.workspaceSelection)
       }
@@ -225,6 +325,26 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
     // 勤怠管理設定
     if (settings.attendance) {
       localStorage.setItem('attendance-templates', JSON.stringify(settings.attendance.templates))
+    }
+    
+    // ダッシュボード設定
+    if (settings.dashboard) {
+      if (settings.dashboard.announcements) {
+        localStorage.setItem('dashboard-announcements', JSON.stringify(settings.dashboard.announcements))
+      }
+      if (settings.dashboard.categories) {
+        localStorage.setItem('dashboard-categories', JSON.stringify(settings.dashboard.categories))
+      }
+    }
+    
+    // 社員詳細設定
+    if (settings.employeeDetails) {
+      if (settings.employeeDetails.customFields) {
+        localStorage.setItem('employee-custom-fields', JSON.stringify(settings.employeeDetails.customFields))
+      }
+      if (settings.employeeDetails.preferences) {
+        localStorage.setItem('employee-preferences', JSON.stringify(settings.employeeDetails.preferences))
+      }
     }
     
     console.log('設定をlocalStorageに適用しました')
@@ -304,7 +424,16 @@ export function setupAutoSave(userId: string): () => void {
     'employment-types',
     'default-card-settings',
     'task-priority-options',
+    'task-status-options',
+    'task-custom-labels',
+    'task-list-collapse-states',
+    'task-card-colors',
+    'task-list-colors',
     'attendance-templates',
+    'dashboard-announcements',
+    'dashboard-categories',
+    'employee-custom-fields',
+    'employee-preferences',
     'currentWorkspace',
     'currentBoard'
   ]
@@ -337,9 +466,18 @@ export function setupAutoSave(userId: string): () => void {
     'employmentTypesChanged',
     'defaultCardSettingsChanged',
     'taskSettingsChanged',
+    'taskStatusChanged',
+    'taskLabelsChanged',
+    'taskListCollapseChanged',
+    'taskCardColorChanged',
+    'taskListColorChanged',
+    'taskFoldersChanged',
     'workspaceChanged',
     'boardChanged',
-    'attendanceTemplatesChanged'
+    'attendanceTemplatesChanged',
+    'dashboardAnnouncementsChanged',
+    'dashboardCategoriesChanged',
+    'employeeDetailsChanged'
   ]
   
   customEvents.forEach(eventName => {

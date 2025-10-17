@@ -7,14 +7,18 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { activityLogger, type ActivityLog } from "@/lib/activity-logger"
-import { Search, Download, Trash2, FileText } from "lucide-react"
+import { Search, Download, Trash2, FileText, FileSpreadsheet, FileText as FileTextIcon, FileImage } from "lucide-react"
 import { AIAskButton } from "@/components/ai-ask-button"
+import { usePermissions } from "@/hooks/use-permissions"
 
 export default function LogsPage() {
   const [logs, setLogs] = useState<ActivityLog[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filterModule, setFilterModule] = useState("all")
-  const isAdmin = true
+  const { hasPermission, role } = usePermissions()
+  
+  // ログ表示権限チェック（総務・管理者のみ）
+  const canViewLogs = hasPermission("viewLogs")
 
   useEffect(() => {
     setLogs(activityLogger.getLogs())
@@ -31,7 +35,32 @@ export default function LogsPage() {
     return matchesSearch && matchesModule
   })
 
-  const handleExport = () => {
+  // CSV形式でエクスポート
+  const handleExportCSV = () => {
+    const headers = ["日時", "ユーザー", "モジュール", "アクション", "詳細", "重要度", "ブラウザ"]
+    const csvContent = [
+      headers.join(","),
+      ...filteredLogs.map(log => [
+        new Date(log.timestamp).toLocaleString("ja-JP"),
+        `"${log.userName}"`,
+        `"${log.module}"`,
+        `"${log.action}"`,
+        `"${log.details.replace(/"/g, '""')}"`, // CSV用にエスケープ
+        `"${log.severity || 'info'}"`,
+        `"${log.userAgent ? log.userAgent.split(' ')[0] : ''}"`
+      ].join(","))
+    ].join("\n")
+
+    const dataBlob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `activity_logs_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
+  // JSON形式でエクスポート（既存）
+  const handleExportJSON = () => {
     const dataStr = JSON.stringify(filteredLogs, null, 2)
     const dataBlob = new Blob([dataStr], { type: "application/json" })
     const url = URL.createObjectURL(dataBlob)
@@ -39,6 +68,116 @@ export default function LogsPage() {
     link.href = url
     link.download = `activity_logs_${new Date().toISOString()}.json`
     link.click()
+  }
+
+  // TSV形式でエクスポート
+  const handleExportTSV = () => {
+    const headers = ["日時", "ユーザー", "モジュール", "アクション", "詳細", "重要度", "ブラウザ"]
+    const tsvContent = [
+      headers.join("\t"),
+      ...filteredLogs.map(log => [
+        new Date(log.timestamp).toLocaleString("ja-JP"),
+        log.userName,
+        log.module,
+        log.action,
+        log.details,
+        log.severity || 'info',
+        log.userAgent ? log.userAgent.split(' ')[0] : ''
+      ].join("\t"))
+    ].join("\n")
+
+    const dataBlob = new Blob([tsvContent], { type: "text/tab-separated-values;charset=utf-8;" })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `activity_logs_${new Date().toISOString().split('T')[0]}.tsv`
+    link.click()
+  }
+
+  // PDF形式でエクスポート
+  const handleExportPDF = () => {
+    // HTMLテーブルを作成
+    const createTableHTML = () => {
+      const tableRows = filteredLogs.map(log => `
+        <tr style="border-bottom: 1px solid #ddd;">
+          <td style="padding: 8px; border-right: 1px solid #ddd;">${new Date(log.timestamp).toLocaleString("ja-JP")}</td>
+          <td style="padding: 8px; border-right: 1px solid #ddd;">${log.userName}</td>
+          <td style="padding: 8px; border-right: 1px solid #ddd;">${log.module}</td>
+          <td style="padding: 8px; border-right: 1px solid #ddd;">${log.action}</td>
+          <td style="padding: 8px; border-right: 1px solid #ddd;">${log.details}</td>
+          <td style="padding: 8px; border-right: 1px solid #ddd; color: ${
+            log.severity === 'error' ? '#dc2626' : 
+            log.severity === 'warning' ? '#d97706' : 
+            log.severity === 'security' ? '#7c3aed' : '#059669'
+          };">${log.severity === 'error' ? 'エラー' :
+               log.severity === 'warning' ? '警告' :
+               log.severity === 'security' ? 'セキュリティ' : '情報'}</td>
+          <td style="padding: 8px;">${log.userAgent ? log.userAgent.split(' ')[0] : ''}</td>
+        </tr>
+      `).join('')
+
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>システムログレポート</title>
+          <style>
+            body { font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; margin: 20px; }
+            h1 { color: #1f2937; border-bottom: 2px solid #3b82f6; padding-bottom: 10px; }
+            .summary { background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #3b82f6; color: white; padding: 12px 8px; text-align: left; font-weight: bold; }
+            td { padding: 8px; border-right: 1px solid #ddd; }
+            .footer { margin-top: 30px; text-align: center; color: #6b7280; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <h1>システムログレポート</h1>
+          <div class="summary">
+            <p><strong>生成日時:</strong> ${new Date().toLocaleString("ja-JP")}</p>
+            <p><strong>総ログ数:</strong> ${filteredLogs.length}件</p>
+            <p><strong>フィルター:</strong> ${filterModule === 'all' ? 'すべて' : filterModule} ${searchQuery ? `(検索: "${searchQuery}")` : ''}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>日時</th>
+                <th>ユーザー</th>
+                <th>モジュール</th>
+                <th>アクション</th>
+                <th>詳細</th>
+                <th>重要度</th>
+                <th>ブラウザ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+          <div class="footer">
+            <p>HRシステム - システムログレポート</p>
+          </div>
+        </body>
+        </html>
+      `
+    }
+
+    // 新しいウィンドウでPDFを生成
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(createTableHTML())
+      printWindow.document.close()
+      
+      // 少し待ってから印刷ダイアログを開く
+      setTimeout(() => {
+        printWindow.print()
+        // 印刷後、ウィンドウを閉じる（ユーザーがキャンセルした場合も含む）
+        setTimeout(() => {
+          printWindow.close()
+        }, 1000)
+      }, 500)
+    }
   }
 
   const handleClearLogs = () => {
@@ -90,11 +229,20 @@ ${recentLogs.map(log =>
 💡 AIアシスタントとして、ログデータの分析、傾向の把握、問題の特定、改善提案などをサポートできます。`
   }
 
-  if (!isAdmin) {
+  if (!canViewLogs) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-xl text-slate-600">このページは管理者のみアクセスできます</p>
+          <div className="mb-4">
+            <FileText className="w-16 h-16 mx-auto text-slate-400 mb-4" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">アクセス権限がありません</h2>
+          <p className="text-slate-600 mb-4">
+            このページは総務・管理者のみアクセスできます
+          </p>
+          <p className="text-sm text-slate-500">
+            現在の権限: {role === 'hr' ? '総務' : role === 'admin' ? '管理者' : role}
+          </p>
         </div>
       </main>
     )
@@ -110,10 +258,24 @@ ${recentLogs.map(log =>
           </div>
           <div className="flex gap-3">
             <AIAskButton context={getAIContext()} />
-            <Button variant="outline" onClick={handleExport}>
-              <Download className="w-4 h-4 mr-2" />
-              エクスポート
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleExportCSV} className="text-green-600 hover:text-green-700">
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                CSV
+              </Button>
+              <Button variant="outline" onClick={handleExportTSV} className="text-blue-600 hover:text-blue-700">
+                <FileTextIcon className="w-4 h-4 mr-2" />
+                TSV
+              </Button>
+              <Button variant="outline" onClick={handleExportPDF} className="text-red-600 hover:text-red-700">
+                <FileImage className="w-4 h-4 mr-2" />
+                PDF
+              </Button>
+              <Button variant="outline" onClick={handleExportJSON} className="text-purple-600 hover:text-purple-700">
+                <FileText className="w-4 h-4 mr-2" />
+                JSON
+              </Button>
+            </div>
             <Button
               variant="outline"
               onClick={handleClearLogs}

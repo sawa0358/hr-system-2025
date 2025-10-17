@@ -57,6 +57,12 @@ class ActivityLogger {
     const currentUser = this.getCurrentUser()
     const browserInfo = this.getBrowserInfo()
     
+    // 管理者のログは記録しない（セキュリティ上の理由）
+    if (currentUser.id === "admin" || currentUser.name === "admin" || currentUser.name === "管理者") {
+      console.log("[v0] Admin activity not logged for security reasons:", { action, module, details })
+      return
+    }
+    
     const log: ActivityLog = {
       id: Date.now().toString(),
       timestamp: new Date(),

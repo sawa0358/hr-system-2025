@@ -81,17 +81,30 @@ export default function TasksPage() {
   
   // 社員データ
   const [employees, setEmployees] = useState<any[]>([])
+  const [isInitialLoading, setIsInitialLoading] = useState(true)
 
-  // 社員データを取得
+  // 社員データとワークスペースを並行して取得
   useEffect(() => {
-    fetchEmployees()
-  }, [])
-
-  // ワークスペース一覧を取得
-  useEffect(() => {
-    if (currentUser) {
-      fetchWorkspaces()
+    const loadInitialData = async () => {
+      try {
+        if (currentUser) {
+          // 並行してデータを取得
+          await Promise.all([
+            fetchEmployees(),
+            fetchWorkspaces()
+          ])
+        } else {
+          // ユーザーが未ログインの場合は社員データのみ取得
+          await fetchEmployees()
+        }
+      } catch (error) {
+        console.error("初期データの読み込みに失敗:", error)
+      } finally {
+        setIsInitialLoading(false)
+      }
     }
+    
+    loadInitialData()
   }, [currentUser])
 
   // ワークスペースが変更されたらlocalStorageに保存し、ボード一覧を取得
@@ -562,6 +575,18 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
 - カレンダー機能の使い方
 - 権限設定について
 - その他、タスク管理に関する質問`
+  }
+
+  // 初期ローディング中の表示
+  if (isInitialLoading) {
+    return (
+      <main className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">データを読み込み中...</p>
+        </div>
+      </main>
+    )
   }
 
   return (

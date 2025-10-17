@@ -19,28 +19,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setIsMounted(true)
-    const savedUser = localStorage.getItem("currentUser")
-    if (savedUser) {
+    
+    // 非同期でユーザー情報を読み込み
+    const loadUser = async () => {
       try {
-        const user = JSON.parse(savedUser)
-        // 古い形式のID（"admin"など）や無効なIDの場合はキャッシュをクリア
-        if (user.id === "admin" || user.id === "manager" || user.id === "sub" || 
-            user.id === "ippan" || user.id === "etsuran" || 
-            user.id === "001" || user.id === "002" || user.id === "003" ||
-            user.id === "cmgkljr1000008z81edjq66sl" ||
-            user.id === "cmgorkhkh00008z11nhm08dt7") {
-          console.log("Clearing old cached user data:", user.id)
-          localStorage.removeItem("currentUser")
-        } else {
-          setCurrentUser(user)
-          setIsAuthenticated(true)
+        const savedUser = localStorage.getItem("currentUser")
+        if (savedUser) {
+          const user = JSON.parse(savedUser)
+          // 古い形式のID（"admin"など）や無効なIDの場合はキャッシュをクリア
+          if (user.id === "admin" || user.id === "manager" || user.id === "sub" || 
+              user.id === "ippan" || user.id === "etsuran" || 
+              user.id === "001" || user.id === "002" || user.id === "003" ||
+              user.id === "cmgkljr1000008z81edjq66sl" ||
+              user.id === "cmgorkhkh00008z11nhm08dt7") {
+            console.log("Clearing old cached user data:", user.id)
+            localStorage.removeItem("currentUser")
+          } else {
+            setCurrentUser(user)
+            setIsAuthenticated(true)
+          }
         }
       } catch (error) {
         console.error("[v0] Failed to parse saved user:", error)
         localStorage.removeItem("currentUser")
+      } finally {
+        setIsLoading(false)
       }
     }
-    setIsLoading(false)
+    
+    loadUser()
   }, [])
 
   const login = (employee: any, rememberMe: boolean) => {

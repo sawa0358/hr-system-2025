@@ -47,20 +47,24 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // 停止中ユーザーのログインをブロック
           if (employee.isSuspended || employee.status === 'suspended') {
             setError("このアカウントは停止中です。管理者にお問い合わせください。")
+            setIsLoading(false)
             return
           }
           
           // 休職・退職ユーザーのログインをブロック
           if (employee.status === 'leave' || employee.status === 'retired') {
             setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
+            setIsLoading(false)
             return
           }
           
           onLoginSuccess(employee, rememberMe)
           // ログイン成功後、タスク管理ページにリダイレクト
           router.push('/tasks')
+          // ログイン成功時はローディング状態を維持（ページ遷移まで）
         } else {
           setError("名前またはパスワードが正しくありません")
+          setIsLoading(false)
         }
       } else {
         console.error("Failed to fetch employees from API, status:", response.status)

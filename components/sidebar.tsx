@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -55,9 +55,19 @@ export function Sidebar() {
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
 
-  const visibleMenuItems = menuItems.filter((item) => hasPermission(item.permission))
-  const visibleDropdownItems = dropdownMenuItems.filter((item) => hasPermission(item.permission))
-  const visibleAdminMenuItems = adminMenuItems.filter((item) => hasPermission(item.permission))
+  // メニューアイテムの可視性をメモ化してパフォーマンスを向上
+  const visibleMenuItems = React.useMemo(() => 
+    menuItems.filter((item) => hasPermission(item.permission)), 
+    [hasPermission]
+  )
+  const visibleDropdownItems = React.useMemo(() => 
+    dropdownMenuItems.filter((item) => hasPermission(item.permission)), 
+    [hasPermission]
+  )
+  const visibleAdminMenuItems = React.useMemo(() => 
+    adminMenuItems.filter((item) => hasPermission(item.permission)), 
+    [hasPermission]
+  )
 
   return (
     <>
@@ -76,7 +86,7 @@ export function Sidebar() {
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
                 <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-slate-500 font-medium">v1.6.0</span>
+                <span className="text-xs text-slate-500 font-medium">v1.6.1</span>
               </div>
             </div>
           )}

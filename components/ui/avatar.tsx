@@ -42,21 +42,21 @@ function AvatarFallback({
   employeeType?: string
 }) {
   const getBackgroundColor = (type?: string) => {
-    if (!type) return 'bg-[#dbeafe]' // デフォルト（正社員と同じ）
+    if (!type) return 'bg-[#dbeafe] text-blue-700' // デフォルト（正社員と同じ）
     
     switch (type) {
       case '正社員':
-        return 'bg-[#dbeafe]'
+        return 'bg-[#dbeafe] text-blue-700'
       case '契約社員':
       case '派遣社員':
-        return 'bg-[#f5d5d5]'
+        return 'bg-[#f5d5d5] text-red-700'
       case '業務委託':
       case '外注先':
-        return 'bg-[#d1f2d1]'
+        return 'bg-[#d1f2d1] text-green-700'
       case 'パートタイム':
-        return 'bg-[#fff5cc]'
+        return 'bg-[#fff5cc] text-yellow-700'
       default:
-        return 'bg-[#dbeafe]' // デフォルト
+        return 'bg-[#dbeafe] text-blue-700' // デフォルト
     }
   }
 

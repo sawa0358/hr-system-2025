@@ -193,18 +193,26 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
             </div>
             <div className="flex -space-x-1 flex-shrink-0">
               {task.members && task.members.length > 0 ? (
-                task.members.slice(0, 5).map((member, index) => (
-                  <Avatar key={member.id} className="w-5 h-5 border border-white">
-                    <AvatarFallback 
-                      employeeType={member.employeeType}
-                      className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                        /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
-                      }`}
-                    >
-                      {member.name.slice(0, 3)}
-                    </AvatarFallback>
-                  </Avatar>
-                ))
+                task.members.slice(0, 5).map((member, index) => {
+                  
+                  // ローカルストレージから画像の文字列を取得
+                  const avatarText = typeof window !== 'undefined' 
+                    ? localStorage.getItem(`employee-avatar-text-${member.id}`) || member.name.slice(0, 3)
+                    : member.name.slice(0, 3)
+                  
+                  return (
+                    <Avatar key={member.id} className="w-5 h-5 border border-white">
+                      <AvatarFallback 
+                        employeeType={member.employee?.employeeType}
+                        className={`font-semibold whitespace-nowrap overflow-hidden ${
+                          /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                        }`}
+                      >
+                        {avatarText.slice(0, 3)}
+                      </AvatarFallback>
+                    </Avatar>
+                  )
+                })
               ) : (
                 <Avatar className="w-5 h-5">
                   <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
@@ -319,18 +327,25 @@ function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => vo
               <div className="flex items-center justify-between">
                 <div className="flex -space-x-1">
                   {task.members && task.members.length > 0 ? (
-                    task.members.slice(0, 5).map((member, index) => (
-                      <Avatar key={member.id} className="w-7 h-7 border-2 border-white">
-                        <AvatarFallback 
-                          employeeType={member.employeeType}
-                          className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                            /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
-                          }`}
-                        >
-                          {member.name.slice(0, 3)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))
+                    task.members.slice(0, 5).map((member, index) => {
+                      // ローカルストレージから画像の文字列を取得
+                      const avatarText = typeof window !== 'undefined' 
+                        ? localStorage.getItem(`employee-avatar-text-${member.id}`) || member.name.slice(0, 3)
+                        : member.name.slice(0, 3)
+                      
+                      return (
+                        <Avatar key={member.id} className="w-7 h-7 border-2 border-white">
+                          <AvatarFallback 
+                            employeeType={member.employee?.employeeType}
+                            className={`font-semibold whitespace-nowrap overflow-hidden ${
+                              /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                            }`}
+                          >
+                            {avatarText.slice(0, 3)}
+                          </AvatarFallback>
+                        </Avatar>
+                      )
+                    })
                   ) : (
                     <Avatar className="w-7 h-7">
                       <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
@@ -416,27 +431,34 @@ function TaskListItem({ task, onClick }: { task: Task; onClick: () => void }) {
         </Badge>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
-        <div className="flex -space-x-1">
-          {task.members && task.members.length > 0 ? (
-            task.members.slice(0, 5).map((member, index) => (
-              <Avatar key={member.id} className="w-6 h-6 border border-white">
-                <AvatarFallback 
-                  employeeType={member.employeeType}
-                  className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                    /^[a-zA-Z\s]+$/.test(member.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
-                  }`}
-                >
-                  {member.name.slice(0, 3)}
-                </AvatarFallback>
-              </Avatar>
-            ))
-          ) : (
-            <Avatar className="w-6 h-6">
-              <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
-                未
-              </AvatarFallback>
-            </Avatar>
-          )}
+            <div className="flex -space-x-1">
+              {task.members && task.members.length > 0 ? (
+                task.members.slice(0, 5).map((member, index) => {
+                  // ローカルストレージから画像の文字列を取得
+                  const avatarText = typeof window !== 'undefined' 
+                    ? localStorage.getItem(`employee-avatar-text-${member.id}`) || member.name.slice(0, 3)
+                    : member.name.slice(0, 3)
+                  
+                  return (
+                <Avatar key={member.id} className="w-6 h-6 border border-white">
+                  <AvatarFallback 
+                    employeeType={member.employee?.employeeType}
+                    className={`font-semibold whitespace-nowrap overflow-hidden ${
+                      /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                    }`}
+                  >
+                    {avatarText.slice(0, 3)}
+                  </AvatarFallback>
+                </Avatar>
+              )
+                })
+              ) : (
+                <Avatar className="w-6 h-6">
+                  <AvatarFallback className="bg-gray-100 text-gray-700 text-xs font-semibold whitespace-nowrap overflow-hidden">
+                    未
+                  </AvatarFallback>
+                </Avatar>
+              )}
           {task.members && task.members.length > 5 && (
             <div className="w-6 h-6 bg-gray-100 border border-white rounded-full flex items-center justify-center">
               <span className="text-xs font-semibold text-gray-600">
@@ -815,6 +837,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               id: m.employee?.id || m.id,
               name: m.employee?.name || m.name,
               email: m.employee?.email || m.email,
+              employee: m.employee, // employeeオブジェクト全体を保持
             })) || [],
             checklists: card.checklists || [],
             isArchived: card.isArchived || false,
@@ -1378,7 +1401,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                    members: result.card.members?.map((member: any) => ({
                      id: member.employee?.id || member.id,
                      name: member.employee?.name || member.name,
-                     email: member.employee?.email || member.email
+                     email: member.employee?.email || member.email,
+                     employee: member.employee, // employeeオブジェクト全体を保持
                    })) || [],
                    dueDate: result.card.dueDate || "",
                    priority: (cardData.priority as "low" | "medium" | "high") || "medium",

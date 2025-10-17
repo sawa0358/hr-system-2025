@@ -432,6 +432,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         id: member.id || member.employee?.id || member.employeeId || "",
         name: member.name || member.employee?.name || "未設定",
         email: member.email || member.employee?.email || "",
+        employee: member.employee, // employeeオブジェクト全体を保持
       }))
       console.log("Processing task members:", task.members, "->", processedMembers)
       setMembers(processedMembers)
@@ -1099,6 +1100,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             id: member.employee?.id || member.employeeId || member.id || "",
             name: member.employee?.name || member.name || "未設定",
             email: member.employee?.email || member.email || "",
+            employee: member.employee, // employeeオブジェクト全体を保持
           }))
           
           console.log("Card saved - received members:", result.card.members)
@@ -1446,26 +1448,33 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               メンバー
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {members.map((member) => (
-                <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback 
-                      employeeType={member.employeeType}
-                      className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                        /^[a-zA-Z\s]+$/.test((member.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
-                      }`}
-                    >
-                      {(member.name || "未").slice(0, 3)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm">{member.name}</span>
-                  {cardPermissions?.canAddMembers && (
-                    <button onClick={() => handleRemoveMember(member.id)} className="hover:opacity-70">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {members.map((member) => {
+                // ローカルストレージから画像の文字列を取得
+                const avatarText = typeof window !== 'undefined' 
+                  ? localStorage.getItem(`employee-avatar-text-${member.id}`) || (member.name || "未").slice(0, 3)
+                  : (member.name || "未").slice(0, 3)
+                
+                return (
+                  <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
+                    <Avatar className="w-8 h-8">
+                      <AvatarFallback 
+                        employeeType={member.employee?.employeeType}
+                        className={`font-semibold whitespace-nowrap overflow-hidden ${
+                          /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-sm' : 'text-xs'
+                        }`}
+                      >
+                        {avatarText.slice(0, 3)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm">{member.name}</span>
+                    {cardPermissions?.canAddMembers && (
+                      <button onClick={() => handleRemoveMember(member.id)} className="hover:opacity-70">
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             {cardPermissions?.canAddMembers && (
               <Button variant="outline" size="sm" onClick={() => setShowEmployeeSelector(true)}>
@@ -1506,12 +1515,20 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           }`}
                         >
                         <Avatar className="w-10 h-10">
-                          <AvatarFallback className={`font-semibold whitespace-nowrap overflow-hidden ${
-                            /^[a-zA-Z\s]+$/.test((employee.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
-                          } ${
-                            isSelected ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {(employee.name || "未").slice(0, 3)}
+                          <AvatarFallback 
+                            employeeType={employee.employeeType}
+                            className={`font-semibold whitespace-nowrap overflow-hidden ${
+                              /^[a-zA-Z\s]+$/.test((employee.name || "未").slice(0, 3)) ? 'text-sm' : 'text-xs'
+                            } ${
+                              isSelected ? 'bg-blue-600 text-white' : ''
+                            }`}
+                          >
+                            {(() => {
+                              const avatarText = typeof window !== 'undefined' 
+                                ? localStorage.getItem(`employee-avatar-text-${employee.id}`) || (employee.name || "未").slice(0, 3)
+                                : (employee.name || "未").slice(0, 3)
+                              return avatarText.slice(0, 3)
+                            })()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1">

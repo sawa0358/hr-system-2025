@@ -118,7 +118,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: false,
     editBoards: false,
     deleteBoards: false,
-    createLists: false,
+    createLists: true, // 一般権限でもリスト作成可能
     editLists: false,
     deleteLists: false,
     addCardMembers: false,
@@ -168,7 +168,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: false, // マイワークスペース内のみ可能（別途チェック）
     editBoards: false, // マイワークスペース内のみ可能（別途チェック）
     deleteBoards: false,
-    createLists: false, // リストの追加は店長以上
+    createLists: true, // 一般権限でもリスト作成可能
     editLists: false,
     deleteLists: false,
     addCardMembers: false, // カード新規作成時のみメンバー追加可
@@ -218,7 +218,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createBoards: true,
     editBoards: false,
     deleteBoards: false,
-    createLists: false, // リストの追加は店長以上
+    createLists: true, // サブマネージャーでもリスト作成可能
     editLists: false,
     deleteLists: false,
     addCardMembers: false, // サブマネは他人のカードにメンバー追加不可

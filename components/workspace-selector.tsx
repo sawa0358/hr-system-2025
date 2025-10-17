@@ -35,7 +35,6 @@ interface WorkspaceSelectorProps {
   canCreateWorkspace?: boolean
   canEditWorkspace?: boolean
   canDeleteWorkspace?: boolean
-  showSearch?: boolean // 管理者用検索機能の表示
 }
 
 export function WorkspaceSelector({
@@ -49,32 +48,29 @@ export function WorkspaceSelector({
   canCreateWorkspace = false,
   canEditWorkspace = false,
   canDeleteWorkspace = false,
-  showSearch = false,
 }: WorkspaceSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [showSearch, setShowSearch] = useState(false)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
-  // debounce処理（日本語入力対応）
+  // 検索クエリのデバウンス
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery)
-    }, 500) // 500ms待ってから検索実行（日本語入力対応で延長）
+    }, 300)
 
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  // 検索フィルタリング
+  // ワークスペースのフィルタリング
   const filteredWorkspaces = useMemo(() => {
-    // 検索クエリがない場合
-    if (!debouncedSearchQuery.trim()) {
-      if (showSearch && currentUserId) {
-        // 管理者の場合：自分のマイワークスペース + 自分がメンバーのワークスペースをデフォルト表示
+    if (!showSearch || !debouncedSearchQuery) {
+      // 検索モードでない場合は通常のフィルタリング
+      if (currentUserId) {
         return workspaces.filter(workspace => {
-          const isMyWorkspace = workspace.name.includes("マイワークスペース") && workspace.createdBy === currentUserId
-          const isOthersMyWorkspace = workspace.name.includes("マイワークスペース") && workspace.createdBy !== currentUserId
-          
-          // 自分のマイワークスペースは表示
-          if (isMyWorkspace) return true
+          // マイワークスペースの判定
+          const isMyWorkspace = workspace.name === `${workspaces.find(w => w.createdBy === currentUserId)?.name || 'ユーザー'}のマイワークスペース`
+          const isOthersMyWorkspace = workspace.name.includes('のマイワークスペース') && workspace.createdBy !== currentUserId
           
           // 他人のマイワークスペースは非表示（検索時のみ表示）
           if (isOthersMyWorkspace) return false
@@ -104,41 +100,70 @@ export function WorkspaceSelector({
         </div>
         <Select value={currentWorkspace || undefined} onValueChange={onWorkspaceChange}>
           <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="ワークスペースを選択" />
+            <SelectValue placeholder="ワークスペースを選んでください" />
           </SelectTrigger>
-          <SelectContent>
-            {showSearch && (
-              <div className="px-2 pb-2 sticky top-0 bg-white z-10">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
-                  <Input
-                    placeholder="ワークスペースを検索..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              </div>
-            )}
-            {filteredWorkspaces.length === 0 ? (
-              <div className="px-2 py-4 text-center text-sm text-slate-500">
-                該当するワークスペースが見つかりません
-              </div>
-            ) : (
-              filteredWorkspaces.map((workspace) => (
-                <SelectItem key={workspace.id} value={workspace.id}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">{workspace.name}</span>
-                    {workspace._count && (
-                      <span className="text-xs text-slate-500">
-                        {workspace._count.boards}ボード • {workspace._count.members}メンバー
-                      </span>
+                  <SelectContent>
+                    {showSearch && (
+                      <div className="px-2 pb-2 sticky top-0 bg-white z-10">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
+                          <Input
+                            placeholder="ワークスペースを検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-8 h-8 text-sm"
+                            autoFocus
+                          />
+                        </div>
+                      </div>
                     )}
-                  </div>
-                </SelectItem>
-              ))
-            )}
+                    {!showSearch && (
+                      <div className="px-2 pb-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowSearch(true)}
+                          className="w-full justify-start text-slate-600 hover:text-slate-900"
+                        >
+                          <Search className="w-4 h-4 mr-2" />
+                          ワークスペースを検索
+                        </Button>
+                      </div>
+                    )}
+                    {showSearch && (
+                      <div className="px-2 pb-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setShowSearch(false)
+                            setSearchQuery("")
+                          }}
+                          className="w-full justify-start text-slate-600 hover:text-slate-900"
+                        >
+                          <Briefcase className="w-4 h-4 mr-2" />
+                          通常表示に戻る
+                        </Button>
+                      </div>
+                    )}
+                    {filteredWorkspaces.length === 0 ? (
+                      <div className="px-2 py-4 text-center text-sm text-slate-500">
+                        該当するワークスペースが見つかりません
+                      </div>
+                    ) : (
+                      filteredWorkspaces.map((workspace) => (
+                        <SelectItem key={workspace.id} value={workspace.id}>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-medium">{workspace.name}</span>
+                            {workspace._count && (
+                              <span className="text-xs text-slate-500">
+                                {workspace._count.boards}ボード • {workspace._count.members}メンバー
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
           </SelectContent>
         </Select>
         {canCreateWorkspace && onCreateWorkspace && (
@@ -177,12 +202,6 @@ export function WorkspaceSelector({
           </DropdownMenu>
         )}
       </div>
-      {currentWorkspaceData?.description && (
-        <div className="ml-7 text-xs text-slate-500 max-w-[280px] break-words whitespace-pre-wrap">
-          {currentWorkspaceData.description}
-        </div>
-      )}
     </div>
   )
 }
-

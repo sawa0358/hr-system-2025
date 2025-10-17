@@ -9,7 +9,6 @@ import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ClientOnly } from "@/components/client-only"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { SettingsSyncIndicator } from "@/components/settings-sync-indicator"
 
 export const metadata: Metadata = {
   title: "HR System",
@@ -31,9 +30,6 @@ export default function RootLayout({
               <div className="flex h-screen overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-slate-50 relative">
-                  <div className="absolute top-4 right-4 z-10">
-                    <SettingsSyncIndicator />
-                  </div>
                   {children}
                 </main>
               </div>

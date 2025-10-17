@@ -93,6 +93,19 @@ export default function TasksPage() {
             fetchEmployees(),
             fetchWorkspaces()
           ])
+          
+          // ワークスペース取得後に初期値を設定
+          setTimeout(() => {
+            if (!currentWorkspace && workspaces.length > 0) {
+              // 保存されたワークスペースがない場合、マイワークスペースまたは最初のワークスペースを選択
+              const myWorkspace = workspaces.find(w => w.name === `${currentUser.name}のマイワークスペース`)
+              if (myWorkspace) {
+                setCurrentWorkspace(myWorkspace.id)
+              } else if (workspaces.length > 0) {
+                setCurrentWorkspace(workspaces[0].id)
+              }
+            }
+          }, 100)
         } else {
           // ユーザーが未ログインの場合は社員データのみ取得
           await fetchEmployees()
@@ -126,6 +139,19 @@ export default function TasksPage() {
       setCurrentBoard(null)
     }
   }, [currentWorkspace])
+
+  // ボード一覧取得後に初期ボードを設定
+  useEffect(() => {
+    if (boards.length > 0 && !currentBoard) {
+      // 保存されたボードがない場合、マイボードまたは最初のボードを選択
+      const myBoard = boards.find(b => b.name === `${currentUser?.name}のマイボード`)
+      if (myBoard) {
+        setCurrentBoard(myBoard.id)
+      } else if (boards.length > 0) {
+        setCurrentBoard(boards[0].id)
+      }
+    }
+  }, [boards, currentBoard, currentUser])
 
   // ボード選択時にlocalStorageに保存し、データを取得
   useEffect(() => {
@@ -590,9 +616,9 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
   }
 
   return (
-    <main className="overflow-y-auto">
+    <main className="overflow-y-auto" style={{ backgroundColor: '#B4D5E7' }}>
       {/* 上部セクション - 背景色#B4D5E7 */}
-      <div className="px-8 py-6" style={{ backgroundColor: '#B4D5E7' }}>
+      <div className="px-8 py-6 min-w-full">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
@@ -629,7 +655,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         </div>
 
         {/* ワークスペースとボード選択 */}
-        <div className="flex items-center gap-6 mb-3">
+        <div className="flex items-center gap-6 mb-3 min-w-full">
           <WorkspaceSelector
             workspaces={workspaces}
             currentWorkspace={currentWorkspace}
@@ -663,7 +689,6 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                 workspace.name
               ).canDelete
             })()}
-            showSearch={currentUser?.role === 'admin'} // 管理者のみ検索機能を表示
           />
           
           {currentWorkspace && (
@@ -776,7 +801,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         {currentWorkspace && (
           <>
             {showFilters && (
-              <div className="mb-3">
+              <div className="mb-3 min-w-full">
                 <TaskSearchFilters onFilterChange={(filters) => {
                   console.log("Task filters changed:", filters)
                   setTaskFilters(filters)
@@ -785,7 +810,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             )}
 
             {showCalendar && (
-              <div className="mb-4">
+              <div className="mb-4 min-w-full">
                 <TaskCalendar 
                   tasks={allTasks} 
                   onTaskClick={(task) => {
@@ -841,8 +866,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         ) : (
           <div className="text-center py-12 text-slate-500">
             <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-medium mb-2">ボードが選択されていません</p>
-            <p className="text-sm">上からボードを選択するか、新しいボードを作成してください</p>
+            <p className="text-lg font-medium mb-2 text-blue-800">ボードが選択されていません</p>
+            <p className="text-sm text-blue-800">上からボードを選択するか、新しいボードを作成してください</p>
           </div>
         )}
       </div>

@@ -139,33 +139,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
     }
 
     const body = await request.json()
-    const { title, description, dueDate, priority, status, labels, checklists, cardColor, isArchived, members, attachments, listId, position } = body
+    const { title, description, dueDate, priority, labels, members, attachments, listId, position, status, checklists, cardColor, isArchived } = body
 
     // リストIDの更新処理
     let newListId = card.listId
     if (listId) {
       // 直接listIdが指定された場合（ドラッグ&ドロップ）
       newListId = listId
-    } else if (status && status !== card.status) {
-      // ステータスが変更された場合、対応するリストIDを取得
-      const boardLists = await prisma.boardList.findMany({
-        where: { boardId: card.boardId },
-        select: { id: true, title: true }
-      })
-      
-      // ステータスとリストタイトルのマッピング
-      const statusToTitleMap: Record<string, string> = {
-        'todo': '未着手',
-        'in-progress': '進行中',
-        'review': 'レビュー',
-        'done': '完了'
-      }
-      
-      const targetTitle = statusToTitleMap[status] || status
-      const targetList = boardLists.find(list => list.title === targetTitle)
-      if (targetList) {
-        newListId = targetList.id
-      }
     }
 
     // トランザクションでカードとメンバーを更新
@@ -216,14 +196,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           description: description || undefined,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           priority: priority || undefined,
-          status: status || undefined,
           listId: newListId, // リストIDも更新
           position: position !== undefined ? position : undefined,
           labels: labels !== undefined ? labels : undefined,
-          checklists: checklists !== undefined ? checklists : undefined,
           attachments: attachments !== undefined ? attachments : undefined,
-          cardColor: cardColor !== null && cardColor !== "" ? cardColor : null,
-          isArchived: isArchived !== undefined ? isArchived : undefined,
+          // 追加フィールド（存在する場合のみ更新）
+          ...(status !== undefined && { status }),
+          ...(checklists !== undefined && { checklists }),
+          ...(cardColor !== undefined && { cardColor }),
+          ...(isArchived !== undefined && { isArchived }),
         },
         include: {
           creator: {

@@ -100,7 +100,7 @@ export async function handleFileUpload(
     // データベースにファイル情報を保存
     const fileRecord = await prisma.file.create({
       data: {
-        filename: fileName,
+        fileName: fileName, // filenameをfileNameに修正
         originalName: file.name,
         filePath: uploadResult.filePath, // S3のキーパスを保存
         fileSize: file.size,

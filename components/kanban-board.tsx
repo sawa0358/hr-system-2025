@@ -736,8 +736,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       .sort((a: any, b: any) => (a.position || 0) - (b.position || 0)) // position順にソート
       .map((list: any) => ({
         id: list.id,
-        title: list.name,
-        name: list.name,
+        title: list.title,
+        name: list.title,
         taskIds: list.cards ? list.cards
           .filter((card: any) => {
             // アーカイブフィルターを適用

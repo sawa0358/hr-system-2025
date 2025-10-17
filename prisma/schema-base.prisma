@@ -173,7 +173,7 @@ model File {
   employeeId   String
   employee     Employee @relation(fields: [employeeId], references: [id])
   originalName String
-  fileName     String
+  filename     String
   filePath     String?
   s3Key        String?
   mimeType     String
@@ -264,6 +264,7 @@ model Board {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
   creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
+  position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
   createdAt   DateTime @default(now())
@@ -274,7 +275,7 @@ model Board {
 
 model BoardList {
   id        String   @id @default(cuid())
-  name      String
+  title     String
   position  Int
   boardId   String
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
@@ -300,6 +301,10 @@ model Card {
   attachments Json?
   labels      Json?
   dueDate     DateTime?
+  priority    String   @default("medium")
+  status      String   @default("todo")
+  cardColor   String?
+  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

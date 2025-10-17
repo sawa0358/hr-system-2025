@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
 
     // テンプレートボードからリスト情報を取得
     let defaultLists = [
-      { name: "常時運用タスク", position: 0 },
-      { name: "予定リスト", position: 1 },
-      { name: "進行中", position: 2 },
-      { name: "完了", position: 3 },
+      { title: "常時運用タスク", position: 0 },
+      { title: "予定リスト", position: 1 },
+      { title: "進行中", position: 2 },
+      { title: "完了", position: 3 },
     ]
 
     if (templateBoardId) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       if (templateBoard && templateBoard.lists.length > 0) {
         console.log("[v0] Using template board lists:", templateBoard.lists)
         defaultLists = templateBoard.lists.map((list, index) => ({
-          name: list.name,
+          title: list.title,
           position: index,
         }))
       }
@@ -98,7 +98,10 @@ export async function POST(request: NextRequest) {
         createdBy: userId,
         position: 0,
         lists: {
-          create: defaultLists,
+          create: defaultLists.map(list => ({
+            title: list.title,
+            position: list.position,
+          })),
         },
       },
       include: {

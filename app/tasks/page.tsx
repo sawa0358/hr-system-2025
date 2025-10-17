@@ -32,7 +32,11 @@ export default function TasksPage() {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('currentWorkspace')
       // 古いワークスペースIDをクリア
-      if (stored === 'cmgu9j0rv000c8zk87f9j152y') {
+      const oldWorkspaceIds = [
+        'cmgu9j0rv000c8zk87f9j152y',
+        'cmgucgqpc00018zii5wvn9y8h'  // 新しい古いIDを追加
+      ]
+      if (stored && oldWorkspaceIds.includes(stored)) {
         localStorage.removeItem('currentWorkspace')
         return null
       }
@@ -45,7 +49,11 @@ export default function TasksPage() {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('currentBoard')
       // 古いボードIDをクリア（古いワークスペースに関連するボードID）
-      if (stored === 'cmgqp7gq7001m2r0lohbwodtd') {
+      const oldBoardIds = [
+        'cmgqp7gq7001m2r0lohbwodtd',
+        'cmgucgqut000f8ziiozr0xjaw'  // 新しい古いボードIDを追加
+      ]
+      if (stored && oldBoardIds.includes(stored)) {
         localStorage.removeItem('currentBoard')
         return null
       }

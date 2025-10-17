@@ -66,7 +66,7 @@ export async function POST(request: NextRequest, { params }: { params: { boardId
     const list = await prisma.boardList.create({
       data: {
         boardId: params.boardId,
-        name: title,
+        title: title,
         position: (maxPositionList?.position ?? -1) + 1,
       },
     })

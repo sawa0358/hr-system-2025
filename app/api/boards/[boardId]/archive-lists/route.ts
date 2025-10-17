@@ -155,7 +155,7 @@ export async function POST(request: NextRequest, { params }: { params: { boardId
     const newArchiveList = await prisma.boardList.create({
       data: {
         boardId: params.boardId,
-        name: `アーカイブ ${new Date().toLocaleDateString('ja-JP', { 
+        title: `アーカイブ ${new Date().toLocaleDateString('ja-JP', { 
           year: 'numeric', 
           month: '2-digit', 
           day: '2-digit' 

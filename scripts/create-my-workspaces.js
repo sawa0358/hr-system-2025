@@ -78,7 +78,7 @@ async function main() {
       for (const list of defaultLists) {
         await prisma.boardList.create({
           data: {
-            name: list.name,
+            title: list.name,
             position: list.position,
             boardId: myBoard.id,
           },

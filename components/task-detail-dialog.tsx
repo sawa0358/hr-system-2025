@@ -851,6 +851,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       // localStorageに保存
       if (typeof window !== 'undefined') {
         localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
       }
     }
   }
@@ -862,6 +864,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     // localStorageに保存
     if (typeof window !== 'undefined') {
       localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
+      // カスタムイベントを発火してS3に自動保存
+      window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
     }
   }
 
@@ -894,6 +898,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       const customOptions = newOptions.filter(s => !s.isDefault)
       if (typeof window !== 'undefined') {
         localStorage.setItem('task-status-options', JSON.stringify(customOptions))
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
       }
     }
   }
@@ -913,6 +919,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     const customOptions = newOptions.filter(s => !s.isDefault)
     if (typeof window !== 'undefined') {
       localStorage.setItem('task-status-options', JSON.stringify(customOptions))
+      // カスタムイベントを発火してS3に自動保存
+      window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
     }
   }
 

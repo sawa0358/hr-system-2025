@@ -168,6 +168,8 @@ export default function AttendancePage() {
   const saveTemplatesToStorage = (templates: { id: string; name: string; employees: string[]; content?: string; type?: string }[]) => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('attendance-templates', JSON.stringify(templates))
+      // カスタムイベントを発火してS3に自動保存
+      window.dispatchEvent(new CustomEvent('attendanceTemplatesChanged'))
     }
   }
 
@@ -256,6 +258,10 @@ export default function AttendancePage() {
     const updatedTemplates = templates.filter(t => t.id !== templateId)
     setTemplates(updatedTemplates)
     saveTemplatesToStorage(updatedTemplates)
+    // カスタムイベントを発火してS3に自動保存
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('attendanceTemplatesChanged'))
+    }
   }
 
   // 現在のユーザーの権限を取得

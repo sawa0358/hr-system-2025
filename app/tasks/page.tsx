@@ -99,11 +99,15 @@ export default function TasksPage() {
     if (currentWorkspace) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentWorkspace', currentWorkspace)
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('workspaceChanged'))
       }
       fetchBoards(currentWorkspace)
     } else {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentWorkspace')
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('workspaceChanged'))
       }
       setBoards([])
       setCurrentBoard(null)
@@ -115,6 +119,8 @@ export default function TasksPage() {
     if (currentBoard) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentBoard', currentBoard)
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('boardChanged'))
       }
       // ボード変更時は現在のボードデータをクリアしてから新しいデータを取得
       setCurrentBoardData(null)
@@ -122,6 +128,8 @@ export default function TasksPage() {
     } else {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentBoard')
+        // カスタムイベントを発火してS3に自動保存
+        window.dispatchEvent(new CustomEvent('boardChanged'))
       }
     }
   }, [currentBoard])

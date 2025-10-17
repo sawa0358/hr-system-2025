@@ -149,6 +149,8 @@ export function DefaultCardSettingsDialog() {
         defaultCardColor,
         defaultListColor
       }))
+      // カスタムイベントを発火してS3に自動保存
+      window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
     }
     alert("デフォルト設定を保存しました。全てのボードのカードに反映されます。")
     setOpen(false)

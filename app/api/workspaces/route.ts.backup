@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               name: true,
+              email: true,
             },
           },
           members: {
@@ -41,8 +42,17 @@ export async function GET(request: NextRequest) {
                 select: {
                   id: true,
                   name: true,
+                  email: true,
+                  department: true,
+                  position: true,
                 },
               },
+            },
+          },
+          boards: {
+            select: {
+              id: true,
+              name: true,
             },
           },
           _count: {
@@ -53,14 +63,14 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: {
-          createdAt: "desc",
+          updatedAt: "desc",
         },
       })
 
       return NextResponse.json({ workspaces })
     }
 
-    // 一般ユーザーは所属ワークスペースのみ取得
+    // 一般ユーザーは自分がメンバーのワークスペースのみ取得
     const workspaces = await prisma.workspace.findMany({
       where: {
         members: {
@@ -74,6 +84,7 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
+            email: true,
           },
         },
         members: {
@@ -82,8 +93,17 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 name: true,
+                email: true,
+                department: true,
+                position: true,
               },
             },
+          },
+        },
+        boards: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         _count: {
@@ -94,7 +114,7 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: {
-        createdAt: "desc",
+        updatedAt: "desc",
       },
     })
 
@@ -125,10 +145,11 @@ export async function POST(request: NextRequest) {
     }
 
     const userRole = user.role as any
+
     const permissions = getPermissions(userRole)
 
     if (!permissions.createWorkspace) {
-      return NextResponse.json({ error: "ワークスペースを作成する権限がありません" }, { status: 403 })
+      return NextResponse.json({ error: "ワークスペース作成の権限がありません" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -138,24 +159,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ワークスペース名は必須です" }, { status: 400 })
     }
 
-    // ワークスペースを作成
+    // 指定されたメンバーIDが存在するかチェック
+    if (memberIds.length > 0) {
+      const existingEmployees = await prisma.employee.findMany({
+        where: {
+          id: { in: memberIds }
+        },
+        select: { id: true, name: true }
+      })
+      
+      const existingIds = existingEmployees.map(emp => emp.id)
+      const invalidIds = memberIds.filter((id: string) => !existingIds.includes(id))
+      
+      if (invalidIds.length > 0) {
+        return NextResponse.json({ 
+          error: `無効なメンバーID: ${invalidIds.join(', ')}` 
+        }, { status: 400 })
+      }
+    }
+
+    // ワークスペースを作成（作成者を自動的にメンバーに追加）
     const workspace = await prisma.workspace.create({
       data: {
         name,
-        description: description || "",
+        description,
         createdBy: userId,
         members: {
           create: [
-            // 作成者を自動的にメンバーに追加
             {
               employeeId: userId,
-              role: "admin",
+              role: "workspace_admin",
             },
-            // 指定されたメンバーを追加
-            ...memberIds.map((memberId: string) => ({
-              employeeId: memberId,
-              role: "member" as const,
-            })),
+            ...memberIds
+              .filter((id: string) => id !== userId)
+              .map((employeeId: string) => ({
+                employeeId,
+                role: "workspace_member",
+              })),
           ],
         },
       },
@@ -164,6 +204,7 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             name: true,
+            email: true,
           },
         },
         members: {
@@ -172,14 +213,11 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 name: true,
+                email: true,
+                department: true,
+                position: true,
               },
             },
-          },
-        },
-        _count: {
-          select: {
-            boards: true,
-            members: true,
           },
         },
       },
@@ -188,6 +226,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ workspace }, { status: 201 })
   } catch (error) {
     console.error("[v0] Error creating workspace:", error)
-    return NextResponse.json({ error: "ワークスペースの作成に失敗しました" }, { status: 500 })
+    
+    if (error instanceof Error) {
+      console.error("Error message:", error.message)
+      console.error("Error stack:", error.stack)
+      
+      // Prismaエラーの詳細を表示
+      if (error.message.includes('Foreign key constraint')) {
+        return NextResponse.json({ 
+          error: "データベースの制約エラーが発生しました。指定されたメンバーが存在しない可能性があります。" 
+        }, { status: 400 })
+      }
+      
+      if (error.message.includes('Unique constraint')) {
+        return NextResponse.json({ 
+          error: "データベースの一意制約エラーが発生しました。" 
+        }, { status: 400 })
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: "ワークスペースの作成に失敗しました",
+      details: error instanceof Error ? error.message : "不明なエラー"
+    }, { status: 500 })
   }
 }
+

@@ -181,7 +181,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
               data: validMemberIds.map((employeeId: string) => ({
                 cardId: params.cardId,
                 employeeId: employeeId,
-                addedBy: userId,
               })),
             })
           }
@@ -196,13 +195,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           description: description || undefined,
           dueDate: dueDate ? new Date(dueDate) : undefined,
           priority: priority || undefined,
-          listId: newListId, // リストIDも更新
+          list: newListId ? { connect: { id: newListId } } : undefined, // リストIDも更新
           position: position !== undefined ? position : undefined,
           labels: labels !== undefined ? labels : undefined,
           attachments: attachments !== undefined ? attachments : undefined,
           // 追加フィールド（存在する場合のみ更新）
           ...(status !== undefined && { status }),
-          ...(checklists !== undefined && { checklists }),
           ...(cardColor !== undefined && { cardColor }),
           ...(isArchived !== undefined && { isArchived }),
         },

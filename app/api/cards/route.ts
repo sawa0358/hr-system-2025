@@ -106,7 +106,6 @@ export async function POST(request: NextRequest) {
           data: allMemberIds.map((employeeId) => ({
             cardId: newCard.id,
             employeeId,
-            addedBy: userId,
           })),
         })
       }
@@ -143,8 +142,7 @@ export async function POST(request: NextRequest) {
     console.error("[v0] Error creating card:", error)
     console.error("[v0] Error details:", {
       message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      userId: userId
+      stack: error instanceof Error ? error.stack : undefined
     })
     return NextResponse.json({ 
       error: "カードの作成に失敗しました",

@@ -265,11 +265,11 @@ model Board {
   id          String   @id @default(cuid())
   name        String
   description String?
-  position    Int      @default(0)
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
   creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
+  position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
   createdAt   DateTime @default(now())
@@ -296,8 +296,6 @@ model Card {
   title       String
   description String?
   position    Int
-  priority    String   @default("medium")
-  status      String   @default("todo")
   listId      String
   list        BoardList @relation(fields: [listId], references: [id], onDelete: Cascade)
   boardId     String
@@ -307,10 +305,11 @@ model Card {
   members     CardMember[]
   attachments Json?
   labels      Json?
-  checklists  Json?
+  dueDate     DateTime?
+  priority    String   @default("medium")
+  status      String   @default("todo")
   cardColor   String?
   isArchived  Boolean  @default(false)
-  dueDate     DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -323,7 +322,6 @@ model CardMember {
   card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
-  addedBy    String?
   createdAt  DateTime @default(now())
 
   @@unique([cardId, employeeId])

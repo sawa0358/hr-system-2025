@@ -69,16 +69,16 @@ async function main() {
 
       // デフォルトリストを作成
       const defaultLists = [
-        { title: '常時運用タスク', position: 0 },
-        { title: '予定リスト', position: 1 },
-        { title: '進行中', position: 2 },
-        { title: '完了', position: 3 },
+        { name: '常時運用タスク', position: 0 },
+        { name: '予定リスト', position: 1 },
+        { name: '進行中', position: 2 },
+        { name: '完了', position: 3 },
       ]
 
       for (const list of defaultLists) {
         await prisma.boardList.create({
           data: {
-            title: list.title,
+            name: list.name,
             position: list.position,
             boardId: myBoard.id,
           },

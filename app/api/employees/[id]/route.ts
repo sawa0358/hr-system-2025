@@ -295,11 +295,7 @@ export async function DELETE(
     const employeeToDelete = await prisma.employee.findUnique({
       where: { id: params.id },
       include: {
-        workspacesCreated: true,
-        boardsCreated: true,
-        cardsCreated: true,
-        workspaceMemberships: true,
-        cardMemberships: true
+        // 関連データは必要に応じて追加
       }
     });
 
@@ -331,47 +327,32 @@ export async function DELETE(
     // トランザクションで関連データを処理してから削除
     await prisma.$transaction(async (tx) => {
       // 1. ワークスペースの作成者を管理者に変更
-      if (employeeToDelete.workspacesCreated.length > 0) {
-        await tx.workspace.updateMany({
-          where: { createdBy: params.id },
-          data: { createdBy: adminEmployee.id }
-        });
-        console.log(`${employeeToDelete.workspacesCreated.length}件のワークスペースの作成者を管理者に変更`);
-      }
+      await tx.workspace.updateMany({
+        where: { createdBy: params.id },
+        data: { createdBy: adminEmployee.id }
+      });
 
       // 2. ボードの作成者を管理者に変更
-      if (employeeToDelete.boardsCreated.length > 0) {
-        await tx.board.updateMany({
-          where: { createdBy: params.id },
-          data: { createdBy: adminEmployee.id }
-        });
-        console.log(`${employeeToDelete.boardsCreated.length}件のボードの作成者を管理者に変更`);
-      }
+      await tx.board.updateMany({
+        where: { createdBy: params.id },
+        data: { createdBy: adminEmployee.id }
+      });
 
       // 3. カードの作成者を管理者に変更
-      if (employeeToDelete.cardsCreated.length > 0) {
-        await tx.card.updateMany({
-          where: { createdBy: params.id },
-          data: { createdBy: adminEmployee.id }
-        });
-        console.log(`${employeeToDelete.cardsCreated.length}件のカードの作成者を管理者に変更`);
-      }
+      await tx.card.updateMany({
+        where: { createdBy: params.id },
+        data: { createdBy: adminEmployee.id }
+      });
 
       // 4. ワークスペースメンバーシップを削除
-      if (employeeToDelete.workspaceMemberships.length > 0) {
-        await tx.workspaceMember.deleteMany({
-          where: { employeeId: params.id }
-        });
-        console.log(`${employeeToDelete.workspaceMemberships.length}件のワークスペースメンバーシップを削除`);
-      }
+      await tx.workspaceMember.deleteMany({
+        where: { employeeId: params.id }
+      });
 
       // 5. カードメンバーシップを削除
-      if (employeeToDelete.cardMemberships.length > 0) {
-        await tx.cardMember.deleteMany({
-          where: { employeeId: params.id }
-        });
-        console.log(`${employeeToDelete.cardMemberships.length}件のカードメンバーシップを削除`);
-      }
+      await tx.cardMember.deleteMany({
+        where: { employeeId: params.id }
+      });
 
       // 6. 最終的に社員を削除（カスケード削除される関連データ: familyMembers, evaluations, attendance, payroll, files, folders, tasks, activityLogs）
       await tx.employee.delete({

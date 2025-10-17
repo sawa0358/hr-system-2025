@@ -75,8 +75,7 @@ export async function POST(
         privacyWorkPhone: originalEmployee.privacyWorkPhone,
         privacyExtension: originalEmployee.privacyExtension,
         privacyMobilePhone: originalEmployee.privacyMobilePhone,
-        privacyBirthDate: originalEmployee.privacyBirthDate,
-        originalEmployeeId: originalEmployee.id, // 元の社員IDを保存
+        privacyBirthDate: originalEmployee.privacyBirthDate
       }
     });
 

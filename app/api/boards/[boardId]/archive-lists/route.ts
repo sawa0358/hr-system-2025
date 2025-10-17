@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: { params: { boardId:
     const archiveLists = await prisma.boardList.findMany({
       where: {
         boardId: params.boardId,
-        title: {
+        name: {
           startsWith: "アーカイブ"
         }
       },
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest, { params }: { params: { boardId
     const existingArchiveLists = await prisma.boardList.count({
       where: {
         boardId: params.boardId,
-        title: {
+        name: {
           startsWith: "アーカイブ"
         }
       },
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: { boardId
       const oldestArchiveList = await prisma.boardList.findFirst({
         where: {
           boardId: params.boardId,
-          title: {
+          name: {
             startsWith: "アーカイブ"
           }
         },
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest, { params }: { params: { boardId
     const newArchiveList = await prisma.boardList.create({
       data: {
         boardId: params.boardId,
-        title: `アーカイブ ${new Date().toLocaleDateString('ja-JP', { 
+        name: `アーカイブ ${new Date().toLocaleDateString('ja-JP', { 
           year: 'numeric', 
           month: '2-digit', 
           day: '2-digit' 

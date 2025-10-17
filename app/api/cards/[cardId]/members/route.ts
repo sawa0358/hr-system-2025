@@ -69,7 +69,6 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
       data: {
         cardId: params.cardId,
         employeeId,
-        addedBy: userId,
       },
       include: {
         employee: {

@@ -48,7 +48,7 @@ export default function LogsPage() {
     }
   }
 
-  const modules = ["all", "社員情報", "組織図", "タスク管理", "給与管理"]
+  const modules = ["all", "社員情報", "組織図", "タスク管理", "給与管理", "認証", "セキュリティ"]
 
   // AIに渡すコンテキスト情報を生成
   const getAIContext = () => {
@@ -167,6 +167,18 @@ ${recentLogs.map(log =>
                           <Badge variant="secondary" className="text-xs">
                             {log.module}
                           </Badge>
+                          {log.severity && (
+                            <Badge 
+                              variant={log.severity === 'error' ? 'destructive' : 
+                                      log.severity === 'warning' ? 'secondary' : 
+                                      log.severity === 'security' ? 'outline' : 'default'}
+                              className="text-xs"
+                            >
+                              {log.severity === 'error' ? 'エラー' :
+                               log.severity === 'warning' ? '警告' :
+                               log.severity === 'security' ? 'セキュリティ' : '情報'}
+                            </Badge>
+                          )}
                           <span className="font-semibold text-slate-900">{log.action}</span>
                         </div>
                         <p className="text-sm text-slate-600 mb-2">{log.details}</p>
@@ -174,6 +186,14 @@ ${recentLogs.map(log =>
                           <span>ユーザー: {log.userName}</span>
                           <span>•</span>
                           <span>{new Date(log.timestamp).toLocaleString("ja-JP")}</span>
+                          {log.userAgent && (
+                            <>
+                              <span>•</span>
+                              <span className="truncate max-w-xs" title={log.userAgent}>
+                                ブラウザ: {log.userAgent.split(' ')[0]}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>

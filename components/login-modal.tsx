@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, AlertCircle } from "lucide-react"
 // import { mockEmployees } from "@/lib/mock-data" // 実際のAPIから取得するため不要
 import { prisma } from "@/lib/prisma"
+import { logAuthAction } from "@/lib/activity-logger"
 
 interface LoginModalProps {
   open: boolean
@@ -47,6 +48,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // 停止中ユーザーのログインをブロック
           if (employee.isSuspended || employee.status === 'suspended') {
             setError("このアカウントは停止中です。管理者にお問い合わせください。")
+            logAuthAction('login', name, false) // ログイン失敗を記録
             setIsLoading(false)
             return
           }
@@ -54,6 +56,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // 休職・退職ユーザーのログインをブロック
           if (employee.status === 'leave' || employee.status === 'retired') {
             setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
+            logAuthAction('login', name, false) // ログイン失敗を記録
             setIsLoading(false)
             return
           }
@@ -64,6 +67,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // ログイン成功時はローディング状態を維持（ページ遷移まで）
         } else {
           setError("名前またはパスワードが正しくありません")
+          logAuthAction('login', name, false) // ログイン失敗を記録
           setIsLoading(false)
         }
       } else {

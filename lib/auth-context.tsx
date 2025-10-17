@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { logAuthAction } from "./activity-logger"
 
 interface AuthContextType {
   currentUser: any | null
@@ -58,12 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (rememberMe) {
       localStorage.setItem("currentUser", JSON.stringify(employee))
     }
+
+    // ログイン成功をログに記録
+    logAuthAction('login', employee.name, true)
   }
 
   const logout = () => {
+    // ログアウト前にユーザー名を取得
+    const userName = currentUser?.name || "不明なユーザー"
+    
     setCurrentUser(null)
     setIsAuthenticated(false)
     localStorage.removeItem("currentUser")
+
+    // ログアウトをログに記録
+    logAuthAction('logout', userName, true)
   }
 
   // クライアントサイドでのマウント前は何も表示しない

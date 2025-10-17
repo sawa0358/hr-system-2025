@@ -76,13 +76,22 @@ export function AttendanceUploadDialog({
     return new Date().getFullYear()
   }
 
-  // ダイアログが開かれるたびに最新の年を設定
+  // 現在の月を取得する関数
+  const getCurrentMonth = () => {
+    const currentMonth = new Date().getMonth() + 1 // getMonth()は0-11なので+1
+    return `${currentMonth}月`
+  }
+
+  // ダイアログが開かれるたびに最新の年と月を設定
   useEffect(() => {
     if (open) {
       const currentYear = getCurrentYear()
       const currentYearStr = `${currentYear}年`
+      const currentMonthStr = getCurrentMonth()
       console.log('勤怠管理: 現在の年を設定:', currentYearStr)
+      console.log('勤怠管理: 現在の月を設定:', currentMonthStr)
       setSelectedYear(currentYearStr)
+      setSelectedMonth(currentMonthStr)
     }
   }, [open])
 

@@ -31,25 +31,48 @@ export async function GET(
       );
     }
 
-    // タスクに関連するファイルの場合、タスクのメンバーかどうかをチェック
-    if (file.category === 'task' && file.taskId) {
-      const task = await prisma.task.findUnique({
-        where: { id: file.taskId },
-        include: { members: true }
+    // タスクに関連するファイルの場合、カードのメンバーかどうかをチェック
+    if (file.category === 'task') {
+      // カードのattachmentsからこのファイルがどのカードに属するかを確認
+      const card = await prisma.card.findFirst({
+        where: {
+          attachments: {
+            path: '$[*].id',
+            equals: params.fileId
+          }
+        },
+        select: {
+          id: true,
+          createdBy: true,
+          members: {
+            select: {
+              employeeId: true
+            }
+          }
+        }
       });
       
-      if (!task) {
+      if (!card) {
         return NextResponse.json(
-          { error: 'タスクが見つかりません' },
+          { error: 'このファイルに関連するカードが見つかりません' },
           { status: 404 }
         );
       }
       
-      // タスクのメンバーかオーナーかチェック
-      const isMember = task.members.some(member => member.employeeId === employeeId);
+      // ユーザーの権限を確認（総務・管理者は全てのファイルにアクセス可能）
+      const user = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { role: true }
+      });
+
+      const isAdminOrHr = user?.role === 'admin' || user?.role === 'hr';
+
+      // カードのメンバーかオーナーかチェック
+      const cardMemberIds = card.members.map(member => member.employeeId);
+      const isCardMember = cardMemberIds.includes(employeeId) || card.createdBy === employeeId;
       const isOwner = file.employeeId === employeeId;
       
-      if (!isMember && !isOwner) {
+      if (!isCardMember && !isOwner && !isAdminOrHr) {
         return NextResponse.json(
           { error: 'このファイルにアクセスする権限がありません' },
           { status: 403 }

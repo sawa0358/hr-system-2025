@@ -193,13 +193,20 @@ const CUSTOM_STATUS_OPTIONS: { value: string; label: string; isDefault: boolean 
 export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUpdate }: TaskDetailDialogProps) {
   const { currentUser } = useAuth()
   
-  // カード権限をチェック
+  // カード権限をチェック（総務・管理者は全てのカードを開くことができる）
+  const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const cardPermissions = task && currentUser ? checkCardPermissions(
     currentUser.role as any,
     currentUser.id,
     task.createdBy || '',
     task.members?.map((m: any) => m.id) || []
   ) : null
+  
+  // 総務・管理者の場合は権限を強制的にtrueに設定
+  if (isAdminOrHr && cardPermissions) {
+    cardPermissions.canOpen = true
+    cardPermissions.canEdit = true
+  }
   
   // 実際の社員データを取得（ワークスペースメンバーのみ）
   const [employees, setEmployees] = useState<any[]>([])

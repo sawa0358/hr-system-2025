@@ -17,15 +17,49 @@ export async function GET(
 
     const taskId = params.taskId;
 
-    // 特定のタスクに関連するファイルを取得
-    // まず、そのタスクのカードのattachmentsからファイルIDを取得
+    // カードのメンバー情報を取得
     const card = await prisma.card.findUnique({
       where: { id: taskId },
-      select: { attachments: true }
+      select: { 
+        attachments: true,
+        createdBy: true,
+        members: {
+          select: {
+            employeeId: true
+          }
+        }
+      }
     });
 
+    if (!card) {
+      return NextResponse.json(
+        { error: 'カードが見つかりません' },
+        { status: 404 }
+      );
+    }
+
+    // ユーザーの権限を確認（総務・管理者は全てのカードにアクセス可能）
+    const user = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { role: true }
+    });
+
+    const isAdminOrHr = user?.role === 'admin' || user?.role === 'hr';
+
+    // カードメンバーのIDリストを取得
+    const cardMemberIds = card.members.map(member => member.employeeId);
+    const isCardMember = cardMemberIds.includes(employeeId) || card.createdBy === employeeId;
+
+    if (!isCardMember && !isAdminOrHr) {
+      return NextResponse.json(
+        { error: 'このカードのメンバーではありません' },
+        { status: 403 }
+      );
+    }
+
+    // カードのattachmentsからファイルIDを取得
     let fileIds: string[] = [];
-    if (card && card.attachments) {
+    if (card.attachments) {
       const attachments = card.attachments as any[];
       if (Array.isArray(attachments)) {
         fileIds = attachments
@@ -34,14 +68,18 @@ export async function GET(
       }
     }
 
-    // ファイルIDに基づいてファイルを取得
+    // ファイルが存在しない場合は空配列を返す
+    if (fileIds.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // ファイルIDに基づいてファイルを取得（カードメンバーがアップロードしたファイルすべて）
     const files = await prisma.file.findMany({
       where: {
         id: {
           in: fileIds
         },
-        category: 'task',
-        employeeId: employeeId // アップロードしたユーザーのファイルのみ
+        category: 'task'
       },
       orderBy: {
         createdAt: 'desc',

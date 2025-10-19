@@ -471,8 +471,8 @@ export function checkCardPermissions(
   const isCreator = userId === cardCreatorId
   const isWorkspaceMember = workspaceMemberIds?.includes(userId) || false
 
-  // 管理者は全ワークスペース・ボード・カードが見える＆編集可能
-  if (userRole === "admin") {
+  // 管理者・総務は全ワークスペース・ボード・カードが見える＆編集可能
+  if (userRole === "admin" || userRole === "hr") {
     return {
       canOpen: true,
       canEdit: true,

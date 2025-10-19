@@ -981,6 +981,19 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
     // Check if dragging a task
     if (tasksById[activeId]) {
+      const draggedTask = tasksById[activeId]
+      
+      // カードの移動権限をチェック（総務・管理者は全て移動可能、その他はメンバーのみ）
+      const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+      const cardMemberIds = (draggedTask.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+      const isCardMember = cardMemberIds.includes(currentUserId || '') || draggedTask.createdBy === currentUserId
+      
+      if (!isAdminOrHr && !isCardMember) {
+        console.log('カードの移動権限がありません: カードメンバーではありません')
+        alert('カードの移動権限がありません: カードメンバーではありません')
+        return
+      }
+
       const sourceList = lists.find((list) => list.taskIds.includes(activeId))
       const targetList = lists.find((list) => list.id === overId) || 
                         lists.find((list) => list.taskIds.includes(overId))

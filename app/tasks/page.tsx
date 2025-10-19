@@ -28,39 +28,9 @@ export default function TasksPage() {
   console.log("TasksPage - permissions:", permissions)
 
   const [workspaces, setWorkspaces] = useState<any[]>([])
-  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('currentWorkspace')
-      // 古いワークスペースIDをクリア
-      const oldWorkspaceIds = [
-        'cmgu9j0rv000c8zk87f9j152y',
-        'cmgucgqpc00018zii5wvn9y8h'  // 新しい古いIDを追加
-      ]
-      if (stored && oldWorkspaceIds.includes(stored)) {
-        localStorage.removeItem('currentWorkspace')
-        return null
-      }
-      return stored
-    }
-    return null
-  })
+  const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
   const [boards, setBoards] = useState<any[]>([])
-  const [currentBoard, setCurrentBoard] = useState<string | null>(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('currentBoard')
-      // 古いボードIDをクリア（古いワークスペースに関連するボードID）
-      const oldBoardIds = [
-        'cmgqp7gq7001m2r0lohbwodtd',
-        'cmgucgqut000f8ziiozr0xjaw'  // 新しい古いボードIDを追加
-      ]
-      if (stored && oldBoardIds.includes(stored)) {
-        localStorage.removeItem('currentBoard')
-        return null
-      }
-      return stored
-    }
-    return null
-  })
+  const [currentBoard, setCurrentBoard] = useState<string | null>(null)
   const [currentBoardData, setCurrentBoardData] = useState<any>(null)
   const [showCalendar, setShowCalendar] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
@@ -120,16 +90,65 @@ export default function TasksPage() {
     loadInitialData()
   }, [currentUser])
 
+  // 認証完了後にワークスペースとボードの初期化を行う
+  useEffect(() => {
+    if (currentUser && typeof window !== 'undefined') {
+      // まずワークスペース・ボードの状態をリセット
+      setCurrentWorkspace(null)
+      setCurrentBoard(null)
+      setCurrentBoardData(null)
+      setBoards([])
+      
+      // localStorageからワークスペースを復元
+      const storedWorkspace = localStorage.getItem('currentWorkspace')
+      // 古いワークスペースIDをクリア
+      const oldWorkspaceIds = [
+        'cmgu9j0rv000c8zk87f9j152y',
+        'cmgucgqpc00018zii5wvn9y8h'  // 新しい古いIDを追加
+      ]
+      if (storedWorkspace && oldWorkspaceIds.includes(storedWorkspace)) {
+        localStorage.removeItem('currentWorkspace')
+        return
+      }
+      
+      // localStorageからボードを復元
+      const storedBoard = localStorage.getItem('currentBoard')
+      // 古いボードIDをクリア（古いワークスペースに関連するボードID）
+      const oldBoardIds = [
+        'cmgqp7gq7001m2r0lohbwodtd',
+        'cmgucgqut000f8ziiozr0xjaw'  // 新しい古いボードIDを追加
+      ]
+      if (storedBoard && oldBoardIds.includes(storedBoard)) {
+        localStorage.removeItem('currentBoard')
+        return
+      }
+
+      // ワークスペースとボードを設定
+      if (storedWorkspace) {
+        setCurrentWorkspace(storedWorkspace)
+      }
+      if (storedBoard) {
+        setCurrentBoard(storedBoard)
+      }
+    } else if (!currentUser) {
+      // ユーザーがログアウトした場合は状態をリセット
+      setCurrentWorkspace(null)
+      setCurrentBoard(null)
+      setCurrentBoardData(null)
+      setBoards([])
+    }
+  }, [currentUser])
+
   // ワークスペースが変更されたらlocalStorageに保存し、ボード一覧を取得
   useEffect(() => {
-    if (currentWorkspace) {
+    if (currentWorkspace && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentWorkspace', currentWorkspace)
         // カスタムイベントを発火してS3に自動保存
         window.dispatchEvent(new CustomEvent('workspaceChanged'))
       }
       fetchBoards(currentWorkspace)
-    } else {
+    } else if (!currentWorkspace && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentWorkspace')
         // カスタムイベントを発火してS3に自動保存
@@ -138,7 +157,7 @@ export default function TasksPage() {
       setBoards([])
       setCurrentBoard(null)
     }
-  }, [currentWorkspace])
+  }, [currentWorkspace, currentUser])
 
   // ボード一覧取得後に初期ボードを設定
   useEffect(() => {
@@ -155,7 +174,7 @@ export default function TasksPage() {
 
   // ボード選択時にlocalStorageに保存し、データを取得
   useEffect(() => {
-    if (currentBoard) {
+    if (currentBoard && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentBoard', currentBoard)
         // カスタムイベントを発火してS3に自動保存
@@ -164,14 +183,15 @@ export default function TasksPage() {
       // ボード変更時は現在のボードデータをクリアしてから新しいデータを取得
       setCurrentBoardData(null)
       fetchBoardData(currentBoard)
-    } else {
+    } else if (!currentBoard && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentBoard')
         // カスタムイベントを発火してS3に自動保存
         window.dispatchEvent(new CustomEvent('boardChanged'))
       }
+      setCurrentBoardData(null)
     }
-  }, [currentBoard])
+  }, [currentBoard, currentUser])
 
   const fetchEmployees = async () => {
     try {
@@ -204,40 +224,77 @@ export default function TasksPage() {
 
   const fetchWorkspaces = async () => {
     try {
+      if (!currentUser?.id) {
+        console.log("No current user ID, skipping workspace fetch")
+        return
+      }
+      
+      console.log("Fetching workspaces for user:", currentUser.id)
       const response = await fetch("/api/workspaces", {
         headers: {
-          "x-employee-id": currentUser?.id || "",
+          "x-employee-id": currentUser.id,
         },
       })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log("Fetched workspaces:", data.workspaces?.length || 0)
+      
       if (data.workspaces) {
         setWorkspaces(data.workspaces)
-        // 保存されたワークスペースが存在するか確認
-        const savedWorkspace = typeof window !== 'undefined' ? localStorage.getItem('currentWorkspace') : null
-        const workspaceExists = savedWorkspace && data.workspaces.some((w: any) => w.id === savedWorkspace)
         
-        // 保存されたワークスペースが存在すれば復元、なければ最初のワークスペースを選択
+        // 現在のワークスペースが設定されていない場合のみ初期化
         if (!currentWorkspace && data.workspaces.length > 0) {
+          // 保存されたワークスペースが存在するか確認
+          const savedWorkspace = typeof window !== 'undefined' ? localStorage.getItem('currentWorkspace') : null
+          const workspaceExists = savedWorkspace && data.workspaces.some((w: any) => w.id === savedWorkspace)
+          
           if (workspaceExists) {
+            console.log("Restoring saved workspace:", savedWorkspace)
             setCurrentWorkspace(savedWorkspace)
           } else {
-            setCurrentWorkspace(data.workspaces[0].id)
+            // マイワークスペースを優先的に選択
+            const myWorkspace = data.workspaces.find((w: any) => w.name === `${currentUser.name}のマイワークスペース`)
+            if (myWorkspace) {
+              console.log("Setting my workspace:", myWorkspace.id)
+              setCurrentWorkspace(myWorkspace.id)
+            } else {
+              console.log("Setting first workspace:", data.workspaces[0].id)
+              setCurrentWorkspace(data.workspaces[0].id)
+            }
           }
         }
       }
     } catch (error) {
       console.error("Failed to fetch workspaces:", error)
+      setWorkspaces([])
     }
   }
 
   const fetchBoards = async (workspaceId: string) => {
     try {
+      if (!currentUser?.id) {
+        console.log("No current user ID, skipping board fetch")
+        return
+      }
+      
+      console.log("Fetching boards for workspace:", workspaceId, "user:", currentUser.id)
       const response = await fetch(`/api/workspaces/${workspaceId}`, {
         headers: {
-          "x-employee-id": currentUser?.id || "",
+          "x-employee-id": currentUser.id,
         },
       })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log("Fetched boards:", data.workspace?.boards?.length || 0)
+      
       if (data.workspace?.boards) {
         setBoards(data.workspace.boards)
         
@@ -252,11 +309,19 @@ export default function TasksPage() {
             fetchBoardData(savedBoard)
             console.log("Restored saved board:", savedBoard, "from workspace:", workspaceId)
           } else {
-            // なければ最初のボードを選択
-            const firstBoard = data.workspace.boards[0]
-            setCurrentBoard(firstBoard.id)
-            fetchBoardData(firstBoard.id)
-            console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
+            // マイボードを優先的に選択
+            const myBoard = data.workspace.boards.find((b: any) => b.name === `${currentUser.name}のマイボード`)
+            if (myBoard) {
+              setCurrentBoard(myBoard.id)
+              fetchBoardData(myBoard.id)
+              console.log("Auto-selected my board:", myBoard.name, "from workspace:", workspaceId)
+            } else {
+              // なければ最初のボードを選択
+              const firstBoard = data.workspace.boards[0]
+              setCurrentBoard(firstBoard.id)
+              fetchBoardData(firstBoard.id)
+              console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
+            }
           }
         } else {
           // ボードがない場合は現在のボードをクリア

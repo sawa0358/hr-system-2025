@@ -53,6 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (employee: any, rememberMe: boolean) => {
     console.log("AuthContext - Login:", employee.name, "ID:", employee.id)
+    
+    // ログイン時に前のユーザーのワークスペース・ボードキャッシュをクリア
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentWorkspace')
+      localStorage.removeItem('currentBoard')
+      console.log("AuthContext - Cleared workspace and board cache for new user")
+    }
+    
     setCurrentUser(employee)
     setIsAuthenticated(true)
 
@@ -67,6 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     // ログアウト前にユーザー名を取得
     const userName = currentUser?.name || "不明なユーザー"
+    
+    // ログアウト時にワークスペース・ボードキャッシュもクリア
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentWorkspace')
+      localStorage.removeItem('currentBoard')
+      console.log("AuthContext - Cleared workspace and board cache on logout")
+    }
     
     setCurrentUser(null)
     setIsAuthenticated(false)

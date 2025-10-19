@@ -110,8 +110,17 @@ interface KanbanList {
   color?: string
 }
 
-function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => void; isDragging?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
+function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string }) {
+  // 権限チェック
+  const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+  const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+  const isCardMember = cardMemberIds.includes(currentUserId || '') || task.createdBy === currentUserId
+  const canDrag = isAdminOrHr || isCardMember
+  
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    id: task.id,
+    disabled: !canDrag // 権限がない場合はドラッグを無効化
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -235,8 +244,17 @@ function CompactTaskCard({ task, onClick, isDragging }: { task: Task; onClick: (
   )
 }
 
-function TaskCard({ task, onClick, isDragging }: { task: Task; onClick: () => void; isDragging?: boolean }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id })
+function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string }) {
+  // 権限チェック
+  const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+  const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+  const isCardMember = cardMemberIds.includes(currentUserId || '') || task.createdBy === currentUserId
+  const canDrag = isAdminOrHr || isCardMember
+  
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
+    id: task.id,
+    disabled: !canDrag // 権限がない場合はドラッグを無効化
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -489,6 +507,8 @@ function KanbanColumn({
   onDeleteList,
   onListColorChange,
   boardId,
+  currentUserId,
+  currentUserRole,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -500,6 +520,8 @@ function KanbanColumn({
   onDeleteList: (listId: string) => void
   onListColorChange: (listId: string) => void
   boardId?: string
+  currentUserId?: string
+  currentUserRole?: string
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -648,9 +670,9 @@ function KanbanColumn({
           <div className="space-y-3">
             {tasks.map((task) =>
               viewMode === "list" ? (
-                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} currentUserId={currentUserId} currentUserRole={currentUserRole} />
               ) : (
-                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} currentUserId={currentUserId} currentUserRole={currentUserRole} />
               ),
             )}
 
@@ -880,7 +902,27 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   )
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
+    const activeId = event.active.id as string
+    
+    // タスクのドラッグの場合、権限チェックを行う
+    if (tasksById[activeId]) {
+      const draggedTask = tasksById[activeId]
+      
+      // カードの移動権限をチェック（総務・管理者は全て移動可能、その他はメンバーのみ）
+      const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+      const cardMemberIds = (draggedTask.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+      const isCardMember = cardMemberIds.includes(currentUserId || '') || draggedTask.createdBy === currentUserId
+      
+      if (!isAdminOrHr && !isCardMember) {
+        console.log('カードの移動権限がありません: ドラッグをキャンセル')
+        alert('カードの移動権限がありません: カードメンバーではありません')
+        // ドラッグ操作をキャンセル
+        setActiveId(null)
+        return
+      }
+    }
+    
+    setActiveId(activeId)
   }
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -934,6 +976,22 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
     const activeId = active.id as string
     const overId = over.id as string
+
+    // Check if dragging a task - 権限チェックを最初に実行
+    if (tasksById[activeId]) {
+      const draggedTask = tasksById[activeId]
+      
+      // カードの移動権限をチェック（総務・管理者は全て移動可能、その他はメンバーのみ）
+      const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+      const cardMemberIds = (draggedTask.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+      const isCardMember = cardMemberIds.includes(currentUserId || '') || draggedTask.createdBy === currentUserId
+      
+      if (!isAdminOrHr && !isCardMember) {
+        console.log('カードの移動権限がありません: カードメンバーではありません')
+        alert('カードの移動権限がありません: カードメンバーではありません')
+        return // 権限がない場合は処理を終了
+      }
+    }
 
     // Check if dragging a list
     if (lists.find((list) => list.id === activeId)) {
@@ -1237,8 +1295,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const handleTaskClick = (task: Task) => {
     // カード閲覧権限をチェック（簡略化版）
     if (currentUserRole && currentUserId) {
-      // 管理者は全てのカードを開ける
-      if (currentUserRole === 'admin') {
+      // 管理者・総務は全てのカードを開ける
+      if (currentUserRole === 'admin' || currentUserRole === 'hr') {
         setSelectedTask(task)
         setDialogOpen(true)
         return
@@ -1482,6 +1540,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
       >
         <div className="flex gap-6 overflow-x-auto pb-4">
           {lists.length > 0 ? (
@@ -1504,6 +1563,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                       setListColorModalOpen(true)
                     }}
                     boardId={boardData?.id}
+                    currentUserId={currentUserId}
+                    currentUserRole={currentUserRole}
                   />
                 )
               })}

@@ -125,7 +125,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
   }
 
   const getPriorityColor = (priority: string) => {
@@ -259,7 +259,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }:
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
+    opacity: isDragging ? 0 : 1,
   }
 
   const getPriorityColor = (priority: string) => {
@@ -509,6 +509,7 @@ function KanbanColumn({
   boardId,
   currentUserId,
   currentUserRole,
+  activeId,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -522,6 +523,7 @@ function KanbanColumn({
   boardId?: string
   currentUserId?: string
   currentUserRole?: string
+  activeId?: string | null
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -670,9 +672,9 @@ function KanbanColumn({
           <div className="space-y-3">
             {tasks.map((task) =>
               viewMode === "list" ? (
-                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} currentUserId={currentUserId} currentUserRole={currentUserRole} />
+                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} />
               ) : (
-                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} currentUserId={currentUserId} currentUserRole={currentUserRole} />
+                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} />
               ),
             )}
 
@@ -1565,6 +1567,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                     boardId={boardData?.id}
                     currentUserId={currentUserId}
                     currentUserRole={currentUserRole}
+                    activeId={activeId}
                   />
                 )
               })}
@@ -1597,11 +1600,23 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
         <DragOverlay>
           {activeTask && tasksById[activeTask.id] ? (
-            viewMode === "list" ? (
-              <CompactTaskCard task={activeTask} onClick={() => {}} isDragging />
-            ) : (
-              <TaskCard task={activeTask} onClick={() => {}} isDragging />
-            )
+            <div 
+              className="cursor-grabbing"
+              style={{
+                filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3)) brightness(1.05)',
+                zIndex: 1000,
+                opacity: 0.8, // 移動中のカードを透過
+                transform: 'rotate(2deg) scale(1.05)',
+                transition: 'none', // ドラッグ中はアニメーションを無効化
+                animation: 'dragStart 0.2s ease-out forwards',
+              }}
+            >
+              {viewMode === "list" ? (
+                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} />
+              ) : (
+                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} />
+              )}
+            </div>
           ) : null}
         </DragOverlay>
       </DndContext>

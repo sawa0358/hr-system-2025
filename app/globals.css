@@ -129,3 +129,25 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
 }
+
+/* Custom animation for dragging cards */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px) rotate(2deg) scale(1.05);
+  }
+  50% {
+    transform: translateY(-3px) rotate(2deg) scale(1.05);
+  }
+}
+
+/* Smooth drag start animation */
+@keyframes dragStart {
+  0% {
+    transform: rotate(0deg) scale(1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+  100% {
+    transform: rotate(2deg) scale(1.05);
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
+  }
+}

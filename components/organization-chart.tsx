@@ -932,11 +932,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
       // ステータスが「在籍中・休職中・コピー」のみを表示（それ以外は完全に非表示）
+      // ※ コピー社員は「未配置 = showInOrgChart が false」の場合のみ表示する（配置後は未配置に重複表示しない）
       const unassigned = data.filter((emp: Employee) => 
-        (!emp.showInOrgChart || emp.status === 'copy') && // コピー社員は常に未配置エリアに表示
+        !emp.showInOrgChart &&
         !emp.isInvisibleTop && 
         emp.employeeNumber !== '000' &&
-        (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') // 在籍中・休職中・コピー社員のみ
+        (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
       )
       console.log('未配置社員フィルタリング結果:', unassigned.length, '件')
       console.log('コピー社員の未配置:', unassigned.filter((emp: Employee) => emp.status === 'copy'))

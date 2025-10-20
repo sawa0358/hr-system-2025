@@ -943,6 +943,42 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     ]
   })
 
+  // マスターデータをAPIから取得（S3優先・なければデフォルト）
+  useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const res = await fetch('/api/master-data')
+        if (!res.ok) return
+        const json = await res.json()
+        if (!json?.success) return
+        const data = json.data || {}
+
+        if (Array.isArray(data.departments) && data.departments.length > 0) {
+          setAvailableDepartments(data.departments)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('available-departments', JSON.stringify(data.departments))
+          }
+        }
+        if (Array.isArray(data.positions) && data.positions.length > 0) {
+          setAvailablePositions(data.positions)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('available-positions', JSON.stringify(data.positions))
+          }
+        }
+        if (Array.isArray(data.employmentTypes) && data.employmentTypes.length > 0) {
+          const types = data.employmentTypes.map((v: string) => ({ value: v, label: v }))
+          setEmploymentTypes(types)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('employment-types', JSON.stringify(types))
+          }
+        }
+      } catch (e) {
+        console.warn('マスターデータ取得に失敗しました')
+      }
+    }
+    fetchMasterData()
+  }, [])
+
   const addFamilyMember = () => {
     const newMember: FamilyMember = {
       id: `family-${Date.now()}`,
@@ -2257,6 +2293,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('departmentsChanged'))
           }
+          // APIへも保存
+          try {
+            fetch('/api/master-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                departments: newDepts,
+                positions: availablePositions,
+                employmentTypes: employmentTypes.map((t: any) => t.value)
+              })
+            })
+          } catch {}
         }}
       />
 
@@ -2271,6 +2319,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('positionsChanged'))
           }
+          // APIへも保存
+          try {
+            fetch('/api/master-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                departments: availableDepartments,
+                positions: newPos,
+                employmentTypes: employmentTypes.map((t: any) => t.value)
+              })
+            })
+          } catch {}
         }}
       />
 
@@ -2285,6 +2345,18 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('employmentTypesChanged'))
           }
+          // APIへも保存
+          try {
+            fetch('/api/master-data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                departments: availableDepartments,
+                positions: availablePositions,
+                employmentTypes: newTypes.map((t: any) => t.value)
+              })
+            })
+          } catch {}
         }}
       />
 

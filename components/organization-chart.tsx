@@ -931,12 +931,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       setEmployees(data)
       
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
-      // ステータスが「在籍中・休職中・コピー」のみを表示（コピー社員は全員に表示）
+      // ステータスが「在籍中・休職中・コピー」のみを表示（それ以外は完全に非表示）
       const unassigned = data.filter((emp: Employee) => 
         (!emp.showInOrgChart || emp.status === 'copy') && // コピー社員は常に未配置エリアに表示
         !emp.isInvisibleTop && 
         emp.employeeNumber !== '000' &&
-        (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
+        (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') // 在籍中・休職中・コピー社員のみ
       )
       console.log('未配置社員フィルタリング結果:', unassigned.length, '件')
       console.log('コピー社員の未配置:', unassigned.filter((emp: Employee) => emp.status === 'copy'))
@@ -954,7 +954,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           shouldBeUnassigned: (!emp.showInOrgChart || emp.status === 'copy') && 
                              !emp.isInvisibleTop && 
                              emp.employeeNumber !== '000' &&
-                             (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
+                             (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') // 在籍中・休職中・コピー社員のみ
         })
       })
       
@@ -990,9 +990,10 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
   // 見えないTOP社員は除外するが、その子ノードは表示する
+  // ステータスが「在籍中・休職中・コピー」のみを組織図に表示（それ以外は完全に非表示）
   const showInChartEmployees = employees.filter(emp =>
     emp.showInOrgChart &&
-    (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') && // コピー社員は全員に表示
+    (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') && // 在籍中・休職中・コピー社員のみ
     !emp.isSuspended &&
     !emp.isInvisibleTop &&
     emp.employeeNumber !== '000'
@@ -1031,7 +1032,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         employeeNumber: emp.employeeNumber,
         parentEmployeeId: emp.parentEmployeeId,
         shouldShow: emp.showInOrgChart && 
-                   (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') &&
+                   (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy') && // 在籍中・休職中・コピー社員のみ
                    !emp.isSuspended &&
                    !emp.isInvisibleTop &&
                    emp.employeeNumber !== '000'
@@ -1061,7 +1062,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
         status: currentUserEmployee.status,
         showInOrgChart: currentUserEmployee.showInOrgChart,
         shouldShow: currentUserEmployee.showInOrgChart && 
-                   (currentUserEmployee.status === 'active' || currentUserEmployee.status === 'leave' || currentUserEmployee.status === 'copy') &&
+                   (currentUserEmployee.status === 'active' || currentUserEmployee.status === 'leave' || currentUserEmployee.status === 'copy') && // 在籍中・休職中・コピー社員のみ
                    !currentUserEmployee.isSuspended &&
                    !currentUserEmployee.isInvisibleTop &&
                    currentUserEmployee.employeeNumber !== '000'

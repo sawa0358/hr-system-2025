@@ -109,6 +109,27 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
       alert('社員のコピーに失敗しました')
     }
   }
+
+  // 社員を削除する関数
+  const handleDeleteEmployee = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        alert('社員を削除しました')
+        // テーブルを再読み込み
+        window.location.reload()
+      } else {
+        const errorData = await response.json()
+        alert(`削除エラー: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('削除エラー:', error)
+      alert('社員の削除に失敗しました')
+    }
+  }
   const [employees, setEmployees] = useState<any[]>([])
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -447,16 +468,29 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 (employee.isInvisibleTop || employee.employeeNumber === '000') 
                   ? 'cursor-not-allowed opacity-60' 
                   : employee.status === 'copy'
-                  ? 'cursor-not-allowed opacity-50 bg-slate-50'
+                  ? currentUser?.role === 'admin'
+                    ? 'cursor-pointer opacity-50 bg-slate-50'
+                    : 'cursor-not-allowed opacity-50 bg-slate-50'
                   : employee.isSuspended || employee.status === 'suspended'
                   ? 'cursor-pointer opacity-50 bg-slate-100'
                   : 'cursor-pointer'
               }`}
               onClick={() => {
-                // 見えないTOPまたは社員番号000、コピー社員の場合はクリックを無効化
-                if (!employee.isInvisibleTop && employee.employeeNumber !== '000' && employee.status !== 'copy') {
-                  onEmployeeClick?.(employee)
+                // 見えないTOPまたは社員番号000の場合はクリックを無効化
+                if (employee.isInvisibleTop || employee.employeeNumber === '000') {
+                  return
                 }
+                
+                // コピー社員の場合は管理者のみクリック可能
+                if (employee.status === 'copy') {
+                  if (currentUser?.role === 'admin') {
+                    onEmployeeClick?.(employee)
+                  }
+                  return
+                }
+                
+                // 通常の社員はクリック可能
+                onEmployeeClick?.(employee)
               }}
             >
               <TableCell>
@@ -629,9 +663,23 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                         <DropdownMenuItem disabled className="text-slate-400">
                           コピー（コピー社員は再コピー不可）
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
-                          削除
-                        </DropdownMenuItem>
+                        {currentUser?.role === 'admin' ? (
+                          <DropdownMenuItem 
+                            className="text-red-600" 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`${employee.name} さんのコピー社員を削除しますか？この操作は取り消せません。`)) {
+                                handleDeleteEmployee(employee.id)
+                              }
+                            }}
+                          >
+                            削除（管理者のみ）
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem disabled className="text-slate-400">
+                            削除（管理者のみ）
+                          </DropdownMenuItem>
+                        )}
                       </>
                     ) : (
                       <>
@@ -666,9 +714,23 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                             コピー
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem className="text-red-600" onClick={(e) => e.stopPropagation()}>
-                          削除
-                        </DropdownMenuItem>
+                        {currentUser?.role === 'admin' ? (
+                          <DropdownMenuItem 
+                            className="text-red-600" 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`${employee.name} さんを削除しますか？この操作は取り消せません。`)) {
+                                handleDeleteEmployee(employee.id)
+                              }
+                            }}
+                          >
+                            削除
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem disabled className="text-slate-400">
+                            削除（管理者のみ）
+                          </DropdownMenuItem>
+                        )}
                       </>
                     )}
                   </DropdownMenuContent>

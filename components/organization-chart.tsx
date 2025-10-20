@@ -933,7 +933,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       // showInOrgChartがfalseの社員を未配置社員として設定（見えないTOP社員は除外）
       // ステータスが「在籍中・休職中・コピー」のみを表示（コピー社員は全員に表示）
       const unassigned = data.filter((emp: Employee) => 
-        !emp.showInOrgChart && 
+        (!emp.showInOrgChart || emp.status === 'copy') && // コピー社員は常に未配置エリアに表示
         !emp.isInvisibleTop && 
         emp.employeeNumber !== '000' &&
         (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
@@ -951,7 +951,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           employeeNumber: emp.employeeNumber,
           isAdmin: currentUser?.role === 'admin',
           parentEmployeeId: emp.parentEmployeeId,
-          shouldBeUnassigned: !emp.showInOrgChart && 
+          shouldBeUnassigned: (!emp.showInOrgChart || emp.status === 'copy') && 
                              !emp.isInvisibleTop && 
                              emp.employeeNumber !== '000' &&
                              (emp.status === 'active' || emp.status === 'leave' || emp.status === 'copy')
@@ -1114,6 +1114,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           children: []
         }
         nodeMap.set(emp.id, node)
+        
+        // コピー社員の場合は特別なログを追加
+        if (emp.status === 'copy') {
+          console.log(`🔍 ノード作成: コピー社員 ${emp.name}`, {
+            id: emp.id,
+            parentEmployeeId: emp.parentEmployeeId,
+            nodeEmployeeParentId: node.employee?.parentEmployeeId
+          })
+        }
       })
 
       // 親子関係を設定
@@ -1187,6 +1196,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           }
           parentNode.children.push(node)
           console.log(`  → 親の子として追加: ${emp.name} → ${parentNode.name}`)
+          
+          // コピー社員の場合は親の情報を保持
+          if (emp.status === 'copy') {
+            console.log(`🔍 コピー社員: 親の子として追加完了 - parentEmployeeId保持`)
+            node.employee = { ...emp, parentEmployeeId: emp.parentEmployeeId }
+            console.log(`🔍 コピー社員: 最終的なnode.employee.parentEmployeeId:`, node.employee.parentEmployeeId)
+          }
         } else {
           // 親がいない場合、ルートノードとして追加
           // コピー社員の場合は親の情報を保持

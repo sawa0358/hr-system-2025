@@ -148,6 +148,18 @@ export async function PUT(
       isString: typeof body.furigana === 'string',
       isEmpty: body.furigana === '' || body.furigana === null || body.furigana === undefined
     })
+    
+    console.log('部署・役職・組織データの詳細:', {
+      departments: body.departments,
+      departmentsType: typeof body.departments,
+      isDepartmentsArray: Array.isArray(body.departments),
+      positions: body.positions,
+      positionsType: typeof body.positions,
+      isPositionsArray: Array.isArray(body.positions),
+      organizations: body.organizations,
+      organizationsType: typeof body.organizations,
+      isOrganizationsArray: Array.isArray(body.organizations)
+    })
 
     // コピー社員の場合は名前、フリガナ、parentEmployeeIdのみ更新可能
     const updateData = isCopyEmployee ? {
@@ -303,6 +315,14 @@ export async function DELETE(
       return NextResponse.json(
         { error: '社員が見つかりません' },
         { status: 404 }
+      );
+    }
+
+    // 見えないTOP社員または社員番号000の場合は削除不可
+    if (employeeToDelete.isInvisibleTop || employeeToDelete.employeeNumber === '000') {
+      return NextResponse.json(
+        { error: 'この社員は削除できません' },
+        { status: 403 }
       );
     }
 

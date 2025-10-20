@@ -89,7 +89,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const canEditCopyEmployee = currentUser?.role === 'admin' && isCopyEmployee // コピー社員の編集権限（管理者のみ）
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
-  const canEditUserInfo = (permissions.permissions.editAllProfiles || isAdminOrHR) // コピー社員も編集可能（制限あり）
+  const canEditUserInfo = isCopyEmployee ? canEditCopyEmployee : (permissions.permissions.editAllProfiles || isAdminOrHR) // コピー社員は管理者のみ編集可能
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
   
@@ -382,6 +382,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('送信するparentEmployeeId:', formData.parentEmployeeId)
       console.log('employee.parentEmployeeId:', employee?.parentEmployeeId)
       console.log('送信する公開設定:', privacySettings)
+      console.log('送信するorganizations:', organizations)
+      console.log('送信するdepartments:', departments)
+      console.log('送信するpositions:', positions)
       
       const requestBody = {
         ...formData,

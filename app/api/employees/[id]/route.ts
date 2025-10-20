@@ -161,7 +161,7 @@ export async function PUT(
       isOrganizationsArray: Array.isArray(body.organizations)
     })
 
-    // コピー社員の場合は名前、フリガナ、parentEmployeeIdのみ更新可能
+    // コピー社員の場合は管理者が一部項目を更新可能
     const updateData = isCopyEmployee ? {
       name: body.name,
       furigana: (() => {
@@ -172,6 +172,8 @@ export async function PUT(
         return trimmed !== '' ? trimmed : null;
       })(),
       parentEmployeeId: body.parentEmployeeId || null,
+      // 管理者がコピー社員の社員番号を調整できるように許可
+      employeeNumber: body.employeeNumber,
     } : {
       name: body.name,
       furigana: (() => {

@@ -83,8 +83,6 @@ model Employee {
   payroll               Payroll[]
   files                 File[]
   folders               Folder[]
-  customFolders         CustomFolder[]
-  userSettings          UserSettings[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
   
@@ -102,6 +100,10 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
+  
+  // カスタムフォルダとユーザー設定
+  customFolders         CustomFolder[]
+  userSettings          UserSettings[]
 
   @@map("employees")
 }
@@ -367,4 +369,17 @@ model UserSettings {
 
   @@unique([employeeId, key])
   @@map("user_settings")
+}
+
+model MasterData {
+  id        String   @id @default(cuid())
+  type      String
+  value     String
+  label     String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("master_data")
 }

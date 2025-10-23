@@ -177,6 +177,7 @@ export async function PUT(
         const trimmed = String(body.furigana).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      description: body.description,
       parentEmployeeId: body.parentEmployeeId || null,
       // 管理者がコピー社員の社員番号を調整できるように許可
       employeeNumber: body.employeeNumber,

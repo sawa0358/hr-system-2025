@@ -258,7 +258,7 @@ export async function PUT(
             name: member.name,
             relationship: member.relationship,
             // phone: member.phone || null,  // 一時的にコメントアウト
-            birthDate: member.birthday || null,  // クライアントから送られてくるのは 'birthday' なので、それを 'birthDate' として保存
+            birthDate: member.birthday ? new Date(member.birthday) : null,  // 日付文字列をDateTimeオブジェクトに変換
             livingSeparately: member.livingSeparately || false,
             address: member.address || null,
             myNumber: member.myNumber || null

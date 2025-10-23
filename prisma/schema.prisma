@@ -329,17 +329,17 @@ model CardMember {
 }
 
 model FamilyMember {
-  id             String   @id @default(cuid())
-  employeeId     String
-  name           String
-  relationship   String
-  phone          String?
-  birthDate      DateTime?
-  livingSeparately Boolean @default(false)
-  address        String?
-  myNumber       String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  employeeId      String
+  name            String
+  relationship    String
+  phone           String?
+  birthDate       DateTime?
+  livingSeparately Boolean  @default(false)
+  address         String?
+  myNumber        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("family_members")
 }

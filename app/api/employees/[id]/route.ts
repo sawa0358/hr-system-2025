@@ -20,7 +20,10 @@ export async function GET(
 ) {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        familyMembers: true
+      }
     });
 
     if (!employee) {
@@ -255,7 +258,13 @@ export async function PUT(
             name: member.name,
             relationship: member.relationship,
             phone: member.phone || null,
-            birthday: member.birthday && member.birthday.trim() !== '' && member.birthday !== 'null' ? new Date(member.birthday) : null,
+            birthday: (() => {
+              if (!member.birthday || member.birthday.trim() === '' || member.birthday === 'null' || member.birthday === 'undefined') {
+                return null;
+              }
+              const date = new Date(member.birthday);
+              return isNaN(date.getTime()) ? null : date;
+            })(),
             livingSeparately: member.livingSeparately || false,
             address: member.address || null,
             myNumber: member.myNumber || null
@@ -266,7 +275,10 @@ export async function PUT(
 
     // 更新された社員データを取得
     const updatedEmployee = await prisma.employee.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        familyMembers: true
+      }
     });
 
     return NextResponse.json({

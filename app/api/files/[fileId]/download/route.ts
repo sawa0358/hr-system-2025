@@ -32,15 +32,10 @@ export async function GET(
     }
 
     // タスクに関連するファイルの場合、カードのメンバーかどうかをチェック
-    if (file.category === 'task') {
-      // カードのattachmentsからこのファイルがどのカードに属するかを確認
-      const card = await prisma.card.findFirst({
-        where: {
-          attachments: {
-            path: '$[*].id',
-            equals: params.fileId
-          }
-        },
+    if (file.category === 'task' && file.taskId) {
+      // taskIdを使用してカードを取得
+      const card = await prisma.card.findUnique({
+        where: { id: file.taskId },
         select: {
           id: true,
           createdBy: true,
@@ -120,7 +115,9 @@ export async function GET(
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
-        headers.set('Content-Disposition', `attachment; filename="${file.originalName}"`);
+        // 日本語ファイル名を安全に処理
+        const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_'); // 非ASCII文字を置換
+        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
         headers.set('Content-Length', fileBuffer.length.toString());
         
         // ファイルを返す

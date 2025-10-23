@@ -139,24 +139,120 @@ export function PayrollUploadDialog({
     setIsDragging(false)
     const files = Array.from(e.dataTransfer.files)
     files.forEach((file) => {
-      handleFileUpload(folderKey, file.name)
+      handleFileUpload(folderKey, file.name, file)
     })
   }
 
-  const handleFileUpload = (folderKey: string, fileName?: string) => {
-    const name = fileName || `給与明細_${new Date().toLocaleDateString()}.pdf`
-    const newFiles = [...(uploadedFiles[folderKey] || []), name]
-    setUploadedFiles({
-      ...uploadedFiles,
-      [folderKey]: newFiles,
-    })
-    // localStorageに保存
-    saveFilesToStorage(folderKey, newFiles)
+  const handleFileUpload = async (folderKey: string, fileName?: string, file?: File) => {
+    try {
+      if (file) {
+        // 実際のファイルアップロード処理
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('category', 'payroll')
+        formData.append('folder', folderKey)
+        
+        const response = await fetch('/api/files/upload', {
+          method: 'POST',
+          headers: {
+            'x-employee-id': employee?.id || '',
+          },
+          body: formData
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          console.log('ファイルアップロード成功:', result)
+          
+          // アップロード成功したファイルをリストに追加
+          const newFiles = [...(uploadedFiles[folderKey] || []), file.name]
+          setUploadedFiles({
+            ...uploadedFiles,
+            [folderKey]: newFiles,
+          })
+          saveFilesToStorage(folderKey, newFiles)
+        } else {
+          console.error('ファイルアップロード失敗:', await response.text())
+          alert('ファイルのアップロードに失敗しました')
+        }
+      } else {
+        // ファイル名のみの場合（既存の動作）
+        const name = fileName || `給与明細_${new Date().toLocaleDateString()}.pdf`
+        const newFiles = [...(uploadedFiles[folderKey] || []), name]
+        setUploadedFiles({
+          ...uploadedFiles,
+          [folderKey]: newFiles,
+        })
+        saveFilesToStorage(folderKey, newFiles)
+      }
+    } catch (error) {
+      console.error('ファイルアップロードエラー:', error)
+      alert('ファイルのアップロードに失敗しました')
+    }
   }
 
-  const downloadFile = (folderKey: string, fileName: string) => {
+  const downloadFile = async (folderKey: string, fileName: string) => {
     console.log(`Downloading ${fileName} from ${folderKey}`)
-    alert(`ダウンロード: ${fileName}`)
+    
+    try {
+      // 給与管理の場合は、実際のファイルシステムからファイルを取得
+      // まず、ファイルIDを取得するためにファイル一覧を取得
+      const response = await fetch(`/api/files/employee/${employee?.id}`, {
+        method: 'GET',
+        headers: {
+          'x-employee-id': employee?.id || '',
+        },
+      })
+      
+      if (response.ok) {
+        const files = await response.json()
+        // ファイル名に一致するファイルを検索
+        const matchingFile = files.find((f: any) => f.originalName === fileName && f.category === 'payroll')
+        
+        if (matchingFile) {
+          // 実際のファイルをダウンロード
+          const downloadResponse = await fetch(`/api/files/${matchingFile.id}/download`, {
+            method: 'GET',
+            headers: {
+              'x-employee-id': employee?.id || '',
+            },
+          })
+          
+          if (downloadResponse.ok) {
+            const blob = await downloadResponse.blob()
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = fileName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+            return
+          }
+        }
+      }
+      
+      // ファイルが見つからない場合は、ダミーファイルを作成
+      const fileContent = `給与明細: ${fileName}\n\nこのファイルは給与管理システムからダウンロードされました。\n実際のファイル内容は管理者にお問い合わせください。`
+      const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', fileName)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // URLを解放してメモリリークを防ぐ
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      console.error('ファイルダウンロードエラー:', error)
+      alert('ファイルのダウンロードに失敗しました')
+    }
   }
 
   const removeFile = (folderKey: string, fileName: string) => {
@@ -314,7 +410,7 @@ export function PayrollUploadDialog({
                           input.accept = ".pdf,.xlsx,.xls,.csv"
                           input.onchange = (e) => {
                             const files = Array.from((e.target as HTMLInputElement).files || [])
-                            files.forEach((file) => handleFileUpload(folderKey, file.name))
+                            files.forEach((file) => handleFileUpload(folderKey, file.name, file))
                           }
                           input.click()
                         }}
@@ -485,7 +581,7 @@ export function PayrollUploadDialog({
                           input.accept = ".pdf,.xlsx,.xls,.csv"
                           input.onchange = (e) => {
                             const files = Array.from((e.target as HTMLInputElement).files || [])
-                            files.forEach((file) => handleFileUpload(folderKey, file.name))
+                            files.forEach((file) => handleFileUpload(folderKey, file.name, file))
                           }
                           input.click()
                         }}

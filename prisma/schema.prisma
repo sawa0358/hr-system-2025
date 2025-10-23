@@ -99,6 +99,15 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
+  
+  // 家族関係
+  familyMembers         FamilyMember[]
+  
+  // ユーザー設定関係
+  userSettings          UserSettings[]
+  
+  // カスタムフォルダ関係
+  customFolders         CustomFolder[]
 
   @@map("employees")
 }
@@ -331,6 +340,7 @@ model CardMember {
 model FamilyMember {
   id         String   @id @default(cuid())
   employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
   name       String
   relationship String
   birthDate  DateTime?
@@ -338,4 +348,47 @@ model FamilyMember {
   updatedAt  DateTime @updatedAt
 
   @@map("family_members")
+}
+
+// ユーザー設定テーブル
+model UserSettings {
+  id        String   @id @default(cuid())
+  employeeId String
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  key       String   // 設定キー（例: "password-visible", "avatar-text"）
+  value     String   // 設定値（JSON形式）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, key])
+  @@map("user_settings")
+}
+
+// カスタムフォルダテーブル
+model CustomFolder {
+  id        String   @id @default(cuid())
+  employeeId String
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  category  String   // カテゴリ（例: "employee", "evaluation", "attendance", "payroll", "task"）
+  name      String   // フォルダ名
+  order     Int      @default(0) // 表示順序
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("custom_folders")
+}
+
+// マスターデータテーブル
+model MasterData {
+  id        String   @id @default(cuid())
+  type      String   // データタイプ（例: "employment-types", "departments", "positions"）
+  value     String   // データ値
+  label     String?  // 表示ラベル
+  order     Int      @default(0) // 表示順序
+  isActive  Boolean  @default(true) // 有効フラグ
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, value])
+  @@map("master_data")
 }

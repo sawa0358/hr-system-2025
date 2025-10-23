@@ -248,6 +248,12 @@ export async function PUT(
 
     // 家族データの保存
     if (body.familyMembers && Array.isArray(body.familyMembers)) {
+      console.log('家族構成保存開始:', {
+        employeeId: params.id,
+        familyMembersCount: body.familyMembers.length,
+        familyMembers: body.familyMembers
+      });
+
       // 既存の家族データを削除
       await prisma.familyMember.deleteMany({
         where: { employeeId: params.id }
@@ -255,18 +261,24 @@ export async function PUT(
 
       // 新しい家族データを追加
       if (body.familyMembers.length > 0) {
+        const familyData = body.familyMembers.map((member: any) => ({
+          employeeId: params.id,
+          name: member.name,
+          relationship: member.relationship,
+          // phone: member.phone || null,  // 一時的にコメントアウト
+          birthDate: member.birthday ? new Date(member.birthday) : null,  // 日付文字列をDateTimeオブジェクトに変換
+          // livingSeparately: member.livingSeparately || false,  // スキーマに存在しないためコメントアウト
+          // address: member.address || null,  // スキーマに存在しないためコメントアウト
+          // myNumber: member.myNumber || null  // スキーマに存在しないためコメントアウト
+        }));
+
+        console.log('保存する家族データ:', familyData);
+
         await prisma.familyMember.createMany({
-          data: body.familyMembers.map((member: any) => ({
-            employeeId: params.id,
-            name: member.name,
-            relationship: member.relationship,
-            // phone: member.phone || null,  // 一時的にコメントアウト
-            birthDate: member.birthday ? new Date(member.birthday) : null,  // 日付文字列をDateTimeオブジェクトに変換
-            // livingSeparately: member.livingSeparately || false,  // スキーマに存在しないためコメントアウト
-            // address: member.address || null,  // スキーマに存在しないためコメントアウト
-            // myNumber: member.myNumber || null  // スキーマに存在しないためコメントアウト
-          }))
+          data: familyData
         });
+
+        console.log('家族構成保存完了');
       }
     }
 

@@ -83,6 +83,53 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   console.log('Employee Detail Dialog - latestEmployee:', latestEmployee)
   console.log('Employee Detail Dialog - employee.id:', employee?.id)
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
+
+  // 家族構成データをデータベースから取得
+  const fetchFamilyMembers = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/family-members`)
+      if (response.ok) {
+        const data = await response.json()
+        setFamilyMembers(data)
+      }
+    } catch (error) {
+      console.error('家族構成データ取得エラー:', error)
+    }
+  }
+
+  // ユーザー設定をデータベースから取得
+  const fetchUserSettings = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/settings`)
+      if (response.ok) {
+        const settings = await response.json()
+        if (settings['password-visible']) {
+          setShowPassword(settings['password-visible'])
+        }
+        if (settings['avatar-text']) {
+          setAvatarText(settings['avatar-text'])
+        }
+      }
+    } catch (error) {
+      console.error('ユーザー設定取得エラー:', error)
+    }
+  }
+
+  // カスタムフォルダをデータベースから取得
+  const fetchCustomFolders = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/folders?category=employee`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.length > 0) {
+          setFolders(data)
+          setCurrentFolder(data[0])
+        }
+      }
+    } catch (error) {
+      console.error('カスタムフォルダ取得エラー:', error)
+    }
+  }
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = isAdminOrHR && !isCopyEmployee // 通常の編集権限
@@ -188,6 +235,22 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         parentEmployeeId: employee.parentEmployeeId || null,
       })
       
+      // 家族構成の初期化
+      if (employee.familyMembers && Array.isArray(employee.familyMembers)) {
+        setFamilyMembers(employee.familyMembers.map((member: any) => ({
+          id: member.id || `temp-${Date.now()}-${Math.random()}`,
+          name: member.name || '',
+          relationship: member.relationship || '',
+          phone: member.phone || '',
+          birthday: member.birthDate ? new Date(member.birthDate).toISOString().split('T')[0] : '',
+          livingSeparately: member.livingSeparately || false,
+          address: member.address || '',
+          myNumber: member.myNumber || '',
+        })))
+      } else {
+        setFamilyMembers([])
+      }
+      
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
       setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
                       employee.organization ? [employee.organization] : [""])
@@ -196,24 +259,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
                   employee.position ? [employee.position] : [""])
       
-      // パスワード表示状態をローカルストレージから復元（管理者・総務のみ）
-      if (isAdminOrHR && typeof window !== 'undefined') {
-        const savedShowPassword = localStorage.getItem(`employee-password-visible-${employee.id}`)
-        if (savedShowPassword === 'true') {
-          setShowPassword(true)
-        }
-      }
-      
-      // アバター関連の初期化（employeeデータから復元）
-      setAvatarText('')
-      
-      // 画像データをローカルストレージから復元
-      if (typeof window !== 'undefined') {
-        const savedAvatarText = localStorage.getItem(`employee-avatar-text-${employee.id}`)
-        if (savedAvatarText) {
-          setAvatarText(savedAvatarText)
-        }
-      }
+      // ユーザー設定をデータベースから取得
+      fetchUserSettings(employee.id)
       
       // 家族データも更新（初回のみ）
       if (employee.familyMembers && employee.familyMembers.length > 0) {
@@ -222,20 +269,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         setFamilyMembers([])
       }
       
-      // 家族構成データをローカルストレージから復元
-      if (typeof window !== 'undefined') {
-        const savedFamilyMembers = localStorage.getItem(`employee-family-members-${employee.id}`)
-        if (savedFamilyMembers) {
-          try {
-            const parsedFamilyMembers = JSON.parse(savedFamilyMembers)
-            if (Array.isArray(parsedFamilyMembers)) {
-              setFamilyMembers(parsedFamilyMembers)
-            }
-          } catch (error) {
-            console.error('家族構成データの復元エラー:', error)
-          }
-        }
-      }
+      // 家族構成データをデータベースから取得
+      fetchFamilyMembers(employee.id)
       
       
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
@@ -246,27 +281,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
                   employee.position ? [employee.position] : [""])
       
-      // フォルダ情報も初期化
-      if (typeof window !== 'undefined') {
-        // 古いデータをクリア（データベース再作成時のID変更対応）
-        const oldKeys = Object.keys(localStorage).filter(key => 
-          key.startsWith('employee-folders-') && !key.includes(employee.id)
-        )
-        oldKeys.forEach(key => {
-          console.log('古いローカルストレージキーを削除:', key)
-          localStorage.removeItem(key)
-        })
-        
-        const savedFolders = localStorage.getItem(`employee-folders-${employee.id}`)
-        if (savedFolders) {
-          const parsedFolders = JSON.parse(savedFolders)
-          setFolders(parsedFolders)
-          setCurrentFolder(parsedFolders[0] || "契約書類")
-        } else {
-          setFolders(["契約書類", "履歴書等", "事前資料"])
-          setCurrentFolder("契約書類")
-        }
-      }
+      // カスタムフォルダをデータベースから取得
+      fetchCustomFolders(employee.id)
       
       // アップロード済みファイルを取得
       fetchUploadedFiles(employee.id)
@@ -304,6 +320,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setOrganizations([""])
       setDepartments([""])
       setPositions([""])
+      setFamilyMembers([]) // 新規登録時は家族構成を空にする
       if (typeof window !== 'undefined') {
         // 新規登録時は古いフォルダデータをクリア
         const oldKeys = Object.keys(localStorage).filter(key => 
@@ -583,23 +600,39 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   }
 
 
-  const handleRemoveFamilyMember = (id: string) => {
+  const handleRemoveFamilyMember = async (id: string) => {
     const newFamilyMembers = familyMembers.filter(member => member.id !== id)
     setFamilyMembers(newFamilyMembers)
     
-    // ローカルストレージに保存
-    if (employee?.id && typeof window !== 'undefined') {
-      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(newFamilyMembers))
+    // データベースに保存
+    if (employee?.id) {
+      try {
+        await fetch(`/api/employees/${employee.id}/family-members`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ familyMembers: newFamilyMembers })
+        })
+      } catch (error) {
+        console.error('家族構成データ保存エラー:', error)
+      }
     }
   }
 
-  // 家族構成データを更新してローカルストレージに保存する共通関数
-  const updateFamilyMembersAndSave = (updatedMembers: FamilyMember[]) => {
+  // 家族構成データを更新してデータベースに保存する共通関数
+  const updateFamilyMembersAndSave = async (updatedMembers: FamilyMember[]) => {
     setFamilyMembers(updatedMembers)
     
-    // ローカルストレージに保存
-    if (employee?.id && typeof window !== 'undefined') {
-      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(updatedMembers))
+    // データベースに保存
+    if (employee?.id) {
+      try {
+        await fetch(`/api/employees/${employee.id}/family-members`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ familyMembers: updatedMembers })
+        })
+      } catch (error) {
+        console.error('家族構成データ保存エラー:', error)
+      }
     }
   }
 
@@ -983,7 +1016,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     fetchMasterData()
   }, [])
 
-  const addFamilyMember = () => {
+  const addFamilyMember = async () => {
     const newMember: FamilyMember = {
       id: `family-${Date.now()}`,
       name: "",
@@ -997,26 +1030,42 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     const newFamilyMembers = [...familyMembers, newMember]
     setFamilyMembers(newFamilyMembers)
     
-    // ローカルストレージに保存
-    if (employee?.id && typeof window !== 'undefined') {
-      localStorage.setItem(`employee-family-members-${employee.id}`, JSON.stringify(newFamilyMembers))
+    // データベースに保存
+    if (employee?.id) {
+      try {
+        await fetch(`/api/employees/${employee.id}/family-members`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ familyMembers: newFamilyMembers })
+        })
+      } catch (error) {
+        console.error('家族構成データ保存エラー:', error)
+      }
     }
   }
 
-  const addFolder = () => {
+  const addFolder = async () => {
     const folderName = prompt("フォルダ名を入力してください")
     if (folderName) {
       const newFolders = [...folders, folderName]
       setFolders(newFolders)
       
-      // ローカルストレージに保存
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`employee-folders-${employee?.id || 'new'}`, JSON.stringify(newFolders))
+      // データベースに保存
+      if (employee?.id) {
+        try {
+          await fetch(`/api/employees/${employee.id}/folders`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folders: newFolders, category: 'employee' })
+          })
+        } catch (error) {
+          console.error('フォルダデータ保存エラー:', error)
+        }
       }
     }
   }
 
-  const removeFolder = (folderName: string) => {
+  const removeFolder = async (folderName: string) => {
     if (folders.length <= 1) {
       alert("最低1つのフォルダが必要です")
       return
@@ -1026,9 +1075,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       const newFolders = folders.filter(f => f !== folderName)
       setFolders(newFolders)
       
-      // ローカルストレージに保存
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`employee-folders-${employee?.id || 'new'}`, JSON.stringify(newFolders))
+      // データベースに保存
+      if (employee?.id) {
+        try {
+          await fetch(`/api/employees/${employee.id}/folders`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ folders: newFolders, category: 'employee' })
+          })
+        } catch (error) {
+          console.error('フォルダデータ保存エラー:', error)
+        }
       }
     }
   }
@@ -1057,15 +1114,23 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   }
 
   // パスワード表示のトグル機能（管理者・総務のみ）
-  const handleTogglePassword = () => {
+  const handleTogglePassword = async () => {
     if (!isAdminOrHR) return
     
     const newShowPassword = !showPassword
     setShowPassword(newShowPassword)
     
-    // ローカルストレージに保存
-    if (employee?.id && typeof window !== 'undefined') {
-      localStorage.setItem(`employee-password-visible-${employee.id}`, newShowPassword.toString())
+    // データベースに保存
+    if (employee?.id) {
+      try {
+        await fetch(`/api/employees/${employee.id}/settings`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: 'password-visible', value: newShowPassword })
+        })
+      } catch (error) {
+        console.error('ユーザー設定保存エラー:', error)
+      }
     }
   }
 
@@ -1413,12 +1478,20 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             <Input
                               placeholder="何文字でも登録可能"
                               value={avatarText}
-                              onChange={(e) => {
+                              onChange={async (e) => {
                                 const text = e.target.value
                                 setAvatarText(text)
-                                // ローカルストレージに保存
-                                if (employee?.id && typeof window !== 'undefined') {
-                                  localStorage.setItem(`employee-avatar-text-${employee.id}`, text)
+                                // データベースに保存
+                                if (employee?.id) {
+                                  try {
+                                    await fetch(`/api/employees/${employee.id}/settings`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ key: 'avatar-text', value: text })
+                                    })
+                                  } catch (error) {
+                                    console.error('ユーザー設定保存エラー:', error)
+                                  }
                                 }
                               }}
                               className="w-32 h-8 text-sm"

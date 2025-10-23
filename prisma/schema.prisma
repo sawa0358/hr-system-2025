@@ -52,7 +52,6 @@ model Employee {
   url                   String?
   address               String?
   selfIntroduction      String?
-  description           String?           // 備考欄
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
@@ -76,6 +75,7 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   orgChartLabel         String?
+  description           String?
   
   // リレーション
   evaluations           Evaluation[]
@@ -101,8 +101,10 @@ model Employee {
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
   
-  // カスタムフォルダとユーザー設定
+  // カスタムフォルダ関係
   customFolders         CustomFolder[]
+  
+  // ユーザー設定関係
   userSettings          UserSettings[]
 
   @@map("employees")

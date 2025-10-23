@@ -130,6 +130,58 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.error('カスタムフォルダ取得エラー:', error)
     }
   }
+
+  // カスタムフォルダをデータベースに保存
+  const saveCustomFolders = async (employeeId: string) => {
+    try {
+      const response = await fetch(`/api/employees/${employeeId}/folders`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folders: folders,
+          category: 'employee'
+        })
+      })
+      if (!response.ok) {
+        console.error('カスタムフォルダ保存エラー:', response.statusText)
+      }
+    } catch (error) {
+      console.error('カスタムフォルダ保存エラー:', error)
+    }
+  }
+
+  // ユーザー設定をデータベースに保存
+  const saveUserSettings = async (employeeId: string) => {
+    try {
+      // パスワード表示設定を保存
+      await fetch(`/api/employees/${employeeId}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: 'password-visible',
+          value: showPassword
+        })
+      })
+
+      // アバターテキストを保存
+      await fetch(`/api/employees/${employeeId}/settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          key: 'avatar-text',
+          value: avatarText
+        })
+      })
+    } catch (error) {
+      console.error('ユーザー設定保存エラー:', error)
+    }
+  }
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = isAdminOrHR && !isCopyEmployee // 通常の編集権限
@@ -458,6 +510,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             ...prev,
             isSuspended: result.employee.isSuspended || false
           }))
+        }
+
+        // カスタムフォルダとユーザー設定を保存
+        if (result.employee && result.employee.id) {
+          await saveCustomFolders(result.employee.id)
+          await saveUserSettings(result.employee.id)
         }
         
         onOpenChange(false)

@@ -84,7 +84,6 @@ model Employee {
   folders               Folder[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
-  familyMembers         FamilyMember[]
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]
@@ -100,6 +99,9 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
+  
+  // 家族関係
+  familyMembers         FamilyMember[]
 
   @@map("employees")
 }
@@ -332,7 +334,7 @@ model CardMember {
 model FamilyMember {
   id             String   @id @default(cuid())
   employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee       Employee @relation(fields: [employeeId], references: [id])
   name           String
   relationship   String
   phone          String?

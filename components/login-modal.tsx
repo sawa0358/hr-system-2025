@@ -41,7 +41,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
       if (response.ok) {
         const employees = await response.json()
         console.log("Found employees:", employees.length)
-        const employee = employees.find((emp: any) => emp.name === name && emp.password === password && emp.role)
+        const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
         console.log("Found employee:", employee ? `${employee.name} (ID: ${employee.id}, Role: ${employee.role})` : "None")
         
         if (employee) {

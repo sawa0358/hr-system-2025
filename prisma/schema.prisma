@@ -99,9 +99,6 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
-  
-  // 家族関係
-  familyMembers         FamilyMember[]
 
   @@map("employees")
 }
@@ -332,18 +329,13 @@ model CardMember {
 }
 
 model FamilyMember {
-  id             String   @id @default(cuid())
-  employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id])
-  name           String
-  relationship   String
-  phone          String?
-  birthDate      DateTime?
-  livingSeparately Boolean @default(false)
-  address        String?
-  myNumber       String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id         String   @id @default(cuid())
+  employeeId String
+  name       String
+  relationship String
+  birthDate  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("family_members")
 }

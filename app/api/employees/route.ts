@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
         url: body.url || null,
         address: body.address || null,
         selfIntroduction: body.selfIntroduction || null,
+        description: body.description || null,
         phoneInternal: body.phoneInternal || null,
         phoneMobile: body.phoneMobile || null,
         birthDate: (() => {

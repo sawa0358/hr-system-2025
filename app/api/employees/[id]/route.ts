@@ -206,6 +206,7 @@ export async function PUT(
       url: body.url,
       address: body.address,
       selfIntroduction: body.selfIntroduction,
+      description: body.description,
       phoneInternal: body.phoneInternal,
       phoneMobile: body.phoneMobile,
       birthDate: (() => {

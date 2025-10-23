@@ -338,13 +338,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [folders, setFolders] = useState<string[]>(() => {
-    // ローカルストレージからフォルダ情報を取得
-    if (typeof window !== 'undefined') {
-      const savedFolders = localStorage.getItem(`employee-folders-${employee?.id || 'new'}`)
-      if (savedFolders) {
-        return JSON.parse(savedFolders)
-      }
-    }
     return ["契約書類", "履歴書等", "事前資料"]
   })
   const [files, setFiles] = useState<File[]>([])
@@ -429,6 +422,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         privacyExtension: privacySettings.extension,
         privacyMobilePhone: privacySettings.mobilePhone,
         privacyBirthDate: privacySettings.birthDate,
+        // 備考欄を送信
+        description: formData.description,
       }
       
       console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))
@@ -635,6 +630,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       }
     }
   }
+
+
 
   // アップロード済みファイルを取得
   const fetchUploadedFiles = async (employeeId: string) => {
@@ -1053,11 +1050,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       // データベースに保存
       if (employee?.id) {
         try {
-          await fetch(`/api/employees/${employee.id}/folders`, {
+          const response = await fetch(`/api/employees/${employee.id}/folders`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ folders: newFolders, category: 'employee' })
           })
+          if (response.ok) {
+            console.log('フォルダ追加成功')
+          } else {
+            console.error('フォルダ追加失敗:', response.statusText)
+          }
         } catch (error) {
           console.error('フォルダデータ保存エラー:', error)
         }
@@ -1078,11 +1080,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       // データベースに保存
       if (employee?.id) {
         try {
-          await fetch(`/api/employees/${employee.id}/folders`, {
+          const response = await fetch(`/api/employees/${employee.id}/folders`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ folders: newFolders, category: 'employee' })
           })
+          if (response.ok) {
+            console.log('フォルダ削除成功')
+          } else {
+            console.error('フォルダ削除失敗:', response.statusText)
+          }
         } catch (error) {
           console.error('フォルダデータ保存エラー:', error)
         }

@@ -469,7 +469,10 @@ export default function TasksPage() {
         } else {
           const errorData = await response.json()
           console.error("Failed to create workspace:", errorData)
-          alert(`ワークスペースの作成に失敗しました: ${errorData.error || '不明なエラー'}`)
+          const errorMessage = errorData.details 
+            ? `${errorData.error}: ${errorData.details}`
+            : errorData.error || '不明なエラー'
+          alert(`ワークスペースの作成に失敗しました: ${errorMessage}`)
         }
       }
     } catch (error) {

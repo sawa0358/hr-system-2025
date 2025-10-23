@@ -84,12 +84,18 @@ export async function POST(request: NextRequest) {
     // ユーザー情報を取得
     const user = await prisma.employee.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { id: true, name: true, role: true },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
+      console.error(`[v0] User not found: ${userId}`)
+      return NextResponse.json({ 
+        error: "ユーザーが見つかりません",
+        details: `指定されたユーザーID (${userId}) が存在しません`
+      }, { status: 404 })
     }
+
+    console.log(`[v0] Creating workspace for user: ${user.name} (${user.id})`)
 
     const userRole = user.role as any
     const permissions = getPermissions(userRole)
@@ -105,6 +111,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "ワークスペース名は必須です" }, { status: 400 })
     }
 
+    // 指定されたメンバーIDが存在するかチェック
+    if (memberIds.length > 0) {
+      const existingEmployees = await prisma.employee.findMany({
+        where: {
+          id: { in: memberIds }
+        },
+        select: { id: true, name: true }
+      })
+      
+      const existingIds = existingEmployees.map(emp => emp.id)
+      const invalidIds = memberIds.filter((id: string) => !existingIds.includes(id))
+      
+      if (invalidIds.length > 0) {
+        return NextResponse.json({ 
+          error: `無効なメンバーID: ${invalidIds.join(', ')}` 
+        }, { status: 400 })
+      }
+    }
+
+    // 作成者をメンバーリストに含める（重複を避けるため）
+    const allMemberIds = [userId, ...memberIds.filter(id => id !== userId)]
+    
     // ワークスペースを作成
     const workspace = await prisma.workspace.create({
       data: {
@@ -112,18 +140,10 @@ export async function POST(request: NextRequest) {
         description: description || "",
         createdBy: userId,
         members: {
-          create: [
-            // 作成者を自動的にメンバーに追加
-            {
-              employeeId: userId,
-              role: "admin",
-            },
-            // 指定されたメンバーを追加
-            ...memberIds.map((memberId: string) => ({
-              employeeId: memberId,
-              role: "member" as const,
-            })),
-          ],
+          create: allMemberIds.map((memberId: string) => ({
+            employeeId: memberId,
+            role: memberId === userId ? "admin" : "member",
+          })),
         },
       },
       include: {
@@ -155,6 +175,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ workspace }, { status: 201 })
   } catch (error) {
     console.error("[v0] Error creating workspace:", error)
-    return NextResponse.json({ error: "ワークスペースの作成に失敗しました" }, { status: 500 })
+    
+    if (error instanceof Error) {
+      console.error("Error message:", error.message)
+      console.error("Error stack:", error.stack)
+      
+      // Prismaエラーの詳細を表示
+      if (error.message.includes('Foreign key constraint')) {
+        return NextResponse.json({ 
+          error: "データベースの制約エラーが発生しました。指定されたメンバーが存在しない可能性があります。" 
+        }, { status: 400 })
+      }
+      
+      if (error.message.includes('Unique constraint')) {
+        return NextResponse.json({ 
+          error: "データベースの一意制約エラーが発生しました。" 
+        }, { status: 400 })
+      }
+    }
+    
+    return NextResponse.json({ 
+      error: "ワークスペースの作成に失敗しました",
+      details: error instanceof Error ? error.message : "不明なエラー"
+    }, { status: 500 })
   }
 }

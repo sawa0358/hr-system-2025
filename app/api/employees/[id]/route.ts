@@ -20,10 +20,12 @@ export async function GET(
 ) {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id },
-      include: {
-        familyMembers: true
-      }
+      where: { id: params.id }
+    });
+    
+    // 家族データを別途取得
+    const familyMembers = await prisma.familyMember.findMany({
+      where: { employeeId: params.id }
     });
 
     if (!employee) {
@@ -39,6 +41,7 @@ export async function GET(
       departments: parseJsonArray(employee.department),
       positions: parseJsonArray(employee.position),
       organizations: parseJsonArray(employee.organization),
+      familyMembers: familyMembers, // 家族データを追加
     };
 
     return NextResponse.json(processedEmployee);
@@ -269,15 +272,20 @@ export async function PUT(
 
     // 更新された社員データを取得
     const updatedEmployee = await prisma.employee.findUnique({
-      where: { id: params.id },
-      include: {
-        familyMembers: true
-      }
+      where: { id: params.id }
+    });
+    
+    // 家族データを別途取得
+    const updatedFamilyMembers = await prisma.familyMember.findMany({
+      where: { employeeId: params.id }
     });
 
     return NextResponse.json({
       success: true,
-      employee: updatedEmployee
+      employee: {
+        ...updatedEmployee,
+        familyMembers: updatedFamilyMembers
+      }
     });
   } catch (error: any) {
     console.error('社員更新エラー:', error);

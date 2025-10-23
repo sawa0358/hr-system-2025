@@ -1,0 +1,11 @@
+0|id|TEXT|1||1
+1|employeeId|TEXT|1||0
+2|name|TEXT|1||0
+3|relationship|TEXT|1||0
+4|phone|TEXT|0||0
+5|birthday|TEXT|0||0
+6|livingSeparately|BOOLEAN|1|false|0
+7|address|TEXT|0||0
+8|myNumber|TEXT|0||0
+9|createdAt|DATETIME|1|CURRENT_TIMESTAMP|0
+10|updatedAt|DATETIME|1||0

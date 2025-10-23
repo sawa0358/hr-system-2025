@@ -553,9 +553,9 @@ export function checkWorkspacePermissions(
   if (permissions.viewAllWorkspaces) {
     return {
       canView: true,
-      canEdit: !isMyWS, // マイワークスペースは編集不可
+      canEdit: true, // 管理者・総務はマイワークスペースも編集可能
       canDelete: !isMyWS, // マイワークスペースは削除不可
-      canAddMembers: !isMyWS,
+      canAddMembers: true, // 管理者・総務はマイワークスペースにもメンバー追加可能
       canCreate: permissions.createWorkspace, // 総務・管理者のみ
     }
   }

@@ -319,6 +319,33 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 認証チェック
+    const userId = request.headers.get("x-employee-id")
+    if (!userId) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
+    }
+
+    // ユーザー情報を取得
+    const user = await prisma.employee.findUnique({
+      where: { id: userId },
+      select: { id: true, name: true, role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({
+        error: "ユーザーが見つかりません",
+        details: `指定されたユーザーID (${userId}) が存在しません`
+      }, { status: 404 })
+    }
+
+    // 管理者権限チェック
+    if (user.role !== 'admin') {
+      return NextResponse.json({
+        error: "社員を削除する権限がありません",
+        details: "管理者権限が必要です"
+      }, { status: 403 })
+    }
+
     // 削除対象の社員を取得
     const employeeToDelete = await prisma.employee.findUnique({
       where: { id: params.id },
@@ -390,7 +417,17 @@ export async function DELETE(
         where: { employeeId: params.id }
       });
 
-      // 6. 最終的に社員を削除（カスケード削除される関連データ: familyMembers, evaluations, attendance, payroll, files, folders, tasks, activityLogs）
+      // 6. ファイル関連データを削除
+      await tx.file.deleteMany({
+        where: { employeeId: params.id }
+      });
+
+      // 7. フォルダ関連データを削除
+      await tx.folder.deleteMany({
+        where: { employeeId: params.id }
+      });
+
+      // 8. 最終的に社員を削除（カスケード削除される関連データ: familyMembers, evaluations, attendance, payroll, tasks, activityLogs）
       await tx.employee.delete({
         where: { id: params.id }
       });

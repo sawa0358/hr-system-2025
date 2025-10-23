@@ -52,7 +52,6 @@ model Employee {
   url                   String?
   address               String?
   selfIntroduction      String?
-  description           String?
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
@@ -100,10 +99,6 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
-  
-  // 永続化機能
-  customFolders         CustomFolder[]
-  userSettings          UserSettings[]
 
   @@map("employees")
 }
@@ -343,43 +338,4 @@ model FamilyMember {
   updatedAt  DateTime @updatedAt
 
   @@map("family_members")
-}
-
-model CustomFolder {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  category   String   @default("employee")
-  name       String
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@map("custom_folders")
-}
-
-model UserSettings {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  key        String
-  value      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([employeeId, key])
-  @@map("user_settings")
-}
-
-model MasterData {
-  id        String   @id @default(cuid())
-  type      String
-  value     String
-  label     String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("master_data")
 }

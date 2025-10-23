@@ -18,6 +18,23 @@ const s3Client = new S3Client({
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME;
 
+// 環境に応じたオリジンを自動設定
+const getAllowedOrigins = () => {
+  const origins = [
+    'https://hr-system-2025-33b161f586cd.herokuapp.com', // 本番環境
+    'http://localhost:3000', // ローカル開発環境
+    'http://127.0.0.1:3000', // ローカル開発環境（代替）
+  ];
+
+  // 環境変数から追加のオリジンを取得
+  const additionalOrigins = process.env.ADDITIONAL_CORS_ORIGINS;
+  if (additionalOrigins) {
+    origins.push(...additionalOrigins.split(','));
+  }
+
+  return origins;
+};
+
 async function setupS3CORS() {
   try {
     console.log('S3バケットのCORS設定を開始します...');
@@ -25,7 +42,8 @@ async function setupS3CORS() {
     console.log('リージョン:', process.env.AWS_REGION || 'ap-northeast-1');
 
     if (!BUCKET_NAME) {
-      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
+      console.log('⚠️  AWS_S3_BUCKET_NAME環境変数が設定されていません。CORS設定をスキップします。');
+      return; // エラーで終了せず、スキップする
     }
 
     const corsConfiguration = {
@@ -33,11 +51,7 @@ async function setupS3CORS() {
         {
           AllowedHeaders: ['*'],
           AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
-          AllowedOrigins: [
-            'https://hr-system-2025-33b161f586cd.herokuapp.com',
-            'http://localhost:3000',
-            'http://127.0.0.1:3000'
-          ],
+          AllowedOrigins: getAllowedOrigins(),
           ExposeHeaders: [
             'ETag',
             'x-amz-meta-custom-header'
@@ -58,7 +72,8 @@ async function setupS3CORS() {
     
   } catch (error) {
     console.error('❌ S3バケットのCORS設定に失敗しました:', error);
-    process.exit(1);
+    console.log('⚠️  CORS設定の失敗は致命的ではありません。手動で設定してください。');
+    // デプロイを停止させないため、エラーで終了しない
   }
 }
 

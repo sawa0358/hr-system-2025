@@ -258,7 +258,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
     // メタデータ
     settings.misc = {
       lastUpdated: new Date().toISOString(),
-          version: '1.7.8'
+          version: '1.7.9'
     }
     
   } catch (error) {

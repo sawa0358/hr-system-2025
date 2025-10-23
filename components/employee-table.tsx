@@ -115,6 +115,10 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     try {
       const response = await fetch(`/api/employees/${employeeId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser?.id || '',
+        },
       })
 
       if (response.ok) {

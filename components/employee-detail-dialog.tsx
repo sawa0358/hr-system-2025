@@ -510,6 +510,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     try {
       const response = await fetch(`/api/employees/${employee.id}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser?.id || '',
+        },
       })
 
       if (response.ok) {

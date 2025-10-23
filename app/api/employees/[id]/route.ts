@@ -20,7 +20,10 @@ export async function GET(
 ) {
   try {
     const employee = await prisma.employee.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        familyMembers: true
+      }
     });
 
     if (!employee) {
@@ -240,29 +243,29 @@ export async function PUT(
 
     console.log('更新成功:', employee.id, employee.name, employee.furigana, employee.parentEmployeeId)
 
-    // 家族データの保存（一時的に無効化）
-    // if (body.familyMembers && Array.isArray(body.familyMembers)) {
-    //   // 既存の家族データを削除
-    //   await prisma.familyMember.deleteMany({
-    //     where: { employeeId: params.id }
-    //   });
+    // 家族データの保存
+    if (body.familyMembers && Array.isArray(body.familyMembers)) {
+      // 既存の家族データを削除
+      await prisma.familyMember.deleteMany({
+        where: { employeeId: params.id }
+      });
 
-    //   // 新しい家族データを追加
-    //   if (body.familyMembers.length > 0) {
-    //     await prisma.familyMember.createMany({
-    //       data: body.familyMembers.map((member: any) => ({
-    //         employeeId: params.id,
-    //         name: member.name,
-    //         relationship: member.relationship,
-    //         phone: member.phone || null,
-    //         birthday: member.birthday || null,
-    //         livingSeparately: member.livingSeparately || false,
-    //         address: member.address || null,
-    //         myNumber: member.myNumber || null
-    //       }))
-    //     });
-    //   }
-    // }
+      // 新しい家族データを追加
+      if (body.familyMembers.length > 0) {
+        await prisma.familyMember.createMany({
+          data: body.familyMembers.map((member: any) => ({
+            employeeId: params.id,
+            name: member.name,
+            relationship: member.relationship,
+            phone: member.phone || null,
+            birthday: member.birthday || null,
+            livingSeparately: member.livingSeparately || false,
+            address: member.address || null,
+            myNumber: member.myNumber || null
+          }))
+        });
+      }
+    }
 
     // 更新された社員データを取得
     const updatedEmployee = await prisma.employee.findUnique({

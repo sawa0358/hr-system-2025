@@ -1830,7 +1830,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                                 console.log("File downloaded successfully:", file.name)
                               } catch (error) {
                                 console.error("Download error:", error)
-                                alert("ダウンロードに失敗しました")
+                                if (error instanceof Error && error.message.includes('fetch')) {
+                                  alert("ネットワークエラーが発生しました。ファイルサーバーに接続できません。")
+                                } else {
+                                  alert("ファイルのダウンロードに失敗しました")
+                                }
                               }
                             }}
                           >

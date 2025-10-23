@@ -87,20 +87,27 @@ export async function GET(
     const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
     
     if (isProduction) {
-      // 本番環境：S3から署名付きURLを取得（1時間有効）
-      const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
+      try {
+        // 本番環境：S3から署名付きURLを取得（1時間有効）
+        const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
 
-      if (!downloadResult.success || !downloadResult.url) {
-        console.error('S3署名付きURL取得エラー:', downloadResult.error);
-        return NextResponse.json(
-          { error: downloadResult.error || 'ファイルのダウンロードURLの取得に失敗しました' },
-          { status: 500 }
-        );
+        if (!downloadResult.success || !downloadResult.url) {
+          console.error('S3署名付きURL取得エラー:', downloadResult.error);
+          // S3が失敗した場合は、ローカルファイルシステムにフォールバック
+          console.log('S3フォールバック: ローカルファイルシステムを使用');
+          throw new Error('S3アクセス失敗');
+        }
+
+        // 署名付きURLにリダイレクト
+        return NextResponse.redirect(downloadResult.url);
+      } catch (s3Error) {
+        console.error('S3アクセスエラー、ローカルファイルシステムにフォールバック:', s3Error);
+        // S3エラーの場合はローカルファイルシステムにフォールバック
       }
-
-      // 署名付きURLにリダイレクト
-      return NextResponse.redirect(downloadResult.url);
-    } else {
+    }
+    
+    // 開発環境またはS3フォールバック: ローカルファイルシステムから直接ファイルを配信
+    {
       // 開発環境：ローカルファイルシステムから直接ファイルを配信
       try {
         const uploadDir = path.join(process.cwd(), 'uploads');

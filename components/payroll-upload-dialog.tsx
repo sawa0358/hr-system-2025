@@ -229,6 +229,9 @@ export function PayrollUploadDialog({
             document.body.removeChild(link)
             window.URL.revokeObjectURL(url)
             return
+          } else {
+            console.error('ファイルダウンロードレスポンスエラー:', downloadResponse.status, downloadResponse.statusText)
+            // レスポンスエラーの場合はダミーファイルにフォールバック
           }
         }
       }

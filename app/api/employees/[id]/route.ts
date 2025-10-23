@@ -258,7 +258,7 @@ export async function PUT(
             name: member.name,
             relationship: member.relationship,
             phone: member.phone || null,
-            birthday: (() => {
+            birthDate: (() => {
               if (!member.birthday || member.birthday.trim() === '' || member.birthday === 'null' || member.birthday === 'undefined') {
                 return null;
               }

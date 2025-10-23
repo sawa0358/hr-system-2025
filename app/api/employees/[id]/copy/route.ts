@@ -56,6 +56,7 @@ export async function POST(
         url: originalEmployee.url,
         address: originalEmployee.address,
         selfIntroduction: originalEmployee.selfIntroduction,
+        description: originalEmployee.description,
         phoneInternal: originalEmployee.phoneInternal,
         phoneMobile: originalEmployee.phoneMobile,
         birthDate: originalEmployee.birthDate,

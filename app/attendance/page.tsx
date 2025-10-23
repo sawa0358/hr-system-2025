@@ -25,7 +25,7 @@ export default function AttendancePage() {
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [isAllEmployeesMode, setIsAllEmployeesMode] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
-  const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[]; content?: string; type?: string }[]>([])
+  const [templates, setTemplates] = useState<{ id: string; name: string; employees: string[]; content?: string | ArrayBuffer; type?: string; isBinary?: boolean }[]>([])
   const [isDraggingTemplate, setIsDraggingTemplate] = useState(false)
   const [isTemplateExpanded, setIsTemplateExpanded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -169,18 +169,51 @@ export default function AttendancePage() {
   }
 
   // テンプレートファイルの保存・読み込み
-  const saveTemplatesToStorage = (templates: { id: string; name: string; employees: string[]; content?: string; type?: string }[]) => {
+  const saveTemplatesToStorage = (templates: { id: string; name: string; employees: string[]; content?: string | ArrayBuffer; type?: string; isBinary?: boolean }[]) => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('attendance-templates', JSON.stringify(templates))
+      // ArrayBufferをBase64エンコードしてJSON保存可能にする
+      const serializableTemplates = templates.map(template => {
+        if (template.isBinary && template.content instanceof ArrayBuffer) {
+          const uint8Array = new Uint8Array(template.content)
+          const binaryString = Array.from(uint8Array).map(byte => String.fromCharCode(byte)).join('')
+          const base64Content = btoa(binaryString)
+          return {
+            ...template,
+            content: base64Content
+          }
+        }
+        return template
+      })
+      
+      localStorage.setItem('attendance-templates', JSON.stringify(serializableTemplates))
       // カスタムイベントを発火してS3に自動保存
       window.dispatchEvent(new CustomEvent('attendanceTemplatesChanged'))
     }
   }
 
-  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string; type?: string }[] => {
+  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string | ArrayBuffer; type?: string; isBinary?: boolean }[] => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('attendance-templates')
-      return stored ? JSON.parse(stored) : []
+      if (stored) {
+        const templates = JSON.parse(stored)
+        // Base64エンコードされたArrayBufferを復元
+        return templates.map((template: any) => {
+          if (template.isBinary && template.content && typeof template.content === 'string') {
+            try {
+              const binaryString = atob(template.content)
+              const bytes = new Uint8Array(binaryString.length)
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i)
+              }
+              template.content = bytes.buffer
+            } catch (error) {
+              console.error('ArrayBuffer復元エラー:', error)
+            }
+          }
+          return template
+        })
+      }
+      return []
     }
     return []
   }
@@ -213,19 +246,25 @@ export default function AttendancePage() {
       // ファイルの内容を読み込んで保存
       const reader = new FileReader()
       reader.onload = (event) => {
-        const fileContent = event.target?.result as string
+        const fileContent = event.target?.result
         const newTemplate = {
           id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
           employees: [],
-          content: fileContent,
-          type: file.type
+          content: fileContent, // ArrayBufferまたはstringのまま保存
+          type: file.type,
+          isBinary: file.type.startsWith('application/') && !file.type.includes('text') && !file.type.includes('json')
         }
         const updatedTemplates = [...templates, newTemplate]
         setTemplates(updatedTemplates)
         saveTemplatesToStorage(updatedTemplates)
       }
-      reader.readAsText(file)
+      // バイナリファイルの場合はArrayBufferとして読み込み、テキストファイルの場合はテキストとして読み込み
+      if (file.type.startsWith('application/') && !file.type.includes('text') && !file.type.includes('json')) {
+        reader.readAsArrayBuffer(file)
+      } else {
+        reader.readAsText(file)
+      }
     })
   }
 
@@ -240,19 +279,25 @@ export default function AttendancePage() {
         // ファイルの内容を読み込んで保存
         const reader = new FileReader()
         reader.onload = (event) => {
-          const fileContent = event.target?.result as string
+          const fileContent = event.target?.result
           const newTemplate = {
             id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             name: file.name,
             employees: [],
-            content: fileContent,
-            type: file.type
+            content: fileContent, // ArrayBufferまたはstringのまま保存
+            type: file.type,
+            isBinary: file.type.startsWith('application/') && !file.type.includes('text') && !file.type.includes('json')
           }
           const updatedTemplates = [...templates, newTemplate]
           setTemplates(updatedTemplates)
           saveTemplatesToStorage(updatedTemplates)
         }
-        reader.readAsText(file)
+        // バイナリファイルの場合はArrayBufferとして読み込み、テキストファイルの場合はテキストとして読み込み
+        if (file.type.startsWith('application/') && !file.type.includes('text') && !file.type.includes('json')) {
+          reader.readAsArrayBuffer(file)
+        } else {
+          reader.readAsText(file)
+        }
       })
     }
     input.click()

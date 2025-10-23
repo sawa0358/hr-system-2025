@@ -114,10 +114,30 @@ export function AttendanceUploadDialog({
   const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
   // 共通テンプレートの読み込み
-  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string; type?: string }[] => {
+  const loadTemplatesFromStorage = (): { id: string; name: string; employees: string[]; content?: string | ArrayBuffer; type?: string; isBinary?: boolean }[] => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('attendance-templates')
-      return stored ? JSON.parse(stored) : []
+      if (stored) {
+        const templates = JSON.parse(stored)
+        // ArrayBufferを復元する必要がある場合はここで処理
+        return templates.map((template: any) => {
+          if (template.isBinary && template.content && typeof template.content === 'string') {
+            // Base64エンコードされたArrayBufferを復元
+            try {
+              const binaryString = atob(template.content)
+              const bytes = new Uint8Array(binaryString.length)
+              for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i)
+              }
+              template.content = bytes.buffer
+            } catch (error) {
+              console.error('ArrayBuffer復元エラー:', error)
+            }
+          }
+          return template
+        })
+      }
+      return []
     }
     return []
   }
@@ -172,17 +192,40 @@ export function AttendanceUploadDialog({
     
     if (template) {
       if (template.content) {
-        // 実際のファイル内容を使用
-        const mimeType = template.type || 'text/plain'
-        const blob = new Blob([template.content], { type: mimeType })
-        const link = document.createElement('a')
-        const url = URL.createObjectURL(blob)
-        link.setAttribute('href', url)
-        link.setAttribute('download', templateName)
-        link.style.visibility = 'hidden'
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        try {
+          // バイナリファイルの場合はArrayBufferとして処理、テキストファイルの場合はstringとして処理
+          let blob: Blob
+          const mimeType = template.type || 'text/plain'
+          
+          if (template.isBinary && template.content instanceof ArrayBuffer) {
+            // バイナリファイルの場合
+            blob = new Blob([template.content], { type: mimeType })
+          } else if (typeof template.content === 'string') {
+            // テキストファイルの場合
+            blob = new Blob([template.content], { type: mimeType })
+          } else {
+            // その他の場合（ArrayBufferをUint8Arrayに変換）
+            const uint8Array = new Uint8Array(template.content as ArrayBuffer)
+            blob = new Blob([uint8Array], { type: mimeType })
+          }
+          
+          const link = document.createElement('a')
+          const url = URL.createObjectURL(blob)
+          link.setAttribute('href', url)
+          link.setAttribute('download', templateName)
+          link.style.visibility = 'hidden'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          
+          // URLを解放してメモリリークを防ぐ
+          setTimeout(() => {
+            URL.revokeObjectURL(url)
+          }, 100)
+        } catch (error) {
+          console.error('テンプレートダウンロードエラー:', error)
+          alert('テンプレートファイルのダウンロードに失敗しました。')
+        }
       } else {
         // ファイル内容がない場合は、テンプレート名に基づいてダミーファイルを作成
         const templateContent = `勤怠管理テンプレート: ${templateName}\n\nこのファイルは勤怠管理用のテンプレートです。\n適切な形式でデータを入力してください。`
@@ -195,6 +238,11 @@ export function AttendanceUploadDialog({
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        
+        // URLを解放してメモリリークを防ぐ
+        setTimeout(() => {
+          URL.revokeObjectURL(url)
+        }, 100)
       }
     } else {
       alert(`テンプレートファイル「${templateName}」が見つかりません。\n保存されているテンプレート: ${templates.map(t => t.name).join(', ')}`)

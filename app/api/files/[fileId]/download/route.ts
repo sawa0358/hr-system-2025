@@ -98,8 +98,25 @@ export async function GET(
           throw new Error('S3アクセス失敗');
         }
 
-        // 署名付きURLにリダイレクト
-        return NextResponse.redirect(downloadResult.url);
+        // 署名付きURLからファイルを取得して直接配信（CORS問題を回避）
+        const fileResponse = await fetch(downloadResult.url);
+        if (!fileResponse.ok) {
+          throw new Error(`S3ファイル取得失敗: ${fileResponse.status}`);
+        }
+
+        const fileBuffer = await fileResponse.arrayBuffer();
+        
+        // レスポンスヘッダーを設定
+        const headers = new Headers();
+        headers.set('Content-Type', file.mimeType);
+        // 日本語ファイル名を安全に処理（RFC 5987準拠）
+        const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
+        const encodedFileName = encodeURIComponent(file.originalName);
+        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
+        headers.set('Content-Length', fileBuffer.byteLength.toString());
+        
+        // ファイルを返す
+        return new NextResponse(fileBuffer, { headers });
       } catch (s3Error) {
         console.error('S3アクセスエラー、ローカルファイルシステムにフォールバック:', s3Error);
         // S3エラーの場合はローカルファイルシステムにフォールバック
@@ -122,9 +139,10 @@ export async function GET(
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
-        // 日本語ファイル名を安全に処理
-        const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_'); // 非ASCII文字を置換
-        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
+        // 日本語ファイル名を安全に処理（RFC 5987準拠）
+        const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
+        const encodedFileName = encodeURIComponent(file.originalName);
+        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
         headers.set('Content-Length', fileBuffer.length.toString());
         
         // ファイルを返す

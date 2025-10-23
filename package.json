@@ -26,6 +26,7 @@
     "auto:setup": "node scripts/setup-git-hooks.js",
     "auto:deploy": "node scripts/auto-deploy.js",
     "auto:schema": "node scripts/auto-schema-manager.js",
+    "s3:cors": "node scripts/setup-s3-cors.js",
     "heroku-postbuild": "node scripts/auto-schema-manager.js && npx prisma generate && npm run build"
   },
   "dependencies": {

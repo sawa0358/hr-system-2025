@@ -1827,7 +1827,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       </div>
                       <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
                     </div>
-                    {canEditProfile && isAdminOrHR && (
+                    {canEditProfile && isAdminOrHR && familyMembers.length > 0 && (
                       <Button 
                         onClick={addFamilyMember}
                         size="sm"

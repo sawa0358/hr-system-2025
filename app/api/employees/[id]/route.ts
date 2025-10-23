@@ -257,7 +257,7 @@ export async function PUT(
             employeeId: params.id,
             name: member.name,
             relationship: member.relationship,
-            phone: member.phone || null,
+            // phone: member.phone || null,  // 一時的にコメントアウト
             birthday: member.birthday || null,
             livingSeparately: member.livingSeparately || false,
             address: member.address || null,
@@ -269,7 +269,10 @@ export async function PUT(
 
     // 更新された社員データを取得
     const updatedEmployee = await prisma.employee.findUnique({
-      where: { id: params.id }
+      where: { id: params.id },
+      include: {
+        familyMembers: true
+      }
     });
 
     return NextResponse.json({

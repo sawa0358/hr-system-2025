@@ -255,7 +255,7 @@ export async function PUT(
             name: member.name,
             relationship: member.relationship,
             phone: member.phone || null,
-            birthday: member.birthday || null,
+            birthday: member.birthday && member.birthday.trim() !== '' ? new Date(member.birthday) : null,
             livingSeparately: member.livingSeparately || false,
             address: member.address || null,
             myNumber: member.myNumber || null

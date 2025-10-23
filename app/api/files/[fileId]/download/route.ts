@@ -109,10 +109,9 @@ export async function GET(
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
-        // 日本語ファイル名を安全に処理（RFC 5987準拠）
+        // 日本語ファイル名を安全に処理（ASCII文字のみ使用）
         const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
-        const encodedFileName = encodeURIComponent(file.originalName);
-        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
+        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
         headers.set('Content-Length', fileBuffer.byteLength.toString());
         
         // ファイルを返す
@@ -139,10 +138,9 @@ export async function GET(
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
-        // 日本語ファイル名を安全に処理（RFC 5987準拠）
+        // 日本語ファイル名を安全に処理（ASCII文字のみ使用）
         const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
-        const encodedFileName = encodeURIComponent(file.originalName);
-        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"; filename*=UTF-8''${encodedFileName}`);
+        headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
         headers.set('Content-Length', fileBuffer.length.toString());
         
         // ファイルを返す

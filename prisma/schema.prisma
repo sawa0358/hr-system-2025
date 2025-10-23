@@ -44,7 +44,7 @@ model Employee {
   organization          String
   team                  String?
   joinDate              DateTime
-  status                EmployeeStatus
+  status                EmployeeStatus    @default(active)
   password              String
   role                  UserRole?
   myNumber              String?

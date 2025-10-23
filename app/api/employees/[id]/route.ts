@@ -258,13 +258,7 @@ export async function PUT(
             name: member.name,
             relationship: member.relationship,
             phone: member.phone || null,
-            birthDate: (() => {
-              if (!member.birthday || member.birthday.trim() === '' || member.birthday === 'null' || member.birthday === 'undefined') {
-                return null;
-              }
-              const date = new Date(member.birthday);
-              return isNaN(date.getTime()) ? null : date;
-            })(),
+            birthday: member.birthday || null,
             livingSeparately: member.livingSeparately || false,
             address: member.address || null,
             myNumber: member.myNumber || null

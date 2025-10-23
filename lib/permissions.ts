@@ -549,31 +549,15 @@ export function checkWorkspacePermissions(
   // マイワークスペースの場合は編集・削除不可（マイワークスペースは削除できない）
   const isMyWS = workspaceName && isMyWorkspace(workspaceName, workspaceCreatorId, userId)
 
-  // デバッグログ
-  console.log('[checkWorkspacePermissions] Debug info:', {
-    userRole,
-    userId,
-    workspaceCreatorId,
-    workspaceMemberIds,
-    workspaceName,
-    isCreator,
-    isMember,
-    isMyWS,
-    viewAllWorkspaces: permissions.viewAllWorkspaces,
-    editWorkspace: permissions.editWorkspace
-  })
-
   // 管理者・総務は全ワークスペースに全権限
   if (permissions.viewAllWorkspaces) {
-    const result = {
+    return {
       canView: true,
       canEdit: !isMyWS, // マイワークスペースは編集不可
       canDelete: !isMyWS, // マイワークスペースは削除不可
       canAddMembers: !isMyWS,
       canCreate: permissions.createWorkspace, // 総務・管理者のみ
     }
-    console.log('[checkWorkspacePermissions] Admin/HR result:', result)
-    return result
   }
 
   // ワークスペースメンバーでない場合

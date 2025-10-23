@@ -734,16 +734,37 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             onDeleteWorkspace={handleDeleteWorkspace}
             canCreateWorkspace={permissions?.createWorkspace || false}
             canEditWorkspace={(() => {
-              if (!currentWorkspace || !currentUser?.role) return false
+              console.log('[canEditWorkspace] Debug info:', {
+                currentWorkspace,
+                currentUserRole: currentUser?.role,
+                currentUserId: currentUser?.id
+              })
+              
+              if (!currentWorkspace || !currentUser?.role) {
+                console.log('[canEditWorkspace] Early return: no workspace or role')
+                return false
+              }
+              
               const workspace = workspaces.find(w => w.id === currentWorkspace)
-              if (!workspace) return false
-              return checkWorkspacePermissions(
+              console.log('[canEditWorkspace] Found workspace:', workspace)
+              
+              if (!workspace) {
+                console.log('[canEditWorkspace] Early return: workspace not found')
+                return false
+              }
+              
+              const permissions = checkWorkspacePermissions(
                 currentUser.role,
                 currentUser.id,
                 workspace.createdBy || '',
                 workspace.members?.map((m: any) => m.employeeId) || [],
                 workspace.name
-              ).canEdit
+              )
+              
+              console.log('[canEditWorkspace] Final permissions:', permissions)
+              console.log('[canEditWorkspace] canEdit result:', permissions.canEdit)
+              
+              return permissions.canEdit
             })()}
             canDeleteWorkspace={(() => {
               if (!currentWorkspace || !currentUser?.role) return false

@@ -1,3 +1,6 @@
+// ベーススキーマ - 共通のモデル定義
+// このファイルを元に、環境別のスキーマを自動生成します
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,343 +10,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Employee {
-  id                  String            @id @default(cuid())
-  employeeId          String            @unique
-  employeeNumber      String            @unique
-  employeeType        String
-  name                String
-  furigana            String?
-  email               String?
-  phone               String?
-  department          String
-  position            String
-  organization        String
-  team                String?
-  joinDate            DateTime
-  status              EmployeeStatus    @default(active)
-  password            String
-  role                UserRole?
-  myNumber            String?
-  userId              String?
-  url                 String?
-  address             String?
-  selfIntroduction    String?
-  phoneInternal       String?
-  phoneMobile         String?
-  birthDate           DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  showInOrgChart      Boolean           @default(true)
-  parentEmployeeId    String?
-  isInvisibleTop      Boolean           @default(false)
-  isSuspended         Boolean           @default(false)
-  retirementDate      DateTime?
-  privacyDisplayName  Boolean           @default(true)
-  privacyOrganization Boolean           @default(true)
-  privacyDepartment   Boolean           @default(true)
-  privacyPosition     Boolean           @default(true)
-  privacyUrl          Boolean           @default(true)
-  privacyAddress      Boolean           @default(true)
-  privacyBio          Boolean           @default(true)
-  privacyEmail        Boolean           @default(true)
-  privacyWorkPhone    Boolean           @default(true)
-  privacyExtension    Boolean           @default(true)
-  privacyMobilePhone  Boolean           @default(true)
-  privacyBirthDate    Boolean           @default(false)
-  orgChartLabel       String?
-  description         String?
-  activityLogs        ActivityLog[]
-  attendance          Attendance[]
-  createdBoards       Board[]           @relation("BoardCreator")
-  cardMembers         CardMember[]
-  createdCards        Card[]            @relation("CardCreator")
-  custom_folders      custom_folders[]
-  evaluations         Evaluation[]
-  files               File[]
-  folders             Folder[]
-  leaveRequests       LeaveRequest[]
-  payroll             Payroll[]
-  taskMembers         TaskMember[]
-  assignedTasks       Task[]            @relation("TaskAssignee")
-  user_settings       user_settings[]
-  workspaceMembers    WorkspaceMember[]
-  createdWorkspaces   Workspace[]       @relation("WorkspaceCreator")
-
-  @@map("employees")
-}
-
-model Evaluation {
-  id         String   @id @default(cuid())
-  employeeId String
-  period     String
-  evaluator  String
-  status     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  employee   Employee @relation(fields: [employeeId], references: [id])
-
-  @@map("evaluations")
-}
-
-model Task {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  status      String       @default("todo")
-  priority    String       @default("medium")
-  dueDate     DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  employeeId  String
-  members     TaskMember[]
-  employee    Employee     @relation("TaskAssignee", fields: [employeeId], references: [id])
-
-  @@map("tasks")
-}
-
-model TaskMember {
-  id         String   @id @default(cuid())
-  taskId     String
-  employeeId String
-  createdAt  DateTime @default(now())
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@unique([taskId, employeeId])
-  @@map("task_members")
-}
-
-model Attendance {
-  id         String    @id @default(cuid())
-  employeeId String
-  date       DateTime
-  clockIn    DateTime?
-  clockOut   DateTime?
-  breakStart DateTime?
-  breakEnd   DateTime?
-  status     String    @default("present")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  employee   Employee  @relation(fields: [employeeId], references: [id])
-
-  @@map("attendance")
-}
-
-model Payroll {
-  id         String   @id @default(cuid())
-  employeeId String
-  period     String
-  amount     Float
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  employee   Employee @relation(fields: [employeeId], references: [id])
-
-  @@map("payroll")
-}
-
-model File {
-  id           String   @id @default(cuid())
-  employeeId   String
-  originalName String
-  filename     String
-  filePath     String?
-  s3Key        String?
-  mimeType     String
-  fileSize     Int
-  category     String
-  folderName   String?
-  taskId       String?
-  createdAt    DateTime @default(now())
-  employee     Employee @relation(fields: [employeeId], references: [id])
-
-  @@map("files")
-}
-
-model Folder {
-  id         String   @id @default(cuid())
-  employeeId String
-  name       String
-  parentId   String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children   Folder[] @relation("FolderHierarchy")
-  employee   Employee @relation(fields: [employeeId], references: [id])
-
-  @@map("folders")
-}
-
-model ActivityLog {
-  id        String   @id @default(cuid())
-  userId    String
-  userName  String
-  action    String
-  module    String
-  details   String
-  metadata  Json?
-  createdAt DateTime @default(now())
-  user      Employee @relation(fields: [userId], references: [id])
-
-  @@map("activity_logs")
-}
-
-model LeaveRequest {
-  id         String   @id @default(cuid())
-  employeeId String
-  startDate  DateTime
-  endDate    DateTime
-  type       String
-  reason     String?
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  employee   Employee @relation(fields: [employeeId], references: [id])
-
-  @@map("leave_requests")
-}
-
-model Workspace {
-  id          String            @id @default(cuid())
-  name        String
-  description String?
-  createdBy   String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  boards      Board[]
-  members     WorkspaceMember[]
-  creator     Employee          @relation("WorkspaceCreator", fields: [createdBy], references: [id])
-
-  @@map("workspaces")
-}
-
-model WorkspaceMember {
-  id          String    @id @default(cuid())
-  workspaceId String
-  employeeId  String
-  role        String    @default("member")
-  createdAt   DateTime  @default(now())
-  employee    Employee  @relation(fields: [employeeId], references: [id])
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-
-  @@unique([workspaceId, employeeId])
-  @@map("workspace_members")
-}
-
-model Board {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  workspaceId String
-  createdBy   String
-  position    Int         @default(0)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  lists       BoardList[]
-  creator     Employee    @relation("BoardCreator", fields: [createdBy], references: [id])
-  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  cards       Card[]
-
-  @@map("boards")
-}
-
-model BoardList {
-  id        String   @id @default(cuid())
-  title     String
-  position  Int
-  boardId   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  cards     Card[]
-
-  @@map("board_lists")
-}
-
-model Card {
-  id          String       @id @default(cuid())
-  title       String
-  description String?
-  position    Int
-  listId      String
-  boardId     String
-  createdBy   String
-  attachments Json?
-  labels      Json?
-  dueDate     DateTime?
-  priority    String       @default("medium")
-  status      String       @default("todo")
-  cardColor   String?
-  isArchived  Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  members     CardMember[]
-  creator     Employee     @relation("CardCreator", fields: [createdBy], references: [id])
-  board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  list        BoardList    @relation(fields: [listId], references: [id], onDelete: Cascade)
-
-  @@map("cards")
-}
-
-model CardMember {
-  id         String   @id @default(cuid())
-  cardId     String
-  employeeId String
-  createdAt  DateTime @default(now())
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-
-  @@unique([cardId, employeeId])
-  @@map("card_members")
-}
-
-model FamilyMember {
-  id           String    @id @default(cuid())
-  employeeId   String
-  name         String
-  relationship String
-  birthDate    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  @@map("family_members")
-}
-
-model custom_folders {
-  id         String   @id
-  employeeId String
-  category   String   @default("employee")
-  name       String
-  order      Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime
-  employees  Employee @relation(fields: [employeeId], references: [id])
-}
-
-model master_data {
-  id        String   @id
-  type      String
-  value     String
-  label     String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime
-}
-
-model user_settings {
-  id         String   @id
-  employeeId String
-  key        String
-  value      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime
-  employees  Employee @relation(fields: [employeeId], references: [id])
-
-  @@unique([employeeId, key])
-}
-
+// ユーザーロール
 enum UserRole {
   viewer
   general
@@ -354,10 +21,321 @@ enum UserRole {
   admin
 }
 
+// 社員ステータス
 enum EmployeeStatus {
   active
   leave
   retired
   suspended
   copy
+}
+
+model Employee {
+  id                    String            @id @default(cuid())
+  employeeId            String            @unique
+  employeeNumber        String            @unique
+  employeeType          String
+  name                  String
+  furigana              String?
+  email                 String?
+  phone                 String?
+  department            String
+  position              String
+  organization          String
+  team                  String?
+  joinDate              DateTime
+  status                EmployeeStatus    @default(active)
+  password              String
+  role                  UserRole?
+  myNumber              String?
+  userId                String?
+  url                   String?
+  address               String?
+  selfIntroduction      String?
+  phoneInternal         String?
+  phoneMobile           String?
+  birthDate             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  showInOrgChart        Boolean           @default(true)
+  parentEmployeeId      String?
+  isInvisibleTop        Boolean           @default(false)
+  isSuspended           Boolean           @default(false)
+  retirementDate        DateTime?
+  privacyDisplayName    Boolean           @default(true)
+  privacyOrganization   Boolean           @default(true)
+  privacyDepartment     Boolean           @default(true)
+  privacyPosition       Boolean           @default(true)
+  privacyUrl            Boolean           @default(true)
+  privacyAddress        Boolean           @default(true)
+  privacyBio            Boolean           @default(true)
+  privacyEmail          Boolean           @default(true)
+  privacyWorkPhone      Boolean           @default(true)
+  privacyExtension      Boolean           @default(true)
+  privacyMobilePhone    Boolean           @default(true)
+  privacyBirthDate      Boolean           @default(false)
+  orgChartLabel         String?
+  
+  // リレーション
+  evaluations           Evaluation[]
+  attendance            Attendance[]
+  payroll               Payroll[]
+  files                 File[]
+  folders               Folder[]
+  activityLogs          ActivityLog[]
+  leaveRequests         LeaveRequest[]
+  
+  // ワークスペース関係
+  workspaceMembers      WorkspaceMember[]
+  createdWorkspaces     Workspace[] @relation("WorkspaceCreator")
+  
+  // タスク関係
+  assignedTasks         Task[] @relation("TaskAssignee")
+  taskMembers           TaskMember[]
+  
+  // カード関係
+  createdCards          Card[] @relation("CardCreator")
+  cardMembers           CardMember[]
+  
+  // ボード関係
+  createdBoards         Board[] @relation("BoardCreator")
+
+  @@map("employees")
+}
+
+model Evaluation {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  period        String
+  evaluator     String
+  status        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("evaluations")
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("todo")
+  priority    String   @default("medium")
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  employeeId  String
+  employee    Employee @relation("TaskAssignee", fields: [employeeId], references: [id])
+  members     TaskMember[]
+
+  @@map("tasks")
+}
+
+model TaskMember {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee  Employee @relation(fields: [employeeId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, employeeId])
+  @@map("task_members")
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  date       DateTime
+  clockIn    DateTime?
+  clockOut   DateTime?
+  breakStart DateTime?
+  breakEnd   DateTime?
+  status     String   @default("present")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("attendance")
+}
+
+model Payroll {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  period     String
+  amount     Float
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("payroll")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  originalName String
+  filename     String
+  filePath     String?
+  s3Key        String?
+  mimeType     String
+  fileSize     Int
+  category     String
+  folderName   String?
+  taskId       String?
+  createdAt    DateTime @default(now())
+
+  @@map("files")
+}
+
+model Folder {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  name       String
+  parentId   String?
+  parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children   Folder[] @relation("FolderHierarchy")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("folders")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      Employee @relation(fields: [userId], references: [id])
+  userName  String
+  action    String
+  module    String
+  details   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+model LeaveRequest {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  type       String
+  reason     String?
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("leave_requests")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdBy   String
+  creator     Employee @relation("WorkspaceCreator", fields: [createdBy], references: [id])
+  members     WorkspaceMember[]
+  boards      Board[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  role        String    @default("member")
+  createdAt   DateTime  @default(now())
+
+  @@unique([workspaceId, employeeId])
+  @@map("workspace_members")
+}
+
+model Board {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   String
+  creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
+  position    Int      @default(0)
+  lists       BoardList[]
+  cards       Card[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("boards")
+}
+
+model BoardList {
+  id        String   @id @default(cuid())
+  title     String
+  position  Int
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards     Card[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("board_lists")
+}
+
+model Card {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  position    Int
+  listId      String
+  list        BoardList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  boardId     String
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  createdBy   String
+  creator     Employee @relation("CardCreator", fields: [createdBy], references: [id])
+  members     CardMember[]
+  attachments Json?
+  labels      Json?
+  dueDate     DateTime?
+  priority    String   @default("medium")
+  status      String   @default("todo")
+  cardColor   String?
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("cards")
+}
+
+model CardMember {
+  id         String   @id @default(cuid())
+  cardId     String
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([cardId, employeeId])
+  @@map("card_members")
+}
+
+model FamilyMember {
+  id         String   @id @default(cuid())
+  employeeId String
+  name       String
+  relationship String
+  birthDate  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("family_members")
 }

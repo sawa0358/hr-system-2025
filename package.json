@@ -8,7 +8,10 @@
   },
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "node scripts/auto-prisma.js && next dev",
+    "dev:watch": "node scripts/prisma-watch.js & next dev",
+    "dev:auto": "node scripts/auto-prisma.js && node scripts/prisma-watch.js & next dev",
+    "prisma:check": "node scripts/auto-prisma.js",
     "lint": "next lint",
     "start": "next start",
     "db:seed": "node prisma/seed.js",

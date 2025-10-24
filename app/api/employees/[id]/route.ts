@@ -293,6 +293,7 @@ export async function PUT(
           relationship: member.relationship,
           phone: member.phone || null,
           birthDate: member.birthday ? new Date(member.birthday) : null,
+          livingSeparately: member.livingSeparately || false,
           address: member.address || null,
           myNumber: member.myNumber || null,
           description: member.description || null
@@ -397,19 +398,15 @@ export async function DELETE(
       }, { status: 404 })
     }
 
-    // 管理者権限チェック
-    if (user.role !== 'admin') {
-      return NextResponse.json({
-        error: "社員を削除する権限がありません",
-        details: "管理者権限が必要です"
-      }, { status: 403 })
-    }
-
     // 削除対象の社員を取得
     const employeeToDelete = await prisma.employee.findUnique({
       where: { id: params.id },
-      include: {
-        // 関連データは必要に応じて追加
+      select: { 
+        id: true, 
+        name: true, 
+        status: true, 
+        isInvisibleTop: true, 
+        employeeNumber: true 
       }
     });
 
@@ -419,6 +416,32 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // コピー社員の場合は管理者権限が必要
+    if (employeeToDelete.status === 'copy') {
+      if (user.role !== 'admin') {
+        return NextResponse.json({
+          error: "コピー社員を削除する権限がありません",
+          details: "コピー社員の削除には管理者権限が必要です"
+        }, { status: 403 })
+      }
+    } else {
+      // 通常社員の場合は管理者権限が必要
+      if (user.role !== 'admin') {
+        return NextResponse.json({
+          error: "社員を削除する権限がありません",
+          details: "管理者権限が必要です"
+        }, { status: 403 })
+      }
+    }
+
+    // 削除対象の社員の詳細情報を取得（トランザクション用）
+    const employeeToDeleteFull = await prisma.employee.findUnique({
+      where: { id: params.id },
+      include: {
+        // 関連データは必要に応じて追加
+      }
+    });
 
     // 見えないTOP社員または社員番号000の場合は削除不可
     if (employeeToDelete.isInvisibleTop || employeeToDelete.employeeNumber === '000') {

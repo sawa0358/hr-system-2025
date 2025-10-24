@@ -718,22 +718,44 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                             コピー
                           </DropdownMenuItem>
                         )}
-                        {currentUser?.role === 'admin' ? (
-                          <DropdownMenuItem 
-                            className="text-red-600" 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (confirm(`${employee.name} さんを削除しますか？この操作は取り消せません。`)) {
-                                handleDeleteEmployee(employee.id)
-                              }
-                            }}
-                          >
-                            削除
-                          </DropdownMenuItem>
+                        {employee.status === 'copy' ? (
+                          // コピー社員の場合は管理者権限が必要
+                          currentUser?.role === 'admin' ? (
+                            <DropdownMenuItem 
+                              className="text-red-600" 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm(`${employee.name} さん（コピー社員）を削除しますか？この操作は取り消せません。`)) {
+                                  handleDeleteEmployee(employee.id)
+                                }
+                              }}
+                            >
+                              削除
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled className="text-slate-400">
+                              削除（管理者のみ）
+                            </DropdownMenuItem>
+                          )
                         ) : (
-                          <DropdownMenuItem disabled className="text-slate-400">
-                            削除（管理者のみ）
-                          </DropdownMenuItem>
+                          // 通常社員の場合は管理者権限が必要
+                          currentUser?.role === 'admin' ? (
+                            <DropdownMenuItem 
+                              className="text-red-600" 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm(`${employee.name} さんを削除しますか？この操作は取り消せません。`)) {
+                                  handleDeleteEmployee(employee.id)
+                                }
+                              }}
+                            >
+                              削除
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled className="text-slate-400">
+                              削除（管理者のみ）
+                            </DropdownMenuItem>
+                          )
                         )}
                       </>
                     )}

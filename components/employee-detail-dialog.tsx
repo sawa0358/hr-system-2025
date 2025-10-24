@@ -26,6 +26,7 @@ interface FamilyMember {
   livingSeparately: boolean
   address?: string
   myNumber?: string
+  description?: string
 }
 
 interface EmployeeDetailDialogProps {
@@ -298,6 +299,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           livingSeparately: member.livingSeparately || false,
           address: member.address || '',
           myNumber: member.myNumber || '',
+          description: member.description || '',
         })))
       } else {
         setFamilyMembers([])
@@ -1081,6 +1083,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       livingSeparately: false,
       address: "",
       myNumber: "",
+      description: "",
     }
     const newFamilyMembers = [...familyMembers, newMember]
     setFamilyMembers(newFamilyMembers)
@@ -2138,6 +2141,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="別居の場合は住所を入力" 
+                              disabled={!canEditProfile}
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>備考</Label>
+                            <Textarea 
+                              value={member.description || ''}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, description: e.target.value } : m
+                                )
+                                updateFamilyMembersAndSave(updatedMembers)
+                              }}
+                              placeholder="備考を入力（任意）" 
+                              rows={2}
                               disabled={!canEditProfile}
                             />
                           </div>

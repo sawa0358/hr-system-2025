@@ -48,7 +48,7 @@ async function restoreEmployeeData() {
             url: employeeData.url,
             address: employeeData.address,
             selfIntroduction: employeeData.selfIntroduction,
-            description: employeeData.description || null, // descriptionフィールドを追加
+ // descriptionフィールドを追加
             phoneInternal: employeeData.phoneInternal,
             phoneMobile: employeeData.phoneMobile,
             birthDate: employeeData.birthDate ? new Date(employeeData.birthDate) : null,

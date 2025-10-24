@@ -177,7 +177,6 @@ export async function PUT(
         const trimmed = String(body.furigana).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
-      description: body.description,
       parentEmployeeId: body.parentEmployeeId || null,
       // 管理者がコピー社員の社員番号を調整できるように許可
       employeeNumber: body.employeeNumber,
@@ -267,11 +266,11 @@ export async function PUT(
           employeeId: params.id,
           name: member.name,
           relationship: member.relationship,
-          // phone: member.phone || null,  // 一時的にコメントアウト
-          birthDate: member.birthday ? new Date(member.birthday) : null,  // 日付文字列をDateTimeオブジェクトに変換
-          // livingSeparately: member.livingSeparately || false,  // スキーマに存在しないためコメントアウト
-          // address: member.address || null,  // スキーマに存在しないためコメントアウト
-          // myNumber: member.myNumber || null  // スキーマに存在しないためコメントアウト
+          phone: member.phone || null,
+          birthDate: member.birthday ? new Date(member.birthday) : null,
+          address: member.address || null,
+          myNumber: member.myNumber || null,
+          description: member.description || null
         }));
 
         console.log('保存する家族データ:', familyData);

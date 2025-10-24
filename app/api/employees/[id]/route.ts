@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { 
+  saveEmployeeToS3, 
+  getEmployeeFromS3, 
+  saveFamilyMembersToS3, 
+  getFamilyMembersFromS3 
+} from '@/lib/s3-client';
 
 // JSON配列をパースするヘルパー関数
 function parseJsonArray(value: string): string[] {
@@ -19,14 +25,33 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const employee = await prisma.employee.findUnique({
-      where: { id: params.id }
-    });
+    console.log(`社員詳細取得開始: ${params.id}`);
     
-    // 家族データを別途取得
-    const familyMembers = await prisma.familyMember.findMany({
-      where: { employeeId: params.id }
-    });
+    // S3から優先的にデータを取得
+    const s3EmployeeResult = await getEmployeeFromS3(params.id);
+    const s3FamilyResult = await getFamilyMembersFromS3(params.id);
+    
+    let employee, familyMembers;
+    
+    if (s3EmployeeResult.success && s3EmployeeResult.data) {
+      console.log(`S3から社員情報を取得: ${params.id}`);
+      employee = s3EmployeeResult.data;
+    } else {
+      console.log(`データベースから社員情報を取得: ${params.id}`);
+      employee = await prisma.employee.findUnique({
+        where: { id: params.id }
+      });
+    }
+    
+    if (s3FamilyResult.success && s3FamilyResult.data) {
+      console.log(`S3から家族構成を取得: ${params.id}`);
+      familyMembers = s3FamilyResult.data;
+    } else {
+      console.log(`データベースから家族構成を取得: ${params.id}`);
+      familyMembers = await prisma.familyMember.findMany({
+        where: { employeeId: params.id }
+      });
+    }
 
     if (!employee) {
       return NextResponse.json(
@@ -292,6 +317,27 @@ export async function PUT(
     const updatedFamilyMembers = await prisma.familyMember.findMany({
       where: { employeeId: params.id }
     });
+
+    // S3への永続保存
+    if (updatedEmployee) {
+      console.log(`S3への社員情報保存開始: ${params.id}`);
+      const s3EmployeeResult = await saveEmployeeToS3(params.id, updatedEmployee);
+      if (s3EmployeeResult.success) {
+        console.log(`S3への社員情報保存成功: ${params.id}`);
+      } else {
+        console.error(`S3への社員情報保存失敗: ${params.id}`, s3EmployeeResult.error);
+      }
+    }
+
+    if (updatedFamilyMembers.length > 0) {
+      console.log(`S3への家族構成保存開始: ${params.id}`);
+      const s3FamilyResult = await saveFamilyMembersToS3(params.id, updatedFamilyMembers);
+      if (s3FamilyResult.success) {
+        console.log(`S3への家族構成保存成功: ${params.id}`);
+      } else {
+        console.error(`S3への家族構成保存失敗: ${params.id}`, s3FamilyResult.error);
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -141,3 +141,216 @@ export async function listFilesInFolder(folderPath: string): Promise<string[]> {
     return [];
   }
 }
+
+/**
+ * 社員情報をS3に保存
+ */
+export async function saveEmployeeToS3(
+  employeeId: string,
+  employeeData: any
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fileName = `employee-${employeeId}.json`;
+    const folder = 'employee-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const dataString = JSON.stringify(employeeData, null, 2);
+    const buffer = Buffer.from(dataString, 'utf-8');
+    
+    const result = await uploadFileToS3(
+      buffer,
+      fileName,
+      'application/json',
+      folder
+    );
+    
+    if (result.success) {
+      console.log(`社員情報をS3に保存しました: ${employeeId}`);
+      return { success: true };
+    } else {
+      console.error('S3への社員情報保存に失敗:', result.error);
+      return { success: false, error: result.error };
+    }
+  } catch (error) {
+    console.error('社員情報S3保存エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '保存に失敗しました',
+    };
+  }
+}
+
+/**
+ * 社員情報をS3から取得
+ */
+export async function getEmployeeFromS3(
+  employeeId: string
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const fileName = `employee-${employeeId}.json`;
+    const folder = 'employee-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const urlResult = await getSignedDownloadUrl(filePath);
+    
+    if (!urlResult.success || !urlResult.url) {
+      return { success: false, error: 'S3からファイルが見つかりません' };
+    }
+    
+    const response = await fetch(urlResult.url);
+    if (!response.ok) {
+      return { success: false, error: 'ファイルの取得に失敗しました' };
+    }
+    
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('社員情報S3取得エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '取得に失敗しました',
+    };
+  }
+}
+
+/**
+ * 家族構成情報をS3に保存
+ */
+export async function saveFamilyMembersToS3(
+  employeeId: string,
+  familyMembers: any[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fileName = `family-members-${employeeId}.json`;
+    const folder = 'family-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const dataString = JSON.stringify(familyMembers, null, 2);
+    const buffer = Buffer.from(dataString, 'utf-8');
+    
+    const result = await uploadFileToS3(
+      buffer,
+      fileName,
+      'application/json',
+      folder
+    );
+    
+    if (result.success) {
+      console.log(`家族構成情報をS3に保存しました: ${employeeId}`);
+      return { success: true };
+    } else {
+      console.error('S3への家族構成情報保存に失敗:', result.error);
+      return { success: false, error: result.error };
+    }
+  } catch (error) {
+    console.error('家族構成情報S3保存エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '保存に失敗しました',
+    };
+  }
+}
+
+/**
+ * 家族構成情報をS3から取得
+ */
+export async function getFamilyMembersFromS3(
+  employeeId: string
+): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  try {
+    const fileName = `family-members-${employeeId}.json`;
+    const folder = 'family-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const urlResult = await getSignedDownloadUrl(filePath);
+    
+    if (!urlResult.success || !urlResult.url) {
+      return { success: false, error: 'S3からファイルが見つかりません' };
+    }
+    
+    const response = await fetch(urlResult.url);
+    if (!response.ok) {
+      return { success: false, error: 'ファイルの取得に失敗しました' };
+    }
+    
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('家族構成情報S3取得エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '取得に失敗しました',
+    };
+  }
+}
+
+/**
+ * カスタムフォルダ情報をS3に保存
+ */
+export async function saveCustomFoldersToS3(
+  employeeId: string,
+  customFolders: any[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const fileName = `custom-folders-${employeeId}.json`;
+    const folder = 'folder-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const dataString = JSON.stringify(customFolders, null, 2);
+    const buffer = Buffer.from(dataString, 'utf-8');
+    
+    const result = await uploadFileToS3(
+      buffer,
+      fileName,
+      'application/json',
+      folder
+    );
+    
+    if (result.success) {
+      console.log(`カスタムフォルダ情報をS3に保存しました: ${employeeId}`);
+      return { success: true };
+    } else {
+      console.error('S3へのカスタムフォルダ情報保存に失敗:', result.error);
+      return { success: false, error: result.error };
+    }
+  } catch (error) {
+    console.error('カスタムフォルダ情報S3保存エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '保存に失敗しました',
+    };
+  }
+}
+
+/**
+ * カスタムフォルダ情報をS3から取得
+ */
+export async function getCustomFoldersFromS3(
+  employeeId: string
+): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  try {
+    const fileName = `custom-folders-${employeeId}.json`;
+    const folder = 'folder-data';
+    const filePath = `${folder}/${fileName}`;
+    
+    const urlResult = await getSignedDownloadUrl(filePath);
+    
+    if (!urlResult.success || !urlResult.url) {
+      return { success: false, error: 'S3からファイルが見つかりません' };
+    }
+    
+    const response = await fetch(urlResult.url);
+    if (!response.ok) {
+      return { success: false, error: 'ファイルの取得に失敗しました' };
+    }
+    
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error('カスタムフォルダ情報S3取得エラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '取得に失敗しました',
+    };
+  }
+}

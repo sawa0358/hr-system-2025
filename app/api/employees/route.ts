@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { saveEmployeeToS3 } from '@/lib/s3-client';
 
 // Prismaクライアントの初期化確認
 console.log('Prismaクライアント初期化確認:', !!prisma);
@@ -324,6 +325,15 @@ export async function POST(request: NextRequest) {
     } catch (workspaceError) {
       console.error('マイワークスペース作成エラー:', workspaceError);
       // ワークスペース作成失敗は警告のみで、社員登録自体は成功とする
+    }
+
+    // S3への永続保存
+    console.log(`S3への社員情報保存開始: ${employee.id}`);
+    const s3Result = await saveEmployeeToS3(employee.id, employee);
+    if (s3Result.success) {
+      console.log(`S3への社員情報保存成功: ${employee.id}`);
+    } else {
+      console.error(`S3への社員情報保存失敗: ${employee.id}`, s3Result.error);
     }
 
     return NextResponse.json({

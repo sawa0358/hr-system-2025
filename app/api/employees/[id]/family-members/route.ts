@@ -18,7 +18,7 @@ export async function GET(
     
     let familyMembers;
     if (s3Result.success && s3Result.data) {
-      console.log(`S3から家族構成を取得: ${params.id}`);
+      console.log(`S3から家族構成を取得: ${params.id}`, s3Result.data);
       familyMembers = s3Result.data;
     } else {
       console.log(`データベースから家族構成を取得: ${params.id}`);
@@ -26,6 +26,7 @@ export async function GET(
         where: { employeeId: params.id },
         orderBy: { createdAt: 'asc' }
       });
+      console.log(`データベースから取得した家族構成:`, familyMembers);
     }
 
     return NextResponse.json(familyMembers)
@@ -68,14 +69,36 @@ export async function PUT(
         relationship: member.relationship,
         phone: member.phone || null,
         birthDate: member.birthday ? new Date(member.birthday) : null,
+        livingSeparately: member.livingSeparately || false,
         address: member.address || null,
         myNumber: member.myNumber || null,
         description: member.description || null,
       }));
 
-      await prisma.familyMember.createMany({
-        data: familyData
-      });
+      console.log('保存する家族データ:', familyData);
+
+      try {
+        console.log('データベース保存開始:', familyData);
+        const result = await prisma.familyMember.createMany({
+          data: familyData
+        });
+        console.log('家族データ保存成功:', result);
+        
+        // 保存後のデータを確認
+        const savedData = await prisma.familyMember.findMany({
+          where: { employeeId: params.id },
+          orderBy: { createdAt: 'asc' }
+        });
+        console.log('保存後のデータベース確認:', savedData);
+      } catch (error) {
+        console.error('家族データ保存エラー:', error);
+        console.error('エラーの詳細:', {
+          message: error.message,
+          code: error.code,
+          meta: error.meta
+        });
+        throw error;
+      }
 
       // 保存されたデータを取得
       savedFamilyMembers = await prisma.familyMember.findMany({

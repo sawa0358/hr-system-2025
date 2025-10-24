@@ -287,23 +287,58 @@ export async function PUT(
 
       // 新しい家族データを追加
       if (body.familyMembers.length > 0) {
-        const familyData = body.familyMembers.map((member: any) => ({
-          employeeId: params.id,
-          name: member.name,
-          relationship: member.relationship,
-          phone: member.phone || null,
-          birthDate: member.birthday ? new Date(member.birthday) : null,
-          livingSeparately: member.livingSeparately || false,
-          address: member.address || null,
-          myNumber: member.myNumber || null,
-          description: member.description || null
-        }));
+        const familyData = body.familyMembers.map((member: any) => {
+          let birthDate = null;
+          if (member.birthday) {
+            try {
+              // yyyy/MM/dd形式をyyyy-MM-dd形式に変換してからDateオブジェクトを作成
+              const dateStr = member.birthday.includes('/') 
+                ? member.birthday.replace(/\//g, '-') 
+                : member.birthday;
+              const date = new Date(dateStr);
+              birthDate = isNaN(date.getTime()) ? null : date;
+            } catch (error) {
+              console.error('誕生日の変換エラー:', error, member.birthday);
+              birthDate = null;
+            }
+          }
+          
+          return {
+            employeeId: params.id,
+            name: member.name,
+            relationship: member.relationship,
+            phone: member.phone || null,
+            birthDate: birthDate,
+            livingSeparately: member.livingSeparately || false,
+            address: member.address || null,
+            myNumber: member.myNumber || null,
+            description: member.description || null
+          };
+        });
 
         console.log('保存する家族データ:', familyData);
 
-        await prisma.familyMember.createMany({
-          data: familyData
-        });
+        try {
+          const result = await prisma.familyMember.createMany({
+            data: familyData
+          });
+          console.log('家族データ保存成功:', result);
+          
+          // 保存後のデータを確認
+          const savedData = await prisma.familyMember.findMany({
+            where: { employeeId: params.id },
+            orderBy: { createdAt: 'asc' }
+          });
+          console.log('保存後のデータベース確認:', savedData);
+        } catch (error) {
+          console.error('家族データ保存エラー:', error);
+          console.error('エラーの詳細:', {
+            message: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code,
+            meta: (error as any)?.meta
+          });
+          throw error;
+        }
 
         console.log('家族構成保存完了');
       }

@@ -41,6 +41,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const { currentUser } = useAuth()
   const permissions = usePermissions()
   const [latestEmployee, setLatestEmployee] = useState(employee)
+  
 
   const isOwnProfile = currentUser?.id === employee?.id
   const isNewEmployee = !employee
@@ -66,7 +67,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           if (response.ok) {
             const data = await response.json()
             setLatestEmployee(data)
-            console.log('最新の社員データを取得:', data)
           }
         } catch (error) {
           console.error('最新の社員データ取得エラー:', error)
@@ -85,17 +85,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   console.log('Employee Detail Dialog - employee.id:', employee?.id)
   console.log('Employee Detail Dialog - employee.name:', employee?.name)
 
-  // 家族構成データをデータベースから取得
+  // 家族構成データをデータベースから取得（一時的に無効化）
   const fetchFamilyMembers = async (employeeId: string) => {
-    try {
-      const response = await fetch(`/api/employees/${employeeId}/family-members`)
-      if (response.ok) {
-        const data = await response.json()
-        setFamilyMembers(data)
-      }
-    } catch (error) {
-      console.error('家族構成データ取得エラー:', error)
-    }
+    // 一時的に無効化：fetchLatestEmployeeで取得したデータを使用
+    console.log('fetchFamilyMembers: 無効化されました。fetchLatestEmployeeのデータを使用します。')
+    // try {
+    //   const response = await fetch(`/api/employees/${employeeId}/family-members`)
+    //   if (response.ok) {
+    //     const data = await response.json()
+    //     setFamilyMembers(data)
+    //   }
+    // } catch (error) {
+    //   console.error('家族構成データ取得エラー:', error)
+    // }
   }
 
   // ユーザー設定をデータベースから取得
@@ -254,9 +256,36 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
   }, [latestEmployee, isNewEmployee])
 
+  // latestEmployeeが更新された時に組織・部署・役職の状態も更新
+  useEffect(() => {
+    if (latestEmployee && !isNewEmployee) {
+      // 組織、部署、役職の配列を設定（latestEmployeeから取得）
+      setOrganizations(latestEmployee.organizations && latestEmployee.organizations.length > 0 ? latestEmployee.organizations : 
+                      latestEmployee.organization ? [latestEmployee.organization] : [""])
+      setDepartments(latestEmployee.departments && latestEmployee.departments.length > 0 ? latestEmployee.departments : 
+                    latestEmployee.department ? [latestEmployee.department] : [""])
+      setPositions(latestEmployee.positions && latestEmployee.positions.length > 0 ? latestEmployee.positions : 
+                  latestEmployee.position ? [latestEmployee.position] : [""])
+      
+      // ユーザー設定も再取得（avatarTextなど）
+      fetchUserSettings(latestEmployee.id)
+      
+      // アップロード済みファイルも再取得
+      fetchUploadedFiles(latestEmployee.id)
+      
+      // カスタムフォルダも再取得
+      fetchCustomFolders(latestEmployee.id)
+      
+      console.log('組織・部署・役職の状態を更新しました')
+      console.log('organizations:', latestEmployee.organizations || latestEmployee.organization)
+      console.log('departments:', latestEmployee.departments || latestEmployee.department)
+      console.log('positions:', latestEmployee.positions || latestEmployee.position)
+    }
+  }, [latestEmployee, isNewEmployee])
+
   // 社員データが変更された時にフォームデータを更新
   React.useEffect(() => {
-    if (employee) { // employeeが変更されたら常に更新
+    if (employee && open) { // employeeが変更され、ダイアログが開いている時に更新
       setFormData({
         name: employee.name || '',
         furigana: employee.furigana || '',
@@ -267,7 +296,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         department: employee.department || '',
         position: employee.position || '',
         organization: employee.organization || '株式会社テックイノベーション',
-        team: employee.team || '',
         joinDate: employee.joinDate ? new Date(employee.joinDate).toISOString().split('T')[0] : '',
         status: employee.status || 'active',
         password: employee.password || '',
@@ -289,19 +317,161 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       })
       
       // 家族構成の初期化
-      if (employee.familyMembers && Array.isArray(employee.familyMembers)) {
-        setFamilyMembers(employee.familyMembers.map((member: any) => ({
-          id: member.id || `temp-${Date.now()}-${Math.random()}`,
-          name: member.name || '',
-          relationship: member.relationship || '',
-          phone: member.phone || '',
-          birthday: member.birthDate ? new Date(member.birthDate).toISOString().split('T')[0] : '',
-          livingSeparately: member.livingSeparately || false,
-          address: member.address || '',
-          myNumber: member.myNumber || '',
-          description: member.description || '',
-        })))
+      console.log('=== 家族構成データ初期化開始 ===');
+      console.log('現在時刻:', new Date().toISOString());
+      console.log('employeeオブジェクト全体:', employee);
+      console.log('latestEmployeeオブジェクト全体:', latestEmployee);
+      console.log('employee.familyMembers:', employee?.familyMembers);
+      console.log('latestEmployee.familyMembers:', latestEmployee?.familyMembers);
+      console.log('employee.familyMembersの型:', typeof employee?.familyMembers);
+      console.log('latestEmployee.familyMembersの型:', typeof latestEmployee?.familyMembers);
+      console.log('employee.familyMembersは配列か:', Array.isArray(employee?.familyMembers));
+      console.log('latestEmployee.familyMembersは配列か:', Array.isArray(latestEmployee?.familyMembers));
+      
+      // latestEmployeeのfamilyMembersを優先的に使用（nullチェック付き）
+      let familyMembersData = (latestEmployee?.familyMembers) || (employee?.familyMembers);
+      console.log('使用するfamilyMembers:', familyMembersData);
+      console.log('familyMembersDataの型:', typeof familyMembersData);
+      console.log('familyMembersDataは配列か:', Array.isArray(familyMembersData));
+      console.log('familyMembersDataの長さ:', familyMembersData?.length);
+      
+      // リロード時の詳細チェック
+      if (!familyMembersData || familyMembersData.length === 0) {
+        console.log('=== リロード時の問題診断 ===');
+        console.log('employee.id:', employee?.id);
+        console.log('latestEmployee.id:', latestEmployee?.id);
+        console.log('employee === latestEmployee:', employee === latestEmployee);
+        console.log('employee.familyMembers === latestEmployee.familyMembers:', employee?.familyMembers === latestEmployee?.familyMembers);
+        
+        // latestEmployeeがundefinedの場合、employeeから直接家族構成を取得
+        if (!latestEmployee && employee?.id) {
+          console.log('latestEmployeeがundefinedのため、employeeから家族構成を取得します');
+          
+          // 非同期関数を定義して実行
+          const fetchFamilyData = async () => {
+            try {
+              const response = await fetch(`/api/employees/${employee.id}/family-members`);
+              if (response.ok) {
+                const familyData = await response.json();
+                console.log('APIから取得した家族構成データ:', familyData);
+                
+                // 取得したデータで家族構成を再設定
+                if (familyData && Array.isArray(familyData)) {
+                  const mappedFamilyMembers = familyData.map((member: any) => {
+                    let birthday = '';
+                    if (member.birthDate) {
+                      try {
+                        const date = new Date(member.birthDate);
+                        if (!isNaN(date.getTime())) {
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          const day = String(date.getDate()).padStart(2, '0');
+                          birthday = `${year}/${month}/${day}`;
+                        }
+                      } catch (error) {
+                        console.error('誕生日の変換エラー:', error, member.birthDate);
+                      }
+                    }
+                    
+                    return {
+                      id: member.id || `temp-${Date.now()}-${Math.random()}`,
+                      name: member.name || '',
+                      relationship: member.relationship || '',
+                      phone: member.phone || '',
+                      birthday: birthday,
+                      livingSeparately: member.livingSeparately || false,
+                      address: member.address || '',
+                      myNumber: member.myNumber || '',
+                      description: member.description || '',
+                    };
+                  });
+                  
+                  console.log('API取得後の変換された家族構成データ:', mappedFamilyMembers);
+                  setFamilyMembers(mappedFamilyMembers);
+                }
+              }
+            } catch (error) {
+              console.error('家族構成データの取得に失敗:', error);
+            }
+          };
+          
+          fetchFamilyData();
+          return; // 早期リターンで後続の処理をスキップ
+        }
+      }
+      
+      if (familyMembersData && Array.isArray(familyMembersData)) {
+        console.log('フロントエンドで受け取った家族構成データ:', familyMembersData);
+        console.log('家族構成データの長さ:', familyMembersData.length);
+        
+        const mappedFamilyMembers = familyMembersData.map((member: any) => {
+          let birthday = '';
+          console.log('個別メンバーの変換処理:', {
+            memberId: member.id,
+            memberName: member.name,
+            birthDate: member.birthDate,
+            birthDateType: typeof member.birthDate
+          });
+          
+          if (member.birthDate) {
+            try {
+              // ISO文字列をyyyy/MM/dd形式に変換
+              const date = new Date(member.birthDate);
+              console.log('Date変換結果:', {
+                original: member.birthDate,
+                date: date,
+                isValid: !isNaN(date.getTime())
+              });
+              
+              if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                birthday = `${year}/${month}/${day}`;
+                console.log('変換成功:', {
+                  original: member.birthDate,
+                  converted: birthday
+                });
+              } else {
+                console.error('無効な日付:', member.birthDate);
+              }
+            } catch (error) {
+              console.error('誕生日の変換エラー:', error, member.birthDate);
+            }
+          } else {
+            console.log('birthDateが存在しません:', member);
+          }
+          
+          const result = {
+            id: member.id || `temp-${Date.now()}-${Math.random()}`,
+            name: member.name || '',
+            relationship: member.relationship || '',
+            phone: member.phone || '',
+            birthday: birthday,
+            livingSeparately: member.livingSeparately || false,
+            address: member.address || '',
+            myNumber: member.myNumber || '',
+            description: member.description || '',
+          };
+          
+          console.log('変換結果:', result);
+          return result;
+        });
+        console.log('変換後の家族構成データ:', mappedFamilyMembers);
+        console.log('setFamilyMembersを実行します');
+        setFamilyMembers(mappedFamilyMembers);
+        console.log('setFamilyMembers完了');
+        
+        // 状態設定後の確認
+        setTimeout(() => {
+          console.log('=== setFamilyMembers後の状態確認 ===');
+          console.log('familyMembers状態:', familyMembers);
+          console.log('familyMembersの長さ:', familyMembers.length);
+        }, 100);
       } else {
+        console.log('familyMembersDataが配列ではないか、存在しません');
+        console.log('familyMembersData:', familyMembersData);
+        console.log('Array.isArray(familyMembersData):', Array.isArray(familyMembersData));
         setFamilyMembers([])
       }
       
@@ -316,24 +486,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       // ユーザー設定をデータベースから取得
       fetchUserSettings(employee.id)
       
-      // 家族データも更新（初回のみ）
-      if (employee.familyMembers && employee.familyMembers.length > 0) {
-        setFamilyMembers(employee.familyMembers)
-      } else {
-        setFamilyMembers([])
-      }
+      // 家族データの更新は別のuseEffectで処理（競合を避けるため削除）
       
-      // 家族構成データをデータベースから取得
-      fetchFamilyMembers(employee.id)
+      // 家族構成データをデータベースから取得（一時的に無効化）
+      // fetchFamilyMembers(employee.id)
+      console.log('fetchFamilyMembers呼び出しを無効化しました。fetchLatestEmployeeのデータを使用します。')
       
-      
-      // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
-      setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
-                      employee.organization ? [employee.organization] : [""])
-      setDepartments(employee.departments && employee.departments.length > 0 ? employee.departments : 
-                    employee.department ? [employee.department] : [""])
-      setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
-                  employee.position ? [employee.position] : [""])
       
       // カスタムフォルダをデータベースから取得
       fetchCustomFolders(employee.id)
@@ -352,7 +510,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         department: '',
         position: '',
         organization: '株式会社テックイノベーション',
-        team: '',
         joinDate: '',
         status: 'active',
         password: '',
@@ -370,6 +527,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         isSuspended: false,
         retirementDate: '',
         description: '',
+        parentEmployeeId: null,
       })
       setOrganizations([""])
       setDepartments([""])
@@ -388,7 +546,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setFolders(["契約書類", "履歴書等", "事前資料"])
       setCurrentFolder("契約書類")
     }
-  }, [employee])
+  }, [employee, open])
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [folders, setFolders] = useState<string[]>(() => {
@@ -697,14 +855,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const fetchUploadedFiles = async (employeeId: string) => {
     if (!employeeId) return
     
-    console.log('アップロード済みファイルを取得中:', employeeId)
     setLoadingFiles(true)
     try {
       const response = await fetch(`/api/files/employee/${employeeId}`)
-      console.log('ファイル取得レスポンス:', response.status)
       if (response.ok) {
         const files = await response.json()
-        console.log('取得したファイル一覧:', files)
         setUploadedFiles(files)
       } else {
         console.error('ファイル取得失敗:', response.status, response.statusText)
@@ -1430,8 +1585,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       </SelectTrigger>
                       <SelectContent>
                         {employmentTypes
-                          .filter((type) => type.value && type.value.trim() !== '')
-                          .map((type) => (
+                          .filter((type: any) => type.value && type.value.trim() !== '')
+                          .map((type: any) => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
                             </SelectItem>
@@ -1962,7 +2117,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               </div>
             </div>
 
-            {canViewFamily && (isOwnProfile || isAdminOrHR) && (
+            {(() => {
+              console.log('家族構成表示条件チェック:', {
+                canViewFamily,
+                isOwnProfile,
+                isAdminOrHR,
+                shouldShow: canViewFamily && (isOwnProfile || isAdminOrHR),
+                familyMembersLength: familyMembers.length
+              });
+              return canViewFamily && (isOwnProfile || isAdminOrHR);
+            })() && (
               <div className="space-y-4">
                   <div className="border-b pb-2 flex justify-between items-center">
                     <div>
@@ -2072,10 +2236,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             <Label>誕生日</Label>
                             <Input 
                               type="date" 
-                              value={member.birthday}
+                              value={member.birthday ? (member.birthday.includes('/') ? member.birthday.replace(/\//g, '-') : member.birthday) : ''}
                               onChange={(e) => {
                                 const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, birthday: e.target.value } : m
+                                  m.id === member.id ? { 
+                                    ...m, 
+                                    birthday: e.target.value ? e.target.value.replace(/-/g, '/') : '',
+                                    birthDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                                  } : m
                                 )
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}

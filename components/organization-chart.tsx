@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { organizationData } from "@/lib/mock-data"
-import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Save, Download, Upload, History } from "lucide-react"
+import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Save, Download, Upload, History, Clock, ToggleLeft, ToggleRight } from "lucide-react"
 import {
   DndContext,
   type DragEndEvent,
@@ -861,11 +861,13 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   const [isMounted, setIsMounted] = useState(false)
   
   // S3保存・復元機能の状態
-  const [isSavingToS3, setIsSavingToS3] = useState(false)
   const [isRestoringFromS3, setIsRestoringFromS3] = useState(false)
   const [availableBackups, setAvailableBackups] = useState<any[]>([])
   const [showRestoreDialog, setShowRestoreDialog] = useState(false)
   const [selectedBackup, setSelectedBackup] = useState<string>('')
+  
+  // 自動保存の状態
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null)
   
   const { toast } = useToast()
 
@@ -1000,47 +1002,6 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
   }, [currentUser])
 
-  // S3に組織図を保存
-  const saveOrgChartToS3 = useCallback(async () => {
-    if (!canEdit) {
-      toast({
-        title: "権限エラー",
-        description: "組織図の保存権限がありません",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSavingToS3(true);
-    try {
-      const response = await fetch('/api/organization-chart/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast({
-          title: "保存完了",
-          description: `組織図をS3に保存しました (${result.data.totalEmployees}名)`,
-        });
-      } else {
-        throw new Error(result.error || '保存に失敗しました');
-      }
-    } catch (error) {
-      console.error('S3保存エラー:', error);
-      toast({
-        title: "保存エラー",
-        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
-        variant: "destructive"
-      });
-    } finally {
-      setIsSavingToS3(false);
-    }
-  }, [canEdit, toast]);
 
   // 利用可能なバックアップ一覧を取得
   const fetchAvailableBackups = useCallback(async () => {
@@ -1110,6 +1071,62 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       setIsRestoringFromS3(false);
     }
   }, [canEdit, toast, fetchEmployees]);
+
+  // 自動保存の関数
+  const performAutoSave = useCallback(async () => {
+    try {
+      console.log('🔄 組織図の自動保存を開始')
+      // 組織図の自動保存
+      const response = await fetch('/api/organization-chart/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser?.id || '',
+        },
+      })
+      
+      if (response.ok) {
+        setLastAutoSave(new Date())
+        console.log('✅ 組織図の自動保存完了')
+      }
+    } catch (error) {
+      console.error('❌ 組織図の自動保存エラー:', error)
+    }
+  }, [currentUser])
+
+  // 定期的な自動保存（1時間ごと）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      performAutoSave()
+    }, 60 * 60 * 1000) // 1時間
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [performAutoSave])
+
+  // 組織図データ変更時の自動保存（デバウンス付き）
+  useEffect(() => {
+    if (!employees.length) return
+
+    const timeoutId = setTimeout(() => {
+      performAutoSave()
+    }, 30000) // 30秒後に自動保存
+
+    return () => clearTimeout(timeoutId)
+  }, [employees, performAutoSave])
+
+  // ページ離脱時の自動保存
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // 同期的に保存（navigator.sendBeaconを使用）
+      const data = JSON.stringify({ type: 'orgChart' })
+      navigator.sendBeacon('/api/organization-chart/save', data)
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
@@ -2040,20 +2057,30 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               {isCompactMode ? '詳細表示' : 'コンパクト表示'}
             </Button>
             
-            {/* S3保存・復元ボタン */}
+            {/* 自動保存ステータス表示（読み取り専用） */}
+            {lastAutoSave && (
+              <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-md border border-green-200">
+                <Clock className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700">
+                  最終保存: {lastAutoSave.toLocaleTimeString('ja-JP')}
+                </span>
+                <div className="text-xs text-green-600">
+                  (自動保存: 1時間ごと・変更時・離脱時)
+                </div>
+              </div>
+            )}
+
+            {/* 管理者・総務のみ表示：復元ボタン */}
+            {/* デバッグ情報 */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+                <div>Current User Role: {currentUser?.role}</div>
+                <div>canEdit: {canEdit ? 'true' : 'false'}</div>
+                <div>Show Restore Button: {canEdit ? 'true' : 'false'}</div>
+              </div>
+            )}
             {canEdit && (
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={saveOrgChartToS3}
-                  disabled={isSavingToS3}
-                  className="flex items-center gap-1"
-                >
-                  <Save className="w-4 h-4" />
-                  {isSavingToS3 ? '保存中...' : 'S3に保存'}
-                </Button>
-                
+              <div>
                 <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
                   <DialogTrigger asChild>
                     <Button 

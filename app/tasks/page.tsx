@@ -13,15 +13,20 @@ import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
 import { ArchiveLargeView } from "@/components/archive-large-view"
-import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown } from "lucide-react"
+import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown, Save, Download, Upload, History, Clock, ToggleLeft, ToggleRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { usePermissions } from "@/hooks/use-permissions"
 // import { employees } from "@/lib/mock-data" // モックデータの代わりに実際のデータベースから取得
 
 export default function TasksPage() {
   const { currentUser } = useAuth()
   const permissions = currentUser?.role ? getPermissions(currentUser.role) : null
+  const { canManageTasks, canManageWorkspaces } = usePermissions()
   const kanbanBoardRef = useRef<any>(null)
+  const { toast } = useToast()
   
   // デバッグ用ログ
   console.log("TasksPage - currentUser:", currentUser)
@@ -48,6 +53,16 @@ export default function TasksPage() {
   const [boardDialogOpen, setBoardDialogOpen] = useState(false)
   const [editingWorkspace, setEditingWorkspace] = useState<any>(null)
   const [editingBoard, setEditingBoard] = useState<any>(null)
+  
+  // S3保存・復元の状態
+  // S3復元関連のstate
+  const [isRestoringFromS3, setIsRestoringFromS3] = useState(false)
+  const [availableBackups, setAvailableBackups] = useState<any[]>([])
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false)
+  const [selectedBackup, setSelectedBackup] = useState<string>('')
+  
+  // 自動保存の状態
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null)
   
   // 社員データ
   const [employees, setEmployees] = useState<any[]>([])
@@ -602,6 +617,243 @@ export default function TasksPage() {
     }
   }
 
+  // S3保存・復元の関数
+  const saveWorkspaceToS3 = async () => {
+    if (!currentWorkspace) {
+      toast({
+        title: "エラー",
+        description: "ワークスペースが選択されていません",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsSavingToS3(true)
+    try {
+      const response = await fetch('/api/workspaces/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ workspaceId: currentWorkspace })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "保存完了",
+          description: `ワークスペース「${result.data.workspaceName}」をS3に保存しました`,
+        })
+      } else {
+        throw new Error(result.error || '保存に失敗しました')
+      }
+    } catch (error) {
+      console.error('S3保存エラー:', error)
+      toast({
+        title: "保存エラー",
+        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        variant: "destructive"
+      })
+    } finally {
+      setIsSavingToS3(false)
+    }
+  }
+
+  const saveTaskManagementToS3 = async () => {
+    setIsSavingToS3(true)
+    try {
+      const response = await fetch('/api/task-management/backup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "バックアップ完了",
+          description: `タスク管理全体をS3にバックアップしました（${result.data.statistics.totalWorkspaces}ワークスペース、${result.data.statistics.totalCards}カード）`,
+        })
+      } else {
+        throw new Error(result.error || 'バックアップに失敗しました')
+      }
+    } catch (error) {
+      console.error('S3バックアップエラー:', error)
+      toast({
+        title: "バックアップエラー",
+        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        variant: "destructive"
+      })
+    } finally {
+      setIsSavingToS3(false)
+    }
+  }
+
+  const fetchAvailableBackups = async () => {
+    try {
+      const response = await fetch('/api/task-management/restore')
+      const result = await response.json()
+      
+      if (result.success) {
+        setAvailableBackups(result.backups)
+      } else {
+        throw new Error(result.error || 'バックアップ一覧の取得に失敗しました')
+      }
+    } catch (error) {
+      console.error('バックアップ一覧取得エラー:', error)
+      toast({
+        title: "エラー",
+        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        variant: "destructive"
+      })
+    }
+  }
+
+  const restoreTaskManagementFromS3 = async () => {
+    if (!selectedBackup) {
+      toast({
+        title: "エラー",
+        description: "復元するバックアップを選択してください",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!confirm('現在のタスク管理データがすべて削除され、選択したバックアップで置き換えられます。続行しますか？')) {
+      return
+    }
+
+    setIsRestoringFromS3(true)
+    try {
+      const response = await fetch('/api/task-management/restore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          s3Key: selectedBackup,
+          restoreMode: 'replace'
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "復元完了",
+          description: `タスク管理を復元しました（${result.data.restoredCounts.workspaces}ワークスペース、${result.data.restoredCounts.cards}カード）`,
+        })
+        
+        // データを再読み込み
+        await fetchWorkspaces()
+        setShowRestoreDialog(false)
+        setSelectedBackup('')
+      } else {
+        throw new Error(result.error || '復元に失敗しました')
+      }
+    } catch (error) {
+      console.error('S3復元エラー:', error)
+      toast({
+        title: "復元エラー",
+        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
+        variant: "destructive"
+      })
+    } finally {
+      setIsRestoringFromS3(false)
+    }
+  }
+
+  // 自動保存の関数（常に有効）
+  const performAutoSave = async (type: 'workspace' | 'full') => {
+    try {
+      console.log(`🔄 自動保存を開始: ${type}`)
+      
+      if (type === 'workspace' && currentWorkspace) {
+        // ワークスペースの自動保存
+        const response = await fetch('/api/workspaces/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUser?.id || '',
+          },
+          body: JSON.stringify({ workspaceId: currentWorkspace.id }),
+        })
+        
+        if (response.ok) {
+          setLastAutoSave(new Date())
+          console.log(`✅ ワークスペース自動保存完了`)
+        }
+      } else if (type === 'full') {
+        // 全体の自動保存
+        const response = await fetch('/api/task-management/backup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUser?.id || '',
+          },
+        })
+        
+        if (response.ok) {
+          setLastAutoSave(new Date())
+          console.log(`✅ 全体自動保存完了`)
+        }
+      }
+    } catch (error) {
+      console.error(`❌ 自動保存エラー (${type}):`, error)
+    }
+  }
+
+  // 定期的な自動保存（1時間ごと）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      performAutoSave('full')
+    }, 60 * 60 * 1000) // 1時間
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [])
+
+  // ワークスペース変更時の自動保存（デバウンス付き）
+  useEffect(() => {
+    if (!currentWorkspace) return
+
+    const timeoutId = setTimeout(() => {
+      performAutoSave('workspace')
+    }, 10000) // 10秒後に自動保存
+
+    return () => clearTimeout(timeoutId)
+  }, [currentWorkspace, currentBoard])
+
+  // ページ離脱時の自動保存
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // 同期的に保存（navigator.sendBeaconを使用）
+      const data = JSON.stringify({ type: 'full' })
+      navigator.sendBeacon('/api/task-management/backup', data)
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
+
+  // データ変更検知による自動保存
+  useEffect(() => {
+    if (!currentBoardData) return
+
+    const timeoutId = setTimeout(() => {
+      // ボードデータが変更された場合の自動保存
+      if (currentBoardData.lists?.some((list: any) => list.cards?.length > 0)) {
+        performAutoSave('workspace')
+      }
+    }, 30000) // 30秒後に自動保存
+
+    return () => clearTimeout(timeoutId)
+  }, [currentBoardData])
+
   // ボードデータからすべてのタスクを取得
   const allTasks = currentBoardData?.lists?.flatMap((list: any) => 
     list.cards?.map((card: any) => ({
@@ -717,6 +969,99 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             </div>
           </div>
           <div className="flex gap-3">
+            {/* 自動保存ステータス表示（読み取り専用） */}
+            {lastAutoSave && (
+              <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-md border border-green-200">
+                <Clock className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700">
+                  最終保存: {lastAutoSave.toLocaleTimeString('ja-JP')}
+                </span>
+                <div className="text-xs text-green-600">
+                  (自動保存: 1時間ごと・変更時・離脱時)
+                </div>
+              </div>
+            )}
+
+            {/* 管理者・総務のみ表示：復元ボタン */}
+            {/* デバッグ情報 */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
+                <div>Current User Role: {currentUser?.role}</div>
+                <div>canManageTasks: {canManageTasks ? 'true' : 'false'}</div>
+                <div>canManageWorkspaces: {canManageWorkspaces ? 'true' : 'false'}</div>
+                <div>Show Restore Button: {(canManageTasks || canManageWorkspaces) ? 'true' : 'false'}</div>
+              </div>
+            )}
+            {(canManageTasks || canManageWorkspaces) && (
+              <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      fetchAvailableBackups()
+                      setShowRestoreDialog(true)
+                    }}
+                    disabled={isRestoringFromS3}
+                    className="bg-orange-50 hover:bg-orange-100 border-orange-200"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isRestoringFromS3 ? "復元中..." : "復元"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>タスク管理の復元</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium">復元するバックアップを選択</label>
+                      <Select value={selectedBackup} onValueChange={setSelectedBackup}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="バックアップを選択してください" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableBackups.map((backup) => (
+                            <SelectItem key={backup.key} value={backup.key}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{backup.displayName}</span>
+                                <span className="text-xs text-gray-500">
+                                  {backup.lastModified ? new Date(backup.lastModified).toLocaleString('ja-JP') : '日時不明'}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ 復元すると現在のタスク管理データがすべて削除され、選択したバックアップで置き換えられます。
+                      </p>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowRestoreDialog(false)
+                          setSelectedBackup('')
+                        }}
+                      >
+                        キャンセル
+                      </Button>
+                      <Button
+                        onClick={restoreTaskManagementFromS3}
+                        disabled={!selectedBackup || isRestoringFromS3}
+                        className="bg-orange-600 hover:bg-orange-700"
+                      >
+                        {isRestoringFromS3 ? "復元中..." : "復元実行"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
+            
             <TaskStructureGuide />
             <AIAskButton context={buildAIContext()} />
           </div>

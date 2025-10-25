@@ -2,6 +2,77 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkWorkspacePermissions, getPermissions } from "@/lib/permissions"
 
+// GET /api/boards - ボード一覧を取得
+export async function GET(request: NextRequest) {
+  try {
+    const userId = request.headers.get("x-employee-id")
+    const { searchParams } = new URL(request.url)
+    const workspaceId = searchParams.get('workspaceId')
+
+    if (!userId) {
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
+    }
+
+    const user = await prisma.employee.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: "ユーザーが見つかりません" }, { status: 404 })
+    }
+
+    // ワークスペースIDが指定されている場合は、そのワークスペースのボードのみ取得
+    const whereClause = workspaceId ? { workspaceId } : {}
+
+    const boards = await prisma.board.findMany({
+      where: whereClause,
+      include: {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        lists: {
+          orderBy: {
+            position: "asc",
+          },
+          include: {
+            cards: {
+              orderBy: {
+                position: "asc",
+              },
+              include: {
+                members: {
+                  include: {
+                    employee: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    })
+
+    return NextResponse.json({ boards })
+  } catch (error) {
+    console.error("[v0] Error fetching boards:", error)
+    return NextResponse.json({ error: "ボードの取得に失敗しました" }, { status: 500 })
+  }
+}
+
 // POST /api/boards - 新しいボードを作成
 export async function POST(request: NextRequest) {
   try {

@@ -19,6 +19,8 @@ export function usePermissions() {
         role: userRole,
         permissions: getPermissions("viewer"), // デフォルトはviewer権限
         hasPermission: () => false,
+        canManageTasks: false,
+        canManageWorkspaces: false,
       }
     }
 
@@ -26,6 +28,8 @@ export function usePermissions() {
       role: userRole,
       permissions,
       hasPermission: (permission: keyof Permission) => permissions[permission],
+      canManageTasks: permissions.canManageTasks,
+      canManageWorkspaces: permissions.canManageWorkspaces,
     }
   }, [currentUser?.role])
 

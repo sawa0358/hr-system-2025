@@ -71,6 +71,8 @@ export interface Permission {
   deleteLists: boolean // リストの削除
   addCardMembers: boolean // 他人のカードにメンバー追加できるか
   editOthersCards: boolean // 他人のカードを編集できるか
+  canManageTasks: boolean // タスク管理権限
+  canManageWorkspaces: boolean // ワークスペース管理権限
 }
 
 export const rolePermissions: Record<UserRole, Permission> = {
@@ -123,6 +125,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: false,
     addCardMembers: false,
     editOthersCards: false,
+    canManageTasks: false,
+    canManageWorkspaces: false,
   },
   general: {
     viewDashboard: true,
@@ -173,6 +177,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: false,
     addCardMembers: false, // カード新規作成時のみメンバー追加可
     editOthersCards: false,
+    canManageTasks: false,
+    canManageWorkspaces: false,
   },
   "sub_manager": {
     viewDashboard: true,
@@ -223,6 +229,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: false,
     addCardMembers: false, // サブマネは他人のカードにメンバー追加不可
     editOthersCards: false,
+    canManageTasks: false,
+    canManageWorkspaces: false,
   },
   "store_manager": {
     viewDashboard: true,
@@ -273,6 +281,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: true,
     addCardMembers: true, // 店長は他人のカードにメンバー追加可能
     editOthersCards: false,
+    canManageTasks: false,
+    canManageWorkspaces: false,
   },
   manager: {
     viewDashboard: true,
@@ -323,6 +333,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: true,
     addCardMembers: true, // マネージャーは他人のカードにメンバー追加可能
     editOthersCards: false,
+    canManageTasks: false,
+    canManageWorkspaces: false,
   },
   hr: {
     viewDashboard: true,
@@ -373,6 +385,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: true,
     addCardMembers: true, // 総務は他人のカードにメンバー追加可能
     editOthersCards: true, // 総務は他人のカードも編集可能
+    canManageTasks: true, // 総務はタスク管理権限あり
+    canManageWorkspaces: true, // 総務はワークスペース管理権限あり
   },
   admin: {
     viewDashboard: true,
@@ -423,6 +437,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteLists: true,
     addCardMembers: true, // 管理者は他人のカードにメンバー追加可能
     editOthersCards: true, // 管理者は他人のカードも編集可能
+    canManageTasks: true, // 管理者はタスク管理権限あり
+    canManageWorkspaces: true, // 管理者はワークスペース管理権限あり
   },
 }
 

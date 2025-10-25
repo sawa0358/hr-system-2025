@@ -400,6 +400,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       name: member.name || '',
                       relationship: member.relationship || '',
                       birthday: birthday,
+                      phone: member.phone || '',
+                      address: member.address || '',
+                      myNumber: member.myNumber || '',
+                      description: member.description || '',
                     };
                   });
                   

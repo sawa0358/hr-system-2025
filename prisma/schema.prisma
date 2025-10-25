@@ -104,6 +104,18 @@ model Employee {
   @@map("employees")
 }
 
+model UserSettings {
+  id         String   @id @default(cuid())
+  employeeId String
+  key        String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, key], name: "employeeId_key")
+  @@map("user_settings")
+}
+
 model Evaluation {
   id            String   @id @default(cuid())
   employeeId    String
@@ -343,16 +355,4 @@ model FamilyMember {
   updatedAt  DateTime @updatedAt
 
   @@map("family_members")
-}
-
-model UserSettings {
-  id         String   @id @default(cuid())
-  employeeId String
-  key        String
-  value      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([employeeId, key], name: "employeeId_key")
-  @@map("user_settings")
 }

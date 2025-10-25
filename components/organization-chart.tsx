@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { organizationData } from "@/lib/mock-data"
-import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Save, Download, Upload, ToggleLeft, ToggleRight } from "lucide-react"
+import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List } from "lucide-react"
 import {
   DndContext,
   type DragEndEvent,
@@ -20,8 +20,6 @@ import {
 } from "@dnd-kit/core"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
-
-import { useToast } from "@/hooks/use-toast"
 
 interface Employee {
   id: string
@@ -858,10 +856,6 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   const [showUnassignedList, setShowUnassignedList] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
-  
-  // 旧API削除のため、S3保存・復元機能を無効化
-  
-  const { toast } = useToast()
 
   // クライアントサイドでのマウント状態を設定
   useEffect(() => {
@@ -993,9 +987,6 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       setLoading(false)
     }
   }, [currentUser])
-
-
-  // 旧API削除のため、S3自動保存機能を無効化
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
@@ -1925,8 +1916,6 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
             >
               {isCompactMode ? '詳細表示' : 'コンパクト表示'}
             </Button>
-            
-            {/* 旧API削除のため、S3復元機能UIを非表示 */}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 50}>

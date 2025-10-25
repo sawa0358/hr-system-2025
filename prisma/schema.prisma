@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -75,6 +75,7 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   orgChartLabel         String?
+  description           String?
   
   // リレーション
   evaluations           Evaluation[]
@@ -334,6 +335,10 @@ model FamilyMember {
   name       String
   relationship String
   birthDate  DateTime?
+  phone      String?
+  address    String?
+  myNumber   String?
+  description String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

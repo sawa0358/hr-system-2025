@@ -68,6 +68,10 @@ export async function PUT(
         name: member.name,
         relationship: member.relationship,
         birthDate: member.birthday ? new Date(member.birthday) : null,
+        phone: member.phone || null,
+        address: member.address || null,
+        myNumber: member.myNumber || null,
+        description: member.description || null,
       }));
 
       console.log('保存する家族データ:', familyData);

@@ -22,6 +22,10 @@ interface FamilyMember {
   name: string
   relationship: string
   birthday: string
+  phone?: string
+  address?: string
+  myNumber?: string
+  description?: string
 }
 
 interface EmployeeDetailDialogProps {
@@ -440,6 +444,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             name: member.name || '',
             relationship: member.relationship || '',
             birthday: birthday,
+            phone: member.phone || '',
+            address: member.address || '',
+            myNumber: member.myNumber || '',
+            description: member.description || '',
           };
           
           console.log('変換結果:', result);
@@ -1222,6 +1230,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       name: "",
       relationship: "",
       birthday: "",
+      phone: "",
+      address: "",
+      myNumber: "",
+      description: "",
     }
     const newFamilyMembers = [...familyMembers, newMember]
     setFamilyMembers(newFamilyMembers)
@@ -2228,6 +2240,82 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               disabled={!canEditProfile} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>電話番号</Label>
+                            <Input 
+                              value={member.phone || ''}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, phone: e.target.value } : m
+                                )
+                                updateFamilyMembersAndSave(updatedMembers)
+                              }}
+                              placeholder="電話番号" 
+                              disabled={!canEditProfile} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>住所</Label>
+                            <Input 
+                              value={member.address || ''}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, address: e.target.value } : m
+                                )
+                                updateFamilyMembersAndSave(updatedMembers)
+                              }}
+                              placeholder="住所" 
+                              disabled={!canEditProfile} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Label>マイナンバー</Label>
+                              <Lock className="w-4 h-4 text-amber-600" />
+                              <span className="text-xs text-amber-600">管理者・総務権限のみ閲覧可</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type={showEmployeeMyNumber ? "text" : "password"}
+                                value={canViewMyNumber && showEmployeeMyNumber ? (member.myNumber || '') : '●●●●●●●●●●●●'}
+                                onChange={(e) => {
+                                  if (canViewMyNumber && showEmployeeMyNumber) {
+                                    const updatedMembers = familyMembers.map(m => 
+                                      m.id === member.id ? { ...m, myNumber: e.target.value } : m
+                                    )
+                                    updateFamilyMembersAndSave(updatedMembers)
+                                  }
+                                }}
+                                placeholder="マイナンバー（12桁）"
+                                className={`font-mono ${(!showEmployeeMyNumber || !canEditProfile) ? "text-[#374151] bg-[#edeaed]" : ""}`}
+                                disabled={!showEmployeeMyNumber || !canEditProfile}
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => handleToggleMyNumber("employee")}
+                                className="flex-shrink-0"
+                              >
+                                {showEmployeeMyNumber ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </Button>
+                            </div>
+                            <p className="text-xs text-slate-500">※ 表示するにはログインパスワードの入力が必要です</p>
+                          </div>
+                          <div className="space-y-2 col-span-2">
+                            <Label>備考欄</Label>
+                            <Textarea 
+                              value={member.description || ''}
+                              onChange={(e) => {
+                                const updatedMembers = familyMembers.map(m => 
+                                  m.id === member.id ? { ...m, description: e.target.value } : m
+                                )
+                                updateFamilyMembersAndSave(updatedMembers)
+                              }}
+                              placeholder="備考" 
+                              disabled={!canEditProfile}
+                              rows={2}
                             />
                           </div>
                         </div>

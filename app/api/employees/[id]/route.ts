@@ -385,7 +385,11 @@ export async function PUT(
             employeeId: params.id,
             name: member.name,
             relationship: member.relationship,
-            birthDate: birthDate
+            birthDate: birthDate,
+            phone: member.phone || null,
+            address: member.address || null,
+            myNumber: member.myNumber || null,
+            description: member.description || null,
           };
         });
 

@@ -32,7 +32,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               user.id === "ippan" || user.id === "etsuran" || 
               user.id === "001" || user.id === "002" || user.id === "003" ||
               user.id === "cmgkljr1000008z81edjq66sl" ||
-              user.id === "cmgorkhkh00008z11nhm08dt7") {
+              user.id === "cmgorkhkh00008z11nhm08dt7" ||
+              user.id === "cmgtj2n3o00008zcwnsyk1k4n") {
             console.log("Clearing old cached user data:", user.id)
             localStorage.removeItem("currentUser")
           } else {

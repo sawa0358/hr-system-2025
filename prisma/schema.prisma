@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,7 +52,6 @@ model Employee {
   url                   String?
   address               String?
   selfIntroduction      String?
-  description           String?
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
@@ -330,31 +329,13 @@ model CardMember {
 }
 
 model FamilyMember {
-  id              String    @id @default(cuid())
-  employeeId      String
-  name            String
-  relationship    String
-  phone           String?
-  birthDate       DateTime?
-  livingSeparately Boolean   @default(false)
-  address         String?
-  myNumber        String?
-  description     String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id         String   @id @default(cuid())
+  employeeId String
+  name       String
+  relationship String
+  birthDate  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("family_members")
-}
-
-model MasterData {
-  id        String   @id @default(cuid())
-  type      String
-  value     String
-  label     String?
-  order     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("master_data")
 }

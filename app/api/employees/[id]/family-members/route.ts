@@ -67,12 +67,7 @@ export async function PUT(
         employeeId: params.id,
         name: member.name,
         relationship: member.relationship,
-        phone: member.phone || null,
         birthDate: member.birthday ? new Date(member.birthday) : null,
-        livingSeparately: member.livingSeparately || false,
-        address: member.address || null,
-        myNumber: member.myNumber || null,
-        description: member.description || null,
       }));
 
       console.log('保存する家族データ:', familyData);

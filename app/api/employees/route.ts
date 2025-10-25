@@ -74,9 +74,9 @@ export async function GET() {
     return NextResponse.json(processedEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
-    console.error('エラーの詳細:', error.message, error.stack);
+    console.error('エラーの詳細:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : undefined);
     return NextResponse.json(
-      { error: '社員一覧の取得に失敗しました', details: error.message },
+      { error: '社員一覧の取得に失敗しました', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -215,24 +215,83 @@ export async function POST(request: NextRequest) {
           const trimmed = String(body.furigana).trim();
           return trimmed !== '' ? trimmed : null;
         })(),
-        email: body.email && body.email.trim() !== '' ? body.email : null,
-        phone: body.phone || null,
+        email: (() => {
+          if (!body.email || body.email === '' || body.email === null || body.email === undefined) {
+            return null;
+          }
+          const trimmed = String(body.email).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        phone: (() => {
+          if (!body.phone || body.phone === '' || body.phone === null || body.phone === undefined) {
+            return null;
+          }
+          const trimmed = String(body.phone).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
         department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : (body.department || '未設定'),
         position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : (body.position || '未設定'),
         organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : (body.organization || '株式会社テックイノベーション'),
-        team: body.team || null,
+        team: (() => {
+          if (!body.team || body.team === '' || body.team === null || body.team === undefined) {
+            return null;
+          }
+          const trimmed = String(body.team).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
         password: body.password,
         role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
-        myNumber: body.myNumber || null,
-        userId: body.userId || null,
-        url: body.url || null,
-        address: body.address || null,
-        selfIntroduction: body.selfIntroduction || null,
-        description: body.description || null,
-        phoneInternal: body.phoneInternal || null,
-        phoneMobile: body.phoneMobile || null,
+        myNumber: (() => {
+          if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {
+            return null;
+          }
+          const trimmed = String(body.myNumber).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        userId: (() => {
+          if (!body.userId || body.userId === '' || body.userId === null || body.userId === undefined) {
+            return null;
+          }
+          const trimmed = String(body.userId).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        url: (() => {
+          if (!body.url || body.url === '' || body.url === null || body.url === undefined) {
+            return null;
+          }
+          const trimmed = String(body.url).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        address: (() => {
+          if (!body.address || body.address === '' || body.address === null || body.address === undefined) {
+            return null;
+          }
+          const trimmed = String(body.address).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        selfIntroduction: (() => {
+          if (!body.selfIntroduction || body.selfIntroduction === '' || body.selfIntroduction === null || body.selfIntroduction === undefined) {
+            return null;
+          }
+          const trimmed = String(body.selfIntroduction).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        phoneInternal: (() => {
+          if (!body.phoneInternal || body.phoneInternal === '' || body.phoneInternal === null || body.phoneInternal === undefined) {
+            return null;
+          }
+          const trimmed = String(body.phoneInternal).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
+        phoneMobile: (() => {
+          if (!body.phoneMobile || body.phoneMobile === '' || body.phoneMobile === null || body.phoneMobile === undefined) {
+            return null;
+          }
+          const trimmed = String(body.phoneMobile).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
         birthDate: (() => {
           if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
             return null;
@@ -260,6 +319,13 @@ export async function POST(request: NextRequest) {
         privacyWorkPhone: body.privacyWorkPhone !== undefined ? body.privacyWorkPhone : true,
         privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
         privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
+        description: (() => {
+          if (!body.description || body.description === '' || body.description === null || body.description === undefined) {
+            return null;
+          }
+          const trimmed = String(body.description).trim();
+          return trimmed !== '' ? trimmed : null;
+        })(),
       }
     });
 

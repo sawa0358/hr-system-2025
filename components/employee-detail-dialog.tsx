@@ -21,12 +21,7 @@ interface FamilyMember {
   id: string
   name: string
   relationship: string
-  phone: string
   birthday: string
-  livingSeparately: boolean
-  address?: string
-  myNumber?: string
-  description?: string
 }
 
 interface EmployeeDetailDialogProps {
@@ -111,6 +106,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
         if (settings['avatar-text']) {
           setAvatarText(settings['avatar-text'])
+          // ローカルストレージにも同期
+          localStorage.setItem(`employee-avatar-text-${employeeId}`, settings['avatar-text'])
+          console.log('S3からアバターテキストを取得し、ローカルストレージに同期しました:', settings['avatar-text'])
         }
       }
     } catch (error) {
@@ -377,12 +375,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       id: member.id || `temp-${Date.now()}-${Math.random()}`,
                       name: member.name || '',
                       relationship: member.relationship || '',
-                      phone: member.phone || '',
                       birthday: birthday,
-                      livingSeparately: member.livingSeparately || false,
-                      address: member.address || '',
-                      myNumber: member.myNumber || '',
-                      description: member.description || '',
                     };
                   });
                   
@@ -446,12 +439,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             id: member.id || `temp-${Date.now()}-${Math.random()}`,
             name: member.name || '',
             relationship: member.relationship || '',
-            phone: member.phone || '',
             birthday: birthday,
-            livingSeparately: member.livingSeparately || false,
-            address: member.address || '',
-            myNumber: member.myNumber || '',
-            description: member.description || '',
           };
           
           console.log('変換結果:', result);
@@ -1233,12 +1221,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       id: `family-${Date.now()}`,
       name: "",
       relationship: "",
-      phone: "",
       birthday: "",
-      livingSeparately: false,
-      address: "",
-      myNumber: "",
-      description: "",
     }
     const newFamilyMembers = [...familyMembers, newMember]
     setFamilyMembers(newFamilyMembers)
@@ -1704,16 +1687,28 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                               onChange={async (e) => {
                                 const text = e.target.value
                                 setAvatarText(text)
-                                // データベースに保存
+                                
+                                // ローカルストレージに保存
+                                if (employee?.id) {
+                                  localStorage.setItem(`employee-avatar-text-${employee.id}`, text)
+                                }
+                                
+                                // S3に永続保存
                                 if (employee?.id) {
                                   try {
-                                    await fetch(`/api/employees/${employee.id}/settings`, {
+                                    const response = await fetch(`/api/employees/${employee.id}/settings`, {
                                       method: 'PUT',
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ key: 'avatar-text', value: text })
                                     })
+                                    
+                                    if (response.ok) {
+                                      console.log('アバターテキストをS3に保存しました:', text)
+                                    } else {
+                                      console.error('アバターテキストのS3保存に失敗:', response.statusText)
+                                    }
                                   } catch (error) {
-                                    console.error('ユーザー設定保存エラー:', error)
+                                    console.error('アバターテキスト保存エラー:', error)
                                   }
                                 }
                               }}
@@ -1980,8 +1975,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   )}
                 </div>
 
-                {/* 備考欄は総務・管理者のみ表示 */}
-                {(currentUser?.department?.includes('総務') || currentUser?.role === 'admin') && (
+                {/* 備考欄は管理者・総務・HR権限のユーザーが表示可能 */}
+                {(isAdminOrHR || currentUser?.department?.includes('総務')) && (
                   <div className="space-y-2">
                     <Label>備考欄</Label>
                     <Textarea 
@@ -2218,21 +2213,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             </Select>
                           </div>
                           <div className="space-y-2">
-                            <Label>電話番号</Label>
-                            <Input 
-                              type="tel" 
-                              value={member.phone}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, phone: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="電話番号" 
-                              disabled={!canEditProfile} 
-                            />
-                          </div>
-                          <div className="space-y-2">
                             <Label>誕生日</Label>
                             <Input 
                               type="date" 
@@ -2248,83 +2228,6 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               disabled={!canEditProfile} 
-                            />
-                          </div>
-                          {canViewMyNumber && (
-                            <div className="col-span-2 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Label>マイナンバー</Label>
-                                <Lock className="w-3 h-3 text-amber-600" />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type={showFamilyMyNumber[member.id] ? "text" : "password"}
-                                  value={member.myNumber || ''}
-                                  onChange={(e) => {
-                                    const updatedMembers = familyMembers.map(m => 
-                                      m.id === member.id ? { ...m, myNumber: e.target.value } : m
-                                    )
-                                    updateFamilyMembersAndSave(updatedMembers)
-                                  }}
-                                  placeholder="マイナンバー（12桁）"
-                                  className="font-mono"
-                                  disabled={!showFamilyMyNumber[member.id] || !canEditProfile}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleToggleMyNumber("family", member.id)}
-                                  className="flex-shrink-0"
-                                >
-                                  {showFamilyMyNumber[member.id] ? (
-                                    <EyeOff className="w-4 h-4" />
-                                  ) : (
-                                    <Eye className="w-4 h-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          <div className="col-span-2 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Switch 
-                                id={`separate-${member.id}`} 
-                                checked={member.livingSeparately}
-                                onCheckedChange={(checked) => {
-                                  const updatedMembers = familyMembers.map(m => 
-                                    m.id === member.id ? { ...m, livingSeparately: checked } : m
-                                  )
-                                  updateFamilyMembersAndSave(updatedMembers)
-                                }}
-                                disabled={!canEditProfile} 
-                              />
-                              <Label htmlFor={`separate-${member.id}`}>別居</Label>
-                            </div>
-                            <Input 
-                              value={member.address || ''}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, address: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="別居の場合は住所を入力" 
-                              disabled={!canEditProfile}
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-2">
-                            <Label>備考</Label>
-                            <Textarea 
-                              value={member.description || ''}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, description: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="備考を入力（任意）" 
-                              rows={2}
-                              disabled={!canEditProfile}
                             />
                           </div>
                         </div>

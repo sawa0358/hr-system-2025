@@ -113,10 +113,30 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           // ローカルストレージにも同期
           localStorage.setItem(`employee-avatar-text-${employeeId}`, settings['avatar-text'])
           console.log('S3からアバターテキストを取得し、ローカルストレージに同期しました:', settings['avatar-text'])
+        } else {
+          // S3にデータがない場合は、ローカルストレージから取得を試行
+          const localAvatarText = localStorage.getItem(`employee-avatar-text-${employeeId}`)
+          if (localAvatarText) {
+            setAvatarText(localAvatarText)
+            console.log('ローカルストレージからアバターテキストを取得しました:', localAvatarText)
+          }
+        }
+      } else {
+        // APIエラーの場合は、ローカルストレージから取得を試行
+        const localAvatarText = localStorage.getItem(`employee-avatar-text-${employeeId}`)
+        if (localAvatarText) {
+          setAvatarText(localAvatarText)
+          console.log('APIエラーのため、ローカルストレージからアバターテキストを取得しました:', localAvatarText)
         }
       }
     } catch (error) {
       console.error('ユーザー設定取得エラー:', error)
+      // エラーの場合は、ローカルストレージから取得を試行
+      const localAvatarText = localStorage.getItem(`employee-avatar-text-${employeeId}`)
+      if (localAvatarText) {
+        setAvatarText(localAvatarText)
+        console.log('エラーのため、ローカルストレージからアバターテキストを取得しました:', localAvatarText)
+      }
     }
   }
 
@@ -469,6 +489,38 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         console.log('familyMembersData:', familyMembersData);
         console.log('Array.isArray(familyMembersData):', Array.isArray(familyMembersData));
         setFamilyMembers([])
+        
+        // 家族構成データが存在しない場合は、直接APIから取得を試行
+        if (employee?.id) {
+          console.log('家族構成データが存在しないため、直接APIから取得を試行します')
+          fetch(`/api/employees/${employee.id}/family-members`)
+            .then(response => {
+              if (response.ok) {
+                return response.json()
+              }
+              throw new Error('API response not ok')
+            })
+            .then(directFamilyData => {
+              console.log('直接APIから取得した家族構成データ:', directFamilyData)
+              if (directFamilyData && Array.isArray(directFamilyData)) {
+                const mappedDirectFamily = directFamilyData.map((member: any) => ({
+                  id: member.id || `temp-${Date.now()}-${Math.random()}`,
+                  name: member.name || '',
+                  relationship: member.relationship || '',
+                  birthday: member.birthDate ? new Date(member.birthDate).toLocaleDateString('ja-JP').replace(/\//g, '/') : '',
+                  phone: member.phone || '',
+                  address: member.address || '',
+                  myNumber: member.myNumber || '',
+                  description: member.description || '',
+                }))
+                setFamilyMembers(mappedDirectFamily)
+                console.log('直接APIから取得した家族構成データを設定しました:', mappedDirectFamily)
+              }
+            })
+            .catch(error => {
+              console.error('直接APIからの家族構成データ取得エラー:', error)
+            })
+        }
       }
       
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
@@ -834,11 +886,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     // データベースに保存
     if (employee?.id) {
       try {
-        await fetch(`/api/employees/${employee.id}/family-members`, {
+        const response = await fetch(`/api/employees/${employee.id}/family-members`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ familyMembers: updatedMembers })
         })
+        
+        if (response.ok) {
+          console.log('家族構成データの保存に成功しました')
+        } else {
+          console.error('家族構成データの保存に失敗しました:', response.status, response.statusText)
+        }
       } catch (error) {
         console.error('家族構成データ保存エラー:', error)
       }

@@ -170,6 +170,7 @@ export async function PUT(
       name: body.name,
       furigana: body.furigana,
       email: body.email,
+      description: body.description,
       parentEmployeeId: body.parentEmployeeId,
       isCopyEmployee: isCopyEmployee
     })
@@ -231,7 +232,7 @@ export async function PUT(
       url: body.url,
       address: body.address,
       selfIntroduction: body.selfIntroduction,
-      description: body.description,
+      description: body.description && body.description.trim() !== '' ? body.description : null,
       phoneInternal: body.phoneInternal,
       phoneMobile: body.phoneMobile,
       birthDate: (() => {
@@ -264,6 +265,8 @@ export async function PUT(
       privacyExtension: body.privacyExtension !== undefined ? body.privacyExtension : true,
       privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
     };
+
+    console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));
 
     const employee = await prisma.employee.update({
       where: { id: params.id },

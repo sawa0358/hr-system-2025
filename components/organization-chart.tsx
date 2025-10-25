@@ -2072,13 +2072,6 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
             {/* 管理者・総務のみ表示：復元ボタン */}
             {/* デバッグ情報 */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
-                <div>Current User Role: {currentUser?.role}</div>
-                <div>canEdit: {canEdit ? 'true' : 'false'}</div>
-                <div>Show Restore Button: {canEdit ? 'true' : 'false'}</div>
-              </div>
-            )}
             {canEdit && (
               <div>
                 <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>

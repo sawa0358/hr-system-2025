@@ -234,7 +234,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       selfIntroduction: employee?.selfIntroduction || '',
       birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : '',
       showInOrgChart: employee?.showInOrgChart ?? true,
-      description: employee?.description || '',
+      description: employee?.description || null,
       parentEmployeeId: employee?.parentEmployeeId || null,
     }
     console.log('formData初期化:', initialData)
@@ -312,7 +312,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         showInOrgChart: employee.showInOrgChart ?? true,
         isSuspended: employee.isSuspended ?? false,
         retirementDate: employee.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
-        description: employee.description || '',
+        description: employee.description || null,
         parentEmployeeId: employee.parentEmployeeId || null,
       })
       
@@ -634,8 +634,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         privacyExtension: privacySettings.extension,
         privacyMobilePhone: privacySettings.mobilePhone,
         privacyBirthDate: privacySettings.birthDate,
-        // 備考欄を送信
-        description: formData.description,
+        // 備考欄を送信（空文字列の場合はnullに変換）
+        description: formData.description && formData.description.trim() !== '' ? formData.description : null,
       }
       
       console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))

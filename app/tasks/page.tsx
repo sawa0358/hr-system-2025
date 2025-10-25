@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { getPermissions, checkWorkspacePermissions, checkBoardPermissions, checkListPermissions } from "@/lib/permissions"
 import { WorkspaceSelector } from "@/components/workspace-selector"
@@ -28,9 +28,11 @@ export default function TasksPage() {
   const kanbanBoardRef = useRef<any>(null)
   const { toast } = useToast()
   
-  // デバッグ用ログ
-  console.log("TasksPage - currentUser:", currentUser)
-  console.log("TasksPage - permissions:", permissions)
+  // デバッグ用ログ（開発環境のみ）
+  if (process.env.NODE_ENV === 'development') {
+    console.log("TasksPage - currentUser:", currentUser)
+    console.log("TasksPage - permissions:", permissions)
+  }
 
   const [workspaces, setWorkspaces] = useState<any[]>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
@@ -767,7 +769,7 @@ export default function TasksPage() {
   }
 
   // 自動保存の関数（常に有効）
-  const performAutoSave = async (type: 'workspace' | 'full') => {
+  const performAutoSave = useCallback(async (type: 'workspace' | 'full') => {
     try {
       console.log(`🔄 自動保存を開始: ${type}`)
       
@@ -804,7 +806,7 @@ export default function TasksPage() {
     } catch (error) {
       console.error(`❌ 自動保存エラー (${type}):`, error)
     }
-  }
+  }, [currentWorkspace, currentUser?.id])
 
   // 定期的な自動保存（1時間ごと）
   useEffect(() => {
@@ -815,7 +817,7 @@ export default function TasksPage() {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [])
+  }, [performAutoSave])
 
   // ワークスペース変更時の自動保存（デバウンス付き）
   useEffect(() => {
@@ -826,7 +828,7 @@ export default function TasksPage() {
     }, 10000) // 10秒後に自動保存
 
     return () => clearTimeout(timeoutId)
-  }, [currentWorkspace, currentBoard])
+  }, [currentWorkspace, currentBoard, performAutoSave])
 
   // ページ離脱時の自動保存
   useEffect(() => {
@@ -852,7 +854,7 @@ export default function TasksPage() {
     }, 30000) // 30秒後に自動保存
 
     return () => clearTimeout(timeoutId)
-  }, [currentBoardData])
+  }, [currentBoardData, performAutoSave])
 
   // ボードデータからすべてのタスクを取得
   const allTasks = currentBoardData?.lists?.flatMap((list: any) => 
@@ -984,14 +986,6 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
 
             {/* 管理者・総務のみ表示：復元ボタン */}
             {/* デバッグ情報 */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded">
-                <div>Current User Role: {currentUser?.role}</div>
-                <div>canManageTasks: {canManageTasks ? 'true' : 'false'}</div>
-                <div>canManageWorkspaces: {canManageWorkspaces ? 'true' : 'false'}</div>
-                <div>Show Restore Button: {(canManageTasks || canManageWorkspaces) ? 'true' : 'false'}</div>
-              </div>
-            )}
             {(canManageTasks || canManageWorkspaces) && (
               <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
                 <DialogTrigger asChild>

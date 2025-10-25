@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkWorkspacePermissions } from "@/lib/permissions"
+import { saveWorkspaceDataToS3 } from "@/lib/s3-client"
 
 // GET /api/workspaces/[workspaceId] - ワークスペース詳細を取得
 export async function GET(request: NextRequest, { params }: { params: { workspaceId: string } }) {
@@ -191,8 +192,38 @@ export async function PATCH(request: NextRequest, { params }: { params: { worksp
             },
           },
         },
+        boards: {
+          include: {
+            lists: {
+              include: {
+                cards: {
+                  include: {
+                    members: {
+                      include: {
+                        employee: {
+                          select: {
+                            id: true,
+                            name: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     })
+
+    // S3へのワークスペースデータ自動保存
+    try {
+      await saveWorkspaceDataToS3(params.workspaceId, updatedWorkspace);
+    } catch (error) {
+      console.error('[v0] Failed to save workspace to S3:', error);
+      // S3保存に失敗してもレスポンスは返す
+    }
 
     console.log('[v0] Workspace updated successfully, member count:', updatedWorkspace.members.length)
     return NextResponse.json({ workspace: updatedWorkspace })

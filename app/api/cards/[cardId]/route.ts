@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkCardPermissions, checkWorkspacePermissions } from "@/lib/permissions"
+import { saveWorkspaceDataToS3 } from "@/lib/s3-client"
 
 // GET /api/cards/[cardId] - カード詳細を取得
 export async function GET(request: NextRequest, { params }: { params: { cardId: string } }) {
@@ -205,6 +206,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           ...(isArchived !== undefined && { isArchived }),
         },
         include: {
+          board: {
+            include: {
+              workspace: true,
+            },
+          },
           creator: {
             select: {
               id: true,
@@ -228,6 +234,65 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
         },
       })
     })
+
+    // ワークスペース全体を取得してS3に保存
+    if (updatedCard && updatedCard.board && updatedCard.board.workspace) {
+      try {
+        const workspace = await prisma.workspace.findUnique({
+          where: { id: updatedCard.board.workspace.id },
+          include: {
+            creator: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            members: {
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    department: true,
+                    position: true,
+                  },
+                },
+              },
+            },
+            boards: {
+              include: {
+                lists: {
+                  include: {
+                    cards: {
+                      include: {
+                        members: {
+                          include: {
+                            employee: {
+                              select: {
+                                id: true,
+                                name: true,
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        });
+        
+        if (workspace) {
+          await saveWorkspaceDataToS3(workspace.id, workspace);
+        }
+      } catch (error) {
+        console.error('[v0] Failed to save workspace to S3:', error);
+      }
+    }
 
     return NextResponse.json({ card: updatedCard })
   } catch (error) {

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { organizationData } from "@/lib/mock-data"
-import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Save, Download, Upload, History, Clock, ToggleLeft, ToggleRight } from "lucide-react"
+import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Save, Download, Upload, ToggleLeft, ToggleRight } from "lucide-react"
 import {
   DndContext,
   type DragEndEvent,
@@ -20,8 +20,7 @@ import {
 } from "@dnd-kit/core"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import { useToast } from "@/hooks/use-toast"
 
 interface Employee {
@@ -860,14 +859,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   const [loading, setLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
   
-  // S3保存・復元機能の状態
-  const [isRestoringFromS3, setIsRestoringFromS3] = useState(false)
-  const [availableBackups, setAvailableBackups] = useState<any[]>([])
-  const [showRestoreDialog, setShowRestoreDialog] = useState(false)
-  const [selectedBackup, setSelectedBackup] = useState<string>('')
-  
-  // 自動保存の状態
-  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null)
+  // 旧API削除のため、S3保存・復元機能を無効化
   
   const { toast } = useToast()
 
@@ -1003,130 +995,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   }, [currentUser])
 
 
-  // 利用可能なバックアップ一覧を取得
-  const fetchAvailableBackups = useCallback(async () => {
-    try {
-      const response = await fetch('/api/organization-chart/restore');
-      const result = await response.json();
-
-      if (result.success) {
-        setAvailableBackups(result.backups);
-      } else {
-        throw new Error(result.error || 'バックアップ一覧の取得に失敗しました');
-      }
-    } catch (error) {
-      console.error('バックアップ一覧取得エラー:', error);
-      toast({
-        title: "エラー",
-        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
-        variant: "destructive"
-      });
-    }
-  }, [toast]);
-
-  // S3から組織図を復元
-  const restoreOrgChartFromS3 = useCallback(async (s3Key: string) => {
-    if (!canEdit) {
-      toast({
-        title: "権限エラー",
-        description: "組織図の復元権限がありません",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsRestoringFromS3(true);
-    try {
-      const response = await fetch('/api/organization-chart/restore', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ s3Key }),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        toast({
-          title: "復元完了",
-          description: `組織図を復元しました (${result.data.updatedCount}件更新)`,
-        });
-        
-        // 組織図を再読み込み
-        await fetchEmployees();
-        setShowRestoreDialog(false);
-        setSelectedBackup('');
-      } else {
-        throw new Error(result.error || '復元に失敗しました');
-      }
-    } catch (error) {
-      console.error('S3復元エラー:', error);
-      toast({
-        title: "復元エラー",
-        description: error instanceof Error ? error.message : '不明なエラーが発生しました',
-        variant: "destructive"
-      });
-    } finally {
-      setIsRestoringFromS3(false);
-    }
-  }, [canEdit, toast, fetchEmployees]);
-
-  // 自動保存の関数
-  const performAutoSave = useCallback(async () => {
-    try {
-      console.log('🔄 組織図の自動保存を開始')
-      // 組織図の自動保存
-      const response = await fetch('/api/organization-chart/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-employee-id': currentUser?.id || '',
-        },
-      })
-      
-      if (response.ok) {
-        setLastAutoSave(new Date())
-        console.log('✅ 組織図の自動保存完了')
-      }
-    } catch (error) {
-      console.error('❌ 組織図の自動保存エラー:', error)
-    }
-  }, [currentUser])
-
-  // 定期的な自動保存（1時間ごと）
-  useEffect(() => {
-    const interval = setInterval(() => {
-      performAutoSave()
-    }, 60 * 60 * 1000) // 1時間
-
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [performAutoSave])
-
-  // 組織図データ変更時の自動保存（デバウンス付き）
-  useEffect(() => {
-    if (!employees.length) return
-
-    const timeoutId = setTimeout(() => {
-      performAutoSave()
-    }, 30000) // 30秒後に自動保存
-
-    return () => clearTimeout(timeoutId)
-  }, [employees, performAutoSave])
-
-  // ページ離脱時の自動保存
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // 同期的に保存（navigator.sendBeaconを使用）
-      const data = JSON.stringify({ type: 'orgChart' })
-      navigator.sendBeacon('/api/organization-chart/save', data)
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [])
+  // 旧API削除のため、S3自動保存機能を無効化
 
   // 社員データから組織図を構築
   const buildOrgChartFromEmployees = (employees: Employee[]): OrgNode => {
@@ -2057,77 +1926,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               {isCompactMode ? '詳細表示' : 'コンパクト表示'}
             </Button>
             
-            {/* 自動保存ステータス表示（読み取り専用） */}
-            {lastAutoSave && (
-              <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-md border border-green-200">
-                <Clock className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-700">
-                  最終保存: {lastAutoSave.toLocaleTimeString('ja-JP')}
-                </span>
-                <div className="text-xs text-green-600">
-                  (自動保存: 1時間ごと・変更時・離脱時)
-                </div>
-              </div>
-            )}
-
-            {/* 管理者・総務のみ表示：復元ボタン */}
-            {/* デバッグ情報 */}
-            {canEdit && (
-              <div>
-                <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={fetchAvailableBackups}
-                      className="flex items-center gap-1"
-                    >
-                      <History className="w-4 h-4" />
-                      復元
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>組織図を復元</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="backup-select">復元するバックアップを選択</Label>
-                        <Select value={selectedBackup} onValueChange={setSelectedBackup}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="バックアップを選択してください" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableBackups.map((backup) => (
-                              <SelectItem key={backup.key} value={backup.key}>
-                                {backup.displayName} ({new Date(backup.lastModified).toLocaleString()})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={() => {
-                            setShowRestoreDialog(false);
-                            setSelectedBackup('');
-                          }}
-                        >
-                          キャンセル
-                        </Button>
-                        <Button 
-                          onClick={() => selectedBackup && restoreOrgChartFromS3(selectedBackup)}
-                          disabled={!selectedBackup || isRestoringFromS3}
-                        >
-                          {isRestoringFromS3 ? '復元中...' : '復元'}
-                        </Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            )}
+            {/* 旧API削除のため、S3復元機能UIを非表示 */}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 50}>

@@ -52,6 +52,7 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   orgChartLabel         String?
+  description           String?
   
   // リレーション
   evaluations           Evaluation[]

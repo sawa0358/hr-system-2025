@@ -85,6 +85,7 @@ model Employee {
   folders               Folder[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
+  familyMembers         FamilyMember[]
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]
@@ -330,29 +331,18 @@ model CardMember {
 }
 
 model FamilyMember {
-  id         String   @id @default(cuid())
-  employeeId String
-  name       String
-  relationship String
-  birthDate  DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  address    String?
-  description String?
-  myNumber   String?
-  phone      String?
+  id               String    @id @default(cuid())
+  employeeId       String
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name             String
+  relationship     String
+  phone            String?
+  birthDate        DateTime?
+  address          String?
+  myNumber         String?
+  description      String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@map("family_members")
-}
-
-model UserSettings {
-  id         String   @id @default(cuid())
-  employeeId String
-  key        String
-  value      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@unique([employeeId, key], name: "employeeId_key")
-  @@map("user_settings")
 }

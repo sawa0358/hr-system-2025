@@ -206,6 +206,13 @@ export async function PUT(
       parentEmployeeId: body.parentEmployeeId || null,
       // 管理者がコピー社員の社員番号を調整できるように許可
       employeeNumber: body.employeeNumber,
+      description: (() => {
+        if (!body.description || body.description === '' || body.description === null || body.description === undefined) {
+          return null;
+        }
+        const trimmed = String(body.description).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
     } : {
       name: body.name,
       furigana: (() => {
@@ -343,9 +350,16 @@ export async function PUT(
 
     console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));
 
+    // undefinedのフィールドを除外
+    const cleanedUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+    );
+
+    console.log('Cleaned update data:', JSON.stringify(cleanedUpdateData, null, 2));
+
     const employee = await prisma.employee.update({
       where: { id: params.id },
-      data: updateData
+      data: cleanedUpdateData
     });
 
     console.log('更新成功:', employee.id, employee.name, employee.furigana, employee.parentEmployeeId)

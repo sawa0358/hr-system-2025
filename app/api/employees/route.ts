@@ -321,10 +321,10 @@ export async function POST(request: NextRequest) {
         privacyMobilePhone: body.privacyMobilePhone !== undefined ? body.privacyMobilePhone : true,
         description: (() => {
           if (!body.description || body.description === '' || body.description === null || body.description === undefined) {
-            return null;
+            return undefined; // undefinedにするとPrismaがフィールドを無視する
           }
           const trimmed = String(body.description).trim();
-          return trimmed !== '' ? trimmed : null;
+          return trimmed !== '' ? trimmed : undefined;
         })(),
       }
     });

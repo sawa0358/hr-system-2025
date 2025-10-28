@@ -582,14 +582,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           localStorage.removeItem(key)
         })
       }
-      setFolders(["契約書類", "履歴書等", "事前資料"])
+      setFolders(["契約書類", "履歴書等", "その他"])
       setCurrentFolder("契約書類")
     }
   }, [employee, open])
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [folders, setFolders] = useState<string[]>(() => {
-    return ["契約書類", "履歴書等", "事前資料"]
+    return ["契約書類", "履歴書等", "その他"]
   })
   const [files, setFiles] = useState<File[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([])
@@ -1306,11 +1306,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
   const addFolder = async () => {
     const folderName = prompt("フォルダ名を入力してください")
-    if (folderName) {
-      const newFolders = [...folders, folderName]
+    if (folderName && folderName.trim()) {
+      // 重複チェック
+      if (folders.includes(folderName.trim())) {
+        alert('このフォルダ名は既に存在します')
+        return
+      }
+      
+      const newFolders = [...folders, folderName.trim()]
       setFolders(newFolders)
       
-      // データベースに保存
+      // データベースに保存（個人単位で保存される）
       if (employee?.id) {
         try {
           const response = await fetch(`/api/employees/${employee.id}/folders`, {
@@ -1320,11 +1326,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           })
           if (response.ok) {
             console.log('フォルダ追加成功')
+            // 追加後に明示的に保存を維持
+            await saveCustomFolders(employee.id)
           } else {
             console.error('フォルダ追加失敗:', response.statusText)
+            alert('フォルダの追加に失敗しました')
+            // 失敗した場合は元に戻す
+            setFolders(folders)
           }
         } catch (error) {
           console.error('フォルダデータ保存エラー:', error)
+          alert('フォルダの追加に失敗しました')
+          // 失敗した場合は元に戻す
+          setFolders(folders)
         }
       }
     }
@@ -1336,26 +1350,74 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       return
     }
     
-    if (confirm(`フォルダ「${folderName}」を削除しますか？`)) {
-      const newFolders = folders.filter(f => f !== folderName)
-      setFolders(newFolders)
+    // 管理者・総務でない場合は削除不可
+    if (!isAdminOrHR) {
+      alert('フォルダの削除は管理者または総務のみ可能です')
+      return
+    }
+    
+    // パスワード確認ダイアログ（管理者・総務のパスワードで検証）
+    const password = prompt(`フォルダ「${folderName}」を削除するために、${currentUser?.role === 'admin' ? '管理者' : '総務'}のパスワードを入力してください:`)
+    if (!password) {
+      return // キャンセルされた場合
+    }
+    
+    // パスワード検証（現在のユーザー（管理者・総務）のパスワードで検証）
+    try {
+      const verifyResponse = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          employeeId: currentUser?.id, // 現在のユーザー（管理者・総務）のID
+          password: password 
+        })
+      })
       
-      // データベースに保存
-      if (employee?.id) {
-        try {
-          const response = await fetch(`/api/employees/${employee.id}/folders`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ folders: newFolders, category: 'employee' })
-          })
-          if (response.ok) {
-            console.log('フォルダ削除成功')
-          } else {
-            console.error('フォルダ削除失敗:', response.statusText)
-          }
-        } catch (error) {
-          console.error('フォルダデータ保存エラー:', error)
+      if (!verifyResponse.ok) {
+        const errorData = await verifyResponse.json()
+        alert(errorData.error || 'パスワードが正しくありません')
+        return
+      }
+      
+      const verifyData = await verifyResponse.json()
+      if (!verifyData.valid) {
+        alert('パスワードが正しくありません')
+        return
+      }
+    } catch (error) {
+      console.error('パスワード検証エラー:', error)
+      alert('パスワード確認に失敗しました')
+      return
+    }
+    
+    // パスワード認証成功後に削除
+    const newFolders = folders.filter(f => f !== folderName)
+    setFolders(newFolders)
+    
+    // 現在のフォルダが削除される場合は、最初のフォルダに切り替え
+    if (currentFolder === folderName) {
+      setCurrentFolder(newFolders[0] || '')
+    }
+    
+    // データベースに保存
+    if (employee?.id) {
+      try {
+        const response = await fetch(`/api/employees/${employee.id}/folders`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folders: newFolders, category: 'employee' })
+        })
+        if (response.ok) {
+          console.log('フォルダ削除成功')
+          // フォルダ削除後も保存を維持するために明示的に保存
+          await saveCustomFolders(employee.id)
+        } else {
+          console.error('フォルダ削除失敗:', response.statusText)
+          alert('フォルダの削除に失敗しました')
         }
+      } catch (error) {
+        console.error('フォルダデータ保存エラー:', error)
+        alert('フォルダの削除に失敗しました')
       }
     }
   }

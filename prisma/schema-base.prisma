@@ -95,6 +95,9 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
+  
+  // カスタムフォルダ関係
+  customFolders         CustomFolder[] @relation("CustomFolderEmployee")
 
   @@map("employees")
 }
@@ -338,4 +341,17 @@ model FamilyMember {
   updatedAt    DateTime @updatedAt
 
   @@map("family_members")
+}
+
+model CustomFolder {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation("CustomFolderEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  category   String   @default("employee")
+  name       String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("custom_folders")
 }

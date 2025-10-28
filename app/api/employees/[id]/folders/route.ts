@@ -35,10 +35,12 @@ export async function GET(
     }
 
     return NextResponse.json(folders.map(f => f.name))
-  } catch (error) {
+  } catch (error: any) {
     console.error('カスタムフォルダ取得エラー:', error)
+    console.error('エラー詳細:', error.message)
+    console.error('エラースタック:', error.stack)
     return NextResponse.json(
-      { error: 'カスタムフォルダの取得に失敗しました' },
+      { error: 'カスタムフォルダの取得に失敗しました', details: error.message },
       { status: 500 }
     )
   }
@@ -102,10 +104,12 @@ export async function PUT(
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('カスタムフォルダ保存エラー:', error)
+    console.error('エラー詳細:', error.message)
+    console.error('エラースタック:', error.stack)
     return NextResponse.json(
-      { error: 'カスタムフォルダの保存に失敗しました' },
+      { error: 'カスタムフォルダの保存に失敗しました', details: error.message },
       { status: 500 }
     )
   }

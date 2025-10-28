@@ -703,11 +703,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           setFamilyMembers(result.employee.familyMembers)
         }
         
-        // formDataを更新（特にisSuspendedの状態を反映）
+        // formDataを更新（特にisSuspendedとdescriptionの状態を反映）
         if (result.employee) {
           setFormData(prev => ({
             ...prev,
-            isSuspended: result.employee.isSuspended || false
+            isSuspended: result.employee.isSuspended || false,
+            description: result.employee.description || prev.description
           }))
         }
 

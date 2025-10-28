@@ -351,15 +351,8 @@ export async function PUT(
     console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));
 
     // undefinedとnullのフィールドを除外
-    // descriptionフィールドが存在しない場合は除外
     const cleanedUpdateData = Object.fromEntries(
-      Object.entries(updateData).filter(([key, value]) => {
-        // descriptionフィールドを除外（スキーマに存在しない）
-        if (key === 'description') {
-          return false;
-        }
-        return value !== undefined && value !== null;
-      })
+      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
     );
 
     console.log('Cleaned update data:', JSON.stringify(cleanedUpdateData, null, 2));

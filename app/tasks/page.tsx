@@ -57,25 +57,14 @@ export default function TasksPage() {
   useEffect(() => {
     const loadInitialData = async () => {
       try {
-        if (currentUser) {
+        if (currentUser?.id) {
+          // currentUser.idが確実に存在することを確認してから取得
+          console.log("Loading initial data for user:", currentUser.id)
           // 並行してデータを取得
           await Promise.all([
             fetchEmployees(),
             fetchWorkspaces()
           ])
-          
-          // ワークスペース取得後に初期値を設定
-          setTimeout(() => {
-            if (!currentWorkspace && workspaces.length > 0) {
-              // 保存されたワークスペースがない場合、マイワークスペースまたは最初のワークスペースを選択
-              const myWorkspace = workspaces.find(w => w.name === `${currentUser.name}のマイワークスペース`)
-              if (myWorkspace) {
-                setCurrentWorkspace(myWorkspace.id)
-              } else if (workspaces.length > 0) {
-                setCurrentWorkspace(workspaces[0].id)
-              }
-            }
-          }, 100)
         } else {
           // ユーザーが未ログインの場合は社員データのみ取得
           await fetchEmployees()
@@ -87,55 +76,23 @@ export default function TasksPage() {
       }
     }
     
-    loadInitialData()
-  }, [currentUser])
+    // currentUserが確実にセットされるまで少し待つ
+    if (currentUser) {
+      loadInitialData()
+    } else {
+      setIsInitialLoading(false)
+    }
+  }, [currentUser?.id]) // currentUser全体ではなく、idのみを依存配列に
 
   // 認証完了後にワークスペースとボードの初期化を行う
   useEffect(() => {
-    if (currentUser && typeof window !== 'undefined') {
-      // まずワークスペース・ボードの状態をリセット
-      setCurrentWorkspace(null)
-      setCurrentBoard(null)
-      setCurrentBoardData(null)
-      setBoards([])
-      
-      // localStorageからワークスペースを復元
-      const storedWorkspace = localStorage.getItem('currentWorkspace')
-      // 古いワークスペースIDをクリア
-      const oldWorkspaceIds = [
-        'cmgu9j0rv000c8zk87f9j152y',
-        'cmgucgqpc00018zii5wvn9y8h'  // 新しい古いIDを追加
-      ]
-      if (storedWorkspace && oldWorkspaceIds.includes(storedWorkspace)) {
-        localStorage.removeItem('currentWorkspace')
-        return
-      }
-      
-      // localStorageからボードを復元
-      const storedBoard = localStorage.getItem('currentBoard')
-      // 古いボードIDをクリア（古いワークスペースに関連するボードID）
-      const oldBoardIds = [
-        'cmgqp7gq7001m2r0lohbwodtd',
-        'cmgucgqut000f8ziiozr0xjaw'  // 新しい古いボードIDを追加
-      ]
-      if (storedBoard && oldBoardIds.includes(storedBoard)) {
-        localStorage.removeItem('currentBoard')
-        return
-      }
-
-      // ワークスペースとボードを設定
-      if (storedWorkspace) {
-        setCurrentWorkspace(storedWorkspace)
-      }
-      if (storedBoard) {
-        setCurrentBoard(storedBoard)
-      }
-    } else if (!currentUser) {
+    if (!currentUser && typeof window !== 'undefined') {
       // ユーザーがログアウトした場合は状態をリセット
       setCurrentWorkspace(null)
       setCurrentBoard(null)
       setCurrentBoardData(null)
       setBoards([])
+      setWorkspaces([])
     }
   }, [currentUser])
 
@@ -154,8 +111,13 @@ export default function TasksPage() {
         // カスタムイベントを発火してS3に自動保存
         window.dispatchEvent(new CustomEvent('workspaceChanged'))
       }
+      // ワークスペースがない場合はボードもクリア
       setBoards([])
       setCurrentBoard(null)
+      setCurrentBoardData(null)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentBoard')
+      }
     }
   }, [currentWorkspace, currentUser])
 
@@ -222,14 +184,20 @@ export default function TasksPage() {
     }
   }
 
-  const fetchWorkspaces = async () => {
+  const fetchWorkspaces = async (retryCount = 0) => {
     try {
       if (!currentUser?.id) {
         console.log("No current user ID, skipping workspace fetch")
+        // リトライ可能な場合は少し待ってから再試行
+        if (retryCount < 3) {
+          setTimeout(() => {
+            fetchWorkspaces(retryCount + 1)
+          }, 500)
+        }
         return
       }
       
-      console.log("Fetching workspaces for user:", currentUser.id)
+      console.log("Fetching workspaces for user:", currentUser.id, "retry:", retryCount)
       const response = await fetch("/api/workspaces", {
         headers: {
           "x-employee-id": currentUser.id,
@@ -237,40 +205,73 @@ export default function TasksPage() {
       })
       
       if (!response.ok) {
+        // 404や500エラーの場合はリトライ
+        if (retryCount < 3 && (response.status === 404 || response.status >= 500)) {
+          console.log(`Workspace fetch failed with status ${response.status}, retrying... (${retryCount + 1}/3)`)
+          setTimeout(() => {
+            fetchWorkspaces(retryCount + 1)
+          }, 1000 * (retryCount + 1)) // 指数バックオフ
+          return
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
       const data = await response.json()
       console.log("Fetched workspaces:", data.workspaces?.length || 0)
       
-      if (data.workspaces) {
+      if (data.workspaces && data.workspaces.length > 0) {
         setWorkspaces(data.workspaces)
         
         // 現在のワークスペースが設定されていない場合のみ初期化
-        if (!currentWorkspace && data.workspaces.length > 0) {
+        setCurrentWorkspace((prev) => {
+          // 既に設定されているワークスペースが取得したリストに存在するか確認
+          if (prev && data.workspaces.some((w: any) => w.id === prev)) {
+            console.log("Current workspace still exists:", prev)
+            return prev
+          }
+          
           // 保存されたワークスペースが存在するか確認
           const savedWorkspace = typeof window !== 'undefined' ? localStorage.getItem('currentWorkspace') : null
           const workspaceExists = savedWorkspace && data.workspaces.some((w: any) => w.id === savedWorkspace)
           
           if (workspaceExists) {
             console.log("Restoring saved workspace:", savedWorkspace)
-            setCurrentWorkspace(savedWorkspace)
+            return savedWorkspace
           } else {
             // マイワークスペースを優先的に選択
             const myWorkspace = data.workspaces.find((w: any) => w.name === `${currentUser.name}のマイワークスペース`)
             if (myWorkspace) {
               console.log("Setting my workspace:", myWorkspace.id)
-              setCurrentWorkspace(myWorkspace.id)
-            } else {
+              return myWorkspace.id
+            } else if (data.workspaces.length > 0) {
               console.log("Setting first workspace:", data.workspaces[0].id)
-              setCurrentWorkspace(data.workspaces[0].id)
+              return data.workspaces[0].id
             }
           }
+          return prev
+        })
+      } else if (data.workspaces && data.workspaces.length === 0) {
+        // ワークスペースが存在しない場合は状態をクリア
+        console.log("No workspaces found, clearing state")
+        setWorkspaces([])
+        setCurrentWorkspace(null)
+        setBoards([])
+        setCurrentBoard(null)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('currentWorkspace')
+          localStorage.removeItem('currentBoard')
         }
       }
     } catch (error) {
       console.error("Failed to fetch workspaces:", error)
-      setWorkspaces([])
+      // エラーが発生した場合も、リトライ可能なら再試行
+      if (retryCount < 3) {
+        setTimeout(() => {
+          fetchWorkspaces(retryCount + 1)
+        }, 1000 * (retryCount + 1))
+      } else {
+        setWorkspaces([])
+      }
     }
   }
 

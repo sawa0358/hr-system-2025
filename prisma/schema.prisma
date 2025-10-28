@@ -55,6 +55,7 @@ model Employee {
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
+  avatar                String?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   showInOrgChart        Boolean           @default(true)
@@ -101,8 +102,10 @@ model Employee {
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
   
-  // カスタムフォルダ・設定関係
+  // カスタムフォルダ関係
   customFolders         CustomFolder[] @relation("CustomFolderEmployee")
+  
+  // ユーザー設定関係
   userSettings          UserSettings[] @relation("UserSettingsEmployee")
 
   @@map("employees")
@@ -334,17 +337,17 @@ model CardMember {
 }
 
 model FamilyMember {
-  id         String   @id @default(cuid())
-  employeeId String
-  name       String
+  id           String   @id @default(cuid())
+  employeeId   String
+  name         String
   relationship String
-  birthDate  DateTime?
-  phone      String?
-  address    String?
-  myNumber   String?
-  description String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  birthDate    DateTime?
+  phone        String?
+  address      String?
+  myNumber     String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("family_members")
 }

@@ -42,31 +42,112 @@ export function SharedEmployeeFilters({
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
+  const [availableEmploymentTypes, setAvailableEmploymentTypes] = useState<{value: string, label: string}[]>([])
 
-  // 部署と役職の一覧をlocalStorageから取得
+  // マスターデータをAPIから取得
+  const loadData = async () => {
+    try {
+      // APIからマスターデータを取得
+      const response = await fetch('/api/master-data')
+      const result = await response.json()
+      
+      console.log('マスターデータ取得結果:', result)
+      
+      // APIのレスポンス形式を確認（success.data または直接データ）
+      const masterData = result.data || result
+      
+      // 部署データを設定
+      if (masterData.department && Array.isArray(masterData.department)) {
+        const deptValues = masterData.department.map((item: any) => 
+          typeof item === 'string' ? item : item.value || item.label
+        )
+        setAvailableDepartments(deptValues)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('available-departments', JSON.stringify(deptValues))
+        }
+      }
+      
+      // 役職データを設定
+      if (masterData.position && Array.isArray(masterData.position)) {
+        const posValues = masterData.position.map((item: any) => 
+          typeof item === 'string' ? item : item.value || item.label
+        )
+        setAvailablePositions(posValues)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('available-positions', JSON.stringify(posValues))
+        }
+      }
+      
+      // 雇用形態データを設定
+      if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
+        const types = masterData.employeeType.map((item: any) => 
+          typeof item === 'string' ? { value: item, label: item } : item
+        )
+        setAvailableEmploymentTypes(types)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('employment-types', JSON.stringify(types))
+        }
+      }
+    } catch (error) {
+      console.error('マスターデータの取得エラー:', error)
+      // APIから取得できない場合はlocalStorageから取得
+      if (typeof window !== 'undefined') {
+        const savedDepartments = localStorage.getItem('available-departments')
+        if (savedDepartments) {
+          try {
+            setAvailableDepartments(JSON.parse(savedDepartments))
+          } catch (e) {
+            console.error('部署データのパースエラー:', e)
+          }
+        }
+        
+        const savedPositions = localStorage.getItem('available-positions')
+        if (savedPositions) {
+          try {
+            setAvailablePositions(JSON.parse(savedPositions))
+          } catch (e) {
+            console.error('役職データのパースエラー:', e)
+          }
+        }
+        
+        const savedEmploymentTypes = localStorage.getItem('employment-types')
+        if (savedEmploymentTypes) {
+          try {
+            setAvailableEmploymentTypes(JSON.parse(savedEmploymentTypes))
+          } catch (e) {
+            console.error('雇用形態データのパースエラー:', e)
+          }
+        }
+      }
+    }
+  }
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // 部署管理から取得
-      const savedDepartments = localStorage.getItem('available-departments')
-      if (savedDepartments) {
-        try {
-          const departments = JSON.parse(savedDepartments)
-          setAvailableDepartments(departments)
-        } catch (error) {
-          console.error('部署データの取得エラー:', error)
-        }
-      }
+    loadData()
+  }, [])
 
-      // 役職管理から取得
-      const savedPositions = localStorage.getItem('available-positions')
-      if (savedPositions) {
-        try {
-          const positions = JSON.parse(savedPositions)
-          setAvailablePositions(positions)
-        } catch (error) {
-          console.error('役職データの取得エラー:', error)
-        }
+  // localStorage変更を監視してプルダウンを更新
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'available-departments' || e.key === 'available-positions' || e.key === 'employment-types') {
+        loadData()
       }
+    }
+
+    const handleCustomStorageChange = () => {
+      loadData()
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('departmentsChanged', handleCustomStorageChange)
+    window.addEventListener('positionsChanged', handleCustomStorageChange)
+    window.addEventListener('employmentTypesChanged', handleCustomStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('departmentsChanged', handleCustomStorageChange)
+      window.removeEventListener('positionsChanged', handleCustomStorageChange)
+      window.removeEventListener('employmentTypesChanged', handleCustomStorageChange)
     }
   }, [])
 
@@ -129,13 +210,23 @@ export function SharedEmployeeFilters({
             <SelectValue placeholder="雇用形態" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">雇用形態</SelectItem>
-            <SelectItem value="正社員">正社員</SelectItem>
-            <SelectItem value="契約社員">契約社員</SelectItem>
-            <SelectItem value="パートタイム">パートタイム</SelectItem>
-            <SelectItem value="業務委託">業務委託</SelectItem>
-            <SelectItem value="外注先">外注先</SelectItem>
-            <SelectItem value="派遣社員">派遣社員</SelectItem>
+            <SelectItem value="all">全雇用形態</SelectItem>
+            {availableEmploymentTypes.length > 0 ? (
+              availableEmploymentTypes.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))
+            ) : (
+              <>
+                <SelectItem value="正社員">正社員</SelectItem>
+                <SelectItem value="契約社員">契約社員</SelectItem>
+                <SelectItem value="パートタイム">パートタイム</SelectItem>
+                <SelectItem value="業務委託">業務委託</SelectItem>
+                <SelectItem value="外注先">外注先</SelectItem>
+                <SelectItem value="派遣社員">派遣社員</SelectItem>
+              </>
+            )}
           </SelectContent>
         </Select>
 

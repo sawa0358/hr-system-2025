@@ -83,8 +83,8 @@ export async function GET(
       }
     }
 
-    // 開発環境ではローカルファイルシステムから、本番環境ではS3からダウンロード
-    const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
+    // AWS_S3_BUCKET_NAMEが設定されていればS3から取得（環境に関係なく）
+    const isProduction = !!process.env.AWS_S3_BUCKET_NAME;
     
     if (isProduction) {
       try {

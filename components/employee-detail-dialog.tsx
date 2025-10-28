@@ -1792,31 +1792,35 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         )}
                       </div>
                       {canEditProfile && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Input
-                              placeholder="何文字でも登録可能"
-                              value={avatarText}
-                              onChange={async (e) => {
-                                const text = e.target.value
-                                setAvatarText(text)
-                                // データベースに保存
-                                if (employee?.id) {
-                                  try {
-                                    await fetch(`/api/employees/${employee.id}/settings`, {
-                                      method: 'PUT',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ key: 'avatar-text', value: text })
-                                    })
-                                  } catch (error) {
-                                    console.error('ユーザー設定保存エラー:', error)
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="何文字でも登録可能"
+                            value={avatarText}
+                            onChange={(e) => {
+                              setAvatarText(e.target.value)
+                            }}
+                            onBlur={async (e) => {
+                              // フォーカスが外れた時に保存
+                              const text = e.target.value
+                              if (employee?.id) {
+                                try {
+                                  // S3に保存（UserSettings形式）
+                                  const response = await fetch(`/api/employees/${employee.id}/settings`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ key: 'avatar-text', value: text })
+                                  })
+                                  if (!response.ok) {
+                                    console.error('アバターテキスト保存失敗')
                                   }
+                                } catch (error) {
+                                  console.error('アバターテキスト保存エラー:', error)
                                 }
-                              }}
-                              className="w-32 h-8 text-sm"
-                            />
-                            <span className="text-xs text-slate-500">（表示は1-3文字）</span>
-                          </div>
+                              }
+                            }}
+                            className="w-32 h-8 text-sm"
+                          />
+                          <span className="text-xs text-slate-500">（表示は1-3文字）</span>
                         </div>
                       )}
                     </div>

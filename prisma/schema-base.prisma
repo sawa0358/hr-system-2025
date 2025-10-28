@@ -50,6 +50,7 @@ model Employee {
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
+  avatar                String?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   showInOrgChart        Boolean           @default(true)
@@ -98,6 +99,9 @@ model Employee {
   
   // カスタムフォルダ関係
   customFolders         CustomFolder[] @relation("CustomFolderEmployee")
+  
+  // ユーザー設定関係
+  userSettings          UserSettings[] @relation("UserSettingsEmployee")
 
   @@map("employees")
 }
@@ -354,4 +358,17 @@ model CustomFolder {
   updatedAt  DateTime @updatedAt
 
   @@map("custom_folders")
+}
+
+model UserSettings {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id])
+  key        String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, key])
+  @@map("user_settings")
 }

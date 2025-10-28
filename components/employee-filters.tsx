@@ -46,37 +46,42 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           console.log('マスターデータ:', masterData)
           
           // 部署データを設定
-          if (masterData.departments) {
-            console.log('部署データを設定:', masterData.departments)
-            setAvailableDepartments(masterData.departments)
+          if (masterData.department && Array.isArray(masterData.department)) {
+            const deptValues = masterData.department.map((item: any) => 
+              typeof item === 'string' ? item : item.value || item.label
+            )
+            console.log('部署データを設定:', deptValues)
+            setAvailableDepartments(deptValues)
             // localStorageにも保存
-            localStorage.setItem('available-departments', JSON.stringify(masterData.departments))
+            localStorage.setItem('available-departments', JSON.stringify(deptValues))
           } else {
-            console.warn('部署データが取得できませんでした')
+            console.warn('部署データが取得できませんでした', masterData)
           }
           
           // 役職データを設定
-          if (masterData.positions) {
-            console.log('役職データを設定:', masterData.positions)
-            setAvailablePositions(masterData.positions)
+          if (masterData.position && Array.isArray(masterData.position)) {
+            const posValues = masterData.position.map((item: any) => 
+              typeof item === 'string' ? item : item.value || item.label
+            )
+            console.log('役職データを設定:', posValues)
+            setAvailablePositions(posValues)
             // localStorageにも保存
-            localStorage.setItem('available-positions', JSON.stringify(masterData.positions))
+            localStorage.setItem('available-positions', JSON.stringify(posValues))
           } else {
-            console.warn('役職データが取得できませんでした')
+            console.warn('役職データが取得できませんでした', masterData)
           }
           
           // 雇用形態データを設定
-          if (masterData.employmentTypes) {
-            const employmentTypes = masterData.employmentTypes.map((type: string) => ({
-              value: type,
-              label: type
-            }))
+          if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
+            const employmentTypes = masterData.employeeType.map((item: any) => 
+              typeof item === 'string' ? { value: item, label: item } : item
+            )
             console.log('雇用形態データを設定:', employmentTypes)
             setAvailableEmploymentTypes(employmentTypes)
             // localStorageにも保存
             localStorage.setItem('employment-types', JSON.stringify(employmentTypes))
           } else {
-            console.warn('雇用形態データが取得できませんでした')
+            console.warn('雇用形態データが取得できませんでした', masterData)
           }
         } else {
           // APIから取得できない場合はlocalStorageから取得

@@ -120,10 +120,10 @@ export async function GET(request: NextRequest) {
 
     // 特定のタイプが指定されている場合はそのタイプのみ返す
     if (type && groupedData[type as keyof typeof groupedData]) {
-      return NextResponse.json({ [type]: groupedData[type as keyof typeof groupedData] })
+      return NextResponse.json({ success: true, data: { [type]: groupedData[type as keyof typeof groupedData] } })
     }
 
-    return NextResponse.json(groupedData)
+    return NextResponse.json({ success: true, data: groupedData })
   } catch (error) {
     console.error('マスターデータ取得エラー:', error)
     return NextResponse.json(

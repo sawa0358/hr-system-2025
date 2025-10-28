@@ -64,8 +64,8 @@ export async function handleFileUpload(
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${file.name}`;
     
-    // 開発環境ではローカルファイルシステムを使用、本番環境ではS3を使用
-    const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
+    // AWS_S3_BUCKET_NAMEが設定されていればS3を使用（環境に関係なく）
+    const isProduction = !!process.env.AWS_S3_BUCKET_NAME;
     
     let uploadResult;
     

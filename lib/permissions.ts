@@ -216,7 +216,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: false,
-    createWorkspace: true,
+    createWorkspace: false, // 総務・管理者のみ
     editWorkspace: false,
     deleteWorkspace: false,
     addWorkspaceMembers: false,
@@ -268,7 +268,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
-    createWorkspace: true,
+    createWorkspace: false, // 総務・管理者のみ
     editWorkspace: true,
     deleteWorkspace: false,
     addWorkspaceMembers: true,
@@ -320,7 +320,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
-    createWorkspace: true,
+    createWorkspace: false, // 総務・管理者のみ
     editWorkspace: true,
     deleteWorkspace: true,
     addWorkspaceMembers: true,

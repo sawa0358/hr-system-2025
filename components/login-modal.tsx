@@ -129,7 +129,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
             />
             <label
               htmlFor="remember"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
             >
               ログイン情報を保存
             </label>

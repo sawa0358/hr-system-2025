@@ -338,6 +338,10 @@ model FamilyMember {
   name       String
   relationship String
   birthDate  DateTime?
+  phone      String?
+  address    String?
+  myNumber   String?
+  description String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

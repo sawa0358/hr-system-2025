@@ -249,10 +249,49 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setFormData(prev => ({
         ...prev,
         isSuspended: latestEmployee.isSuspended ?? false,
-        employeeType: latestEmployee.employeeType || '正社員'
+        employeeType: latestEmployee.employeeType || '正社員',
+        description: latestEmployee.description || ''
       }))
       console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
       console.log('formData更新 - employeeType:', latestEmployee.employeeType)
+      console.log('formData更新 - description:', latestEmployee.description)
+      
+      // 家族構成も更新
+      if (latestEmployee.familyMembers && Array.isArray(latestEmployee.familyMembers)) {
+        const mappedFamilyMembers = latestEmployee.familyMembers.map((member: any) => {
+          let birthday = '';
+          if (member.birthDate) {
+            try {
+              const date = new Date(member.birthDate);
+              if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                birthday = `${year}/${month}/${day}`;
+              }
+            } catch (error) {
+              console.error('誕生日の変換エラー:', error, member.birthDate);
+            }
+          }
+          
+          return {
+            id: member.id || `temp-${Date.now()}-${Math.random()}`,
+            name: member.name || '',
+            relationship: member.relationship || '',
+            phone: member.phone || '',
+            birthday: birthday,
+            livingSeparately: member.livingSeparately || false,
+            address: member.address || '',
+            myNumber: member.myNumber || '',
+            description: member.description || '',
+          };
+        });
+        console.log('latestEmployee更新: 家族構成を設定します', mappedFamilyMembers);
+        setFamilyMembers(mappedFamilyMembers);
+      } else if (latestEmployee.familyMembers === null || latestEmployee.familyMembers === undefined) {
+        console.log('latestEmployee更新: 家族構成が空なので空配列に設定します');
+        setFamilyMembers([]);
+      }
     }
   }, [latestEmployee, isNewEmployee])
 

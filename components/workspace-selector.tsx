@@ -35,6 +35,7 @@ interface WorkspaceSelectorProps {
   canCreateWorkspace?: boolean
   canEditWorkspace?: boolean
   canDeleteWorkspace?: boolean
+  isAdmin?: boolean // 管理者かどうか（管理者のみ検索時に全ワークスペースを取得）
 }
 
 export function WorkspaceSelector({
@@ -48,10 +49,18 @@ export function WorkspaceSelector({
   canCreateWorkspace = false,
   canEditWorkspace = false,
   canDeleteWorkspace = false,
+  isAdmin = false,
 }: WorkspaceSelectorProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [showSearch, setShowSearch] = useState(false)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [allWorkspaces, setAllWorkspaces] = useState<Workspace[]>(workspaces) // 検索時の全ワークスペース用
+  const [isLoadingSearch, setIsLoadingSearch] = useState(false)
+
+  // workspacesが変更されたらallWorkspacesも更新
+  useEffect(() => {
+    setAllWorkspaces(workspaces)
+  }, [workspaces])
 
   // 検索クエリのデバウンス
   useEffect(() => {
@@ -62,29 +71,57 @@ export function WorkspaceSelector({
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // 管理者が検索モードに入った時に全ワークスペースを取得
+  useEffect(() => {
+    const fetchAllWorkspaces = async () => {
+      if (!isAdmin || !showSearch) return
+
+      try {
+        setIsLoadingSearch(true)
+        const response = await fetch('/api/workspaces?search=true', {
+          headers: {
+            'x-employee-id': currentUserId || '',
+          },
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setAllWorkspaces(data.workspaces || [])
+        }
+      } catch (error) {
+        console.error('全ワークスペースの取得に失敗:', error)
+      } finally {
+        setIsLoadingSearch(false)
+      }
+    }
+
+    fetchAllWorkspaces()
+  }, [showSearch, isAdmin, currentUserId])
+
+  // 検索モードが終了したら元のワークスペースリストに戻す
+  useEffect(() => {
+    if (!showSearch) {
+      setAllWorkspaces(workspaces)
+      setSearchQuery("")
+    }
+  }, [showSearch, workspaces])
+
   // ワークスペースのフィルタリング
   const filteredWorkspaces = useMemo(() => {
-    console.log('[WorkspaceSelector] Filtering workspaces:', {
-      total: workspaces.length,
-      workspaces: workspaces.map(w => ({ id: w.id, name: w.name })),
-      showSearch,
-      debouncedSearchQuery,
-      currentUserId
-    })
-    
+    // 検索モードでない場合は、元のワークスペースリスト（所属ワークスペースのみ）を表示
+    // 管理者もデフォルトでは一般ユーザーと同じ（所属ワークスペースのみ）
     if (!showSearch || !debouncedSearchQuery) {
-      // 検索モードでない場合は全ワークスペースを表示
-      // （管理者の場合は全ワークスペース、一般ユーザーの場合は所属ワークスペースのみがAPIから返される）
       return workspaces
     }
     
-    // 検索時は全ワークスペースから検索（部分一致）
+    // 検索時は管理者の場合のみ全ワークスペースから検索、一般ユーザーは所属ワークスペースから検索
+    const searchTarget = isAdmin ? allWorkspaces : workspaces
     const query = debouncedSearchQuery.toLowerCase()
-    return workspaces.filter(workspace => 
+    return searchTarget.filter(workspace => 
       workspace.name.toLowerCase().includes(query) ||
       workspace.description?.toLowerCase().includes(query)
     )
-  }, [workspaces, debouncedSearchQuery, showSearch, currentUserId])
+  }, [workspaces, allWorkspaces, debouncedSearchQuery, showSearch, isAdmin])
 
   const currentWorkspaceData = workspaces.find(w => w.id === currentWorkspace)
 
@@ -99,7 +136,7 @@ export function WorkspaceSelector({
             <SelectValue placeholder="ワークスペースを選んでください" />
           </SelectTrigger>
                   <SelectContent>
-                    {showSearch && (
+                    {showSearch && isAdmin && (
                       <div className="px-2 pb-2 sticky top-0 bg-white z-10">
                         <div className="relative">
                           <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-500" />
@@ -113,7 +150,7 @@ export function WorkspaceSelector({
                         </div>
                       </div>
                     )}
-                    {!showSearch && (
+                    {!showSearch && isAdmin && (
                       <div className="px-2 pb-2">
                         <Button
                           variant="ghost"
@@ -122,11 +159,11 @@ export function WorkspaceSelector({
                           className="w-full justify-start text-slate-600 hover:text-slate-900"
                         >
                           <Search className="w-4 h-4 mr-2" />
-                          ワークスペースを検索
+                          ワークスペースを検索（全ワークスペース）
                         </Button>
                       </div>
                     )}
-                    {showSearch && (
+                    {showSearch && isAdmin && (
                       <div className="px-2 pb-2">
                         <Button
                           variant="ghost"
@@ -142,7 +179,11 @@ export function WorkspaceSelector({
                         </Button>
                       </div>
                     )}
-                    {filteredWorkspaces.length === 0 ? (
+                    {isLoadingSearch ? (
+                      <div className="px-2 py-4 text-center text-sm text-slate-500">
+                        読み込み中...
+                      </div>
+                    ) : filteredWorkspaces.length === 0 ? (
                       <div className="px-2 py-4 text-center text-sm text-slate-500">
                         該当するワークスペースが見つかりません
                       </div>

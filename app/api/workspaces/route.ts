@@ -26,16 +26,13 @@ export async function GET(request: NextRequest) {
 
     const permissions = getPermissions(userRole)
 
-    // 管理者のみ全ワークスペースを取得
-    if (permissions.viewAllWorkspaces) {
-      try {
-        // まずは最小限のフィールドで取得（環境差異の切り分け用）
-        const minimal = await prisma.workspace.findMany({
-          select: { id: true, name: true, createdBy: true },
-          orderBy: { createdAt: "desc" },
-        })
-        console.log("[v0] /api/workspaces minimal count:", minimal.length)
+    // クエリパラメータで検索モードか確認（管理者が検索時に全ワークスペースを取得するため）
+    const searchParams = request.nextUrl.searchParams
+    const isSearchMode = searchParams.get("search") === "true"
 
+    // 管理者が検索モードの場合は全ワークスペースを取得
+    if (permissions.viewAllWorkspaces && isSearchMode) {
+      try {
         // 詳細情報を付与
         const workspaces = await prisma.workspace.findMany({
           include: {
@@ -49,7 +46,7 @@ export async function GET(request: NextRequest) {
         })
         return NextResponse.json({ workspaces })
       } catch (innerError) {
-        console.error("[v0] /api/workspaces admin query failed, fallback to minimal:", innerError)
+        console.error("[v0] /api/workspaces admin search query failed, fallback to minimal:", innerError)
         const workspaces = await prisma.workspace.findMany({
           select: { id: true, name: true, createdBy: true },
           orderBy: { createdAt: "desc" },
@@ -58,10 +55,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 一般ユーザーは所属ワークスペースのみ取得
+    // デフォルトは全ユーザー（管理者含む）が所属ワークスペースのみ取得
     const workspaces = await prisma.workspace.findMany({
       where: { members: { some: { employeeId: userId } } },
-      select: { id: true, name: true, createdBy: true },
+      include: {
+        creator: { select: { id: true, name: true } },
+        members: {
+          include: { employee: { select: { id: true, name: true } } },
+        },
+        _count: { select: { boards: true, members: true } },
+      },
       orderBy: { createdAt: "desc" },
     })
 

@@ -734,6 +734,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             onEditWorkspace={handleEditWorkspace}
             onDeleteWorkspace={handleDeleteWorkspace}
             canCreateWorkspace={permissions?.createWorkspace || false}
+            isAdmin={currentUser?.role === 'admin' || false}
             canEditWorkspace={(() => {
               console.log('[canEditWorkspace] Debug info:', {
                 currentWorkspace,

@@ -1162,7 +1162,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             'x-employee-id': currentUserId || '',
           },
           body: JSON.stringify({
-            name: listName,
+            title: listName,
           }),
         })
 

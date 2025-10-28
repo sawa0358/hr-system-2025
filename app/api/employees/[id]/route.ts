@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { 
   saveEmployeeToS3, 
-  getEmployeeFromS3, 
-  saveFamilyMembersToS3, 
-  getFamilyMembersFromS3 
+  saveFamilyMembersToS3
 } from '@/lib/s3-client';
 
 // JSON配列をパースするヘルパー関数
@@ -27,31 +25,20 @@ export async function GET(
   try {
     console.log(`社員詳細取得開始: ${params.id}`);
     
-    // S3から優先的にデータを取得
-    const s3EmployeeResult = await getEmployeeFromS3(params.id);
-    const s3FamilyResult = await getFamilyMembersFromS3(params.id);
+    // データベースから優先的に取得（最新データを確実に取得）
+    console.log(`データベースから社員情報を取得: ${params.id}`);
+    const employee = await prisma.employee.findUnique({
+      where: { id: params.id }
+    });
     
-    let employee, familyMembers;
+    console.log(`データベースから家族構成を取得: ${params.id}`);
+    const familyMembers = await prisma.familyMember.findMany({
+      where: { employeeId: params.id }
+    });
     
-    if (s3EmployeeResult.success && s3EmployeeResult.data) {
-      console.log(`S3から社員情報を取得: ${params.id}`);
-      employee = s3EmployeeResult.data;
-    } else {
-      console.log(`データベースから社員情報を取得: ${params.id}`);
-      employee = await prisma.employee.findUnique({
-        where: { id: params.id }
-      });
-    }
-    
-    if (s3FamilyResult.success && s3FamilyResult.data) {
-      console.log(`S3から家族構成を取得: ${params.id}`);
-      familyMembers = s3FamilyResult.data;
-    } else {
-      console.log(`データベースから家族構成を取得: ${params.id}`);
-      familyMembers = await prisma.familyMember.findMany({
-        where: { employeeId: params.id }
-      });
-    }
+    // S3バックアップの確認（データベースにデータがない場合の復元用）
+    // 現在はデータベースが主なデータソースのため、S3チェックは省略
+    // 将来的にデータ復元機能が必要な場合は、ここでS3チェックを追加
 
     if (!employee) {
       return NextResponse.json(
@@ -99,6 +86,10 @@ export async function PUT(
     console.log('isSuspended value:', body.isSuspended);
     console.log('retirementDate value:', body.retirementDate);
     console.log('furigana value:', body.furigana);
+    console.log('description value:', body.description);
+    console.log('body keys:', Object.keys(body));
+    console.log('has description:', 'description' in body);
+    console.log('has escription:', 'escription' in body);
     
     // 現在の社員データを取得してコピー社員かどうか確認
     const currentEmployee = await prisma.employee.findUnique({
@@ -350,12 +341,31 @@ export async function PUT(
 
     console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));
 
-    // undefinedとnullのフィールドを除外
-    const cleanedUpdateData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
-    );
+    // Prismaスキーマに存在する有効なフィールド名のリスト
+    const validEmployeeFields = [
+      'name', 'furigana', 'email', 'phone', 'department', 'position', 'organization',
+      'team', 'joinDate', 'status', 'password', 'role', 'myNumber', 'userId', 'url',
+      'address', 'selfIntroduction', 'phoneInternal', 'phoneMobile', 'birthDate',
+      'showInOrgChart', 'parentEmployeeId', 'isInvisibleTop', 'isSuspended',
+      'retirementDate', 'privacyDisplayName', 'privacyOrganization', 'privacyDepartment',
+      'privacyPosition', 'privacyUrl', 'privacyAddress', 'privacyBio', 'privacyEmail',
+      'privacyWorkPhone', 'privacyExtension', 'privacyMobilePhone', 'privacyBirthDate',
+      'orgChartLabel', 'description', 'employeeNumber', 'employeeType', 'employeeId'
+    ];
+
+    // undefinedのフィールドのみ除外し、有効なフィールド名のみを含める（nullは残す）
+    const cleanedUpdateData: any = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      // 有効なフィールド名のみ許可し、値がundefinedでないものを含める
+      if (validEmployeeFields.includes(key) && value !== undefined) {
+        cleanedUpdateData[key] = value;
+      } else if (!validEmployeeFields.includes(key)) {
+        console.warn(`無効なフィールド名が検出されました: ${key} - スキップします`);
+      }
+    }
 
     console.log('Cleaned update data:', JSON.stringify(cleanedUpdateData, null, 2));
+    console.log('Cleaned update data keys:', Object.keys(cleanedUpdateData));
 
     const employee = await prisma.employee.update({
       where: { id: params.id },
@@ -481,6 +491,15 @@ export async function PUT(
       code: error.code,
       stack: error.stack
     });
+    
+    // Prismaバリデーションエラーの場合、より詳細な情報を出力
+    if (error.name === 'PrismaClientValidationError') {
+      console.error('Prismaバリデーションエラー詳細:', {
+        message: error.message,
+        cause: error.cause,
+        meta: (error as any).meta
+      });
+    }
     
     if (error.code === 'P2002') {
       return NextResponse.json(

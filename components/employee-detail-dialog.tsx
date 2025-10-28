@@ -683,6 +683,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         requestBody: requestBody.furigana,
         type: typeof requestBody.furigana
       })
+      console.log('descriptionフィールドの送信値:', {
+        formData: formData.description,
+        requestBody: requestBody.description,
+        type: typeof requestBody.description,
+        hasDescription: 'description' in requestBody,
+        requestBodyKeys: Object.keys(requestBody)
+      })
       
       const response = await fetch(url, {
         method,

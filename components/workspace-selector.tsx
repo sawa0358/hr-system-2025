@@ -64,21 +64,17 @@ export function WorkspaceSelector({
 
   // ワークスペースのフィルタリング
   const filteredWorkspaces = useMemo(() => {
+    console.log('[WorkspaceSelector] Filtering workspaces:', {
+      total: workspaces.length,
+      workspaces: workspaces.map(w => ({ id: w.id, name: w.name })),
+      showSearch,
+      debouncedSearchQuery,
+      currentUserId
+    })
+    
     if (!showSearch || !debouncedSearchQuery) {
-      // 検索モードでない場合は通常のフィルタリング
-      if (currentUserId) {
-        return workspaces.filter(workspace => {
-          // マイワークスペースの判定
-          const isMyWorkspace = workspace.name === `${workspaces.find(w => w.createdBy === currentUserId)?.name || 'ユーザー'}のマイワークスペース`
-          const isOthersMyWorkspace = workspace.name.includes('のマイワークスペース') && workspace.createdBy !== currentUserId
-          
-          // 他人のマイワークスペースは非表示（検索時のみ表示）
-          if (isOthersMyWorkspace) return false
-          
-          // 通常のワークスペース（自分がメンバーの場合）は表示
-          return true
-        })
-      }
+      // 検索モードでない場合は全ワークスペースを表示
+      // （管理者の場合は全ワークスペース、一般ユーザーの場合は所属ワークスペースのみがAPIから返される）
       return workspaces
     }
     

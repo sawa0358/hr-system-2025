@@ -222,9 +222,9 @@ export async function POST(request: NextRequest) {
     };
 
     // S3に保存
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     const key = `task-management/full-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;

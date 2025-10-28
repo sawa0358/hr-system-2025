@@ -16,9 +16,9 @@ const s3Client = new S3Client({
 // 利用可能なタスク管理バックアップの一覧を取得
 export async function GET(request: NextRequest) {
   try {
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     const command = new ListObjectsV2Command({
@@ -70,9 +70,9 @@ export async function POST(request: NextRequest) {
     console.log(`🔄 タスク管理全体の復元を開始します: ${s3Key}`);
     console.log(`復元モード: ${restoreMode}`);
 
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     // S3からバックアップデータを取得

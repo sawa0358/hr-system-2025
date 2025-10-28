@@ -1028,6 +1028,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             onRefresh?.()
           } else {
             console.log("[v0] Lists reordered successfully")
+            
+            // リスト変更イベントを発火（S3自動保存用）
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('listChanged'))
+            }
           }
         } catch (error) {
           console.error("[v0] Error reordering lists:", error)
@@ -1130,6 +1135,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           // Optionally revert local state change
         } else {
           console.log('Card position updated successfully')
+          
+          // カード変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cardChanged'))
+          }
         }
       } catch (error) {
         console.error('Error updating card position:', error)
@@ -1169,6 +1179,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         if (response.ok) {
           const newListData = await response.json()
           console.log("[v0] List created successfully:", newListData)
+          
+          // リスト変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('listChanged'))
+          }
           
           // ボードデータを再取得してUIを更新
           onRefresh?.()
@@ -1215,6 +1230,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           setLists(lists.map(l => 
             l.id === listId ? { ...l, title: newTitle } : l
           ))
+          
+          // リスト変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('listChanged'))
+          }
+          
           if (onRefresh) onRefresh()
         } else {
           alert('リストの更新に失敗しました')
@@ -1252,6 +1273,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
         if (response.ok) {
           setLists(lists.filter(l => l.id !== listId))
+          
+          // リスト変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('listChanged'))
+          }
+          
           if (onRefresh) onRefresh()
         } else {
           alert('リストの削除に失敗しました')
@@ -1494,6 +1521,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         )
         
         setAddCardDialogOpen(false)
+        
+        // カード変更イベントを発火（S3自動保存用）
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cardChanged'))
+        }
         
         // ボードデータを再取得
         if (onRefresh) {

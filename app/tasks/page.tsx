@@ -52,6 +52,7 @@ export default function TasksPage() {
   // 社員データ
   const [employees, setEmployees] = useState<any[]>([])
   const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
 
   // 社員データとワークスペースを並行して取得
   useEffect(() => {
@@ -95,6 +96,93 @@ export default function TasksPage() {
       setWorkspaces([])
     }
   }, [currentUser])
+
+  // ワークスペース変更時にS3に自動保存
+  useEffect(() => {
+    if (!currentUser?.id || !currentWorkspace) return
+
+    const handleWorkspaceSave = async () => {
+      if (isAutoSaving) return // 既に保存中の場合はスキップ
+
+      try {
+        setIsAutoSaving(true)
+        const response = await fetch('/api/workspaces/save', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUser.id,
+          },
+          body: JSON.stringify({ workspaceId: currentWorkspace }),
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          console.log('[自動保存] ワークスペースをS3に保存しました:', result.data?.workspaceName)
+        } else {
+          console.error('[自動保存] ワークスペースの保存に失敗:', await response.text())
+        }
+      } catch (error) {
+        console.error('[自動保存] エラー:', error)
+      } finally {
+        setIsAutoSaving(false)
+      }
+    }
+
+    // 自動保存用のタイマー
+    let saveTimeout: NodeJS.Timeout | null = null
+
+    const triggerAutoSave = () => {
+      if (saveTimeout) {
+        clearTimeout(saveTimeout)
+      }
+
+      // デバウンス処理（3秒後に保存）
+      saveTimeout = setTimeout(() => {
+        handleWorkspaceSave()
+      }, 3000)
+    }
+
+    // 各種イベントを監視
+    const handleWorkspaceChanged = () => {
+      if (currentWorkspace) {
+        triggerAutoSave()
+      }
+    }
+
+    const handleBoardChanged = () => {
+      if (currentWorkspace) {
+        triggerAutoSave()
+      }
+    }
+
+    const handleCardChanged = () => {
+      if (currentWorkspace) {
+        triggerAutoSave()
+      }
+    }
+
+    const handleListChanged = () => {
+      if (currentWorkspace) {
+        triggerAutoSave()
+      }
+    }
+
+    // イベントリスナーの登録
+    window.addEventListener('workspaceChanged', handleWorkspaceChanged)
+    window.addEventListener('boardChanged', handleBoardChanged)
+    window.addEventListener('cardChanged', handleCardChanged)
+    window.addEventListener('listChanged', handleListChanged)
+
+    return () => {
+      window.removeEventListener('workspaceChanged', handleWorkspaceChanged)
+      window.removeEventListener('boardChanged', handleBoardChanged)
+      window.removeEventListener('cardChanged', handleCardChanged)
+      window.removeEventListener('listChanged', handleListChanged)
+      if (saveTimeout) {
+        clearTimeout(saveTimeout)
+      }
+    }
+  }, [currentWorkspace, currentUser?.id, isAutoSaving])
 
   // ワークスペースが変更されたらlocalStorageに保存し、ボード一覧を取得
   useEffect(() => {
@@ -411,6 +499,11 @@ export default function TasksPage() {
           console.log("Workspace updated successfully:", result.workspace)
           await fetchWorkspaces() // ワークスペースリストを更新
           
+          // ワークスペース変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('workspaceChanged'))
+          }
+          
           // 現在選択中のワークスペースの場合、ボードもリフレッシュ
           if (currentWorkspace === editingWorkspace.id && currentBoard) {
             await fetchBoardData(currentBoard)
@@ -440,6 +533,12 @@ export default function TasksPage() {
           console.log("Workspace created successfully:", result.workspace)
           fetchWorkspaces()
           setCurrentWorkspace(result.workspace.id)
+          
+          // ワークスペース変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('workspaceChanged'))
+          }
+          
           setWorkspaceDialogOpen(false)
           setEditingWorkspace(null)
           console.log("Current workspace set to:", result.workspace.id)
@@ -503,6 +602,12 @@ export default function TasksPage() {
         setWorkspaceDialogOpen(false)
         setEditingWorkspace(null)
         setCurrentWorkspace(null)
+        
+        // ワークスペース変更イベントを発火（S3自動保存用）
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('workspaceChanged'))
+        }
+        
         fetchWorkspaces()
       } else {
         const errorData = await response.json()

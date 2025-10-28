@@ -1157,6 +1157,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           }
         }
         
+        // カード変更イベントを発火（S3自動保存用）
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cardChanged'))
+        }
+        
         if (onRefresh) {
           onRefresh()
         }
@@ -1193,6 +1198,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
         if (response.ok) {
           console.log("Task deleted successfully")
+          
+          // カード変更イベントを発火（S3自動保存用）
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('cardChanged'))
+          }
+          
           if (onRefresh) {
             onRefresh()
           }

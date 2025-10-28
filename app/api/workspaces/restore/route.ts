@@ -99,9 +99,9 @@ interface WorkspaceMemberData {
 // 利用可能なワークスペースバックアップの一覧を取得
 export async function GET(request: NextRequest) {
   try {
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     const command = new ListObjectsV2Command({
@@ -152,9 +152,9 @@ export async function POST(request: NextRequest) {
 
     console.log(`🔄 ワークスペースの復元を開始します: ${s3Key}`);
 
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     // S3からワークスペースデータを取得
@@ -327,21 +327,28 @@ export async function POST(request: NextRequest) {
     console.log(`✅ ワークスペース「${result.name}」を復元しました`);
 
     // 復元履歴を記録
-    await prisma.activityLog.create({
-      data: {
-        userId: 'system',
-        action: 'workspace_restored_from_s3',
-        details: JSON.stringify({
-          s3Key: s3Key,
-          workspaceId: result.id,
-          workspaceName: result.name,
-          originalTimestamp: saveData.timestamp,
-          restoreTimestamp: new Date().toISOString()
-        }),
-        ipAddress: '127.0.0.1',
-        userAgent: 'system-restore'
-      }
-    });
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: 'system',
+          userName: 'システム', // userNameフィールドを追加
+          action: 'workspace_restored_from_s3',
+          module: 'workspace', // moduleフィールドを追加
+          details: JSON.stringify({
+            s3Key: s3Key,
+            workspaceId: result.id,
+            workspaceName: result.name,
+            originalTimestamp: saveData.timestamp,
+            restoreTimestamp: new Date().toISOString()
+          }),
+          ipAddress: '127.0.0.1',
+          userAgent: 'system-restore'
+        }
+      });
+    } catch (logError) {
+      // ActivityLogの記録に失敗しても復元は成功しているため、警告のみ
+      console.warn('アクティビティログの記録に失敗しました:', logError);
+    }
 
     return NextResponse.json({
       success: true,

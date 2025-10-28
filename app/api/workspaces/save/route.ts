@@ -264,12 +264,15 @@ export async function POST(request: NextRequest) {
     };
 
     // S3に保存
-    const bucketName = process.env.S3_BUCKET_NAME;
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('S3_BUCKET_NAME環境変数が設定されていません');
+      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
     }
 
     const key = `workspaces/workspace-${workspace.id}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    
+    // S3メタデータはASCII文字のみ許可されるため、日本語名をエンコード
+    const safeWorkspaceName = Buffer.from(workspace.name, 'utf-8').toString('base64');
     
     const command = new PutObjectCommand({
       Bucket: bucketName,
@@ -279,7 +282,7 @@ export async function POST(request: NextRequest) {
       Metadata: {
         'workspace-version': '1.0',
         'workspace-id': workspace.id,
-        'workspace-name': workspace.name,
+        'workspace-name': safeWorkspaceName, // Base64エンコードされたワークスペース名
         'total-boards': workspace.boards.length.toString(),
         'total-cards': saveData.totalCards.toString(),
         'save-timestamp': new Date().toISOString(),
@@ -291,23 +294,30 @@ export async function POST(request: NextRequest) {
     console.log(`✅ ワークスペースをS3に保存しました: s3://${bucketName}/${key}`);
 
     // データベースに保存履歴を記録
-    await prisma.activityLog.create({
-      data: {
-        userId: 'system',
-        action: 'workspace_saved_to_s3',
-        details: JSON.stringify({
-          s3Key: key,
-          workspaceId: workspace.id,
-          workspaceName: workspace.name,
-          totalBoards: workspace.boards.length,
-          totalCards: saveData.totalCards,
-          totalMembers: workspace.members.length,
-          timestamp: new Date().toISOString()
-        }),
-        ipAddress: '127.0.0.1',
-        userAgent: 'system-backup'
-      }
-    });
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: 'system',
+          userName: 'システム', // userNameフィールドを追加
+          action: 'workspace_saved_to_s3',
+          module: 'workspace', // moduleフィールドを追加
+          details: JSON.stringify({
+            s3Key: key,
+            workspaceId: workspace.id,
+            workspaceName: workspace.name,
+            totalBoards: workspace.boards.length,
+            totalCards: saveData.totalCards,
+            totalMembers: workspace.members.length,
+            timestamp: new Date().toISOString()
+          }),
+          ipAddress: '127.0.0.1',
+          userAgent: 'system-backup'
+        }
+      });
+    } catch (logError) {
+      // ActivityLogの記録に失敗してもS3への保存は成功しているため、警告のみ
+      console.warn('アクティビティログの記録に失敗しました:', logError);
+    }
 
     return NextResponse.json({
       success: true,

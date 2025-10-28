@@ -46,6 +46,18 @@ NEXTAUTH_URL=http://localhost:3000
 
 # 本番環境（Heroku）
 # NEXTAUTH_URL=https://your-app-name.herokuapp.com
+
+# =====================================
+# S3自動バックアップ設定
+# =====================================
+# 自動バックアップを有効化する場合 'true' に設定
+AUTO_S3_BACKUP=false
+
+# バックアップ実行間隔（時間単位、デフォルト: 24時間）
+BACKUP_INTERVAL_HOURS=24
+
+# アプリケーションのベースURL（スケジューラー用）
+NEXT_PUBLIC_BASE_URL=http://localhost:3007
 ```
 
 ## 📋 セットアップ手順

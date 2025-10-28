@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
+import { uploadBackupToS3, uploadLocalFileToS3 } from '@/lib/s3-client';
 
 // バックアップ設定
 const BACKUP_CONFIG = {
@@ -62,11 +63,42 @@ export async function POST(request: NextRequest) {
         
         console.log(`✅ バックアップ完了: ${destPath}`);
         
+        // S3へのアップロード（環境変数で有効化されている場合）
+        let s3Result = null;
+        if (process.env.AUTO_S3_BACKUP === 'true') {
+          try {
+            console.log('📤 S3へのアップロードを開始...');
+            const finalPath = BACKUP_CONFIG.compress ? `${destPath}.gz` : destPath;
+            
+            // ファイルが存在することを確認
+            if (fs.existsSync(finalPath)) {
+              s3Result = await uploadLocalFileToS3(finalPath, 'backups');
+              
+              if (s3Result.success) {
+                console.log(`✅ S3へのアップロード完了: ${s3Result.s3Path}`);
+              } else {
+                console.error(`⚠️  S3へのアップロード失敗: ${s3Result.error}`);
+              }
+            } else {
+              console.error(`⚠️  バックアップファイルが見つかりません: ${finalPath}`);
+              s3Result = { success: false, error: 'バックアップファイルが見つかりません' };
+            }
+          } catch (error) {
+            console.error('⚠️  S3アップロードエラー:', error);
+            s3Result = { 
+              success: false, 
+              error: error instanceof Error ? error.message : 'アップロードに失敗しました' 
+            };
+          }
+        }
+        
         return NextResponse.json({
           success: true,
           message: 'バックアップが完了しました',
           backupFile: destPath,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          s3Uploaded: s3Result?.success || false,
+          s3Path: s3Result?.s3Path
         });
       } else {
         throw new Error('バックアップファイルが生成されませんでした');

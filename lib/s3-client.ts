@@ -354,3 +354,90 @@ export async function getCustomFoldersFromS3(
     };
   }
 }
+
+/**
+ * データベースバックアップをS3にアップロード
+ */
+export async function uploadBackupToS3(
+  backupData: Buffer | string,
+  fileName: string,
+  contentType: string = 'application/json'
+): Promise<{ success: boolean; s3Path?: string; error?: string }> {
+  try {
+    const folder = 'backups';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const timestampedFileName = `${timestamp}-${fileName}`;
+    
+    const buffer = typeof backupData === 'string' ? Buffer.from(backupData, 'utf-8') : backupData;
+    
+    const result = await uploadFileToS3(
+      buffer,
+      timestampedFileName,
+      contentType,
+      folder
+    );
+    
+    if (result.success && result.filePath) {
+      console.log(`バックアップをS3に保存しました: ${result.filePath}`);
+      return { success: true, s3Path: result.filePath };
+    } else {
+      return { success: false, error: result.error || 'アップロードに失敗しました' };
+    }
+  } catch (error) {
+    console.error('S3バックアップアップロードエラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'アップロードに失敗しました',
+    };
+  }
+}
+
+/**
+ * ファイルをS3に直接アップロード（ファイルパスから）
+ */
+export async function uploadLocalFileToS3(
+  localFilePath: string,
+  s3Folder?: string
+): Promise<{ success: boolean; s3Path?: string; error?: string }> {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    if (!fs.existsSync(localFilePath)) {
+      return { success: false, error: 'ファイルが見つかりません' };
+    }
+    
+    const fileName = path.basename(localFilePath);
+    const fileContent = fs.readFileSync(localFilePath);
+    
+    // ファイル拡張子からContent-Typeを判定
+    const ext = path.extname(fileName).toLowerCase();
+    const contentTypeMap: Record<string, string> = {
+      '.json': 'application/json',
+      '.sql': 'text/sql',
+      '.db': 'application/octet-stream',
+      '.gz': 'application/gzip',
+      '.zip': 'application/zip',
+    };
+    const contentType = contentTypeMap[ext] || 'application/octet-stream';
+    
+    const result = await uploadFileToS3(
+      fileContent,
+      fileName,
+      contentType,
+      s3Folder
+    );
+    
+    if (result.success && result.filePath) {
+      return { success: true, s3Path: result.filePath };
+    } else {
+      return { success: false, error: result.error || 'アップロードに失敗しました' };
+    }
+  } catch (error) {
+    console.error('ローカルファイルS3アップロードエラー:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'アップロードに失敗しました',
+    };
+  }
+}

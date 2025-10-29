@@ -4,8 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, Mail, Phone, FileText, ArrowUpDown, SortAsc, SortDesc, ChevronDown, Copy } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Mail, Phone, FileText, ArrowUpDown, SortAsc, SortDesc, ChevronDown } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
 
@@ -467,7 +466,6 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
             <TableHead className="font-semibold">役職</TableHead>
             <TableHead className="font-semibold">入社日</TableHead>
             <TableHead className="font-semibold">ステータス</TableHead>
-            <TableHead className="w-12"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -536,9 +534,14 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                   <Avatar className="w-10 h-10">
                     <AvatarFallback 
                       employeeType={employee.employeeType}
-                      className="text-blue-700 font-semibold"
+                      className="text-blue-700 font-semibold whitespace-nowrap overflow-hidden"
                     >
-                      {employee.name.slice(0, 2)}
+                      {(() => {
+                        const text = typeof window !== 'undefined'
+                          ? (localStorage.getItem(`employee-avatar-text-${employee.id}`) || (employee.name || '未').slice(0, 3))
+                          : (employee.name || '未').slice(0, 3)
+                        return text.slice(0, 3)
+                      })()}
                     </AvatarFallback>
                   </Avatar>
                   <div>
@@ -609,165 +612,15 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
                 </div>
               </TableCell>
               <TableCell>
-                <span className="text-sm text-slate-600">{employee.joinDate}</span>
+                <span className="text-sm text-slate-600">
+                  {employee.joinDate ? new Date(employee.joinDate).toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                  }) : ''}
+                </span>
               </TableCell>
               <TableCell>{getStatusBadge(employee.status, employee.isSuspended)}</TableCell>
-              <TableCell>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className={`h-8 w-8 ${
-                        (employee.isInvisibleTop || employee.employeeNumber === '000')
-                          ? 'opacity-50 cursor-not-allowed'
-                          : ''
-                      }`}
-                      disabled={employee.isInvisibleTop || employee.employeeNumber === '000'}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEmployeeClick?.(employee)
-                      }}
-                    >
-                      詳細を見る
-                    </DropdownMenuItem>
-                    {/* 「見えないTOP」社員または社員番号000のみ編集・削除を無効化 */}
-                    {(employee.isInvisibleTop || employee.employeeNumber === '000') ? (
-                      <>
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          編集（変更不可）
-                        </DropdownMenuItem>
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          人事考課表を開く（変更不可）
-                        </DropdownMenuItem>
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          削除（削除不可）
-                        </DropdownMenuItem>
-                      </>
-                    ) : employee.status === 'copy' ? (
-                      <>
-                        {currentUser?.role === 'admin' ? (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onEmployeeClick?.(employee)
-                            }}
-                          >
-                            編集（管理者のみ）
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem disabled className="text-slate-400">
-                            編集（管理者のみ）
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          人事考課表を開く（コピー社員のため利用不可）
-                        </DropdownMenuItem>
-                        <DropdownMenuItem disabled className="text-slate-400">
-                          コピー（コピー社員は再コピー不可）
-                        </DropdownMenuItem>
-                        {currentUser?.role === 'admin' ? (
-                          <DropdownMenuItem 
-                            className="text-red-600" 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (confirm(`${employee.name} さんのコピー社員を削除しますか？この操作は取り消せません。`)) {
-                                handleDeleteEmployee(employee.id)
-                              }
-                            }}
-                          >
-                            削除（管理者のみ）
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem disabled className="text-slate-400">
-                            削除（管理者のみ）
-                          </DropdownMenuItem>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onEmployeeClick?.(employee)
-                          }}
-                        >
-                          編集
-                        </DropdownMenuItem>
-                        {canShowEvaluationButton(employee) && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onEvaluationClick?.(employee)
-                            }}
-                          >
-                            人事考課表を開く
-                          </DropdownMenuItem>
-                        )}
-                        {currentUser?.role === 'admin' && (
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (confirm(`${employee.name} さんの情報をコピーしますか？`)) {
-                                handleCopyEmployee(employee.id)
-                              }
-                            }}
-                          >
-                            <Copy className="w-4 h-4 mr-2" />
-                            コピー
-                          </DropdownMenuItem>
-                        )}
-                        {employee.status === 'copy' ? (
-                          // コピー社員の場合は管理者権限が必要
-                          currentUser?.role === 'admin' ? (
-                            <DropdownMenuItem 
-                              className="text-red-600" 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (confirm(`${employee.name} さん（コピー社員）を削除しますか？この操作は取り消せません。`)) {
-                                  handleDeleteEmployee(employee.id)
-                                }
-                              }}
-                            >
-                              削除
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem disabled className="text-slate-400">
-                              削除（管理者のみ）
-                            </DropdownMenuItem>
-                          )
-                        ) : (
-                          // 通常社員の場合は管理者権限が必要
-                          currentUser?.role === 'admin' ? (
-                            <DropdownMenuItem 
-                              className="text-red-600" 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (confirm(`${employee.name} さんを削除しますか？この操作は取り消せません。`)) {
-                                  handleDeleteEmployee(employee.id)
-                                }
-                              }}
-                            >
-                              削除
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem disabled className="text-slate-400">
-                              削除（管理者のみ）
-                            </DropdownMenuItem>
-                          )
-                        )}
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
             </TableRow>
           ))}
         </TableBody>

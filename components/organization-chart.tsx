@@ -564,10 +564,15 @@ function DraggableOrgNodeCard({
                 <AvatarFallback 
                   employeeType={node.employee?.employeeType}
                   className={`text-blue-700 font-semibold whitespace-nowrap overflow-hidden ${
-                    /^[a-zA-Z\s]+$/.test(node.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                    /^[a-zA-Z\s]+$/.test((typeof window !== 'undefined' ? (localStorage.getItem(`employee-avatar-text-${node.employee?.id}`) || node.name.slice(0, 3)) : node.name.slice(0, 3)).slice(0,3)) ? 'text-xs' : 'text-[10px]'
                   }`}
                 >
-                  {node.name.slice(0, 3)}
+                  {(() => {
+                    const text = typeof window !== 'undefined' 
+                      ? (localStorage.getItem(`employee-avatar-text-${node.employee?.id}`) || node.name.slice(0, 3))
+                      : node.name.slice(0, 3)
+                    return text.slice(0, 3)
+                  })()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 text-left min-w-0">
@@ -806,9 +811,14 @@ function UnassignedEmployeeCard({
             )}
             <Avatar className={`${isCompactMode ? 'w-5 h-5' : 'w-6 h-6'} flex-shrink-0`}>
               <AvatarFallback className={`bg-slate-100 text-slate-700 font-semibold whitespace-nowrap overflow-hidden ${
-                /^[a-zA-Z\s]+$/.test(employee.name.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                /^[a-zA-Z\s]+$/.test((typeof window !== 'undefined' ? (localStorage.getItem(`employee-avatar-text-${employee.id}`) || employee.name.slice(0, 3)) : employee.name.slice(0, 3)).slice(0,3)) ? 'text-xs' : 'text-[10px]'
               }`}>
-                {employee.name.slice(0, 3)}
+                {(() => {
+                  const text = typeof window !== 'undefined' 
+                    ? (localStorage.getItem(`employee-avatar-text-${employee.id}`) || employee.name.slice(0, 3))
+                    : employee.name.slice(0, 3)
+                  return text.slice(0, 3)
+                })()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 text-left min-w-0">
@@ -2109,7 +2119,12 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                       employeeType={activeNode.employee?.employeeType}
                       className="text-blue-700 font-semibold text-xs"
                     >
-                      {activeNode.name.slice(0, 2)}
+                      {(() => {
+                        const text = typeof window !== 'undefined' 
+                          ? (localStorage.getItem(`employee-avatar-text-${activeNode.employee?.id}`) || activeNode.name.slice(0, 2))
+                          : activeNode.name.slice(0, 2)
+                        return text.slice(0, 2)
+                      })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 text-left min-w-0">

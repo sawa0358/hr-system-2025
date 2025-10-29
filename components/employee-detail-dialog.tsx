@@ -111,6 +111,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
         if (settings['avatar-text']) {
           setAvatarText(settings['avatar-text'])
+          // ローカルストレージにも保存して全画面で共通利用
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`employee-avatar-text-${employeeId}`, settings['avatar-text'])
+            } catch {}
+          }
         }
       }
     } catch (error) {

@@ -372,3 +372,16 @@ model UserSettings {
   @@unique([employeeId, key])
   @@map("user_settings")
 }
+
+model MasterData {
+  id        String   @id @default(cuid())
+  type      String   // 'department', 'position', 'employeeType', 'organization'
+  value     String
+  label     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, value])
+  @@map("master_data")
+}

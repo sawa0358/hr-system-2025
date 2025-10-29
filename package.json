@@ -28,6 +28,8 @@
     "deploy:dev": "npm run schema:dev && npm run dev",
     "auto:setup": "node scripts/setup-git-hooks.js",
     "auto:deploy": "node scripts/auto-deploy.js",
+    "git:safe": "node scripts/safe-git.js",
+    "git:bypass": "node scripts/bypass-hooks.js",
     "auto:schema": "node scripts/auto-schema-manager.js"
   },
   "dependencies": {

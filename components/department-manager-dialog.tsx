@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,14 @@ export function DepartmentManagerDialog({
 }: DepartmentManagerDialogProps) {
   const [localDepartments, setLocalDepartments] = useState<string[]>(departments)
   const [newDepartment, setNewDepartment] = useState("")
+
+  // ダイアログが開かれたときに departments を同期
+  useEffect(() => {
+    if (open) {
+      setLocalDepartments(departments)
+      setNewDepartment("")
+    }
+  }, [open, departments])
 
   const handleAddDepartment = () => {
     if (newDepartment.trim() && !localDepartments.includes(newDepartment.trim())) {

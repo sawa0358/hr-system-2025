@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +22,14 @@ export function PositionManagerDialog({
 }: PositionManagerDialogProps) {
   const [localPositions, setLocalPositions] = useState<string[]>(positions)
   const [newPosition, setNewPosition] = useState("")
+
+  // ダイアログが開かれたときに positions を同期
+  useEffect(() => {
+    if (open) {
+      setLocalPositions(positions)
+      setNewPosition("")
+    }
+  }, [open, positions])
 
   const handleAddPosition = () => {
     if (newPosition.trim() && !localPositions.includes(newPosition.trim())) {

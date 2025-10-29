@@ -80,9 +80,11 @@ export function SharedEmployeeFilters({
       
       // 雇用形態データを設定
       if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
-        const types = masterData.employeeType.map((item: any) => 
-          typeof item === 'string' ? { value: item, label: item } : item
-        )
+        const types = masterData.employeeType
+          .map((item: any) => 
+            typeof item === 'string' ? { value: item, label: item } : item
+          )
+          .filter((item: any) => item.value !== 'employee') // employeeを除外
         setAvailableEmploymentTypes(types)
         if (typeof window !== 'undefined') {
           localStorage.setItem('employment-types', JSON.stringify(types))
@@ -113,7 +115,9 @@ export function SharedEmployeeFilters({
         const savedEmploymentTypes = localStorage.getItem('employment-types')
         if (savedEmploymentTypes) {
           try {
-            setAvailableEmploymentTypes(JSON.parse(savedEmploymentTypes))
+            const types = JSON.parse(savedEmploymentTypes)
+              .filter((item: any) => item.value !== 'employee') // employeeを除外
+            setAvailableEmploymentTypes(types)
           } catch (e) {
             console.error('雇用形態データのパースエラー:', e)
           }
@@ -212,11 +216,13 @@ export function SharedEmployeeFilters({
           <SelectContent>
             <SelectItem value="all">全雇用形態</SelectItem>
             {availableEmploymentTypes.length > 0 ? (
-              availableEmploymentTypes.map((type) => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))
+              availableEmploymentTypes
+                .filter((type) => type.value && type.value !== 'employee')
+                .map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))
             ) : (
               <>
                 <SelectItem value="正社員">正社員</SelectItem>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,6 +30,16 @@ export function EmploymentTypeManagerDialog({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editLabel, setEditLabel] = useState("")
 
+  // ダイアログが開かれたときに employmentTypes を同期
+  useEffect(() => {
+    if (open) {
+      setLocalTypes(employmentTypes)
+      setNewTypeLabel("")
+      setEditingIndex(null)
+      setEditLabel("")
+    }
+  }, [open, employmentTypes])
+
   // ラベルから自動的に値を生成する関数
   const generateValueFromLabel = (label: string): string => {
     // Prisma EmployeeType enumで定義されている値のみを使用
@@ -51,32 +61,60 @@ export function EmploymentTypeManagerDialog({
       return japaneseToEnglishMap[label]
     }
 
-    // Prisma enumで定義されていない値の場合は、最も近いものを選択
-    // または、デフォルトでemployeeを使用
-    console.warn(`未定義の雇用形態: ${label}。employeeにフォールバックします。`)
-    return 'employee'
+    // マッピングにない場合は、ラベルから一意の値を生成
+    // まず英数字とアンダースコアに変換を試みる
+    let generated = label
+      .toLowerCase()
+      .replace(/\s+/g, '_') // スペースをアンダースコアに
+      .replace(/[^a-z0-9_]/g, '') // 英数字とアンダースコア以外を削除
+      .replace(/_+/g, '_') // 連続するアンダースコアを1つに
+      .replace(/^_+|_+$/g, '') // 先頭・末尾のアンダースコアを削除
+    
+    // 空の場合（日本語などで英数字が含まれていない場合）はハッシュ値を使用
+    if (!generated || generated.trim() === '') {
+      // ラベルのハッシュ値を計算（簡単なハッシュ関数）
+      let hash = 0
+      for (let i = 0; i < label.length; i++) {
+        const char = label.charCodeAt(i)
+        hash = ((hash << 5) - hash) + char
+        hash = hash & hash // Convert to 32bit integer
+      }
+      // 負の値を避けるため絶対値を使用
+      generated = 'custom_' + Math.abs(hash).toString(36) + '_' + Date.now()
+    }
+    
+    return generated
   }
 
   const handleAddType = () => {
     if (newTypeLabel.trim()) {
-      const generatedValue = generateValueFromLabel(newTypeLabel.trim())
+      const trimmedLabel = newTypeLabel.trim()
       
-      // 生成された値が空でないことを確認
-      if (!generatedValue || generatedValue.trim() === '') {
-        alert("有効な雇用形態名を入力してください")
+      // 同じラベルが既に存在するかチェック（ラベルベースでチェック）
+      const existingTypeByLabel = localTypes.find(type => 
+        type.label.toLowerCase() === trimmedLabel.toLowerCase() || 
+        type.label === trimmedLabel
+      )
+      if (existingTypeByLabel) {
+        alert(`${trimmedLabel} は既に存在します`)
+        setNewTypeLabel("")
         return
       }
       
-      // 既に同じ値が存在するかチェック
-      const existingType = localTypes.find(type => type.value === generatedValue)
-      if (existingType) {
-        alert("この雇用形態は既に存在します")
-        return
+      // 値を生成（新しい関数では必ず値が生成される）
+      let generatedValue = generateValueFromLabel(trimmedLabel)
+      
+      // 既存の値と重複しないように確認
+      let counter = 1
+      let originalValue = generatedValue
+      while (localTypes.find(type => type.value === generatedValue)) {
+        generatedValue = `${originalValue}_${counter}`
+        counter++
       }
       
       const newType: EmploymentType = {
         value: generatedValue,
-        label: newTypeLabel.trim()
+        label: trimmedLabel
       }
       setLocalTypes([...localTypes, newType])
       setNewTypeLabel("")
@@ -91,29 +129,42 @@ export function EmploymentTypeManagerDialog({
 
   const handleSaveEdit = () => {
     if (editingIndex !== null && editLabel.trim()) {
-      const generatedValue = generateValueFromLabel(editLabel.trim())
+      const trimmedLabel = editLabel.trim()
       
-      // 生成された値が空でないことを確認
-      if (!generatedValue || generatedValue.trim() === '') {
-        alert("有効な雇用形態名を入力してください")
+      // 同じラベルが既に存在するかチェック（自分以外）
+      const existingTypeByLabel = localTypes.find((type, index) => 
+        index !== editingIndex && 
+        (type.label.toLowerCase() === trimmedLabel.toLowerCase() || type.label === trimmedLabel)
+      )
+      if (existingTypeByLabel) {
+        alert(`${trimmedLabel} は既に存在します`)
         return
       }
+      
+      const generatedValue = generateValueFromLabel(trimmedLabel)
       
       // 既に同じ値が存在するかチェック（自分以外）
       const existingType = localTypes.find((type, index) => 
-        type.value === generatedValue && index !== editingIndex
+        index !== editingIndex && type.value === generatedValue
       )
       if (existingType) {
-        alert("この雇用形態は既に存在します")
-        return
+        // 値が重複する場合は、元の値を保持する
+        const updatedTypes = [...localTypes]
+        updatedTypes[editingIndex] = {
+          ...updatedTypes[editingIndex],
+          label: trimmedLabel
+        }
+        setLocalTypes(updatedTypes)
+      } else {
+        // 値が重複しない場合は、新しい値を設定
+        const updatedTypes = [...localTypes]
+        updatedTypes[editingIndex] = {
+          value: generatedValue,
+          label: trimmedLabel
+        }
+        setLocalTypes(updatedTypes)
       }
       
-      const updatedTypes = [...localTypes]
-      updatedTypes[editingIndex] = {
-        value: generatedValue,
-        label: editLabel.trim()
-      }
-      setLocalTypes(updatedTypes)
       setEditingIndex(null)
       setEditLabel("")
     }
@@ -125,11 +176,29 @@ export function EmploymentTypeManagerDialog({
   }
 
   const handleRemoveType = (index: number) => {
+    const type = localTypes[index]
+    // 'employee'は削除できない（システムで使用されている重要な値）
+    if (type.value === 'employee') {
+      alert('「employee」は削除できません（システムで使用されています）')
+      return
+    }
     setLocalTypes(localTypes.filter((_, i) => i !== index))
+  }
+  
+  // 削除不可能な雇用形態かチェック
+  const isUnremovable = (type: EmploymentType) => {
+    return type.value === 'employee'
   }
 
   const handleSave = () => {
-    onEmploymentTypesChange(localTypes)
+    // employeeは常に含める（システムで使用されているため、表示はしないが保存はする）
+    // ただし、既にlocalTypesにemployeeが含まれている場合はそのまま、なければ追加
+    const hasEmployee = localTypes.some(t => t.value === 'employee')
+    const typesToSave = hasEmployee 
+      ? localTypes 
+      : [...localTypes, { value: 'employee', label: 'employee' }] // システム用に追加
+    
+    onEmploymentTypesChange(typesToSave)
     onOpenChange(false)
   }
 
@@ -165,47 +234,55 @@ export function EmploymentTypeManagerDialog({
           <div className="space-y-4">
             <h3 className="text-lg font-medium">既存の雇用形態</h3>
             <div className="space-y-2">
-              {localTypes.map((type, index) => (
-                <div key={index} className="flex items-center gap-4 p-3 border rounded-lg">
-                  {editingIndex === index ? (
-                    <>
-                      <div className="flex-1 space-y-2">
-                        <Input
-                          value={editLabel}
-                          onChange={(e) => setEditLabel(e.target.value)}
-                          placeholder="雇用形態名"
-                        />
-                        <p className="text-xs text-slate-500">
-                          値は自動的に生成されます
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveEdit}>
-                          保存
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                          キャンセル
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex-1">
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-sm text-slate-500">{type.value}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEditType(index)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleRemoveType(index)}>
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
+              {localTypes
+                .filter(type => !isUnremovable(type)) // employeeは非表示
+                .map((type, index) => {
+                  // 非表示フィルタ後のインデックスに変換
+                  const originalIndex = localTypes.findIndex(t => t.value === type.value && t.label === type.label)
+                  return (
+                    <div key={originalIndex} className="flex items-center gap-4 p-3 border rounded-lg">
+                      {editingIndex === originalIndex ? (
+                        <>
+                          <div className="flex-1 space-y-2">
+                            <Input
+                              value={editLabel}
+                              onChange={(e) => setEditLabel(e.target.value)}
+                              placeholder="雇用形態名"
+                            />
+                            <p className="text-xs text-slate-500">
+                              値は自動的に生成されます
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleSaveEdit}>
+                              保存
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                              キャンセル
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex-1">
+                            <div className="font-medium">{type.label}</div>
+                            <div className="text-sm text-slate-500">{type.value}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEditType(originalIndex)}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            {!isUnremovable(type) && (
+                              <Button size="sm" variant="outline" onClick={() => handleRemoveType(originalIndex)}>
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </div>
         </div>

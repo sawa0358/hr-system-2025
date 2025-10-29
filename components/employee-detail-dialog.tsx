@@ -656,6 +656,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         organizations: organizations.filter(org => org.trim() !== ''),
         departments: departments.filter(dept => dept.trim() !== ''),
         positions: positions.filter(pos => pos.trim() !== ''),
+        // 雇用形態を明示的に追加
+        employeeType: formData.employeeType || '正社員',
         // isInvisibleTopフラグを保持（見えないTOPまたは社員番号000の場合）
         isInvisibleTop: employee?.isInvisibleTop || employee?.employeeNumber === '000' || false,
         // 組織図の親子関係を保持（既存社員の場合のみ）
@@ -723,6 +725,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (result.employee && result.employee.id) {
           await saveCustomFolders(result.employee.id)
           await saveUserSettings(result.employee.id)
+        }
+        
+        // マスターデータ更新イベントを発火（検索セクションの更新用）
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('masterDataChanged'))
+          // 個別イベントも発火
+          if (result.employee?.departments && result.employee.departments.length > 0) {
+            window.dispatchEvent(new CustomEvent('departmentsChanged'))
+          }
+          if (result.employee?.positions && result.employee.positions.length > 0) {
+            window.dispatchEvent(new CustomEvent('positionsChanged'))
+          }
+          if (result.employee?.employeeType) {
+            window.dispatchEvent(new CustomEvent('employmentTypesChanged'))
+          }
         }
         
         onOpenChange(false)
@@ -1178,7 +1195,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('employment-types')
       if (saved) {
-        return JSON.parse(saved)
+        const types = JSON.parse(saved)
+        // employeeを除外して初期化
+        return Array.isArray(types)
+          ? types.filter((item: any) => {
+              const value = typeof item === 'string' ? item : (item?.value || item)
+              return value !== 'employee'
+            })
+          : []
       }
     }
     return [
@@ -1249,24 +1273,49 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (!json?.success) return
         const data = json.data || {}
 
-        if (Array.isArray(data.departments) && data.departments.length > 0) {
-          setAvailableDepartments(data.departments)
+        // 部署データの処理
+        if (data.department && Array.isArray(data.department) && data.department.length > 0) {
+          const deptValues = data.department
+            .map((item: any) => typeof item === 'string' ? item : (item.value || item.label || item))
+            .filter((d: string) => d && d.trim() !== '' && d !== '[]')
+          setAvailableDepartments(deptValues)
           if (typeof window !== 'undefined') {
-            localStorage.setItem('available-departments', JSON.stringify(data.departments))
+            localStorage.setItem('available-departments', JSON.stringify(deptValues))
           }
+          console.log('部署データを設定:', deptValues)
         }
-        if (Array.isArray(data.positions) && data.positions.length > 0) {
-          setAvailablePositions(data.positions)
+        
+        // 役職データの処理
+        if (data.position && Array.isArray(data.position) && data.position.length > 0) {
+          const posValues = data.position
+            .map((item: any) => typeof item === 'string' ? item : (item.value || item.label || item))
+            .filter((p: string) => p && p.trim() !== '' && p !== '[]')
+          setAvailablePositions(posValues)
           if (typeof window !== 'undefined') {
-            localStorage.setItem('available-positions', JSON.stringify(data.positions))
+            localStorage.setItem('available-positions', JSON.stringify(posValues))
           }
+          console.log('役職データを設定:', posValues)
         }
-        if (Array.isArray(data.employmentTypes) && data.employmentTypes.length > 0) {
-          const types = data.employmentTypes.map((v: string) => ({ value: v, label: v }))
+        
+        // 雇用形態データの処理（employeeは除外）
+        if (data.employeeType && Array.isArray(data.employeeType) && data.employeeType.length > 0) {
+          const types = data.employeeType
+            .map((item: any) => {
+              if (typeof item === 'string') {
+                return { value: item, label: item }
+              } else if (item.value && item.label) {
+                return item
+              } else {
+                const val = item.value || item.label || item
+                return { value: val, label: val }
+              }
+            })
+            .filter((item: any) => item.value !== 'employee') // employeeを除外
           setEmploymentTypes(types)
           if (typeof window !== 'undefined') {
             localStorage.setItem('employment-types', JSON.stringify(types))
           }
+          console.log('雇用形態データを設定（employee除外）:', types)
         }
       } catch (e) {
         console.warn('マスターデータ取得に失敗しました')
@@ -1802,20 +1851,29 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             onBlur={async (e) => {
                               // フォーカスが外れた時に保存
                               const text = e.target.value
-                              if (employee?.id) {
+                              const targetEmployeeId = employee?.id || latestEmployee?.id
+                              if (targetEmployeeId) {
                                 try {
-                                  // S3に保存（UserSettings形式）
-                                  const response = await fetch(`/api/employees/${employee.id}/settings`, {
+                                  console.log('アバターテキスト保存開始:', { employeeId: targetEmployeeId, text })
+                                  // UserSettingsに保存
+                                  const response = await fetch(`/api/employees/${targetEmployeeId}/settings`, {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ key: 'avatar-text', value: text })
                                   })
                                   if (!response.ok) {
-                                    console.error('アバターテキスト保存失敗')
+                                    const errorData = await response.json().catch(() => ({}))
+                                    console.error('アバターテキスト保存失敗:', response.status, errorData)
+                                  } else {
+                                    console.log('アバターテキスト保存成功')
+                                    // 保存後に再取得
+                                    fetchUserSettings(targetEmployeeId)
                                   }
                                 } catch (error) {
                                   console.error('アバターテキスト保存エラー:', error)
                                 }
+                              } else {
+                                console.warn('アバターテキスト保存スキップ: employeeIdが見つかりません')
                               }
                             }}
                             className="w-32 h-8 text-sm"
@@ -2721,18 +2779,50 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('departmentsChanged'))
           }
-          // APIへも保存
-          try {
-            fetch('/api/master-data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                departments: newDepts,
-                positions: availablePositions,
-                employmentTypes: employmentTypes.map((t: any) => t.value)
-              })
+          // APIへも保存（空文字や'[]'をフィルタリング）
+          const filteredDepts = newDepts.filter((d: string) => d && d.trim() !== '' && d !== '[]')
+          const filteredPos = availablePositions.filter((p: string) => p && p.trim() !== '' && p !== '[]')
+          // 雇用形態は{value, label}オブジェクトとして送信
+          const filteredEmpTypes = employmentTypes
+            .filter((t: any) => {
+              if (!t) return false
+              const value = typeof t === 'string' ? t : (t?.value || '')
+              return value && value.trim() !== '' && value !== '[]'
             })
-          } catch {}
+            .map((t: any) => {
+              // 既に{value, label}オブジェクトの場合はそのまま、文字列の場合は変換
+              if (typeof t === 'string') {
+                return { value: t, label: t }
+              }
+              return { value: t.value || t, label: t.label || t.value || t }
+            })
+          
+          console.log('マスターデータ保存リクエスト:', {
+            departments: filteredDepts,
+            positions: filteredPos,
+            employmentTypes: filteredEmpTypes
+          })
+          
+          fetch('/api/master-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              departments: filteredDepts,
+              positions: filteredPos,
+              employmentTypes: filteredEmpTypes
+            })
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: '保存に失敗しました' }))
+                console.error('部署データの保存エラー:', error)
+              } else {
+                console.log('部署データの保存に成功しました')
+              }
+            })
+            .catch((error) => {
+              console.error('部署データの保存エラー:', error)
+            })
         }}
       />
 
@@ -2747,18 +2837,50 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('positionsChanged'))
           }
-          // APIへも保存
-          try {
-            fetch('/api/master-data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                departments: availableDepartments,
-                positions: newPos,
-                employmentTypes: employmentTypes.map((t: any) => t.value)
-              })
+          // APIへも保存（空文字や'[]'をフィルタリング）
+          const filteredDepts = availableDepartments.filter((d: string) => d && d.trim() !== '' && d !== '[]')
+          const filteredPos = newPos.filter((p: string) => p && p.trim() !== '' && p !== '[]')
+          // 雇用形態は{value, label}オブジェクトとして送信
+          const filteredEmpTypes = employmentTypes
+            .filter((t: any) => {
+              if (!t) return false
+              const value = typeof t === 'string' ? t : (t?.value || '')
+              return value && value.trim() !== '' && value !== '[]'
             })
-          } catch {}
+            .map((t: any) => {
+              // 既に{value, label}オブジェクトの場合はそのまま、文字列の場合は変換
+              if (typeof t === 'string') {
+                return { value: t, label: t }
+              }
+              return { value: t.value || t, label: t.label || t.value || t }
+            })
+          
+          console.log('マスターデータ保存リクエスト:', {
+            departments: filteredDepts,
+            positions: filteredPos,
+            employmentTypes: filteredEmpTypes
+          })
+          
+          fetch('/api/master-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              departments: filteredDepts,
+              positions: filteredPos,
+              employmentTypes: filteredEmpTypes
+            })
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: '保存に失敗しました' }))
+                console.error('役職データの保存エラー:', error)
+              } else {
+                console.log('役職データの保存に成功しました')
+              }
+            })
+            .catch((error) => {
+              console.error('役職データの保存エラー:', error)
+            })
         }}
       />
 
@@ -2773,18 +2895,82 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             // カスタムイベントを発火して他のコンポーネントに通知
             window.dispatchEvent(new CustomEvent('employmentTypesChanged'))
           }
-          // APIへも保存
-          try {
-            fetch('/api/master-data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                departments: availableDepartments,
-                positions: availablePositions,
-                employmentTypes: newTypes.map((t: any) => t.value)
-              })
+          // APIへも保存（空文字や'[]'をフィルタリング）
+          const filteredDepts = availableDepartments.filter((d: string) => d && d.trim() !== '' && d !== '[]')
+          const filteredPos = availablePositions.filter((p: string) => p && p.trim() !== '' && p !== '[]')
+          
+          // 雇用形態は{value, label}形式で送信（API側でラベルも保存するため）
+          const filteredEmpTypes = newTypes
+            .filter((t: any) => {
+              if (!t) return false
+              const value = typeof t === 'string' ? t : (t?.value || '')
+              return value && value.trim() !== '' && value !== '[]'
             })
-          } catch {}
+            .map((t: any) => {
+              // 既に{value, label}オブジェクトの場合はそのまま、文字列の場合は変換
+              if (typeof t === 'string') {
+                return { value: t, label: t }
+              }
+              return { value: t.value || t, label: t.label || t.value || t }
+            })
+          
+          console.log('マスターデータ保存リクエスト:', {
+            departments: filteredDepts,
+            positions: filteredPos,
+            employmentTypes: filteredEmpTypes
+          })
+          
+          fetch('/api/master-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              departments: filteredDepts,
+              positions: filteredPos,
+              employmentTypes: filteredEmpTypes
+            })
+          })
+            .then(async (response) => {
+              if (!response.ok) {
+                const error = await response.json().catch(() => ({ error: '保存に失敗しました' }))
+                console.error('雇用形態データの保存エラー:', error)
+              } else {
+                console.log('雇用形態データの保存に成功しました')
+                // 保存成功後、マスターデータを再取得して最新状態を反映
+                try {
+                  const res = await fetch('/api/master-data')
+                  if (res.ok) {
+                    const json = await res.json()
+                    if (json?.success && json.data) {
+                      const data = json.data
+                      if (data.employeeType && Array.isArray(data.employeeType) && data.employeeType.length > 0) {
+                        const types = data.employeeType
+                          .map((item: any) => {
+                            if (typeof item === 'string') {
+                              return { value: item, label: item }
+                            } else if (item.value && item.label) {
+                              return item
+                            } else {
+                              const val = item.value || item.label || item
+                              return { value: val, label: val }
+                            }
+                          })
+                          .filter((item: any) => item.value !== 'employee') // employeeを除外
+                        setEmploymentTypes(types)
+                        if (typeof window !== 'undefined') {
+                          localStorage.setItem('employment-types', JSON.stringify(types))
+                        }
+                        console.log('雇用形態データを最新状態に更新（employee除外）:', types)
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn('マスターデータの再取得に失敗しました', e)
+                }
+              }
+            })
+            .catch((error) => {
+              console.error('雇用形態データの保存エラー:', error)
+            })
         }}
       />
 

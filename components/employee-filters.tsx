@@ -73,9 +73,11 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           
           // 雇用形態データを設定
           if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
-            const employmentTypes = masterData.employeeType.map((item: any) => 
-              typeof item === 'string' ? { value: item, label: item } : item
-            )
+            const employmentTypes = masterData.employeeType
+              .map((item: any) => 
+                typeof item === 'string' ? { value: item, label: item } : item
+              )
+              .filter((item: any) => item.value !== 'employee') // employeeを除外
             console.log('雇用形態データを設定:', employmentTypes)
             setAvailableEmploymentTypes(employmentTypes)
             // localStorageにも保存
@@ -125,6 +127,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
     if (savedEmploymentTypes) {
       try {
         const employmentTypes = JSON.parse(savedEmploymentTypes)
+          .filter((item: any) => item.value !== 'employee') // employeeを除外
         setAvailableEmploymentTypes(employmentTypes)
       } catch (error) {
         console.error('雇用形態データの取得エラー:', error)
@@ -134,12 +137,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
 
   // 初期読み込み
   useEffect(() => {
-    // キャッシュをクリアしてからデータを読み込み
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('available-departments')
-      localStorage.removeItem('available-positions')
-      localStorage.removeItem('employment-types')
-    }
+    // localStorageをクリアせずにデータを読み込み（管理ダイアログで保存されたデータを保持）
     loadData()
   }, [])
 
@@ -217,7 +215,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           <SelectContent>
             <SelectItem value="all">全雇用形態</SelectItem>
             {availableEmploymentTypes
-              .filter((type) => type.value && type.value.trim() !== '' && type.value !== '')
+              .filter((type) => type.value && type.value.trim() !== '' && type.value !== 'employee')
               .map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}

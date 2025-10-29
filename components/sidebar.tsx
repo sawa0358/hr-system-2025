@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   Users,
-  Sigma as Sitemap,
+  Network,
   KanbanSquare,
   DollarSign,
   ChevronLeft,
@@ -27,7 +27,7 @@ import { LoginModal } from "@/components/login-modal"
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
   { icon: KanbanSquare, label: "タスク管理", href: "/tasks", permission: "viewOwnTasks" as const },
-  { icon: Sitemap, label: "組織図", href: "/organization", permission: "viewOrgChart" as const },
+  { icon: Network, label: "組織図", href: "/organization", permission: "viewOrgChart" as const },
 ]
 
 const dropdownMenuItems = [

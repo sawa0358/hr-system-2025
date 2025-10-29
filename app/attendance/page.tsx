@@ -363,7 +363,7 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">勤怠管理</h1>
-            <p className="text-slate-600">社員をクリックして勤怠データをアップロード</p>
+            <p className="text-slate-600">社員をクリックして勤怠データを管理</p>
           </div>
           <AIAskButton context={buildAIContext()} />
         </div>

@@ -31,10 +31,11 @@ export default function EmployeesPage() {
     searchQuery: "",
     department: "all",
     status: "active",
-    employeeType: "employee",
+    employeeType: "正社員",
     position: "all",
     showInOrgChart: "1"
   })
+  const [searchResultCount, setSearchResultCount] = useState<number | undefined>(undefined)
 
   // 管理者・総務権限のチェック
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
@@ -148,7 +149,7 @@ ${isAdminOrHR ? `- 新規社員登録
           )}
         </div>
 
-        <EmployeeFilters onFiltersChange={handleFiltersChange} />
+        <EmployeeFilters onFiltersChange={handleFiltersChange} searchResultCount={searchResultCount} />
 
         <div className="mt-6">
           <EmployeeTable 
@@ -156,6 +157,7 @@ ${isAdminOrHR ? `- 新規社員登録
             onEvaluationClick={handleEvaluationClick}
             refreshTrigger={refreshTrigger}
             filters={filters}
+            onSearchResultCountChange={setSearchResultCount}
           />
         </div>
       </div>

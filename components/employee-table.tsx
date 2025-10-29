@@ -21,9 +21,10 @@ interface EmployeeTableProps {
     position: string
     showInOrgChart: string
   }
+  onSearchResultCountChange?: (count: number) => void
 }
 
-export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters }: EmployeeTableProps) {
+export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigger, filters, onSearchResultCountChange }: EmployeeTableProps) {
   const { currentUser } = useAuth()
   const [sortField, setSortField] = useState<string>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -362,7 +363,12 @@ export function EmployeeTable({ onEmployeeClick, onEvaluationClick, refreshTrigg
     // ソートを適用
     const sortedEmployees = applySorting(filtered)
     setFilteredEmployees(sortedEmployees)
-  }, [employees, filters, sortField, sortDirection])
+    
+    // 検索結果数を親コンポーネントに通知
+    if (onSearchResultCountChange) {
+      onSearchResultCountChange(sortedEmployees.length)
+    }
+  }, [employees, filters, sortField, sortDirection, onSearchResultCountChange])
 
   const getStatusBadge = (status: string, isSuspended?: boolean) => {
     if (isSuspended || status === 'suspended') {

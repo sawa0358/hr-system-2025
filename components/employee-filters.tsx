@@ -16,14 +16,15 @@ interface EmployeeFiltersProps {
     position: string
     showInOrgChart: string
   }) => void
+  searchResultCount?: number
 }
 
-export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
+export function EmployeeFilters({ onFiltersChange, searchResultCount }: EmployeeFiltersProps) {
   const { currentUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("all")
+  const [employeeType, setEmployeeType] = useState("正社員")
   const [position, setPosition] = useState("all")
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
@@ -71,14 +72,14 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
             console.warn('役職データが取得できませんでした', masterData)
           }
           
-          // 雇用形態データを設定
+          // 雇用形態データを設定（employeeは除外）
           if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
             const employmentTypes = masterData.employeeType
               .map((item: any) => 
                 typeof item === 'string' ? { value: item, label: item } : item
               )
               .filter((item: any) => item.value !== 'employee') // employeeを除外
-            console.log('雇用形態データを設定:', employmentTypes)
+            console.log('雇用形態データを設定（employee除外）:', employmentTypes)
             setAvailableEmploymentTypes(employmentTypes)
             // localStorageにも保存
             localStorage.setItem('employment-types', JSON.stringify(employmentTypes))
@@ -127,8 +128,13 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
     if (savedEmploymentTypes) {
       try {
         const employmentTypes = JSON.parse(savedEmploymentTypes)
-          .filter((item: any) => item.value !== 'employee') // employeeを除外
-        setAvailableEmploymentTypes(employmentTypes)
+        const filteredTypes = Array.isArray(employmentTypes)
+          ? employmentTypes.filter((item: any) => {
+              const value = typeof item === 'string' ? item : (item?.value || item)
+              return value !== 'employee'
+            })
+          : []
+        setAvailableEmploymentTypes(filteredTypes)
       } catch (error) {
         console.error('雇用形態データの取得エラー:', error)
       }
@@ -137,7 +143,6 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
 
   // 初期読み込み
   useEffect(() => {
-    // localStorageをクリアせずにデータを読み込み（管理ダイアログで保存されたデータを保持）
     loadData()
   }, [])
 
@@ -153,16 +158,22 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
       loadData()
     }
 
+    const handleMasterDataChanged = () => {
+      loadData()
+    }
+
     window.addEventListener('storage', handleStorageChange)
-    window.addEventListener('employmentTypesChanged', handleCustomStorageChange)
     window.addEventListener('departmentsChanged', handleCustomStorageChange)
     window.addEventListener('positionsChanged', handleCustomStorageChange)
+    window.addEventListener('employmentTypesChanged', handleCustomStorageChange)
+    window.addEventListener('masterDataChanged', handleMasterDataChanged)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('employmentTypesChanged', handleCustomStorageChange)
       window.removeEventListener('departmentsChanged', handleCustomStorageChange)
       window.removeEventListener('positionsChanged', handleCustomStorageChange)
+      window.removeEventListener('employmentTypesChanged', handleCustomStorageChange)
+      window.removeEventListener('masterDataChanged', handleMasterDataChanged)
     }
   }, [])
 
@@ -215,7 +226,7 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           <SelectContent>
             <SelectItem value="all">全雇用形態</SelectItem>
             {availableEmploymentTypes
-              .filter((type) => type.value && type.value.trim() !== '' && type.value !== 'employee')
+              .filter((type) => type.value && type.value.trim() !== '' && type.value !== '')
               .map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}
@@ -287,15 +298,22 @@ export function EmployeeFilters({ onFiltersChange }: EmployeeFiltersProps) {
           </div>
         )}
 
-        <Button 
-          onClick={handleClearFilters}
-          variant="outline"
-          size="sm"
-          className="flex items-center gap-2"
-        >
-          <X className="w-4 h-4" />
-          クリア
-        </Button>
+        <div className="flex items-center gap-2">
+          {searchResultCount !== undefined && (
+            <span className="text-sm text-slate-600 whitespace-nowrap">
+              検索結果{searchResultCount}名
+            </span>
+          )}
+          <Button 
+            onClick={handleClearFilters}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            クリア
+          </Button>
+        </div>
       </div>
     </div>
   )

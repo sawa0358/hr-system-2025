@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { DashboardStats } from "@/components/dashboard-stats"
 import { BulletinBoard } from "@/components/bulletin-board"
 import { PermissionMatrix } from "@/components/permission-matrix"
 import { Button } from "@/components/ui/button"
@@ -26,11 +25,6 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {permissions.viewDashboardStats && (
-          <div className="bg-blue-50/50 p-6 rounded-xl border border-blue-100">
-            <DashboardStats />
-          </div>
-        )}
 
         <div className="bg-emerald-50/30 p-6 rounded-xl border border-emerald-100">
           <BulletinBoard isAdmin={permissions.manageAnnouncements} />

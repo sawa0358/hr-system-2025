@@ -267,9 +267,14 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
                   <Avatar className="w-8 h-8 flex-shrink-0">
                     <AvatarFallback 
                       employeeType={employee.employeeType}
-                      className="text-blue-700 font-semibold text-xs"
+                      className="text-blue-700 font-semibold text-xs whitespace-nowrap overflow-hidden"
                     >
-                      {employee.name.charAt(0)}
+                      {(() => {
+                        const text = typeof window !== 'undefined'
+                          ? (localStorage.getItem(`employee-avatar-text-${employee.id}`) || (employee.name || '未').slice(0, 3))
+                          : (employee.name || '未').slice(0, 3)
+                        return text.slice(0, 3)
+                      })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

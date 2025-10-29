@@ -199,6 +199,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           position: position !== undefined ? position : undefined,
           labels: labels !== undefined ? labels : undefined,
           attachments: attachments !== undefined ? attachments : undefined,
+          checklists: checklists !== undefined ? checklists : undefined,
           // 追加フィールド（存在する場合のみ更新）
           ...(status !== undefined && { status }),
           ...(cardColor !== undefined && { cardColor }),

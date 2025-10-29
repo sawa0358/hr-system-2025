@@ -308,6 +308,7 @@ model Card {
   members     CardMember[]
   attachments Json?
   labels      Json?
+  checklists  Json?
   dueDate     DateTime?
   priority    String   @default("medium")
   status      String   @default("todo")

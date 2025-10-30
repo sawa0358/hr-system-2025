@@ -45,12 +45,19 @@ export default function LeavePage() {
 - その他、人事管理システム全般に関する質問`
   }
 
-  const userRole = currentUser?.role === 'admin' || currentUser?.role === 'hr' ? 'admin' : 'employee'
+  // 社員トップ（/leave）は常に社員用UIを表示する
+  const userRole: 'employee' | 'admin' = 'employee'
 
   const router = useRouter()
   const params = useSearchParams()
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
+
+  const tabs = [
+    { name: "社員", href: "/leave", active: true },
+    { name: "管理者", href: "/leave/admin", active: false },
+    { name: "設定", href: "/leave/settings", active: false },
+  ];
 
   return (
     <main className="overflow-y-auto">
@@ -61,8 +68,9 @@ export default function LeavePage() {
             <p className="text-slate-600">社員の有給休暇を管理</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => router.push("/leave")}>従業員</Button>
-            <Button variant="secondary" onClick={() => router.push("/leave/admin")}>管理者</Button>
+            {tabs.map(tab => (
+              <Button key={tab.name} variant={window.location.pathname === tab.href ? "default" : "outline"} onClick={() => router.push(tab.href)}>{tab.name}</Button>
+            ))}
             <AIAskButton context={buildAIContext()} />
           </div>
         </div>

@@ -16,6 +16,12 @@ export default function LeaveAdminPage() {
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
 
+  const tabs = [
+    { name: "社員", href: "/leave", active: false },
+    { name: "管理者", href: "/leave/admin", active: true },
+    { name: "設定", href: "/leave/settings", active: false },
+  ];
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-6">
@@ -25,8 +31,9 @@ export default function LeaveAdminPage() {
             <p className="text-slate-600">承認や全申請の確認、設定変更ができます</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push("/leave")}>従業員</Button>
-            <Button onClick={() => router.push("/leave/settings")}>設定</Button>
+            {tabs.map(tab => (
+              <Button key={tab.name} variant={window.location.pathname === tab.href ? "default" : "outline"} onClick={() => router.push(tab.href)}>{tab.name}</Button>
+            ))}
             <AIAskButton context="有給管理（管理者）画面に関する質問" />
           </div>
         </div>

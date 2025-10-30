@@ -115,18 +115,13 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+    <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2`}>
       {filteredRequests.map((request) => (
         <Card
           key={request.id}
-          className={`flex flex-col ${userRole === "admin" ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
-          onClick={() => {
-            if (userRole === "admin" && onEmployeeClick) {
-              onEmployeeClick(request.id, request.employee)
-            }
-          }}
+          className="flex flex-col min-h-[92px] p-0"
         >
-          <CardContent className="pt-4 pb-4 px-4 flex-1 flex flex-col">
+          <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
             {userRole === "admin" ? (
               <div className="space-y-2 flex-1 flex flex-col">
                 <div className="space-y-0.5">
@@ -214,28 +209,24 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-3 flex-1">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      {request.startDate} 〜 {request.endDate}
-                    </span>
-                    <span className="text-foreground font-medium">({request.days}日間)</span>
+              <div className="flex flex-col gap-1 flex-1 text-xs">
+                <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>{request.startDate}〜{request.endDate}</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">理由: {request.reason}</div>
+                  <span className="font-bold text-foreground">{request.days % 1 === 0 ? `${request.days}日` : `${request.days}日`}</span>
                 </div>
-
+                <div className="truncate text-[11px] text-muted-foreground">理由: {request.reason}</div>
                 <div className="flex items-center justify-center mt-auto">{getStatusBadge(request.status)}</div>
               </div>
             )}
           </CardContent>
         </Card>
       ))}
-
       {filteredRequests.length === 0 && (
         <Card className="col-span-full">
-          <CardContent className="py-12 text-center">
+          <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">申請がありません</p>
           </CardContent>
         </Card>

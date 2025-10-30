@@ -14,7 +14,7 @@ export function VacationStats({ userRole }: VacationStatsProps) {
       color: "text-chart-1",
     },
     {
-      title: "使用済み",
+      title: "取得済み",
       value: "8日",
       icon: CheckCircle,
       color: "text-chart-2",
@@ -26,7 +26,7 @@ export function VacationStats({ userRole }: VacationStatsProps) {
       color: "text-chart-3",
     },
     {
-      title: "今年度付与",
+      title: "総付与数",
       value: "20日",
       icon: Calendar,
       color: "text-chart-4",

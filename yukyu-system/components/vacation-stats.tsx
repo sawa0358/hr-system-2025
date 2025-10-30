@@ -1,33 +1,69 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface VacationStatsProps {
   userRole: "employee" | "admin"
+  employeeId?: string
 }
 
-export function VacationStats({ userRole }: VacationStatsProps) {
+export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
+  const [statsData, setStatsData] = useState<{
+    totalRemaining: number
+    used: number
+    pending: number
+    totalGranted: number
+    joinDate?: string
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      if (!employeeId || userRole !== "employee") return
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/vacation/stats/${employeeId}`)
+        if (res.ok) {
+          const json = await res.json()
+          setStatsData({
+            totalRemaining: json.totalRemaining ?? 0,
+            used: json.used ?? 0,
+            pending: json.pending ?? 0,
+            totalGranted: json.totalGranted ?? 0,
+            joinDate: json.joinDate,
+          })
+        } else {
+          setStatsData({ totalRemaining: 0, used: 0, pending: 0, totalGranted: 0 })
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [employeeId, userRole])
+
   const employeeStats = [
     {
       title: "残り有給日数",
-      value: "12日",
+      value: loading ? "-" : `${statsData?.totalRemaining ?? 0}日`,
       icon: Calendar,
       color: "text-chart-1",
     },
     {
       title: "取得済み",
-      value: "8日",
+      value: loading ? "-" : `${statsData?.used ?? 0}日`,
       icon: CheckCircle,
       color: "text-chart-2",
     },
     {
       title: "申請中",
-      value: "2日",
+      value: loading ? "-" : `${statsData?.pending ?? 0}日`,
       icon: Clock,
       color: "text-chart-3",
     },
     {
       title: "総付与数",
-      value: "20日",
+      value: loading ? "-" : `${statsData?.totalGranted ?? 0}日`,
       icon: Calendar,
       color: "text-chart-4",
     },

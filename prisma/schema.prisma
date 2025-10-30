@@ -86,6 +86,8 @@ model Employee {
   folders               Folder[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
+  vacationBalances      VacationBalance[]
+  vacationRequests      VacationRequest[]
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]
@@ -390,4 +392,143 @@ model MasterData {
 
   @@unique([type, value])
   @@map("master_data")
+}
+
+// ==========================
+// 有給管理用 追加モデル
+// ==========================
+
+model VacationSettings {
+  id                   String   @id @default(cuid())
+
+  // 基本設定
+  initialGrantPeriod   Int      // 初回付与までの期間（月）
+  grantPeriod          Int      // 付与間隔（月）
+  carryOverLimit       Int      // 繰越上限日数
+  validityYears        Int      // 有効期間（年）
+  minimumMandatoryDays Int      // 最低取得日数（義務）
+
+  // 正社員設定
+  fullTimeGrantDays    Int      // 正社員付与日数（A値）
+
+  // パート社員設定（週勤務日数別）
+  partTime1DayGrant    Int      // 週1日勤務時の付与日数
+  partTime2DayGrant    Int      // 週2日勤務時の付与日数
+  partTime3DayGrant    Int      // 週3日勤務時の付与日数
+  partTime4DayGrant    Int      // 週4日勤務時の付与日数
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("vacation_settings")
+}
+
+model VacationGrantSchedule {
+  id                String   @id @default(cuid())
+
+  // 勤続年数別付与日数設定
+  serviceYears      Float
+  fullTimeGrantDays Int
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("vacation_grant_schedule")
+}
+
+model PartTimeGrantSchedule {
+  id              String   @id @default(cuid())
+
+  // 勤続年数と週勤務日数別設定
+  serviceDays     Int
+  workDaysPerWeek Int
+  grantDays       Int
+  annualMinDays   Int      // 年間勤務日数（最小）
+  annualMaxDays   Int      // 年間勤務日数（最大）
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([serviceDays, workDaysPerWeek])
+  @@map("parttime_grant_schedule")
+}
+
+model VacationBalance {
+  id            String   @id @default(cuid())
+  employeeId    String
+
+  grantDate     DateTime  // 付与日
+  grantDays     Int       // 付与日数
+  remainingDays Float     // 残日数
+  expiryDate    DateTime  // 有効期限
+  isExpired     Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee      Employee       @relation(fields: [employeeId], references: [id])
+  usages        VacationUsage[]
+
+  @@index([employeeId, grantDate])
+  @@map("vacation_balances")
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model VacationRequest {
+  id           String         @id @default(cuid())
+  employeeId   String
+
+  startDate    DateTime
+  endDate      DateTime
+  usedDays     Float
+  reason       String?
+  status       RequestStatus
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  usageDetails VacationUsage[]
+
+  @@map("vacation_requests")
+}
+
+model VacationUsage {
+  id        String           @id @default(cuid())
+  requestId String
+  balanceId String
+  usedDays  Float
+
+  createdAt DateTime         @default(now())
+
+  request   VacationRequest  @relation(fields: [requestId], references: [id])
+  balance   VacationBalance  @relation(fields: [balanceId], references: [id])
+
+  @@map("vacation_usage")
+}
+
+model AlertSettings {
+  id                     String   @id @default(cuid())
+
+  // 3ヶ月前アラート
+  alert3MonthsBefore     Boolean  @default(true)
+  alert3MonthsThreshold  Int      @default(5)
+
+  // 2ヶ月前アラート
+  alert2MonthsBefore     Boolean  @default(true)
+  alert2MonthsThreshold  Int      @default(3)
+
+  // 1ヶ月前アラート
+  alert1MonthBefore      Boolean  @default(true)
+  alert1MonthThreshold   Int      @default(5)
+
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("alert_settings")
 }

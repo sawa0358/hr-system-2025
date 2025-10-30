@@ -15,13 +15,37 @@ export function VacationRequestForm() {
     startDate: "",
     endDate: "",
     reason: "",
+    usedDays: 1,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission
-    alert("申請が送信されました")
-    setFormData({ startDate: "", endDate: "", reason: "" })
+    try {
+      const current = (window as any).CURRENT_USER as { id?: string } | undefined
+      if (!current?.id) {
+        alert("ユーザー情報が取得できません")
+        return
+      }
+      const res = await fetch("/api/vacation/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          employeeId: current.id,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          usedDays: formData.usedDays,
+          reason: formData.reason,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err?.error || "申請に失敗しました")
+      }
+      alert("申請が送信されました")
+      setFormData({ startDate: "", endDate: "", reason: "", usedDays: 1 })
+    } catch (err: any) {
+      alert(err?.message ?? "申請に失敗しました")
+    }
   }
 
   return (
@@ -56,6 +80,19 @@ export function VacationRequestForm() {
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="usedDays">使用日数</Label>
+            <Input
+              id="usedDays"
+              type="number"
+              min={0.5}
+              step={0.5}
+              value={formData.usedDays}
+              onChange={(e) => setFormData({ ...formData, usedDays: Number(e.target.value) })}
+              required
+            />
           </div>
 
           <div className="space-y-2">

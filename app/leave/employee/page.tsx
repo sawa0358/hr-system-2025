@@ -11,6 +11,7 @@ export default function LeaveEmployeeDetailPage() {
   const params = useSearchParams()
   const router = useRouter()
   const name = params.get("name") || "従業員"
+  const employeeId = params.get("employeeId") || undefined
 
   return (
     <main className="overflow-y-auto">
@@ -26,7 +27,7 @@ export default function LeaveEmployeeDetailPage() {
           </div>
         </div>
 
-        <VacationStats userRole="employee" />
+        <VacationStats userRole="employee" employeeId={employeeId || undefined} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1"><VacationRequestForm /></div>

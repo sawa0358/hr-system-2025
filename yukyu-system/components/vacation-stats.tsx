@@ -100,6 +100,13 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {userRole === "employee" && (
+        <div className="md:col-span-2 lg:col-span-4 -mb-2 text-sm text-muted-foreground">
+          {statsData?.joinDate && (
+            <span>入社日: {new Date(statsData.joinDate).toISOString().slice(0,10).replaceAll('-', '/')}</span>
+          )}
+        </div>
+      )}
       {stats.map((stat, index) => (
         <Card key={index}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

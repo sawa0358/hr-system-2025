@@ -5,14 +5,39 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useEffect, useState } from "react"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
   filter: "pending" | "all"
-  onEmployeeClick?: (employeeId: number, employeeName: string) => void
+  onEmployeeClick?: (employeeId: string, employeeName: string) => void
 }
 
 export function VacationList({ userRole, filter, onEmployeeClick }: VacationListProps) {
+  // 管理者用: APIから全社員の有給統計を取得
+  const [adminEmployees, setAdminEmployees] = useState<
+    { id: string; name: string; joinDate?: string; remaining: number; used: number; pending: number; granted: number }[]
+  >([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      if (userRole !== "admin") return
+      setLoading(true)
+      try {
+        const res = await fetch("/api/vacation/admin/applicants")
+        if (res.ok) {
+          const json = await res.json()
+          setAdminEmployees(json.employees || [])
+        } else {
+          setAdminEmployees([])
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [userRole])
   const mockRequests = [
     {
       id: 1,
@@ -114,37 +139,49 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
     return granted >= 10 && used < 5
   }
 
+  const adminVisible = userRole === "admin" ? (filter === "pending" ? adminEmployees.filter(e => (e.pending ?? 0) > 0) : adminEmployees) : []
+
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2`}>
-      {filteredRequests.map((request) => (
+      {loading && userRole === "admin" && (
+        <Card className="col-span-full">
+          <CardContent className="py-6 text-center text-muted-foreground">読み込み中...</CardContent>
+        </Card>
+      )}
+      {(userRole === "admin" ? adminVisible : filteredRequests).map((request: any) => (
         <Card
           key={request.id}
-          className="flex flex-col min-h-[92px] p-0"
+          className="flex flex-col min-h-[92px] p-0 cursor-pointer"
+          onClick={() => {
+            if (userRole === "admin" && onEmployeeClick) {
+              onEmployeeClick(String(request.id), request.employee || request.name)
+            }
+          }}
         >
           <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
             {userRole === "admin" ? (
               <div className="space-y-2 flex-1 flex flex-col">
                 <div className="space-y-0.5">
-                  <div className="font-semibold text-sm text-foreground">{request.employee}</div>
-                  <div className="text-[10px] text-muted-foreground">入社日: {request.hireDate}</div>
+                  <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
+                  <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5">
                   <div className="rounded-md bg-muted/50 p-1.5">
                     <div className="text-[9px] text-muted-foreground mb-0.5">残り</div>
-                    <div className="text-base font-bold text-foreground">{request.remaining}日</div>
+                    <div className="text-base font-bold text-foreground">{request.remaining ?? 0}日</div>
                   </div>
                   <div className="rounded-md bg-muted/50 p-1.5">
                     <div className="text-[9px] text-muted-foreground mb-0.5">取得済</div>
-                    <div className="text-base font-bold text-chart-2">{request.used}日</div>
+                    <div className="text-base font-bold text-chart-2">{request.used ?? 0}日</div>
                   </div>
                   <div className="rounded-md bg-muted/50 p-1.5">
                     <div className="text-[9px] text-muted-foreground mb-0.5">申請中</div>
-                    <div className="text-base font-bold text-chart-3">{request.pending}日</div>
+                    <div className="text-base font-bold text-chart-3">{request.pending ?? 0}日</div>
                   </div>
                   <div className="rounded-md bg-muted/50 p-1.5">
                     <div className="text-[9px] text-muted-foreground mb-0.5">総付与数</div>
-                    <div className="text-base font-bold text-muted-foreground">{request.granted}日</div>
+                    <div className="text-base font-bold text-muted-foreground">{request.granted ?? 0}日</div>
                   </div>
                 </div>
 
@@ -152,13 +189,11 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
                   <div className="rounded-md bg-muted/50 p-1.5 space-y-1">
                     <div>
                       <div className="text-[9px] text-muted-foreground mb-0.5">次回付与日</div>
-                      <div className="text-[10px] font-semibold text-foreground leading-tight">
-                        {request.nextGrantDate}
-                      </div>
+                      <div className="text-[10px] font-semibold text-foreground leading-tight">{request.nextGrantDate || '-'}</div>
                     </div>
                     <div>
                       <div className="text-[9px] text-muted-foreground mb-0.5">付与日数</div>
-                      <div className="text-base font-bold text-chart-1">{request.nextGrantDays}日</div>
+                      <div className="text-base font-bold text-chart-1">{request.nextGrantDays ?? '-'}{request.nextGrantDays ? '日' : ''}</div>
                     </div>
                   </div>
 
@@ -166,16 +201,16 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
                     <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
                       <Calendar className="h-3 w-3 mt-0.5 flex-shrink-0" />
                       <div className="leading-tight">
-                        <div className="text-[9px]">{request.startDate}</div>
-                        <div className="text-[9px]">〜 {request.endDate}</div>
-                        <div className="text-foreground font-medium text-[10px]">({request.days}日間)</div>
+                        <div className="text-[9px]">{request.startDate || '-'}</div>
+                        <div className="text-[9px]">〜 {request.endDate || '-'}</div>
+                        {request.days && <div className="text-foreground font-medium text-[10px]">({request.days}日間)</div>}
                       </div>
                     </div>
-                    <div className="text-[9px] text-muted-foreground line-clamp-2 mt-1">理由: {request.reason}</div>
+                    {request.reason && <div className="text-[9px] text-muted-foreground line-clamp-2 mt-1">理由: {request.reason}</div>}
                   </div>
                 </div>
 
-                {needsFiveDayAlert(request.remaining, request.used, request.granted) && (
+                {needsFiveDayAlert(request.remaining ?? 0, request.used ?? 0, request.granted ?? 0) && (
                   <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950/20 py-1.5">
                     <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400" />
                     <AlertDescription className="text-[10px] text-orange-800 dark:text-orange-300 leading-tight">
@@ -185,7 +220,7 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
                 )}
 
                 <div className="flex flex-col gap-1.5 mt-auto">
-                  {getStatusBadge(request.status)}
+                  {request.status && getStatusBadge(request.status)}
                   {request.status === "pending" && (
                     <div className="flex gap-1.5">
                       <Button
@@ -222,10 +257,10 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
           </CardContent>
         </Card>
       ))}
-      {filteredRequests.length === 0 && (
+      {(userRole === "admin" ? adminVisible.length === 0 : filteredRequests.length === 0) && !loading && (
         <Card className="col-span-full">
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">申請がありません</p>
+            <p className="text-muted-foreground">データがありません</p>
           </CardContent>
         </Card>
       )}

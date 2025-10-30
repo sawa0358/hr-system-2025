@@ -94,7 +94,7 @@ export default function LeaveAdminPage() {
         <div className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-2">
           <div className="flex gap-2">
             <Button variant={view === "pending" ? "default" : "outline"} onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}>承認待ち</Button>
-            <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全申請</Button>
+            <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
           </div>
         </div>
 

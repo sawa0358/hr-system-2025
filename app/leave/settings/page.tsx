@@ -1,0 +1,194 @@
+"use client"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Plus, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+
+type HoverStepperInputProps = {
+  value: number
+  onChange: (v: number) => void
+  suffix?: string
+  step?: number
+  className?: string
+  showOverlay?: boolean
+  nativeSpinner?: boolean
+}
+
+function HoverStepperInput(props: HoverStepperInputProps) {
+  const { value, onChange, suffix = "", step = 1, className = "w-24", showOverlay = true, nativeSpinner = false } = props
+  return (
+    <div className="group relative inline-flex items-center gap-1">
+      <Input
+        type="number"
+        className={`${className} text-right ${showOverlay ? "pr-10" : "pr-2"} ${nativeSpinner ? "" : "no-native-spinner"}`}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value || 0))}
+      />
+      {suffix && <span className="text-muted-foreground text-sm">{suffix}</span>}
+      {showOverlay && (
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 hidden group-hover:flex flex-col gap-0.5">
+          <Button type="button" variant="outline" size="icon" className="h-5 w-5 p-0" onClick={() => onChange(value + step)}>▲</Button>
+          <Button type="button" variant="outline" size="icon" className="h-5 w-5 p-0" onClick={() => onChange(Math.max(0, value - step))}>▼</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function LeaveSettingsPage() {
+  const router = useRouter()
+  const [firstGrantMonths, setFirstGrantMonths] = useState(6)
+  const [cycleMonths, setCycleMonths] = useState(12)
+  const [expireYears, setExpireYears] = useState(2)
+  const [minDays, setMinDays] = useState(5)
+
+  const [yearsTable, setYearsTable] = useState<number[]>([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5])
+  const [grantDaysTable, setGrantDaysTable] = useState<number[]>([10, 11, 12, 14, 16, 18, 20])
+
+  const [rows, setRows] = useState([
+    { weeklyDays: 4, minHours: 169, maxHours: 216, grants: [7, 8, 9, 10, 12, 13, 15] },
+    { weeklyDays: 3, minHours: 121, maxHours: 168, grants: [5, 6, 6, 8, 9, 10, 11] },
+    { weeklyDays: 2, minHours: 73, maxHours: 120, grants: [3, 4, 4, 5, 6, 6, 7] },
+    { weeklyDays: 1, minHours: 48, maxHours: 72, grants: [1, 2, 2, 3, 3, 3, 3] },
+  ])
+
+  return (
+    <main className="overflow-y-auto">
+      <div className="p-8 space-y-6">
+        <style jsx global>{`
+          /* Hide native number spinners */
+          input.no-native-spinner::-webkit-outer-spin-button,
+          input.no-native-spinner::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+          input.no-native-spinner { -moz-appearance: textfield; }
+        `}</style>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-slate-900">有給休暇設定</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => router.push("/leave/admin")}>キャンセル</Button>
+            <Button onClick={() => {}}>保存</Button>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>基本設定</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-6">
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">初回付与までの期間（月）</div>
+                <HoverStepperInput value={firstGrantMonths} onChange={setFirstGrantMonths} suffix="ヶ月" />
+                <div className="text-xs text-muted-foreground">入社から初回付与までの期間（標準：6ヶ月）</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">付与間隔（月）</div>
+                <HoverStepperInput value={cycleMonths} onChange={setCycleMonths} suffix="ヶ月" />
+                <div className="text-xs text-muted-foreground">有給付与の間隔（標準：12ヶ月）</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">有効期限（年）</div>
+                <HoverStepperInput value={expireYears} onChange={setExpireYears} suffix="年" />
+                <div className="text-xs text-muted-foreground">有給休暇の有効期限（通常：2年）</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">最低取得日数（義務）</div>
+                <HoverStepperInput value={minDays} onChange={setMinDays} suffix="日" />
+                <div className="text-xs text-muted-foreground">労働基準法で定められた年間最低取得日数（現行：5日）</div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>勤続年数別付与日数（正社員）</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="grid grid-cols-2 text-sm text-muted-foreground">
+                <div>勤続年数</div>
+                <div>付与日数</div>
+              </div>
+              {yearsTable.map((y, i) => (
+                <div key={i} className="grid grid-cols-2 items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <HoverStepperInput className="w-24" value={y} onChange={(nv) => setYearsTable((prev) => prev.map((p, idx) => (idx === i ? nv : p)))} />
+                    <span className="text-sm text-muted-foreground">年</span>
+                  </div>
+                  <div>
+                    <HoverStepperInput value={grantDaysTable[i]} onChange={(v) => setGrantDaysTable((prev) => prev.map((p, idx) => (idx === i ? v : p)))} suffix="日" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+            <div className="px-6 pb-3">
+              <p className="text-sm text-muted-foreground">
+                勤続年数に応じた有給休暇の付与日数を設定します。法改正時にも柔軟に対応できます。
+              </p>
+            </div>
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>パート・アルバイト用付与日数表</CardTitle>
+            <Button variant="outline" size="sm"><Plus className="h-4 w-4 mr-1" />追加</Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              週の所定勤務日数が4日以下で、かつ週の所定勤務時間が30時間未満の従業員用の付与日数表。各年次ごとに所定勤務日数の8割以上の出勤が必要です。
+            </p>
+            <div className="grid grid-cols-12 items-center text-xs text-muted-foreground">
+              <div className="col-span-2">週勤務日数</div>
+              <div className="col-span-2">年間勤務日数（最小）</div>
+              <div className="col-span-2">年間勤務日数（最大）</div>
+              <div className="col-span-6 grid grid-cols-7">
+                <div className="text-center">0.5年</div>
+                <div className="text-center">1.5年</div>
+                <div className="text-center">2.5年</div>
+                <div className="text-center">3.5年</div>
+                <div className="text-center">4.5年</div>
+                <div className="text-center">5.5年</div>
+                <div className="text-center">6.5年</div>
+              </div>
+            </div>
+            {rows.map((row, idx) => (
+              <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                <div className="col-span-2 flex items-center gap-2">
+                  <HoverStepperInput className="w-16" value={row.weeklyDays} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, weeklyDays: v } : r)))} showOverlay={false} nativeSpinner={true} />
+                  <span className="text-sm text-muted-foreground">日/週</span>
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  <HoverStepperInput className="w-20" value={row.minHours} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, minHours: v } : r)))} showOverlay={false} nativeSpinner={true} />
+                  <span className="text-sm text-muted-foreground">h/年 最小</span>
+                </div>
+                <div className="col-span-2 flex items-center gap-2">
+                  <HoverStepperInput className="w-20" value={row.maxHours} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, maxHours: v } : r)))} showOverlay={false} nativeSpinner={true} />
+                  <span className="text-sm text-muted-foreground">h/年 最大</span>
+                </div>
+                <div className="col-span-6 grid grid-cols-7 gap-1">
+                  {row.grants.map((g, i) => (
+                    <HoverStepperInput key={i} className="w-14" value={g} onChange={(v) => setRows((prev) => prev.map((r, rIdx) => (rIdx === idx ? { ...r, grants: r.grants.map((gg, gi) => (gi === i ? v : gg)) } : r)))} showOverlay={false} nativeSpinner={true} />
+                  ))}
+                </div>
+                <div className="col-span-12 flex justify-end">
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => setRows((prev) => prev.filter((_, i) => i !== idx))}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+          <div className="px-6 pb-3">
+            <p className="text-sm text-muted-foreground">
+              勤続年数が6.5年以上の場合、6.5年に1年ずつを加算した勤続年数に至った日の翌日に新たな年次有給休暇を付与します。
+            </p>
+          </div>
+        </Card>
+      </div>
+    </main>
+  )
+}
+
+

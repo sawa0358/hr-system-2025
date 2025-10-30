@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,15 +12,16 @@ import { useMemo, useState } from "react"
 
 export default function LeaveAdminPage() {
   const router = useRouter()
+  const pathname = usePathname()
   const params = useSearchParams()
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
 
   const tabs = [
-    { name: "社員", href: "/leave", active: false },
-    { name: "管理者", href: "/leave/admin", active: true },
-    { name: "設定", href: "/leave/settings", active: false },
-  ];
+    { name: "社員", href: "/leave" },
+    { name: "管理者", href: "/leave/admin" },
+    { name: "設定", href: "/leave/settings" },
+  ] as const
 
   return (
     <main className="overflow-y-auto">
@@ -31,8 +32,14 @@ export default function LeaveAdminPage() {
             <p className="text-slate-600">承認や全申請の確認、設定変更ができます</p>
           </div>
           <div className="flex gap-2">
-            {tabs.map(tab => (
-              <Button key={tab.name} variant={window.location.pathname === tab.href ? "default" : "outline"} onClick={() => router.push(tab.href)}>{tab.name}</Button>
+            {tabs.map((tab) => (
+              <Button
+                key={tab.name}
+                variant={pathname === tab.href ? "default" : "outline"}
+                onClick={() => router.push(tab.href)}
+              >
+                {tab.name}
+              </Button>
             ))}
             <AIAskButton context="有給管理（管理者）画面に関する質問" />
           </div>

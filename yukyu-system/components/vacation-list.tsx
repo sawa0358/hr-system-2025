@@ -210,15 +210,13 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
               </div>
             ) : (
               <div className="flex flex-col gap-1 flex-1 text-xs">
-                <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{request.startDate}〜{request.endDate}</span>
-                  </div>
-                  <span className="font-bold text-foreground">{request.days % 1 === 0 ? `${request.days}日` : `${request.days}日`}</span>
+                <div className="flex items-center gap-1 text-[11px]">
+                  <Calendar className="h-3 w-3" />
+                  <span>{request.startDate.replaceAll('-', '/')}〜{request.endDate.replaceAll('-', '/')}</span>
                 </div>
-                <div className="truncate text-[11px] text-muted-foreground">理由: {request.reason}</div>
-                <div className="flex items-center justify-center mt-auto">{getStatusBadge(request.status)}</div>
+                <div className="text-[11px] text-foreground font-semibold">日数: {`${request.days}日`}</div>
+                <div className="text-[11px] text-muted-foreground">理由: {request.reason}</div>
+                <div className="mt-1">{getStatusBadge(request.status)}</div>
               </div>
             )}
           </CardContent>

@@ -8,7 +8,7 @@ import { VacationRequestForm } from "@yukyu-system/components/vacation-request-f
 import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { Button } from "@/components/ui/button"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState } from "react"
 
 export default function LeavePage() {
@@ -49,15 +49,16 @@ export default function LeavePage() {
   const userRole: 'employee' | 'admin' = 'employee'
 
   const router = useRouter()
+  const pathname = usePathname()
   const params = useSearchParams()
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
 
   const tabs = [
-    { name: "社員", href: "/leave", active: true },
-    { name: "管理者", href: "/leave/admin", active: false },
-    { name: "設定", href: "/leave/settings", active: false },
-  ];
+    { name: "社員", href: "/leave" },
+    { name: "管理者", href: "/leave/admin" },
+    { name: "設定", href: "/leave/settings" },
+  ] as const
 
   return (
     <main className="overflow-y-auto">
@@ -68,8 +69,14 @@ export default function LeavePage() {
             <p className="text-slate-600">社員の有給休暇を管理</p>
           </div>
           <div className="flex items-center gap-2">
-            {tabs.map(tab => (
-              <Button key={tab.name} variant={window.location.pathname === tab.href ? "default" : "outline"} onClick={() => router.push(tab.href)}>{tab.name}</Button>
+            {tabs.map((tab) => (
+              <Button
+                key={tab.name}
+                variant={pathname === tab.href ? "default" : "outline"}
+                onClick={() => router.push(tab.href)}
+              >
+                {tab.name}
+              </Button>
             ))}
             <AIAskButton context={buildAIContext()} />
           </div>

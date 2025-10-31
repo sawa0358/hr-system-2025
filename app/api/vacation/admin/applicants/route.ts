@@ -4,19 +4,44 @@ import { prisma } from "@/lib/prisma"
 // 管理者向け: 全社員の有給カード表示用データ
 export async function GET(request: NextRequest) {
   try {
-    // 社員の基本情報取得
-    const employees = await prisma.employee.findMany({
-      where: { isInvisibleTop: false },
-      select: {
-        id: true,
-        name: true,
-        joinDate: true,
-        employeeType: true,
-        vacationPattern: true,
-        weeklyPattern: true,
-      },
-      orderBy: { joinDate: "asc" },
-    })
+    // 社員の基本情報取得（vacationPatternとweeklyPatternはオプショナル）
+    let employees
+    try {
+      employees = await prisma.employee.findMany({
+        where: { isInvisibleTop: false },
+        select: {
+          id: true,
+          name: true,
+          joinDate: true,
+          employeeType: true,
+          vacationPattern: true,
+          weeklyPattern: true,
+        },
+        orderBy: { joinDate: "asc" },
+      })
+    } catch (schemaError: any) {
+      // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して取得
+      if (schemaError?.message?.includes('vacationPattern') || schemaError?.message?.includes('weeklyPattern')) {
+        employees = await prisma.employee.findMany({
+          where: { isInvisibleTop: false },
+          select: {
+            id: true,
+            name: true,
+            joinDate: true,
+            employeeType: true,
+          },
+          orderBy: { joinDate: "asc" },
+        })
+        // 後でvacationPatternとweeklyPatternをnullとして追加
+        employees = employees.map((e: any) => ({
+          ...e,
+          vacationPattern: null,
+          weeklyPattern: null,
+        }))
+      } else {
+        throw schemaError
+      }
+    }
 
     if (employees.length === 0) {
       return NextResponse.json({ employees: [] })
@@ -129,18 +154,43 @@ export async function GET(request: NextRequest) {
     
     // 社員情報だけでも返す（統計データは0）
     try {
-      const employees = await prisma.employee.findMany({
-        where: { isInvisibleTop: false },
-        select: {
-          id: true,
-          name: true,
-          joinDate: true,
-          employeeType: true,
-          vacationPattern: true,
-          weeklyPattern: true,
-        },
-        orderBy: { joinDate: "asc" },
-      })
+      let employees
+      try {
+        employees = await prisma.employee.findMany({
+          where: { isInvisibleTop: false },
+          select: {
+            id: true,
+            name: true,
+            joinDate: true,
+            employeeType: true,
+            vacationPattern: true,
+            weeklyPattern: true,
+          },
+          orderBy: { joinDate: "asc" },
+        })
+      } catch (schemaError: any) {
+        // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して取得
+        if (schemaError?.message?.includes('vacationPattern') || schemaError?.message?.includes('weeklyPattern')) {
+          employees = await prisma.employee.findMany({
+            where: { isInvisibleTop: false },
+            select: {
+              id: true,
+              name: true,
+              joinDate: true,
+              employeeType: true,
+            },
+            orderBy: { joinDate: "asc" },
+          })
+          // 後でvacationPatternとweeklyPatternをnullとして追加
+          employees = employees.map((e: any) => ({
+            ...e,
+            vacationPattern: null,
+            weeklyPattern: null,
+          }))
+        } else {
+          throw schemaError
+        }
+      }
       
       const fallbackResults = employees.map(e => ({
         id: e.id,

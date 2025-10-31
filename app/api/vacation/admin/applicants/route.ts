@@ -24,32 +24,63 @@ export async function GET(request: NextRequest) {
         let remaining = 0
         let granted = 0
         try {
-          const balances = await prisma.vacationBalance.findMany({
-            where: { employeeId: e.id },
-            select: { remainingDays: true, grantDays: true },
+          // まず新しいロットベースシステムを試す
+          const lots = await prisma.grantLot.findMany({
+            where: {
+              employeeId: e.id,
+              expiryDate: { gte: new Date() },
+              daysRemaining: { gt: 0 },
+            },
           })
-          remaining = balances.reduce((a, b) => a + Number(b.remainingDays ?? 0), 0)
-          granted = balances.reduce((a, b) => a + Number(b.grantDays ?? 0), 0)
-        } catch {}
+          remaining = lots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0)
+          const allLots = await prisma.grantLot.findMany({
+            where: { employeeId: e.id },
+          })
+          granted = allLots.reduce((sum, lot) => sum + Number(lot.daysGranted), 0)
+        } catch (lotError) {
+          // フォールバック: 旧システムを使用
+          try {
+            const balances = await prisma.vacationBalance.findMany({
+              where: { employeeId: e.id },
+              select: { remainingDays: true, grantDays: true },
+            })
+            remaining = balances.reduce((a, b) => a + Number(b.remainingDays ?? 0), 0)
+            granted = balances.reduce((a, b) => a + Number(b.grantDays ?? 0), 0)
+          } catch {}
+        }
 
         let used = 0
         let pending = 0
         try {
-          const [approvedSum, pendingSum] = await Promise.all([
-            prisma.vacationRequest.aggregate({ _sum: { usedDays: true }, where: { employeeId: e.id, status: "APPROVED" } }),
-            prisma.vacationRequest.aggregate({ _sum: { usedDays: true }, where: { employeeId: e.id, status: "PENDING" } }),
-          ])
-          used = Number(approvedSum._sum.usedDays ?? 0)
-          pending = Number(pendingSum._sum.usedDays ?? 0)
-        } catch {}
+          // 新しいシステムから取得を試す
+          const consumptions = await prisma.consumption.findMany({
+            where: { employeeId: e.id },
+          })
+          used = consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0)
+          
+          const pendingRequests = await prisma.timeOffRequest.findMany({
+            where: { employeeId: e.id, status: "PENDING" },
+          })
+          pending = pendingRequests.reduce((sum, r) => sum + Number(r.totalDays ?? 0), 0)
+        } catch (newSystemError) {
+          // フォールバック: 旧システムを使用
+          try {
+            const [approvedSum, pendingSum] = await Promise.all([
+              prisma.vacationRequest.aggregate({ _sum: { usedDays: true }, where: { employeeId: e.id, status: "APPROVED" } }),
+              prisma.vacationRequest.aggregate({ _sum: { usedDays: true }, where: { employeeId: e.id, status: "PENDING" } }),
+            ])
+            used = Number(approvedSum._sum.usedDays ?? 0)
+            pending = Number(pendingSum._sum.usedDays ?? 0)
+          } catch {}
+        }
 
         return {
           id: e.id,
           name: e.name,
           joinDate: e.joinDate?.toISOString(),
-          employeeType: e.employeeType,
-          vacationPattern: e.vacationPattern,
-          weeklyPattern: e.weeklyPattern,
+          employeeType: e.employeeType || null,
+          vacationPattern: e.vacationPattern || null,
+          weeklyPattern: e.weeklyPattern || null,
           remaining: Math.max(0, remaining > 0 ? remaining - pending : granted - used - pending),
           used,
           pending,

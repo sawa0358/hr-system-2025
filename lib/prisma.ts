@@ -11,16 +11,45 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 // 「見えないTOP」社員の自動作成・管理（デプロイ時自動実行）
 async function ensureInvisibleTopEmployee() {
   try {
-    // 既存の「見えないTOP」社員を検索
-    let invisibleTopEmployee = await prisma.employee.findFirst({
-      where: {
-        OR: [
-          { name: "見えないTOP" },
-          { employeeNumber: "000" },
-          { isInvisibleTop: true }
-        ]
+    // 既存の「見えないTOP」社員を検索（新しいカラムが存在しない場合も対応）
+    let invisibleTopEmployee: any
+    try {
+      invisibleTopEmployee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { name: "見えないTOP" },
+            { employeeNumber: "000" },
+            { isInvisibleTop: true }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          employeeNumber: true,
+          isInvisibleTop: true,
+        },
+      });
+    } catch (schemaError: any) {
+      // 新しいカラムが存在しない場合は、selectで基本フィールドのみ取得
+      if (schemaError?.code === 'P2022') {
+        invisibleTopEmployee = await prisma.employee.findFirst({
+          where: {
+            OR: [
+              { name: "見えないTOP" },
+              { employeeNumber: "000" },
+            ]
+          },
+          select: {
+            id: true,
+            name: true,
+            employeeNumber: true,
+            isInvisibleTop: true,
+          },
+        });
+      } else {
+        throw schemaError
       }
-    });
+    }
     
     if (!invisibleTopEmployee) {
       // 新規作成

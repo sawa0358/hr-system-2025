@@ -46,16 +46,37 @@ export async function PUT(
     const body = await request.json()
     const { vacationPattern, weeklyPattern } = body
 
-    // 社員情報を取得
-    const employee = await prisma.employee.findUnique({
-      where: { id: params.employeeId },
-      select: {
-        id: true,
-        employeeType: true,
-        vacationPattern: true,
-        weeklyPattern: true,
-      },
-    })
+    // 社員情報を取得（vacationPatternが存在しない場合はエラーを回避）
+    let employee: any
+    try {
+      employee = await prisma.employee.findUnique({
+        where: { id: params.employeeId },
+        select: {
+          id: true,
+          employeeType: true,
+          vacationPattern: true,
+          weeklyPattern: true,
+        },
+      })
+    } catch (schemaError: any) {
+      // vacationPatternカラムが存在しない場合は、それらを除外して取得
+      if (schemaError?.code === 'P2022') {
+        employee = await prisma.employee.findUnique({
+          where: { id: params.employeeId },
+          select: {
+            id: true,
+            employeeType: true,
+          },
+        })
+        employee = employee ? {
+          ...employee,
+          vacationPattern: null,
+          weeklyPattern: null,
+        } : null
+      } else {
+        throw schemaError
+      }
+    }
 
     if (!employee) {
       return NextResponse.json({ error: "社員が見つかりません" }, { status: 404 })

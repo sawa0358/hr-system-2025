@@ -139,19 +139,45 @@ export async function calculateExpiringSoon(
  * 有給統計情報をまとめて取得
  */
 export async function getVacationStats(employeeId: string) {
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: {
-      id: true,
-      name: true,
-      joinDate: true,
-      configVersion: true,
-      employmentType: true,
-      weeklyPattern: true,
-      vacationPattern: true,
-      employeeType: true, // 雇用形態（String）も取得
-    },
-  });
+  let employee: any
+  try {
+    employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        name: true,
+        joinDate: true,
+        configVersion: true,
+        employmentType: true,
+        weeklyPattern: true,
+        vacationPattern: true,
+        employeeType: true, // 雇用形態（String）も取得
+      },
+    })
+  } catch (schemaError: any) {
+    // 新しいカラムが存在しない場合は、それらを除外して取得
+    if (schemaError?.code === 'P2022') {
+      employee = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: {
+          id: true,
+          name: true,
+          joinDate: true,
+          employeeType: true,
+        },
+      })
+      // 存在しないカラムにデフォルト値を設定
+      employee = employee ? {
+        ...employee,
+        configVersion: null,
+        employmentType: null,
+        weeklyPattern: null,
+        vacationPattern: null,
+      } : null
+    } else {
+      throw schemaError
+    }
+  }
 
   if (!employee) {
     throw new Error('Employee not found');

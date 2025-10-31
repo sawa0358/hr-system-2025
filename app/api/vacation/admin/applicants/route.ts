@@ -7,7 +7,14 @@ export async function GET(request: NextRequest) {
     // 社員の基本情報取得
     const employees = await prisma.employee.findMany({
       where: { isInvisibleTop: false },
-      select: { id: true, name: true, joinDate: true },
+      select: {
+        id: true,
+        name: true,
+        joinDate: true,
+        employeeType: true,
+        vacationPattern: true,
+        weeklyPattern: true,
+      },
       orderBy: { joinDate: "asc" },
     })
 
@@ -40,6 +47,9 @@ export async function GET(request: NextRequest) {
           id: e.id,
           name: e.name,
           joinDate: e.joinDate?.toISOString(),
+          employeeType: e.employeeType,
+          vacationPattern: e.vacationPattern,
+          weeklyPattern: e.weeklyPattern,
           remaining: Math.max(0, remaining > 0 ? remaining - pending : granted - used - pending),
           used,
           pending,

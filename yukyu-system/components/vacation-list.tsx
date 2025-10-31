@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useEffect, useState } from "react"
+import { VacationPatternSelector } from "./vacation-pattern-selector"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -164,6 +165,14 @@ export function VacationList({ userRole, filter, onEmployeeClick }: VacationList
                 <div className="space-y-0.5">
                   <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
                   <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
+                  {userRole === "admin" && (
+                    <VacationPatternSelector
+                      employeeId={String(request.id)}
+                      employeeType={request.employeeType || null}
+                      currentPattern={request.vacationPattern || null}
+                      currentWeeklyPattern={request.weeklyPattern || null}
+                    />
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-1.5">

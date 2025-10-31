@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { AppConfig } from "@/lib/vacation-config"
 import { useToast } from "@/hooks/use-toast"
 
@@ -44,6 +44,7 @@ export default function LeaveSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   
   const [firstGrantMonths, setFirstGrantMonths] = useState(6)
   const [cycleMonths, setCycleMonths] = useState(12)
@@ -54,11 +55,79 @@ export default function LeaveSettingsPage() {
   const [grantDaysTable, setGrantDaysTable] = useState<number[]>([10, 11, 12, 14, 16, 18, 20])
 
   const [rows, setRows] = useState([
-    { weeklyDays: 4, minHours: 169, maxHours: 216, grants: [7, 8, 9, 10, 12, 13, 15] },
-    { weeklyDays: 3, minHours: 121, maxHours: 168, grants: [5, 6, 6, 8, 9, 10, 11] },
-    { weeklyDays: 2, minHours: 73, maxHours: 120, grants: [3, 4, 4, 5, 6, 6, 7] },
-    { weeklyDays: 1, minHours: 48, maxHours: 72, grants: [1, 2, 2, 3, 3, 3, 3] },
+    { weeklyDays: 4, minDays: 169, maxDays: 216, grants: [7, 8, 9, 10, 12, 13, 15] },
+    { weeklyDays: 3, minDays: 121, maxDays: 168, grants: [5, 6, 6, 8, 9, 10, 11] },
+    { weeklyDays: 2, minDays: 73, maxDays: 120, grants: [3, 4, 4, 5, 6, 6, 7] },
+    { weeklyDays: 1, minDays: 48, maxDays: 72, grants: [1, 2, 2, 3, 3, 3, 3] },
   ])
+
+  // 既存の設定を読み込む
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        setIsLoading(true)
+        const res = await fetch('/api/vacation/config')
+        if (res.ok) {
+          const config: AppConfig = await res.json()
+          
+          // 基本設定を読み込み
+          if (config.baselineRule.kind === 'RELATIVE_FROM_JOIN') {
+            setFirstGrantMonths(config.baselineRule.initialGrantAfterMonths)
+            setCycleMonths(config.baselineRule.cycleMonths)
+          }
+          
+          if (config.expiry.kind === 'YEARS') {
+            setExpireYears(config.expiry.years)
+          }
+          
+          setMinDays(config.minLegalUseDaysPerYear)
+          
+          // 正社員用テーブルを読み込み
+          if (config.fullTime?.table && config.fullTime.table.length > 0) {
+            const years = config.fullTime.table.map(t => t.years)
+            const days = config.fullTime.table.map(t => t.days)
+            setYearsTable(years)
+            setGrantDaysTable(days)
+            
+            // パートタイム用テーブルを読み込み（yearsTableが更新された後）
+            if (config.partTime?.tables && config.partTime.tables.length > 0) {
+              const partTimeRows = config.partTime.tables.map(table => ({
+                weeklyDays: table.weeklyPattern,
+                minDays: table.minAnnualWorkdays || 0,
+                maxDays: table.maxAnnualWorkdays || 0,
+                grants: years.map((y, idx) => {
+                  const grant = table.grants.find(g => g.years === y)
+                  return grant?.days || 0
+                }),
+              }))
+              setRows(partTimeRows)
+            }
+          } else {
+            // パートタイム用テーブルを読み込み（yearsTableが未更新の場合）
+            if (config.partTime?.tables && config.partTime.tables.length > 0) {
+              const partTimeRows = config.partTime.tables.map(table => ({
+                weeklyDays: table.weeklyPattern,
+                minDays: table.minAnnualWorkdays || 0,
+                maxDays: table.maxAnnualWorkdays || 0,
+                grants: yearsTable.map((y, idx) => {
+                  const grant = table.grants.find(g => g.years === y)
+                  return grant?.days || 0
+                }),
+              }))
+              setRows(partTimeRows)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('設定の読み込みエラー:', error)
+        // エラー時はデフォルト値を使用
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadConfig()
+  }, []) // 初回のみ実行
 
   // フォームの値からAppConfigを構築
   const buildAppConfig = (): AppConfig => {
@@ -77,8 +146,8 @@ export default function LeaveSettingsPage() {
         years,
         days: row.grants[index] || 0,
       })),
-      minAnnualWorkdays: row.minHours,
-      maxAnnualWorkdays: row.maxHours,
+      minAnnualWorkdays: row.minDays,
+      maxAnnualWorkdays: row.maxDays,
     }))
 
     const config: AppConfig = {
@@ -160,8 +229,10 @@ export default function LeaveSettingsPage() {
       })
 
       if (!saveResponse.ok) {
-        const error = await saveResponse.json()
-        throw new Error(error.error || '設定の保存に失敗しました')
+        const error = await saveResponse.json().catch(() => ({ error: '設定の保存に失敗しました' }))
+        const errorMessage = error.error || '設定の保存に失敗しました'
+        const errorDetails = error.details ? `\n詳細: ${JSON.stringify(error.details, null, 2)}` : ''
+        throw new Error(`${errorMessage}${errorDetails}`)
       }
 
       // 設定を有効化
@@ -174,8 +245,9 @@ export default function LeaveSettingsPage() {
       })
 
       if (!activateResponse.ok) {
-        const error = await activateResponse.json()
-        throw new Error(error.error || '設定の有効化に失敗しました')
+        const error = await activateResponse.json().catch(() => ({ error: '設定の有効化に失敗しました' }))
+        const errorMessage = error.error || '設定の有効化に失敗しました'
+        throw new Error(errorMessage)
       }
 
       toast({
@@ -187,14 +259,41 @@ export default function LeaveSettingsPage() {
       router.push('/leave/admin')
     } catch (error) {
       console.error('保存エラー:', error)
+      
+      // エラーメッセージを抽出
+      let errorMessage = '設定の保存に失敗しました'
+      if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      
+      // エラーの詳細をログに出力
+      if (error instanceof Error && error.message) {
+        console.error('エラー詳細:', error.message)
+      }
+      
       toast({
         title: "保存エラー",
-        description: error instanceof Error ? error.message : '設定の保存に失敗しました',
+        description: errorMessage.length > 100 
+          ? `${errorMessage.substring(0, 100)}...` 
+          : errorMessage,
         variant: "destructive",
       })
     } finally {
       setIsSaving(false)
     }
+  }
+
+  if (isLoading) {
+    return (
+      <main className="overflow-y-auto">
+        <div className="p-8 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">設定を読み込み中...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -311,12 +410,12 @@ export default function LeaveSettingsPage() {
                   <span className="text-sm text-muted-foreground">日/週</span>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
-                  <HoverStepperInput className="w-20" value={row.minHours} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, minHours: v } : r)))} showOverlay={false} nativeSpinner={true} />
-                  <span className="text-sm text-muted-foreground">h/年 最小</span>
+                  <HoverStepperInput className="w-20" value={row.minDays} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, minDays: v } : r)))} showOverlay={false} nativeSpinner={true} />
+                  <span className="text-sm text-muted-foreground">日/年 最小</span>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
-                  <HoverStepperInput className="w-20" value={row.maxHours} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, maxHours: v } : r)))} showOverlay={false} nativeSpinner={true} />
-                  <span className="text-sm text-muted-foreground">h/年 最大</span>
+                  <HoverStepperInput className="w-20" value={row.maxDays} onChange={(v) => setRows((prev) => prev.map((r, i) => (i === idx ? { ...r, maxDays: v } : r)))} showOverlay={false} nativeSpinner={true} />
+                  <span className="text-sm text-muted-foreground">日/年 最大</span>
                 </div>
                 <div className="col-span-6 grid grid-cols-7 gap-1">
                   {row.grants.map((g, i) => (

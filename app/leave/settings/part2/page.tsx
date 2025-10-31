@@ -19,10 +19,10 @@ function SmallStepper({ value, onChange }: { value: number; onChange: (v: number
 export default function LeaveSettingsPart2Page() {
   const router = useRouter()
   const [rows, setRows] = useState([
-    { weeklyDays: 4, minHours: 169, maxHours: 216, grants: [7,8,9,10,12,13,15] },
-    { weeklyDays: 3, minHours: 121, maxHours: 168, grants: [5,6,6,8,9,10,11] },
-    { weeklyDays: 2, minHours: 73, maxHours: 120, grants: [3,4,4,5,6,6,7] },
-    { weeklyDays: 1, minHours: 48, maxHours: 72, grants: [1,2,2,3,3,3,3] },
+    { weeklyDays: 4, minDays: 169, maxDays: 216, grants: [7,8,9,10,12,13,15] },
+    { weeklyDays: 3, minDays: 121, maxDays: 168, grants: [5,6,6,8,9,10,11] },
+    { weeklyDays: 2, minDays: 73, maxDays: 120, grants: [3,4,4,5,6,6,7] },
+    { weeklyDays: 1, minDays: 48, maxDays: 72, grants: [1,2,2,3,3,3,3] },
   ])
 
   return (
@@ -51,18 +51,18 @@ export default function LeaveSettingsPart2Page() {
                   <span className="text-sm text-muted-foreground">日/週</span>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
-                  <Input className="w-20 text-right" value={row.minHours} onChange={(e) => {
+                  <Input className="w-20 text-right" value={row.minDays} onChange={(e) => {
                     const v = Number(e.target.value || 0)
-                    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, minHours: v } : r))
+                    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, minDays: v } : r))
                   }} />
-                  <span className="text-sm text-muted-foreground">h/年 最小</span>
+                  <span className="text-sm text-muted-foreground">日/年 最小</span>
                 </div>
                 <div className="col-span-2 flex items-center gap-2">
-                  <Input className="w-20 text-right" value={row.maxHours} onChange={(e) => {
+                  <Input className="w-20 text-right" value={row.maxDays} onChange={(e) => {
                     const v = Number(e.target.value || 0)
-                    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, maxHours: v } : r))
+                    setRows((prev) => prev.map((r, i) => i === idx ? { ...r, maxDays: v } : r))
                   }} />
-                  <span className="text-sm text-muted-foreground">h/年 最大</span>
+                  <span className="text-sm text-muted-foreground">日/年 最大</span>
                 </div>
                 <div className="col-span-6 grid grid-cols-7 gap-1">
                   {row.grants.map((g, i) => (

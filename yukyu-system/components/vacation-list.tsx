@@ -26,6 +26,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
   const [employeeRequests, setEmployeeRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<"date" | "status" | "days">("date")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
 
   useEffect(() => {
     const load = async () => {
@@ -46,14 +49,16 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
         // 社員モードの場合、特定社員の申請一覧を取得
         setLoading(true)
         try {
-          // TODO: 社員用の申請一覧APIエンドポイントを実装後、ここで呼び出す
-          // const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
-          // if (res.ok) {
-          //   const json = await res.json()
-          //   setEmployeeRequests(json.requests || [])
-          // } else {
-          //   setEmployeeRequests([])
-          // }
+          const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
+          if (res.ok) {
+            const json = await res.json()
+            setEmployeeRequests(json.requests || [])
+          } else {
+            setEmployeeRequests([])
+          }
+        } catch (error) {
+          console.error("申請一覧取得エラー:", error)
+          setEmployeeRequests([])
         } finally {
           setLoading(false)
         }
@@ -203,20 +208,34 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
 
   // 却下処理
   const handleReject = async (requestId: string) => {
+    const reason = prompt("却下理由を入力してください（省略可）:")
+    if (reason === null) {
+      // キャンセルされた場合
+      return
+    }
+
     try {
       setProcessingRequestId(requestId)
-      
-      // TODO: 却下APIを実装後、ここで呼び出す
-      // const res = await fetch(`/api/vacation/requests/${requestId}/reject`, {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ reason: "管理者による却下" }),
-      // })
+      const current = (window as any).CURRENT_USER as { id?: string } | undefined
+      const approverId = current?.id
+
+      const res = await fetch(`/api/vacation/requests/${requestId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          reason: reason || "管理者による却下",
+          approverId,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || "却下に失敗しました")
+      }
 
       toast({
-        title: "却下機能",
-        description: "却下機能は今後実装予定です",
-        variant: "default",
+        title: "却下完了",
+        description: "有給申請を却下しました",
       })
 
       // データを再読み込み
@@ -243,6 +262,32 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
     return granted >= 10 && used < 5
   }
 
+  // 社員用申請一覧のフィルタリングとソート
+  const filteredAndSortedEmployeeRequests = employeeRequests
+    .filter((req: any) => {
+      if (statusFilter === "all") return true
+      return req.status?.toLowerCase() === statusFilter
+    })
+    .sort((a: any, b: any) => {
+      let comparison = 0
+      switch (sortBy) {
+        case "date":
+          const dateA = new Date(a.startDate || a.createdAt || 0).getTime()
+          const dateB = new Date(b.startDate || b.createdAt || 0).getTime()
+          comparison = dateA - dateB
+          break
+        case "status":
+          const statusOrder = { pending: 1, approved: 2, rejected: 3, cancelled: 4 }
+          comparison = (statusOrder[a.status?.toLowerCase() as keyof typeof statusOrder] || 99) - 
+                       (statusOrder[b.status?.toLowerCase() as keyof typeof statusOrder] || 99)
+          break
+        case "days":
+          comparison = (a.days || 0) - (b.days || 0)
+          break
+      }
+      return sortOrder === "asc" ? comparison : -comparison
+    })
+
   const adminVisible = userRole === "admin" ? (filter === "pending" ? adminEmployees.filter(e => (e.pending ?? 0) > 0) : adminEmployees) : []
 
   return (
@@ -252,7 +297,36 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
           <CardContent className="py-6 text-center text-muted-foreground">読み込み中...</CardContent>
         </Card>
       )}
-      {(userRole === "admin" ? adminVisible : filteredRequests).map((request: any) => (
+      {userRole === "employee" && employeeRequests.length > 0 && (
+        <div className="col-span-full flex gap-2 items-center mb-2">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="text-sm border rounded px-2 py-1"
+          >
+            <option value="all">全て</option>
+            <option value="pending">承認待ち</option>
+            <option value="approved">承認済み</option>
+            <option value="rejected">却下</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="text-sm border rounded px-2 py-1"
+          >
+            <option value="date">日付順</option>
+            <option value="status">ステータス順</option>
+            <option value="days">日数順</option>
+          </select>
+          <button
+            onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+            className="text-sm border rounded px-2 py-1"
+          >
+            {sortOrder === "asc" ? "↑" : "↓"}
+          </button>
+        </div>
+      )}
+      {(userRole === "admin" ? adminVisible : (filteredAndSortedEmployeeRequests.length > 0 ? filteredAndSortedEmployeeRequests : filteredRequests)).map((request: any) => (
         <Card
           key={request.id}
           className="flex flex-col min-h-[92px] p-0 cursor-pointer"
@@ -375,17 +449,26 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
               <div className="flex flex-col gap-1 flex-1 text-xs">
                 <div className="flex items-center gap-1 text-[11px]">
                   <Calendar className="h-3 w-3" />
-                  <span>{request.startDate.replaceAll('-', '/')}〜{request.endDate.replaceAll('-', '/')}</span>
+                  <span>
+                    {typeof request.startDate === 'string' 
+                      ? request.startDate.replaceAll('-', '/')
+                      : request.startDate}〜
+                    {typeof request.endDate === 'string'
+                      ? request.endDate.replaceAll('-', '/')
+                      : request.endDate}
+                  </span>
                 </div>
-                <div className="text-[11px] text-foreground font-semibold">日数: {`${request.days}日`}</div>
-                <div className="text-[11px] text-muted-foreground">理由: {request.reason}</div>
-                <div className="mt-1">{getStatusBadge(request.status)}</div>
+                <div className="text-[11px] text-foreground font-semibold">
+                  日数: {`${request.days || 0}日`}
+                </div>
+                <div className="text-[11px] text-muted-foreground">理由: {request.reason || "-"}</div>
+                <div className="mt-1">{getStatusBadge(request.status || "pending")}</div>
               </div>
             )}
           </CardContent>
         </Card>
       ))}
-      {(userRole === "admin" ? adminVisible.length === 0 : filteredRequests.length === 0) && !loading && (
+      {(userRole === "admin" ? adminVisible.length === 0 : (filteredAndSortedEmployeeRequests.length === 0 && filteredRequests.length === 0)) && !loading && (
         <Card className="col-span-full">
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">データがありません</p>

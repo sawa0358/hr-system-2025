@@ -9,13 +9,84 @@ import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { VacationList } from "@yukyu-system/components/vacation-list"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { useMemo, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2, Play, Database } from "lucide-react"
 
 export default function LeaveAdminPage() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
+  const { toast } = useToast()
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
+  const [isInitializing, setIsInitializing] = useState(false)
+  const [isGeneratingLots, setIsGeneratingLots] = useState(false)
+
+  // 初期設定の投入
+  const handleInitConfig = async () => {
+    try {
+      setIsInitializing(true)
+      const res = await fetch('/api/vacation/config/init', {
+        method: 'POST',
+      })
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || '初期設定の投入に失敗しました')
+      }
+
+      const result = await res.json()
+      toast({
+        title: "初期設定完了",
+        description: result.message || "デフォルト設定を投入し、有効化しました",
+      })
+    } catch (error: any) {
+      console.error('初期設定投入エラー:', error)
+      toast({
+        title: "エラー",
+        description: error?.message || '初期設定の投入に失敗しました',
+        variant: "destructive",
+      })
+    } finally {
+      setIsInitializing(false)
+    }
+  }
+
+  // 全社員の付与ロット生成
+  const handleGenerateLots = async () => {
+    if (!confirm('全社員の付与ロットを生成しますか？\n既存のロットがある場合は更新されます。')) {
+      return
+    }
+
+    try {
+      setIsGeneratingLots(true)
+      const res = await fetch('/api/vacation/recalc/all', {
+        method: 'POST',
+      })
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || '付与ロットの生成に失敗しました')
+      }
+
+      const result = await res.json()
+      const summary = result.summary || {}
+      
+      toast({
+        title: "付与ロット生成完了",
+        description: `成功: ${summary.success || 0}件、生成: ${summary.totalGenerated || 0}件、更新: ${summary.totalUpdated || 0}件`,
+      })
+    } catch (error: any) {
+      console.error('付与ロット生成エラー:', error)
+      toast({
+        title: "エラー",
+        description: error?.message || '付与ロットの生成に失敗しました',
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingLots(false)
+    }
+  }
 
   const tabs = [
     { name: "社員", href: "/leave" },
@@ -95,6 +166,44 @@ export default function LeaveAdminPage() {
           <div className="flex gap-2">
             <Button variant={view === "pending" ? "default" : "outline"} onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}>承認待ち</Button>
             <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleInitConfig}
+              disabled={isInitializing || isGeneratingLots}
+            >
+              {isInitializing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  投入中...
+                </>
+              ) : (
+                <>
+                  <Database className="mr-2 h-4 w-4" />
+                  初期設定投入
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateLots}
+              disabled={isInitializing || isGeneratingLots}
+            >
+              {isGeneratingLots ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  全社員付与ロット生成
+                </>
+              )}
+            </Button>
           </div>
         </div>
 

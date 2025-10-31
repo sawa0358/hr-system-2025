@@ -42,55 +42,105 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     load()
   }, [employeeId, userRole])
 
-  const employeeStats = [
+  const employeeStats: Array<{
+    title: string
+    value: string
+    icon: any
+    color: string
+    subtitle?: string
+  }> = [
     {
       title: "残り有給日数",
-      value: loading ? "-" : `${statsData?.totalRemaining ?? 0}日`,
+      value: loading ? "-" : `${(statsData?.totalRemaining ?? 0).toFixed(1)}日`,
       icon: Calendar,
       color: "text-chart-1",
+      subtitle: statsData?.totalGranted ? `付与: ${statsData.totalGranted.toFixed(1)}日` : undefined,
     },
     {
       title: "取得済み",
-      value: loading ? "-" : `${statsData?.used ?? 0}日`,
+      value: loading ? "-" : `${(statsData?.used ?? 0).toFixed(1)}日`,
       icon: CheckCircle,
       color: "text-chart-2",
+      subtitle: statsData?.totalGranted ? `使用率: ${((statsData.used / statsData.totalGranted) * 100).toFixed(1)}%` : undefined,
     },
     {
       title: "申請中",
-      value: loading ? "-" : `${statsData?.pending ?? 0}日`,
+      value: loading ? "-" : `${(statsData?.pending ?? 0).toFixed(1)}日`,
       icon: Clock,
       color: "text-chart-3",
+      subtitle: statsData?.totalRemaining !== undefined ? `承認後残り: ${(statsData.totalRemaining - (statsData.pending || 0)).toFixed(1)}日` : undefined,
     },
     {
       title: "総付与数",
-      value: loading ? "-" : `${statsData?.totalGranted ?? 0}日`,
+      value: loading ? "-" : `${(statsData?.totalGranted ?? 0).toFixed(1)}日`,
       icon: Calendar,
       color: "text-chart-4",
+      subtitle: statsData?.joinDate ? `入社: ${new Date(statsData.joinDate).toISOString().slice(0,10).replaceAll('-', '/')}` : undefined,
     },
   ]
 
-  const adminStats = [
+  const [adminStatsData, setAdminStatsData] = useState<{
+    pending: number
+    approvedThisMonth: number
+    rejected: number
+    alerts: number
+  } | null>(null)
+
+  useEffect(() => {
+    const loadAdminStats = async () => {
+      if (userRole !== "admin") return
+      setLoading(true)
+      try {
+        const res = await fetch("/api/vacation/admin/stats")
+        if (res.ok) {
+          const json = await res.json()
+          setAdminStatsData({
+            pending: json.pending ?? 0,
+            approvedThisMonth: json.approvedThisMonth ?? 0,
+            rejected: json.rejected ?? 0,
+            alerts: json.alerts ?? 0,
+          })
+        } else {
+          setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0 })
+        }
+      } catch (error) {
+        console.error("管理者統計取得エラー:", error)
+        setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0 })
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadAdminStats()
+  }, [userRole])
+
+  const adminStats: Array<{
+    title: string
+    value: string
+    icon: any
+    color: string
+    subtitle?: string
+  }> = [
     {
       title: "承認待ち",
-      value: "5件",
+      value: loading ? "-" : `${adminStatsData?.pending ?? 0}件`,
       icon: Clock,
       color: "text-chart-3",
     },
     {
       title: "今月承認済み",
-      value: "23件",
+      value: loading ? "-" : `${adminStatsData?.approvedThisMonth ?? 0}件`,
       icon: CheckCircle,
       color: "text-chart-2",
     },
     {
       title: "却下",
-      value: "2件",
+      value: loading ? "-" : `${adminStatsData?.rejected ?? 0}件`,
       icon: XCircle,
       color: "text-destructive",
     },
     {
       title: "アラート数",
-      value: "3名",
+      value: loading ? "-" : `${adminStatsData?.alerts ?? 0}名`,
       icon: AlertTriangle,
       color: "text-orange-500",
     },
@@ -115,6 +165,9 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+            {stat.subtitle && (
+              <div className="text-xs text-muted-foreground mt-1">{stat.subtitle}</div>
+            )}
           </CardContent>
         </Card>
       ))}

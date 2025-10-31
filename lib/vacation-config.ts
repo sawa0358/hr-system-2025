@@ -131,17 +131,39 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
 // AppConfigの保存と読み込み
 export async function saveAppConfig(config: AppConfig): Promise<void> {
   const { prisma } = await import('@/lib/prisma');
-  await prisma.vacationAppConfig.upsert({
-    where: { version: config.version },
-    create: {
-      version: config.version,
-      configJson: JSON.stringify(config),
-      isActive: false, // 手動で有効化
-    },
-    update: {
-      configJson: JSON.stringify(config),
-    },
-  });
+  
+  try {
+    // JSONシリアライズ
+    const configJson = JSON.stringify(config);
+    
+    // バリデーション: versionが空でないことを確認
+    if (!config.version || config.version.trim() === '') {
+      throw new Error('設定バージョンが指定されていません');
+    }
+
+    // バリデーション: configJsonが空でないことを確認
+    if (!configJson || configJson === '{}') {
+      throw new Error('設定データが空です');
+    }
+
+    await prisma.vacationAppConfig.upsert({
+      where: { version: config.version },
+      create: {
+        version: config.version,
+        configJson: configJson,
+        isActive: false, // 手動で有効化
+      },
+      update: {
+        configJson: configJson,
+      },
+    });
+  } catch (error: any) {
+    // Prismaエラーを再スロー（詳細情報を含める）
+    if (error?.code) {
+      error.prismaCode = error.code;
+    }
+    throw error;
+  }
 }
 
 export async function loadAppConfig(version?: string): Promise<AppConfig> {

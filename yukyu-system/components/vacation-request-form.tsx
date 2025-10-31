@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,7 @@ export function VacationRequestForm() {
     hoursPerDay: 8,
     hours: 8,
   })
+  
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // 日数自動計算
@@ -29,8 +30,18 @@ export function VacationRequestForm() {
     const end = new Date(formData.endDate)
     const diffTime = end.getTime() - start.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-    return diffDays
+    return Math.max(1, diffDays)
   }
+
+  // 開始日・終了日変更時に自動計算
+  useEffect(() => {
+    if (formData.unit === "DAY" && formData.startDate && formData.endDate) {
+      const calculatedDays = calculateDays()
+      if (calculatedDays > 0) {
+        setFormData(prev => ({ ...prev, usedDays: calculatedDays }))
+      }
+    }
+  }, [formData.startDate, formData.endDate, formData.unit])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -143,11 +154,25 @@ export function VacationRequestForm() {
                   min={0.5}
                   step={0.5}
                   value={formData.usedDays}
-                  onChange={(e) => setFormData({ ...formData, usedDays: Number(e.target.value) })}
+                  onChange={(e) => {
+                    const days = Number(e.target.value)
+                    setFormData({ ...formData, usedDays: days >= 0.5 ? days : 0.5 })
+                  }}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  自動計算: {calculateDays()}日（{formData.startDate && formData.endDate ? "開始日〜終了日" : "日付を選択してください"}）
+                  {formData.startDate && formData.endDate ? (
+                    <>
+                      自動計算: {calculateDays()}日（開始日〜終了日）
+                      {formData.usedDays !== calculateDays() && (
+                        <span className="ml-2 text-orange-600">
+                          ※ 日付から計算した値と異なります
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    "日付を選択すると自動計算されます"
+                  )}
                 </p>
               </div>
             ) : (

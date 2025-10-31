@@ -18,14 +18,21 @@ export async function GET(request: NextRequest) {
       orderBy: { joinDate: "asc" },
     })
 
+    if (employees.length === 0) {
+      return NextResponse.json({ employees: [] })
+    }
+
     // 社員ごとの統計を集計
     const results = await Promise.all(
       employees.map(async (e) => {
         let remaining = 0
         let granted = 0
         
-        // まず新しいロットベースシステムを試す
+        // まず新しいロットベースシステムを試す（テーブルが存在しない場合はスキップ）
         try {
+          // Prismaの$queryRawでテーブルの存在を確認
+          await prisma.$queryRaw`SELECT 1 FROM grant_lots LIMIT 1`
+          
           const lots = await prisma.grantLot.findMany({
             where: {
               employeeId: e.id,
@@ -41,11 +48,7 @@ export async function GET(request: NextRequest) {
           granted = allLots.reduce((sum, lot) => sum + Number(lot.daysGranted), 0)
         } catch (lotError: any) {
           // テーブルが存在しない場合は無視（フォールバック処理へ）
-          if (lotError?.message?.includes('does not exist') || lotError?.code === 'P2021') {
-            // テーブルが存在しない場合
-          } else {
-            console.warn(`GrantLot取得エラー (employeeId: ${e.id}):`, lotError?.message)
-          }
+          // SQLiteではテーブルが存在しない場合、特定のエラーが返される
         }
         
         // ロットベースシステムでデータがない場合は旧システムを使用
@@ -58,24 +61,23 @@ export async function GET(request: NextRequest) {
             remaining = balances.reduce((a, b) => a + Number(b.remainingDays ?? 0), 0)
             granted = balances.reduce((a, b) => a + Number(b.grantDays ?? 0), 0)
           } catch (balanceError: any) {
-            // テーブルが存在しない場合は無視
-            if (balanceError?.message?.includes('does not exist') || balanceError?.code === 'P2021') {
-              // テーブルが存在しない場合
-            } else {
-              console.warn(`VacationBalance取得エラー (employeeId: ${e.id}):`, balanceError?.message)
-            }
+            // エラーは無視（データなしとして扱う）
           }
         }
 
         let used = 0
         let pending = 0
         
-        // 新しいシステムから取得を試す
+        // 新しいシステムから取得を試す（テーブルが存在しない場合はスキップ）
         try {
+          await prisma.$queryRaw`SELECT 1 FROM consumptions LIMIT 1`
+          
           const consumptions = await prisma.consumption.findMany({
             where: { employeeId: e.id },
           })
           used = consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0)
+          
+          await prisma.$queryRaw`SELECT 1 FROM time_off_requests LIMIT 1`
           
           const pendingRequests = await prisma.timeOffRequest.findMany({
             where: { employeeId: e.id, status: "PENDING" },
@@ -83,11 +85,6 @@ export async function GET(request: NextRequest) {
           pending = pendingRequests.reduce((sum, r) => sum + Number(r.totalDays ?? 0), 0)
         } catch (newSystemError: any) {
           // テーブルが存在しない場合は無視（フォールバック処理へ）
-          if (newSystemError?.message?.includes('does not exist') || newSystemError?.code === 'P2021') {
-            // テーブルが存在しない場合
-          } else {
-            console.warn(`新システム取得エラー (employeeId: ${e.id}):`, newSystemError?.message)
-          }
         }
         
         // 新システムでデータがない場合は旧システムを使用
@@ -100,12 +97,7 @@ export async function GET(request: NextRequest) {
             used = Number(approvedSum._sum.usedDays ?? 0)
             pending = Number(pendingSum._sum.usedDays ?? 0)
           } catch (oldSystemError: any) {
-            // テーブルが存在しない場合は無視
-            if (oldSystemError?.message?.includes('does not exist') || oldSystemError?.code === 'P2021') {
-              // テーブルが存在しない場合
-            } else {
-              console.warn(`旧システム取得エラー (employeeId: ${e.id}):`, oldSystemError?.message)
-            }
+            // エラーは無視（データなしとして扱う）
           }
         }
 

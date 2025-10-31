@@ -51,6 +51,19 @@ export default function LeavePage() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
+  
+  // employeeIdパラメータを取得（管理者が特定社員の画面を見る場合）
+  const employeeIdParam = params.get("employeeId")
+  const employeeNameParam = params.get("name")
+  
+  // 表示する社員IDを決定（パラメータがあればそれを使用、なければ自分のID）
+  const displayEmployeeId = employeeIdParam || currentUser?.id
+  const displayEmployeeName = employeeNameParam || currentUser?.name || "従業員"
+  
+  // 管理者が他の社員の画面を見ているかどうか
+  const isViewingOtherEmployee = employeeIdParam && employeeIdParam !== currentUser?.id
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
 
@@ -65,8 +78,12 @@ export default function LeavePage() {
       <div className="p-8 space-y-8">
         <div className="mb-2 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">有給管理</h1>
-            <p className="text-slate-600">社員の有給休暇を管理</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              {isViewingOtherEmployee ? `${displayEmployeeName} の有給管理` : "有給管理"}
+            </h1>
+            <p className="text-slate-600">
+              {isViewingOtherEmployee ? "管理者プレビュー" : "社員の有給休暇を管理"}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {tabs.map((tab) => (
@@ -82,12 +99,48 @@ export default function LeavePage() {
           </div>
         </div>
 
-        <VacationStats userRole={userRole} employeeId={currentUser?.id} />
+        {/* 管理者が他の社員の画面を見ている場合は戻るボタンを表示 */}
+        {isViewingOtherEmployee && (
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => router.push("/leave/admin")}>
+              管理者画面に戻る
+            </Button>
+          </div>
+        )}
+
+        <VacationStats userRole={userRole} employeeId={displayEmployeeId} />
 
         <div className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-2">
           <div className="flex gap-2">
-            <Button variant={tab === "list" ? "default" : "outline"} onClick={() => { setTab("list"); router.replace("/leave?tab=list") }}>申請一覧</Button>
-            <Button variant={tab === "form" ? "default" : "outline"} onClick={() => { setTab("form"); router.replace("/leave?tab=form") }}>新規申請</Button>
+            <Button 
+              variant={tab === "list" ? "default" : "outline"} 
+              onClick={() => { 
+                setTab("list"); 
+                const params = new URLSearchParams()
+                if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                if (employeeNameParam) params.set("name", employeeNameParam)
+                params.set("tab", "list")
+                router.replace(`/leave?${params.toString()}`)
+              }}
+            >
+              申請一覧
+            </Button>
+            {/* 管理者が他の社員の画面を見ている場合は申請ボタンを非表示 */}
+            {!isViewingOtherEmployee && (
+              <Button 
+                variant={tab === "form" ? "default" : "outline"} 
+                onClick={() => { 
+                  setTab("form"); 
+                  const params = new URLSearchParams()
+                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                  if (employeeNameParam) params.set("name", employeeNameParam)
+                  params.set("tab", "form")
+                  router.replace(`/leave?${params.toString()}`)
+                }}
+              >
+                新規申請
+              </Button>
+            )}
           </div>
           <div>
             {tab === "form" && (
@@ -97,13 +150,26 @@ export default function LeavePage() {
         </div>
 
         {tab === "form" ? (
-          <div className="max-w-3xl"><VacationRequestForm /></div>
+          // 管理者が他の社員の画面を見ている場合は申請フォームを表示しない
+          !isViewingOtherEmployee ? (
+            <div className="max-w-3xl"><VacationRequestForm /></div>
+          ) : (
+            <Card>
+              <CardContent className="p-6">
+                <p className="text-muted-foreground">管理者は他の社員に代わって申請できません。</p>
+              </CardContent>
+            </Card>
+          )
         ) : (
-          <Card>
-            <CardContent className="p-6">
-              <VacationList userRole={userRole} filter={"all"} />
-            </CardContent>
-          </Card>
+            <Card>
+              <CardContent className="p-6">
+                <VacationList 
+                  userRole={userRole} 
+                  filter={"all"}
+                  employeeId={displayEmployeeId} // 表示する社員IDを渡す
+                />
+              </CardContent>
+            </Card>
         )}
       </div>
     </main>

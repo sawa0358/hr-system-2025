@@ -12,33 +12,52 @@ interface VacationListProps {
   userRole: "employee" | "admin"
   filter: "pending" | "all"
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
+  employeeId?: string // 表示する社員ID（社員モードで使用）
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: VacationListProps) {
   // 管理者用: APIから全社員の有給統計を取得
   const [adminEmployees, setAdminEmployees] = useState<
     { id: string; name: string; joinDate?: string; remaining: number; used: number; pending: number; granted: number }[]
   >([])
+  // 社員用: APIから申請一覧を取得
+  const [employeeRequests, setEmployeeRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const load = async () => {
-      if (userRole !== "admin") return
-      setLoading(true)
-      try {
-        const res = await fetch("/api/vacation/admin/applicants")
-        if (res.ok) {
-          const json = await res.json()
-          setAdminEmployees(json.employees || [])
-        } else {
-          setAdminEmployees([])
+      if (userRole === "admin") {
+        setLoading(true)
+        try {
+          const res = await fetch("/api/vacation/admin/applicants")
+          if (res.ok) {
+            const json = await res.json()
+            setAdminEmployees(json.employees || [])
+          } else {
+            setAdminEmployees([])
+          }
+        } finally {
+          setLoading(false)
         }
-      } finally {
-        setLoading(false)
+      } else if (userRole === "employee" && employeeId) {
+        // 社員モードの場合、特定社員の申請一覧を取得
+        setLoading(true)
+        try {
+          // TODO: 社員用の申請一覧APIエンドポイントを実装後、ここで呼び出す
+          // const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
+          // if (res.ok) {
+          //   const json = await res.json()
+          //   setEmployeeRequests(json.requests || [])
+          // } else {
+          //   setEmployeeRequests([])
+          // }
+        } finally {
+          setLoading(false)
+        }
       }
     }
     load()
-  }, [userRole])
+  }, [userRole, employeeId])
   const mockRequests = [
     {
       id: 1,

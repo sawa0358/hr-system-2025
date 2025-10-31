@@ -21,12 +21,95 @@ function parseJsonArray(value: string | null): string[] {
 export async function GET() {
   try {
     console.log('社員一覧取得開始');
-    const employees = await prisma.employee.findMany({
-      orderBy: {
-        createdAt: 'desc'
+    
+    // まず新しいカラム（employmentType, weeklyPattern, configVersion, vacationPattern）を含めて取得を試みる
+    let employees
+    try {
+      employees = await prisma.employee.findMany({
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+      console.log('社員データ取得成功（全カラム）:', employees.length, '件')
+    } catch (error: any) {
+      // P2022エラー（カラムが存在しない）の場合は、存在しないカラムを除外して取得
+      if (error?.code === 'P2022' || error?.message?.includes('does not exist')) {
+        console.log('新しいカラムが存在しないため、基本カラムのみで取得を試みます')
+        try {
+          // 存在しないカラムを除外して取得（selectで明示的に指定）
+          employees = await prisma.employee.findMany({
+            select: {
+              id: true,
+              employeeId: true,
+              name: true,
+              employeeNumber: true,
+              furigana: true,
+              email: true,
+              phone: true,
+              department: true,
+              position: true,
+              organization: true,
+              team: true,
+              joinDate: true,
+              status: true,
+              password: true,
+              role: true,
+              myNumber: true,
+              userId: true,
+              url: true,
+              address: true,
+              selfIntroduction: true,
+              phoneInternal: true,
+              phoneMobile: true,
+              birthDate: true,
+              showInOrgChart: true,
+              isSuspended: true,
+              retirementDate: true,
+              privacyDisplayName: true,
+              privacyOrganization: true,
+              privacyDepartment: true,
+              privacyPosition: true,
+              privacyUrl: true,
+              privacyAddress: true,
+              privacyBio: true,
+              privacyEmail: true,
+              privacyWorkPhone: true,
+              privacyExtension: true,
+              privacyMobilePhone: true,
+              privacyBirthDate: true,
+              description: true,
+              employeeType: true,
+              parentEmployeeId: true,
+              isInvisibleTop: true,
+              avatar: true,
+              orgChartLabel: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+            orderBy: {
+              createdAt: 'desc'
+            }
+          })
+          // 存在しないカラムをnullとして追加
+          employees = employees.map((emp: any) => ({
+            ...emp,
+            employmentType: null,
+            weeklyPattern: null,
+            configVersion: null,
+            vacationPattern: null,
+          }))
+          console.log('社員データ取得成功（基本カラムのみ）:', employees.length, '件')
+        } catch (fallbackError: any) {
+          console.error('フォールバック取得エラー:', fallbackError)
+          throw fallbackError
+        }
+      } else {
+        // その他のエラーはそのまま再スロー
+        throw error
       }
-    });
-    console.log('社員データ取得成功:', employees.length, '件');
+    }
+    
+    console.log('社員データ取得成功:', employees.length, '件')
     
     // コピー社員のparentEmployeeIdを確認
     const copyEmployees = employees.filter(emp => emp.status === 'copy');

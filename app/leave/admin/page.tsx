@@ -103,7 +103,7 @@ export default function LeaveAdminPage() {
             <VacationList
               userRole="admin"
               filter={view === "pending" ? "pending" : "all"}
-              onEmployeeClick={(id, name) => router.push(`/leave/employee?employeeId=${id}&name=${encodeURIComponent(name)}`)}
+              onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
             />
           </CardContent>
         </Card>

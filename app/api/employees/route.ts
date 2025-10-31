@@ -409,6 +409,11 @@ export async function POST(request: NextRequest) {
           const trimmed = String(body.description).trim();
           return trimmed !== '' ? trimmed : undefined;
         })(),
+        // 有給管理用フィールド
+        employmentType: body.employmentType || null,
+        weeklyPattern: body.weeklyPattern || null,
+        configVersion: body.configVersion || null,
+        vacationPattern: body.vacationPattern || null,
       }
     });
 

@@ -337,6 +337,11 @@ export async function PUT(
         const trimmed = String(body.description).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      // 有給管理用フィールド
+      employmentType: body.employmentType || null,
+      weeklyPattern: body.weeklyPattern || null,
+      configVersion: body.configVersion || null,
+      vacationPattern: body.vacationPattern || null,
     };
 
     console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));
@@ -350,7 +355,9 @@ export async function PUT(
       'retirementDate', 'privacyDisplayName', 'privacyOrganization', 'privacyDepartment',
       'privacyPosition', 'privacyUrl', 'privacyAddress', 'privacyBio', 'privacyEmail',
       'privacyWorkPhone', 'privacyExtension', 'privacyMobilePhone', 'privacyBirthDate',
-      'orgChartLabel', 'description', 'employeeNumber', 'employeeType', 'employeeId'
+      'orgChartLabel', 'description', 'employeeNumber', 'employeeType', 'employeeId',
+      // 有給管理用フィールド
+      'employmentType', 'weeklyPattern', 'configVersion', 'vacationPattern'
     ];
 
     // undefinedのフィールドのみ除外し、有効なフィールド名のみを含める（nullは残す）

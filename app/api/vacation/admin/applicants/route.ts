@@ -103,6 +103,8 @@ export async function GET(request: NextRequest) {
           
           const pendingRequests = await prisma.timeOffRequest.findMany({
             where: { employeeId: e.id, status: "PENDING" },
+            orderBy: { createdAt: "desc" },
+            take: 1, // 最新の申請のみ取得
           })
           pending = pendingRequests.reduce((sum, r) => sum + Number(r.totalDays ?? 0), 0)
         } catch (newSystemError: any) {
@@ -128,6 +130,17 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // 最新の申請を取得（表示用）
+        let latestRequest = null
+        try {
+          const requests = await prisma.timeOffRequest.findMany({
+            where: { employeeId: e.id, status: "PENDING" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          })
+          latestRequest = requests[0]
+        } catch {}
+
         return {
           id: e.id,
           name: e.name,
@@ -139,6 +152,12 @@ export async function GET(request: NextRequest) {
           used,
           pending,
           granted: granted > 0 ? granted : used + pending + Math.max(0, remaining),
+          requestId: latestRequest?.id || undefined,
+          status: latestRequest ? "pending" : undefined,
+          startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),
+          endDate: latestRequest?.endDate?.toISOString()?.slice(0, 10),
+          days: latestRequest ? Number(latestRequest.totalDays || 0) : undefined,
+          reason: latestRequest?.reason || undefined,
         }
       })
     )

@@ -3,10 +3,11 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle } from "lucide-react"
+import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle, Loader2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useEffect, useState } from "react"
 import { VacationPatternSelector } from "./vacation-pattern-selector"
+import { useToast } from "@/hooks/use-toast"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -16,13 +17,15 @@ interface VacationListProps {
 }
 
 export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: VacationListProps) {
+  const { toast } = useToast()
   // 管理者用: APIから全社員の有給統計を取得
   const [adminEmployees, setAdminEmployees] = useState<
-    { id: string; name: string; joinDate?: string; remaining: number; used: number; pending: number; granted: number }[]
+    { id: string; name: string; joinDate?: string; remaining: number; used: number; pending: number; granted: number; requestId?: string }[]
   >([])
   // 社員用: APIから申請一覧を取得
   const [employeeRequests, setEmployeeRequests] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -155,6 +158,87 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
     }
   }
 
+  // 承認処理
+  const handleApprove = async (requestId: string) => {
+    try {
+      setProcessingRequestId(requestId)
+      const current = (window as any).CURRENT_USER as { id?: string } | undefined
+      const approverId = current?.id
+
+      const res = await fetch(`/api/vacation/requests/${requestId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approverId }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || "承認に失敗しました")
+      }
+
+      toast({
+        title: "承認完了",
+        description: "有給申請を承認しました",
+      })
+
+      // データを再読み込み
+      if (userRole === "admin") {
+        const res = await fetch("/api/vacation/admin/applicants")
+        if (res.ok) {
+          const json = await res.json()
+          setAdminEmployees(json.employees || [])
+        }
+      }
+    } catch (error: any) {
+      console.error("承認エラー:", error)
+      toast({
+        title: "承認エラー",
+        description: error?.message || "承認に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
+  // 却下処理
+  const handleReject = async (requestId: string) => {
+    try {
+      setProcessingRequestId(requestId)
+      
+      // TODO: 却下APIを実装後、ここで呼び出す
+      // const res = await fetch(`/api/vacation/requests/${requestId}/reject`, {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ reason: "管理者による却下" }),
+      // })
+
+      toast({
+        title: "却下機能",
+        description: "却下機能は今後実装予定です",
+        variant: "default",
+      })
+
+      // データを再読み込み
+      if (userRole === "admin") {
+        const res = await fetch("/api/vacation/admin/applicants")
+        if (res.ok) {
+          const json = await res.json()
+          setAdminEmployees(json.employees || [])
+        }
+      }
+    } catch (error: any) {
+      console.error("却下エラー:", error)
+      toast({
+        title: "却下エラー",
+        description: error?.message || "却下に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
   const needsFiveDayAlert = (remaining: number, used: number, granted: number) => {
     return granted >= 10 && used < 5
   }
@@ -249,23 +333,39 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
 
                 <div className="flex flex-col gap-1.5 mt-auto">
                   {request.status && getStatusBadge(request.status)}
-                  {request.status === "pending" && (
+                  {request.status === "pending" && request.requestId && (
                     <div className="flex gap-1.5">
                       <Button
                         size="sm"
                         variant="default"
                         className="flex-1 h-7 text-[11px]"
-                        onClick={(e) => e.stopPropagation()}
+                        disabled={processingRequestId === request.requestId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleApprove(request.requestId)
+                        }}
                       >
-                        承認
+                        {processingRequestId === request.requestId ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "承認"
+                        )}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         className="flex-1 h-7 text-[11px] bg-transparent"
-                        onClick={(e) => e.stopPropagation()}
+                        disabled={processingRequestId === request.requestId}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleReject(request.requestId)
+                        }}
                       >
-                        却下
+                        {processingRequestId === request.requestId ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "却下"
+                        )}
                       </Button>
                     </div>
                   )}

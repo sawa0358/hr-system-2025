@@ -3,9 +3,11 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import type { AppConfig } from "@/lib/vacation-config"
+import { useToast } from "@/hooks/use-toast"
 
 type HoverStepperInputProps = {
   value: number
@@ -40,6 +42,9 @@ function HoverStepperInput(props: HoverStepperInputProps) {
 
 export default function LeaveSettingsPage() {
   const router = useRouter()
+  const { toast } = useToast()
+  const [isSaving, setIsSaving] = useState(false)
+  
   const [firstGrantMonths, setFirstGrantMonths] = useState(6)
   const [cycleMonths, setCycleMonths] = useState(12)
   const [expireYears, setExpireYears] = useState(2)
@@ -55,6 +60,143 @@ export default function LeaveSettingsPage() {
     { weeklyDays: 1, minHours: 48, maxHours: 72, grants: [1, 2, 2, 3, 3, 3, 3] },
   ])
 
+  // フォームの値からAppConfigを構築
+  const buildAppConfig = (): AppConfig => {
+    const version = `1.0.${Date.now()}`
+    
+    // 正社員用のテーブルを構築
+    const fullTimeTable = yearsTable.map((years, index) => ({
+      years,
+      days: grantDaysTable[index],
+    }))
+
+    // パートタイム用のテーブルを構築
+    const partTimeTables = rows.map((row) => ({
+      weeklyPattern: row.weeklyDays as 1 | 2 | 3 | 4,
+      grants: yearsTable.map((years, index) => ({
+        years,
+        days: row.grants[index] || 0,
+      })),
+      minAnnualWorkdays: row.minHours,
+      maxAnnualWorkdays: row.maxHours,
+    }))
+
+    const config: AppConfig = {
+      version,
+      baselineRule: {
+        kind: 'RELATIVE_FROM_JOIN',
+        initialGrantAfterMonths: firstGrantMonths,
+        cycleMonths: cycleMonths,
+      },
+      grantCycleMonths: cycleMonths,
+      expiry: {
+        kind: 'YEARS',
+        years: expireYears,
+      },
+      rounding: {
+        unit: 'DAY',
+        mode: 'ROUND',
+      },
+      minLegalUseDaysPerYear: minDays,
+      fullTime: {
+        label: 'A',
+        table: fullTimeTable,
+      },
+      partTime: {
+        labels: {
+          1: 'B-1',
+          2: 'B-2',
+          3: 'B-3',
+          4: 'B-4',
+        },
+        tables: partTimeTables,
+      },
+      alert: {
+        checkpoints: [
+          { monthsBefore: 3, minConsumedDays: 5 },
+          { monthsBefore: 2, minConsumedDays: 3 },
+          { monthsBefore: 1, minConsumedDays: 5 },
+        ],
+      },
+    }
+
+    return config
+  }
+
+  // 保存処理
+  const handleSave = async () => {
+    try {
+      setIsSaving(true)
+
+      // AppConfigを構築
+      const config = buildAppConfig()
+
+      // バリデーション
+      if (config.fullTime.table.length === 0) {
+        toast({
+          title: "エラー",
+          description: "正社員用の付与日数表が空です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (config.partTime.tables.length === 0) {
+        toast({
+          title: "エラー",
+          description: "パートタイム用の付与日数表が空です",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // 設定を保存
+      const saveResponse = await fetch('/api/vacation/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      })
+
+      if (!saveResponse.ok) {
+        const error = await saveResponse.json()
+        throw new Error(error.error || '設定の保存に失敗しました')
+      }
+
+      // 設定を有効化
+      const activateResponse = await fetch('/api/vacation/config', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ version: config.version }),
+      })
+
+      if (!activateResponse.ok) {
+        const error = await activateResponse.json()
+        throw new Error(error.error || '設定の有効化に失敗しました')
+      }
+
+      toast({
+        title: "保存完了",
+        description: "有給休暇設定を保存し、有効化しました",
+      })
+
+      // 管理者画面に戻る
+      router.push('/leave/admin')
+    } catch (error) {
+      console.error('保存エラー:', error)
+      toast({
+        title: "保存エラー",
+        description: error instanceof Error ? error.message : '設定の保存に失敗しました',
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-6">
@@ -67,8 +209,17 @@ export default function LeaveSettingsPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-slate-900">有給休暇設定</h1>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => router.push("/leave/admin")}>キャンセル</Button>
-            <Button onClick={() => {}}>保存</Button>
+            <Button variant="outline" onClick={() => router.push("/leave/admin")} disabled={isSaving}>キャンセル</Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  保存中...
+                </>
+              ) : (
+                "保存"
+              )}
+            </Button>
           </div>
         </div>
 

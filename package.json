@@ -30,7 +30,10 @@
     "auto:deploy": "node scripts/auto-deploy.js",
     "git:safe": "node scripts/safe-git.js",
     "git:bypass": "node scripts/bypass-hooks.js",
-    "auto:schema": "node scripts/auto-schema-manager.js"
+    "auto:schema": "node scripts/auto-schema-manager.js",
+    "db:backup": "./scripts/db-backup-before-migration.sh",
+    "db:restore": "./scripts/db-restore-from-backup.sh",
+    "db:status": "npx prisma migrate status"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.917.0",

@@ -6,8 +6,9 @@ import { getNextGrantDate, getPreviousGrantDate } from './vacation-grant-lot';
 import { loadAppConfig } from './vacation-config';
 
 /**
- * 現在残日数計算
+ * 現在残日数計算（0.5日単位で丸める）
  * remaining = Σ_{lot: expiry ≥ today} lot.daysRemaining
+ * 計算結果は0.5日単位で丸める
  */
 export async function calculateRemainingDays(
   employeeId: string,
@@ -21,7 +22,9 @@ export async function calculateRemainingDays(
     },
   });
 
-  return lots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0);
+  const total = lots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0);
+  // 0.5日単位で丸める
+  return Math.round(total * 2) / 2;
 }
 
 /**
@@ -40,14 +43,16 @@ export async function calculatePendingDays(employeeId: string): Promise<number> 
     if (req.totalDays) {
       total += Number(req.totalDays);
     } else {
-      // 計算されていない場合は簡易計算
+      // 計算されていない場合は簡易計算（0.5日単位で丸める）
       const diffMs = req.endDate.getTime() - req.startDate.getTime();
       const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      total += Math.max(1, diffDays);
+      const rounded = Math.round(Math.max(1, diffDays) * 2) / 2; // 0.5日単位で丸める
+      total += rounded;
     }
   }
 
-  return total;
+  // 0.5日単位で丸める
+  return Math.round(total * 2) / 2;
 }
 
 /**
@@ -81,7 +86,9 @@ export async function calculateUsedDays(
     },
   });
 
-  return consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0);
+  const total = consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0);
+  // 0.5日単位で丸める
+  return Math.round(total * 2) / 2;
 }
 
 /**

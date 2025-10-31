@@ -54,50 +54,67 @@ export async function consumeLIFO(
 /**
  * 申請時間を日換算
  * days = usedMinutes / (60 × hoursPerDay)
- * 丸めは rounding ルールに従う
+ * 丸めは rounding ルールに従う（4時間以内は0.5日、超過は1日単位）
  */
 export function convertTimeToDays(
   usedMinutes: number,
   hoursPerDay: number,
   rounding: RoundingRule
 ): number {
-  const days = usedMinutes / (60 * hoursPerDay);
-  return applyRounding(days, rounding);
+  const hours = usedMinutes / 60;
+  const days = hours / hoursPerDay;
+  
+  // 4時間を閾値として0.5日単位で丸める
+  const fourHourThreshold = 4;
+  if (hours <= fourHourThreshold) {
+    // 4時間以内 → 0.5日
+    return 0.5;
+  }
+  
+  // 4時間超過 → 0.5日単位で丸める
+  return applyRounding(days, rounding, hoursPerDay);
 }
 
 /**
  * 丸め処理を適用
+ * 有給申請は0.5日単位で計算（4時間以内は半日、超過は1日）
  */
 export function applyRounding(value: number, rounding: RoundingRule, hoursPerDay: number = 8): number {
   switch (rounding.unit) {
     case 'DAY':
+      // 0.5日単位で丸める（4時間 = 0.5日、8時間 = 1日を基準）
+      // value <= 0.5日（4時間相当） → 0.5日
+      // 0.5日 < value <= 1.0日 → 1.0日
+      // 1.0日 < value <= 1.5日 → 1.5日
+      // ...
+      const halfDayThreshold = 0.5; // 4時間相当（hoursPerDay/2）
+      
       switch (rounding.mode) {
         case 'FLOOR':
-          return Math.floor(value);
+          // 切り捨て：0.5日単位で切り捨て
+          return Math.floor(value / halfDayThreshold) * halfDayThreshold;
         case 'CEIL':
-          return Math.ceil(value);
-        case 'ROUND':
-          return Math.round(value);
-      }
-      break;
-    case 'HOUR':
-      // minutesStepに基づいて丸め
-      const minutesStep = rounding.minutesStep ?? 30;
-      const minutes = value * 60 * hoursPerDay;
-      let roundedMinutes: number;
-      switch (rounding.mode) {
-        case 'FLOOR':
-          roundedMinutes = Math.floor(minutes / minutesStep) * minutesStep;
-          break;
-        case 'CEIL':
-          roundedMinutes = Math.ceil(minutes / minutesStep) * minutesStep;
-          break;
+          // 切り上げ：0.5日単位で切り上げ
+          return Math.ceil(value / halfDayThreshold) * halfDayThreshold;
         case 'ROUND':
         default:
-          roundedMinutes = Math.round(minutes / minutesStep) * minutesStep;
-          break;
+          // 四捨五入：0.5日単位で四捨五入
+          return Math.round(value / halfDayThreshold) * halfDayThreshold;
       }
-      return roundedMinutes / (60 * hoursPerDay);
+    case 'HOUR':
+      // 時間単位の丸め：4時間を閾値として0.5日単位で丸める
+      const hours = value * hoursPerDay;
+      const fourHourThreshold = 4; // 4時間
+      
+      // 4時間以内 → 0.5日
+      // 4時間超過 → 1.0日単位で丸める
+      if (hours <= fourHourThreshold) {
+        return 0.5;
+      }
+      
+      // 4時間超過の場合は1日単位で丸める（0.5日単位）
+      const days = hours / hoursPerDay;
+      return Math.round(days * 2) / 2; // 0.5日単位で四捨五入
   }
   return value;
 }

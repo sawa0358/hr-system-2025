@@ -370,6 +370,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                       employeeType={request.employeeType || null}
                       currentPattern={request.vacationPattern || null}
                       currentWeeklyPattern={request.weeklyPattern || null}
+                      employeeName={request.employee || request.name}
                     />
                   )}
                 </div>

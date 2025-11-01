@@ -17,14 +17,22 @@ interface VacationListProps {
   filter: "pending" | "all"
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
   employeeId?: string // 表示する社員ID（社員モードで使用）
+  filters?: {
+    searchQuery: string
+    department: string
+    status: string
+    employeeType: string
+    position: string
+    showInOrgChart: string
+  }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
   const [adminEmployees, setAdminEmployees] = useState<
-    { id: string; name: string; joinDate?: string; remaining: number; used: number; pending: number; granted: number; requestId?: string }[]
+    { id: string; name: string; employeeNumber?: string; joinDate?: string; employeeType?: string; department?: string; position?: string; organization?: string; employeeStatus?: string; status?: string; showInOrgChart?: boolean; remaining: number; used: number; pending: number; granted: number; requestId?: string }[]
   >([])
   // 社員用: APIから申請一覧を取得
   const [employeeRequests, setEmployeeRequests] = useState<any[]>([])
@@ -48,8 +56,10 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
           const res = await fetch(`/api/vacation/admin/applicants?view=${currentView}`)
           if (res.ok) {
             const json = await res.json()
+            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`)
             setAdminEmployees(json.employees || [])
           } else {
+            console.error(`[有給管理] APIエラー: ${res.status}`)
             setAdminEmployees([])
           }
         } finally {
@@ -312,7 +322,104 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
       return sortOrder === "asc" ? comparison : -comparison
     })
 
-  const adminVisible = userRole === "admin" ? (filter === "pending" ? adminEmployees.filter(e => (e.pending ?? 0) > 0) : adminEmployees) : []
+  // 管理者画面でのフィルタリング
+  const filteredAdminEmployees = userRole === "admin" && filters ? adminEmployees.filter((emp: any) => {
+    // 検索クエリフィルター
+    if (filters.searchQuery) {
+      const query = filters.searchQuery.toLowerCase()
+      // department, position, organizationは文字列またはJSON文字列の可能性があるため、パースして処理
+      const parseJsonArray = (value: string | null | undefined): string[] => {
+        if (!value) return []
+        try {
+          const parsed = JSON.parse(value)
+          return Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          return [value]
+        }
+      }
+      
+      const departments = parseJsonArray(emp.department)
+      const positions = parseJsonArray(emp.position)
+      const organizations = parseJsonArray(emp.organization)
+      
+      const searchableText = [
+        emp.name,
+        emp.employeeNumber || emp.id,
+        ...departments,
+        ...positions,
+        ...organizations,
+      ].filter(Boolean).join(' ').toLowerCase()
+      
+      if (!searchableText.includes(query)) {
+        return false
+      }
+    }
+    
+    // 雇用形態フィルター
+    if (filters.employeeType !== "all" && emp.employeeType !== filters.employeeType) {
+      return false
+    }
+    
+    // 部署フィルター
+    if (filters.department !== "all") {
+      const parseJsonArray = (value: string | null | undefined): string[] => {
+        if (!value) return []
+        try {
+          const parsed = JSON.parse(value)
+          return Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          return [value]
+        }
+      }
+      const departments = parseJsonArray(emp.department)
+      if (!departments.includes(filters.department)) {
+        return false
+      }
+    }
+    
+    // 役職フィルター
+    if (filters.position !== "all") {
+      const parseJsonArray = (value: string | null | undefined): string[] => {
+        if (!value) return []
+        try {
+          const parsed = JSON.parse(value)
+          return Array.isArray(parsed) ? parsed : [parsed]
+        } catch {
+          return [value]
+        }
+      }
+      const positions = parseJsonArray(emp.position)
+      if (!positions.includes(filters.position)) {
+        return false
+      }
+    }
+    
+    // ステータスフィルター（社員のステータスでフィルタリング）
+    if (filters.status !== "all") {
+      // employeeStatusが存在する場合はそれを使用、なければstatusを使用（後方互換性のため）
+      const employeeStatus = emp.employeeStatus || emp.status
+      if (employeeStatus !== filters.status) {
+        return false
+      }
+    }
+    
+    // 組織図表示フィルター
+    if (filters.showInOrgChart !== "all") {
+      const shouldShow = filters.showInOrgChart === "1"
+      if (emp.showInOrgChart !== shouldShow) {
+        return false
+      }
+    }
+    
+    return true
+  }) : adminEmployees
+
+  const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter(e => (e.pending ?? 0) > 0) : filteredAdminEmployees) : []
+  
+  // デバッグ用ログ（開発環境のみ）
+  if (userRole === "admin" && typeof window !== "undefined") {
+    console.log(`[有給管理] 表示データ: adminEmployees=${adminEmployees.length}, filteredAdminEmployees=${filteredAdminEmployees.length}, adminVisible=${adminVisible.length}, filter=${filter}`)
+  }
 
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2`}>

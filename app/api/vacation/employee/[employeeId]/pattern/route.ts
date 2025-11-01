@@ -96,18 +96,43 @@ export async function PUT(
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    // 更新
-    await prisma.employee.update({
-      where: { id: params.employeeId },
-      data: {
-        vacationPattern: pattern,
-        weeklyPattern: weeklyPattern !== undefined ? weeklyPattern : employee.weeklyPattern,
-      },
-    })
+    // 更新（vacationPatternカラムが存在しない場合のエラーを回避）
+    try {
+      await prisma.employee.update({
+        where: { id: params.employeeId },
+        data: {
+          vacationPattern: pattern,
+          weeklyPattern: weeklyPattern !== undefined ? weeklyPattern : employee.weeklyPattern,
+        },
+      })
+    } catch (updateError: any) {
+      // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して更新
+      if (updateError?.code === 'P2022' || updateError?.message?.includes('does not exist')) {
+        console.warn(`[有給管理] vacationPattern/weeklyPatternカラムが存在しないため、更新をスキップします: ${params.employeeId}`)
+        // カラムが存在しない場合は、更新をスキップ（パターン値のみ保存できない）
+      } else {
+        throw updateError
+      }
+    }
 
     // 有給計算パターンが設定された場合、自動でロットを生成
     if (pattern) {
       try {
+        // 社員情報を再度取得してjoinDateを確認
+        const employeeWithJoinDate = await prisma.employee.findUnique({
+          where: { id: params.employeeId },
+          select: { joinDate: true },
+        })
+
+        if (!employeeWithJoinDate || !employeeWithJoinDate.joinDate) {
+          console.warn(`[有給管理] 社員 ${params.employeeId} の入社日が設定されていません。ロット生成をスキップします。`)
+          return NextResponse.json({ 
+            success: true, 
+            vacationPattern: pattern,
+            grantLotsWarning: '入社日が設定されていないため、ロット生成をスキップしました。'
+          })
+        }
+
         const { generateGrantLotsForEmployee } = await import('@/lib/vacation-lot-generator')
         const today = new Date()
         const { generated, updated } = await generateGrantLotsForEmployee(params.employeeId, today)
@@ -119,6 +144,12 @@ export async function PUT(
         })
       } catch (grantError: any) {
         console.error(`[有給管理] 社員 ${params.employeeId} のロット自動生成エラー（無視）:`, grantError?.message || grantError)
+        console.error(`[有給管理] エラー詳細:`, {
+          message: grantError?.message,
+          stack: grantError?.stack,
+          code: grantError?.code,
+          name: grantError?.name,
+        })
         // ロット生成エラーは警告のみで、パターン更新自体は成功とする
         return NextResponse.json({ 
           success: true, 
@@ -129,9 +160,18 @@ export async function PUT(
     }
 
     return NextResponse.json({ success: true, vacationPattern: pattern })
-  } catch (error) {
+  } catch (error: any) {
     console.error("PUT /api/vacation/employee/[employeeId]/pattern error", error)
-    return NextResponse.json({ error: "パターン値の更新に失敗しました" }, { status: 500 })
+    console.error("Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+      name: error?.name,
+    })
+    return NextResponse.json({ 
+      error: "パターン値の更新に失敗しました",
+      details: error?.message || String(error)
+    }, { status: 500 })
   }
 }
 

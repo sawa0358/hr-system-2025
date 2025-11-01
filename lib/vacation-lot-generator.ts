@@ -23,16 +23,19 @@ export async function generateGrantLotsForEmployee(
     select: {
       id: true,
       joinDate: true,
-      employmentType: true,
       weeklyPattern: true,
       configVersion: true,
       vacationPattern: true,
-      employeeType: true, // 雇用形態（String）も取得
+      employeeType: true, // 雇用形態（String）を取得
     },
   });
 
   if (!employee) {
     throw new Error('Employee not found');
+  }
+
+  if (!employee.joinDate) {
+    throw new Error('Employee joinDate is required');
   }
 
   const cfg = await loadAppConfig(employee.configVersion || undefined);

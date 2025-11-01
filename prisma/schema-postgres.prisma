@@ -1,3 +1,6 @@
+// ベーススキーマ - 共通のモデル定義
+// このファイルを元に、環境別のスキーマを自動生成します
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,6 +8,46 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ユーザーロール
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  store_manager
+  manager
+  hr
+  admin
+}
+
+// 社員ステータス
+enum EmployeeStatus {
+  active
+  leave
+  retired
+  suspended
+  copy
+}
+
+// 雇用形態（有給管理用）
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+}
+
+// 申請単位
+enum RequestUnit {
+  DAY
+  HOUR
+}
+
+// 申請ステータス（有給管理用詳細版）
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 model Employee {
@@ -32,6 +75,7 @@ model Employee {
   phoneInternal         String?
   phoneMobile           String?
   birthDate             DateTime?
+  avatar                String?
   createdAt             DateTime          @default(now())
   updatedAt             DateTime          @updatedAt
   showInOrgChart        Boolean           @default(true)
@@ -54,6 +98,12 @@ model Employee {
   orgChartLabel         String?
   description           String?
   
+  // 有給管理用フィールド
+  employmentType        EmploymentType?  // 雇用形態（FULL_TIME or PART_TIME）
+  weeklyPattern         Int?             // 週の所定勤務日数（1-4、PART_TIMEのみ必須）
+  configVersion         String?          // 使用中の設定バージョン
+  vacationPattern       String?           // 有給計算パターン（"A", "B-1", "B-2", "B-3", "B-4"）
+  
   // リレーション
   evaluations           Evaluation[]
   attendance            Attendance[]
@@ -62,12 +112,15 @@ model Employee {
   folders               Folder[]
   activityLogs          ActivityLog[]
   leaveRequests         LeaveRequest[]
-  familyMembers         FamilyMember[]
+  vacationBalances      VacationBalance[]
+  vacationRequests      VacationRequest[]
   
-  // 自己参照（上司・部下関係）
-  // managerId             String?
-  // manager               Employee? @relation("EmployeeHierarchy", fields: [managerId], references: [id])
-  // subordinates          Employee[] @relation("EmployeeHierarchy")
+  // 有給管理（ロットベース）関係
+  grantLots             GrantLot[]
+  consumptions          Consumption[]
+  timeOffRequests       TimeOffRequest[]
+  alertEvents           AlertEvent[]
+  auditLogs             AuditLog[]
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]
@@ -83,6 +136,12 @@ model Employee {
   
   // ボード関係
   createdBoards         Board[] @relation("BoardCreator")
+  
+  // カスタムフォルダ関係
+  customFolders         CustomFolder[] @relation("CustomFolderEmployee")
+  
+  // ユーザー設定関係
+  userSettings          UserSettings[] @relation("UserSettingsEmployee")
 
   @@map("employees")
 }
@@ -162,7 +221,7 @@ model File {
   employeeId   String
   employee     Employee @relation(fields: [employeeId], references: [id])
   originalName String
-  fileName     String
+  filename     String
   filePath     String?
   s3Key        String?
   mimeType     String
@@ -253,6 +312,7 @@ model Board {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
   creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
+  position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
   createdAt   DateTime @default(now())
@@ -263,7 +323,7 @@ model Board {
 
 model BoardList {
   id        String   @id @default(cuid())
-  name      String
+  title     String
   position  Int
   boardId   String
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
@@ -288,7 +348,12 @@ model Card {
   members     CardMember[]
   attachments Json?
   labels      Json?
+  checklists  Json?
   dueDate     DateTime?
+  priority    String   @default("medium")
+  status      String   @default("todo")
+  cardColor   String?
+  isArchived  Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -308,36 +373,301 @@ model CardMember {
 }
 
 model FamilyMember {
-  id               String    @id @default(cuid())
-  employeeId       String
-  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name             String
-  relationship     String
-  phone            String?
-  birthday         DateTime?
-  livingSeparately Boolean   @default(false)
-  address          String?
-  myNumber         String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id           String   @id @default(cuid())
+  employeeId   String
+  name         String
+  relationship String
+  birthDate    DateTime?
+  phone        String?
+  address      String?
+  myNumber     String?
+  description  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@map("family_members")
 }
 
-enum UserRole {
-  viewer
-  general
-  sub_manager
-  store_manager
-  manager
-  hr
-  admin
+model CustomFolder {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation("CustomFolderEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  category   String   @default("employee")
+  name       String
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("custom_folders")
 }
 
-enum EmployeeStatus {
-  active
-  leave
-  retired
-  suspended
-  copy
+model UserSettings {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id])
+  key        String
+  value      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, key])
+  @@map("user_settings")
+}
+
+model MasterData {
+  id        String   @id @default(cuid())
+  type      String   // 'department', 'position', 'employeeType', 'organization'
+  value     String
+  label     String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([type, value])
+  @@map("master_data")
+}
+
+// ==========================
+// 有給管理用 追加モデル
+// ==========================
+
+model VacationSettings {
+  id                   String   @id @default(cuid())
+
+  // 基本設定
+  initialGrantPeriod   Int      // 初回付与までの期間（月）
+  grantPeriod          Int      // 付与間隔（月）
+  carryOverLimit       Int      // 繰越上限日数
+  validityYears        Int      // 有効期間（年）
+  minimumMandatoryDays Int      // 最低取得日数（義務）
+
+  // 正社員設定
+  fullTimeGrantDays    Int      // 正社員付与日数（A値）
+
+  // パート社員設定（週勤務日数別）
+  partTime1DayGrant    Int      // 週1日勤務時の付与日数
+  partTime2DayGrant    Int      // 週2日勤務時の付与日数
+  partTime3DayGrant    Int      // 週3日勤務時の付与日数
+  partTime4DayGrant    Int      // 週4日勤務時の付与日数
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("vacation_settings")
+}
+
+model VacationGrantSchedule {
+  id                String   @id @default(cuid())
+
+  // 勤続年数別付与日数設定
+  serviceYears      Float
+  fullTimeGrantDays Int
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("vacation_grant_schedule")
+}
+
+model PartTimeGrantSchedule {
+  id              String   @id @default(cuid())
+
+  // 勤続年数と週勤務日数別設定
+  serviceDays     Int
+  workDaysPerWeek Int
+  grantDays       Int
+  annualMinDays   Int      // 年間勤務日数（最小）
+  annualMaxDays   Int      // 年間勤務日数（最大）
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([serviceDays, workDaysPerWeek])
+  @@map("parttime_grant_schedule")
+}
+
+model VacationBalance {
+  id            String   @id @default(cuid())
+  employeeId    String
+
+  grantDate     DateTime  // 付与日
+  grantDays     Int       // 付与日数
+  remainingDays Float     // 残日数
+  expiryDate    DateTime  // 有効期限
+  isExpired     Boolean   @default(false)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee      Employee       @relation(fields: [employeeId], references: [id])
+  usages        VacationUsage[]
+
+  @@index([employeeId, grantDate])
+  @@map("vacation_balances")
+}
+
+model VacationRequest {
+  id           String         @id @default(cuid())
+  employeeId   String
+
+  startDate    DateTime
+  endDate      DateTime
+  usedDays     Float
+  reason       String?
+  status       RequestStatus
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  usageDetails VacationUsage[]
+
+  @@map("vacation_requests")
+}
+
+model VacationUsage {
+  id        String           @id @default(cuid())
+  requestId String
+  balanceId String
+  usedDays  Float
+
+  createdAt DateTime         @default(now())
+
+  request   VacationRequest  @relation(fields: [requestId], references: [id])
+  balance   VacationBalance  @relation(fields: [balanceId], references: [id])
+
+  @@map("vacation_usage")
+}
+
+model AlertSettings {
+  id                     String   @id @default(cuid())
+  
+  // 3ヶ月前アラート
+  alert3MonthsBefore     Boolean  @default(true)
+  alert3MonthsThreshold  Int      @default(5)
+  
+  // 2ヶ月前アラート
+  alert2MonthsBefore     Boolean  @default(true)
+  alert2MonthsThreshold  Int      @default(3)
+  
+  // 1ヶ月前アラート
+  alert1MonthBefore      Boolean  @default(true)
+  alert1MonthThreshold   Int      @default(5)
+  
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  
+  @@map("alert_settings")
+}
+
+// ==========================
+// ロットベース有給管理モデル（設計メモ準拠）
+// ==========================
+
+// 付与ロット: ある基準日に付与されたN日・有効期限付きのかたまり
+model GrantLot {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  grantDate     DateTime
+  daysGranted   Decimal  // 小数対応（時間休は別換算で格納可）
+  daysRemaining Decimal
+  expiryDate    DateTime
+  // 冪等性: 同一基準日時の再計算で重複を避けるため
+  dedupKey      String   @unique // employeeId + grantDate + daysGranted + configVersion 等のハッシュ
+  configVersion String?  // 使用した設定バージョン
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  consumptions  Consumption[]
+  
+  @@index([employeeId, grantDate])
+  @@map("grant_lots")
+}
+
+// 消化トランザクション: 申請承認により消費された日数（どのロットから何日使ったかの明細）
+model Consumption {
+  id             String   @id @default(cuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestId      String
+  request        TimeOffRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  lotId          String
+  lot            GrantLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  date           DateTime // 実際の休暇日（複数日に跨ぐ場合は1日=1行 or hoursで分解）
+  daysUsed       Decimal  // 1 or 0.5 など（時間休は日換算）
+  createdAt      DateTime @default(now())
+  
+  @@index([employeeId, date])
+  @@index([lotId])
+  @@index([requestId])
+  @@map("consumptions")
+}
+
+// 有給申請（詳細版）
+model TimeOffRequest {
+  id             String   @id @default(cuid())
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  // 申請情報
+  startDate      DateTime
+  endDate        DateTime
+  unit           RequestUnit // DAY or HOUR
+  hoursPerDay    Int?        // 時間休計算用（会社の1日=8h等）
+  status         RequestStatus @default(PENDING)
+  approvedAt     DateTime?
+  // 計算スナップショット
+  totalDays      Decimal?     // 承認時に確定
+  breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
+  reason         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  consumptions   Consumption[]
+  
+  @@index([employeeId])
+  @@map("time_off_requests")
+}
+
+// アラートイベント
+model AlertEvent {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind          String   // e.g., "UNDER_USED_AT_3M_BEFORE"
+  referenceDate DateTime // 判定を行った基準日
+  details       String   // JSON: { checkpoint, consumed, required }
+  createdAt     DateTime @default(now())
+  
+  @@unique([employeeId, kind, referenceDate])
+  @@index([employeeId])
+  @@map("alert_events")
+}
+
+// 監査ログ
+model AuditLog {
+  id            String   @id @default(cuid())
+  employeeId    String?
+  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  actor         String   // system | user:{id}
+  action        String   // GRANT_CREATE / REQUEST_APPROVE / RECALC ...
+  entity        String   // GrantLot:xxx 等
+  payload       String   // JSON
+  createdAt     DateTime @default(now())
+  
+  @@index([employeeId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// 有給管理設定（AppConfig）
+model VacationAppConfig {
+  id            String   @id @default(cuid())
+  version       String   @unique // 設定バージョン（主キー相当）
+  configJson    String   // AppConfigのJSON表現
+  isActive      Boolean  @default(false) // 現在使用中の設定
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@map("vacation_app_configs")
 }

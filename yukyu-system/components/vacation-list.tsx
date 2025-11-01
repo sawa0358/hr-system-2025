@@ -32,7 +32,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
   const [adminEmployees, setAdminEmployees] = useState<
-    { id: string; name: string; employeeNumber?: string; joinDate?: string; employeeType?: string; department?: string; position?: string; organization?: string; employeeStatus?: string; status?: string; showInOrgChart?: boolean; remaining: number; used: number; pending: number; granted: number; requestId?: string }[]
+    { id: string; name: string; employeeNumber?: string; joinDate?: string; employeeType?: string; department?: string; position?: string; organization?: string; employeeStatus?: string; status?: string; showInOrgChart?: boolean; remaining: number; used: number; pending: number; granted: number; latestGrantDays?: number; requestId?: string }[]
   >([])
   // 社員用: APIから申請一覧を取得
   const [employeeRequests, setEmployeeRequests] = useState<any[]>([])
@@ -45,9 +45,24 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [minGrantDaysForAlert, setMinGrantDaysForAlert] = useState(10) // デフォルト: 10日
 
   useEffect(() => {
     const load = async () => {
+      // 設定を読み込んでアラート判定の閾値を取得
+      try {
+        const configRes = await fetch('/api/vacation/config')
+        if (configRes.ok) {
+          const config = await configRes.json()
+          if (config.alert?.minGrantDaysForAlert !== undefined) {
+            setMinGrantDaysForAlert(config.alert.minGrantDaysForAlert)
+          }
+        }
+      } catch (error) {
+        console.warn('[有給管理] 設定読み込みエラー:', error)
+        // エラー時はデフォルト値を使用
+      }
+      
       if (userRole === "admin") {
         setLoading(true)
         try {
@@ -292,8 +307,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
   }
 
-  const needsFiveDayAlert = (remaining: number, used: number, granted: number) => {
-    return granted >= 10 && used < 5
+  const needsFiveDayAlert = (latestGrantDays: number | undefined, used: number) => {
+    // 最新の付与日での付与日数が設定値以上で、かつ取得済みが5日未満の場合にアラート表示
+    // latestGrantDaysが未定義の場合は、後方互換性のため総付与数（granted）を使用
+    if (latestGrantDays !== undefined) {
+      return latestGrantDays >= minGrantDaysForAlert && used < 5
+    }
+    // 後方互換性: latestGrantDaysが未定義の場合は、grantedを使用（既存のロジック）
+    return false // latestGrantDaysがない場合はアラートを表示しない（安全のため）
   }
 
   // 社員用申請一覧のフィルタリングとソート
@@ -541,7 +562,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                   </div>
                 </div>
 
-                {needsFiveDayAlert(request.remaining ?? 0, request.used ?? 0, request.granted ?? 0) && (
+                {needsFiveDayAlert(request.latestGrantDays, request.used ?? 0) && (
                   <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950/20 py-1.5">
                     <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400" />
                     <AlertDescription className="text-[10px] text-orange-800 dark:text-orange-300 leading-tight">

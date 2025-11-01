@@ -33,6 +33,8 @@ export type AlertRule = {
   // 「次の付与基準日までにXヶ月前時点でY日消費していない」条件を複数持てる
   checkpoints: Array<{ monthsBefore: number; minConsumedDays: number }>;
   // 判定対象期間: 「現在の付与期間」内の消費合計で評価（詳細は後述）
+  // 5日消化義務アラート表示対象: 1回の付与がこの日数以上の社員が対象（法改正対応のため設定可能）
+  minGrantDaysForAlert: number; // デフォルト: 10日
 };
 
 export type AppConfig = {
@@ -125,6 +127,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
       { monthsBefore: 2, minConsumedDays: 3 },
       { monthsBefore: 1, minConsumedDays: 5 },
     ],
+    minGrantDaysForAlert: 10, // 1回の付与が10日以上の社員がアラート対象
   },
 };
 

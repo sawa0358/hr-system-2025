@@ -51,6 +51,7 @@ export default function LeaveSettingsPage() {
   const [cycleMonths, setCycleMonths] = useState(12)
   const [expireYears, setExpireYears] = useState(2)
   const [minDays, setMinDays] = useState(5)
+  const [minGrantDaysForAlert, setMinGrantDaysForAlert] = useState(10)
 
   const [yearsTable, setYearsTable] = useState<number[]>([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5])
   const [grantDaysTable, setGrantDaysTable] = useState<number[]>([10, 11, 12, 14, 16, 18, 20])
@@ -82,6 +83,11 @@ export default function LeaveSettingsPage() {
           }
           
           setMinDays(config.minLegalUseDaysPerYear)
+          
+          // アラート設定を読み込み
+          if (config.alert?.minGrantDaysForAlert !== undefined) {
+            setMinGrantDaysForAlert(config.alert.minGrantDaysForAlert)
+          }
           
           // 正社員用テーブルを読み込み
           if (config.fullTime?.table && config.fullTime.table.length > 0) {
@@ -187,6 +193,7 @@ export default function LeaveSettingsPage() {
           { monthsBefore: 2, minConsumedDays: 3 },
           { monthsBefore: 1, minConsumedDays: 5 },
         ],
+        minGrantDaysForAlert: minGrantDaysForAlert,
       },
     }
 
@@ -401,6 +408,11 @@ export default function LeaveSettingsPage() {
                 <div className="text-sm text-muted-foreground">最低取得日数（義務）</div>
                 <HoverStepperInput value={minDays} onChange={setMinDays} suffix="日" />
                 <div className="text-xs text-muted-foreground">労働基準法で定められた年間最低取得日数（現行：5日）</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">5日消化義務アラート対象（1回の付与日数）</div>
+                <HoverStepperInput value={minGrantDaysForAlert} onChange={setMinGrantDaysForAlert} suffix="日以上" />
+                <div className="text-xs text-muted-foreground">1回の付与がこの日数以上の社員がアラート対象（現行：10日以上）</div>
               </div>
             </CardContent>
           </Card>

@@ -126,6 +126,8 @@ export async function GET(request: NextRequest) {
         // 次回付与日と付与予定日数を計算
         let nextGrantDate: Date | null = null
         let nextGrantDays: number = 0
+        // 最新の付与日での付与日数（5日消化義務アラート判定用）
+        let latestGrantDays: number = 0
         try {
           nextGrantDate = await getNextGrantDateForEmployee(e.id)
           if (nextGrantDate && e.vacationPattern) {
@@ -133,6 +135,19 @@ export async function GET(request: NextRequest) {
             // 次回付与日の勤続年数を計算
             const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
             nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
+          }
+          
+          // 最新の付与日での付与日数を取得（5日消化義務アラート判定用）
+          const today = new Date()
+          const latestLot = await prisma.grantLot.findFirst({
+            where: {
+              employeeId: e.id,
+              expiryDate: { gte: today },
+            },
+            orderBy: { grantDate: 'desc' },
+          })
+          if (latestLot) {
+            latestGrantDays = Number(latestLot.daysGranted)
           }
         } catch (grantError: any) {
           console.warn(`次回付与日計算エラー (employeeId: ${e.id}):`, grantError?.message || grantError)
@@ -181,6 +196,7 @@ export async function GET(request: NextRequest) {
               granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
               nextGrantDate: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10) : null,
               nextGrantDays: nextGrantDays,
+              latestGrantDays: latestGrantDays, // 最新の付与日での付与日数（5日消化義務アラート判定用）
               requestId: req.id,
               status: "pending",
               startDate: req.startDate?.toISOString()?.slice(0, 10),
@@ -214,6 +230,7 @@ export async function GET(request: NextRequest) {
             granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
             nextGrantDate: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10) : null,
             nextGrantDays: nextGrantDays,
+            latestGrantDays: latestGrantDays, // 最新の付与日での付与日数（5日消化義務アラート判定用）
             requestId: latestRequest?.id || undefined,
             status: latestRequest ? "pending" : undefined,
             startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),

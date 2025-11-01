@@ -83,6 +83,12 @@ export function Sidebar() {
           return false
         }
         
+        // 管理者・総務は雇用形態チェックをスキップ
+        if (currentUser.role === "admin" || currentUser.role === "hr") {
+          console.log("[Sidebar] 有給管理メニュー: 管理者/総務のため表示します")
+          return true
+        }
+        
         // 雇用形態をチェック
         const employeeType = currentUser.employeeType?.trim()
         if (!employeeType) {

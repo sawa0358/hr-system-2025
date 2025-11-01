@@ -19,6 +19,7 @@ export default function LeaveAdminPage() {
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
   const [isGeneratingLots, setIsGeneratingLots] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const [filters, setFilters] = useState({
     searchQuery: "",
     department: "all",
@@ -109,7 +110,18 @@ export default function LeaveAdminPage() {
 
         <div className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-2">
           <div className="flex gap-2">
-            <Button variant={view === "pending" ? "default" : "outline"} onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}>承認待ち</Button>
+            <Button 
+              variant={view === "pending" ? "default" : "outline"} 
+              onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}
+              className="relative"
+            >
+              承認待ち
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
+              )}
+            </Button>
             <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
           </div>
         </div>
@@ -121,6 +133,7 @@ export default function LeaveAdminPage() {
               filter={view === "pending" ? "pending" : "all"}
               filters={filters}
               onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
+              onPendingCountChange={setPendingCount}
             />
           </CardContent>
         </Card>

@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Calendar } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
@@ -44,6 +45,8 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isPastDateConfirmDialogOpen, setIsPastDateConfirmDialogOpen] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   // 日数自動計算
   const calculateDays = () => {
@@ -65,60 +68,9 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     }
   }, [formData.startDate, formData.endDate, formData.unit])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // バリデーション
-    if (!currentUser?.id) {
-      toast({
-        title: "エラー",
-        description: "ユーザー情報が取得できません。再度ログインしてください。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!targetEmployeeId) {
-      toast({
-        title: "エラー",
-        description: "申請対象の社員IDが取得できません。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!formData.startDate || !formData.endDate) {
-      toast({
-        title: "エラー",
-        description: "開始日と終了日を入力してください。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // 日付の妥当性チェック
-    const start = new Date(formData.startDate)
-    const end = new Date(formData.endDate)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    start.setHours(0, 0, 0, 0)
-    end.setHours(0, 0, 0, 0)
-
-    if (start < today) {
-      toast({
-        title: "エラー",
-        description: "開始日は今日以降の日付を選択してください。",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (start > end) {
-      toast({
-        title: "エラー",
-        description: "開始日は終了日以前の日付を選択してください。",
-        variant: "destructive",
-      })
+  // 実際の申請送信処理
+  const submitRequest = async () => {
+    if (!currentUser?.id || !targetEmployeeId) {
       return
     }
 
@@ -171,12 +123,20 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         throw new Error(data?.error || (requestId ? "申請の修正に失敗しました" : "申請に失敗しました"))
       }
 
-      toast({
-        title: requestId ? "申請を修正しました" : "申請が送信されました",
-        description: requestId 
-          ? "申請内容が更新されました。承認後に有給が消化されます。"
-          : "申請は承認待ちです。承認後に有給が消化されます。",
-      })
+      // 自動承認された場合
+      if (data.autoApproved) {
+        toast({
+          title: "申請が承認されました",
+          description: "過去の日付の代理申請のため、自動で承認され、有給が消化されました。",
+        })
+      } else {
+        toast({
+          title: requestId ? "申請を修正しました" : "申請が送信されました",
+          description: requestId 
+            ? "申請内容が更新されました。承認後に有給が消化されます。"
+            : "申請は承認待ちです。承認後に有給が消化されます。",
+        })
+      }
 
       // フォームリセット（新規申請の場合のみ）
       if (!requestId) {
@@ -195,7 +155,93 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
       })
     } finally {
       setIsSubmitting(false)
+      setPendingSubmit(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // バリデーション
+    if (!currentUser?.id) {
+      toast({
+        title: "エラー",
+        description: "ユーザー情報が取得できません。再度ログインしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!targetEmployeeId) {
+      toast({
+        title: "エラー",
+        description: "申請対象の社員IDが取得できません。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.startDate || !formData.endDate) {
+      toast({
+        title: "エラー",
+        description: "開始日と終了日を入力してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 日付の妥当性チェック
+    const start = new Date(formData.startDate)
+    const end = new Date(formData.endDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(0, 0, 0, 0)
+
+    // 代理申請かどうかを判定
+    const isProxyRequest = proxyEmployeeId && proxyEmployeeId !== currentUser.id
+
+    // 過去の日付かつ代理申請の場合
+    if (start < today && isProxyRequest) {
+      // 確認ダイアログを表示
+      setPendingSubmit(true)
+      setIsPastDateConfirmDialogOpen(true)
+      return
+    }
+
+    // 代理申請でない場合、過去の日付はエラー
+    if (start < today && !isProxyRequest) {
+      toast({
+        title: "エラー",
+        description: "開始日は今日以降の日付を選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (start > end) {
+      toast({
+        title: "エラー",
+        description: "開始日は終了日以前の日付を選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 実際の送信処理を実行
+    await submitRequest()
+  }
+
+  // 過去の日付確認ダイアログの「はい」ボタン
+  const handlePastDateConfirm = async () => {
+    setIsPastDateConfirmDialogOpen(false)
+    await submitRequest()
+  }
+
+  // 過去の日付確認ダイアログの「いいえ」ボタン
+  const handlePastDateCancel = () => {
+    setIsPastDateConfirmDialogOpen(false)
+    setPendingSubmit(false)
   }
 
   return (
@@ -416,13 +462,33 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || pendingSubmit}>
             {isSubmitting 
               ? (requestId ? "更新中..." : "送信中...") 
               : (requestId ? "申請を更新" : "申請を送信")}
           </Button>
         </form>
       </CardContent>
+
+      {/* 過去の日付確認ダイアログ */}
+      <Dialog open={isPastDateConfirmDialogOpen} onOpenChange={setIsPastDateConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>過去の日付での代理申請</DialogTitle>
+            <DialogDescription>
+              過去の日付を代理申請する場合、自動で承認とされ、消化されたことになりますが送信しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handlePastDateCancel}>
+              いいえ
+            </Button>
+            <Button onClick={handlePastDateConfirm}>
+              はい
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

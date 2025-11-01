@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { calculateRequestTotalDays } from "@/lib/vacation-consumption"
+import { calculateRequestTotalDays, consumeLIFO } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
 import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-stats"
 
@@ -33,7 +33,11 @@ export async function POST(request: NextRequest) {
     start.setHours(0, 0, 0, 0)
     end.setHours(0, 0, 0, 0)
 
-    if (start < today) {
+    // 代理申請かどうかを判定
+    const isProxyRequest = requestedBy && requestedBy !== employeeId
+
+    // 過去の日付かつ代理申請の場合のみ許可
+    if (start < today && !isProxyRequest) {
       return NextResponse.json({ error: "開始日は今日以降の日付を選択してください" }, { status: 400 })
     }
 
@@ -152,22 +156,139 @@ export async function POST(request: NextRequest) {
       finalReason = finalReason ? `${finalReason} ${proxyInfo}` : proxyInfo
     }
 
-    const createData = {
-      employeeId,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-      unit: unit as "DAY" | "HOUR",
-      hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
-      reason: finalReason,
-      status: "PENDING" as const,
-      totalDays: totalDays, // 申請時に計算された日数を保存
+    // 過去の日付かつ代理申請の場合、自動承認処理を実行
+    const isPastDateAndProxy = start < today && isProxyRequest
+
+    if (isPastDateAndProxy) {
+      // トランザクション内で申請を作成してから承認処理を実行
+      return await prisma.$transaction(async (tx) => {
+        // 申請を作成
+        const createData = {
+          employeeId,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          unit: unit as "DAY" | "HOUR",
+          hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
+          reason: finalReason,
+          status: "PENDING" as const,
+          totalDays: totalDays, // 申請時に計算された日数を保存
+        }
+
+        const created = await tx.timeOffRequest.create({
+          data: createData,
+        })
+
+        // 自動承認処理を実行
+        const daysToUse = totalDays
+
+        // LIFOで消化を実行
+        const breakdown = await consumeLIFO(employeeId, daysToUse, new Date(startDate), tx)
+
+        // Consumptionレコードを作成（日毎）
+        const consumptions = []
+        const startDateObj = new Date(startDate)
+        const endDateObj = new Date(endDate)
+        const daysDiff = Math.ceil((endDateObj.getTime() - startDateObj.getTime()) / (1000 * 60 * 60 * 24))
+        
+        let lotIndex = 0
+        let lotRemaining = breakdown.breakdown[lotIndex]?.days || 0
+        let currentLotId = breakdown.breakdown[lotIndex]?.lotId
+
+        for (let i = 0; i < daysDiff && currentLotId; i++) {
+          const date = new Date(startDateObj)
+          date.setDate(date.getDate() + i)
+
+          // 各ロットから1日分を使用
+          if (lotRemaining > 0 && currentLotId) {
+            const daysPerDate = daysToUse / daysDiff
+            const actualDays = Math.min(lotRemaining, daysPerDate)
+
+            consumptions.push({
+              employeeId: created.employeeId,
+              requestId: created.id,
+              lotId: currentLotId,
+              date,
+              daysUsed: actualDays,
+            })
+
+            lotRemaining -= actualDays
+
+            // ロットを使い切ったら次へ
+            if (lotRemaining <= 0) {
+              lotIndex++
+              if (lotIndex < breakdown.breakdown.length) {
+                lotRemaining = breakdown.breakdown[lotIndex].days
+                currentLotId = breakdown.breakdown[lotIndex].lotId
+              } else {
+                currentLotId = undefined
+              }
+            }
+          }
+        }
+
+        // データベース更新
+        // 1. ロットの残日数を減算
+        for (const b of breakdown.breakdown) {
+          await tx.grantLot.update({
+            where: { id: b.lotId },
+            data: { daysRemaining: { decrement: b.days } },
+          })
+        }
+
+        // 2. Consumptionレコードを作成
+        for (const c of consumptions) {
+          await tx.consumption.create({
+            data: c,
+          })
+        }
+
+        // 3. 申請を承認済みに更新
+        const approved = await tx.timeOffRequest.update({
+          where: { id: created.id },
+          data: {
+            status: "APPROVED",
+            approvedAt: new Date(),
+            totalDays: daysToUse,
+            breakdownJson: JSON.stringify(breakdown),
+          },
+        })
+
+        // 4. 監査ログを追加
+        await tx.auditLog.create({
+          data: {
+            employeeId: created.employeeId,
+            actor: requestedBy ? `user:${requestedBy}` : "system",
+            action: "REQUEST_APPROVE",
+            entity: `TimeOffRequest:${created.id}`,
+            payload: JSON.stringify({ breakdown, daysToUse, autoApproved: true }),
+          },
+        })
+
+        return NextResponse.json({ 
+          request: approved, 
+          calculatedDays: totalDays,
+          autoApproved: true 
+        }, { status: 201 })
+      })
+    } else {
+      // 通常の申請（承認待ち）
+      const createData = {
+        employeeId,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        unit: unit as "DAY" | "HOUR",
+        hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
+        reason: finalReason,
+        status: "PENDING" as const,
+        totalDays: totalDays, // 申請時に計算された日数を保存
+      }
+
+      const created = await prisma.timeOffRequest.create({
+        data: createData,
+      })
+
+      return NextResponse.json({ request: created, calculatedDays: totalDays }, { status: 201 })
     }
-
-    const created = await prisma.timeOffRequest.create({
-      data: createData,
-    })
-
-    return NextResponse.json({ request: created, calculatedDays: totalDays }, { status: 201 })
   } catch (error) {
     console.error("POST /api/vacation/request error", error)
     return NextResponse.json({ error: "申請の作成に失敗しました" }, { status: 500 })

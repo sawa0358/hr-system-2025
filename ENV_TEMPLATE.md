@@ -58,6 +58,13 @@ BACKUP_INTERVAL_HOURS=24
 
 # アプリケーションのベースURL（スケジューラー用）
 NEXT_PUBLIC_BASE_URL=http://localhost:3007
+
+# =====================================
+# Cron自動実行設定
+# =====================================
+# Cronエンドポイント認証トークン（自動実行用）
+# 生成コマンド: openssl rand -base64 32
+CRON_SECRET_TOKEN=your_cron_secret_token_here
 ```
 
 ## 📋 セットアップ手順

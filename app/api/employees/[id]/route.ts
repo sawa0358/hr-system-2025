@@ -94,7 +94,7 @@ export async function PUT(
     // 現在の社員データを取得してコピー社員かどうか確認
     const currentEmployee = await prisma.employee.findUnique({
       where: { id: params.id },
-      select: { status: true }
+      select: { status: true, employeeType: true }
     });
     
     const isCopyEmployee = currentEmployee?.status === 'copy';
@@ -154,6 +154,17 @@ export async function PUT(
         { error: `無効なrole値です: ${normalizedRole}` },
         { status: 400 }
       );
+    }
+
+    // 雇用形態のバリデーション
+    const validEmployeeTypes = ['正社員', '契約社員', 'パートタイム', '派遣社員', '業務委託', '外注先'];
+    if (body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '') {
+      if (!validEmployeeTypes.includes(body.employeeType)) {
+        return NextResponse.json(
+          { error: '雇用形態は 正社員、契約社員、パートタイム、派遣社員、業務委託、外注先 のみ有効です' },
+          { status: 400 }
+        );
+      }
     }
     
     console.log('受信したリクエストボディ:', JSON.stringify(body, null, 2))
@@ -249,7 +260,9 @@ export async function PUT(
         return trimmed !== '' ? trimmed : null;
       })(),
       employeeNumber: body.employeeNumber,
-      employeeType: body.employeeType,
+      employeeType: body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '' 
+        ? body.employeeType 
+        : currentEmployee?.employeeType,
       userId: (() => {
         if (!body.userId || body.userId === '' || body.userId === null || body.userId === undefined) {
           return null;

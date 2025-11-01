@@ -284,8 +284,8 @@ model Workspace {
   id          String   @id @default(cuid())
   name        String
   description String?
-  createdBy   String
-  creator     Employee @relation("WorkspaceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdBy   String?
+  creator     Employee? @relation("WorkspaceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   members     WorkspaceMember[]
   boards      Board[]
   createdAt   DateTime @default(now())
@@ -313,8 +313,8 @@ model Board {
   description String?
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy   String
-  creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdBy   String?
+  creator     Employee? @relation("BoardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
@@ -346,8 +346,8 @@ model Card {
   list        BoardList @relation(fields: [listId], references: [id], onDelete: Cascade)
   boardId     String
   board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  createdBy   String
-  creator     Employee @relation("CardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  createdBy   String?
+  creator     Employee? @relation("CardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   members     CardMember[]
   attachments Json?
   labels      Json?

@@ -112,26 +112,6 @@ export default function LeaveAdminPage() {
             <Button variant={view === "pending" ? "default" : "outline"} onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}>承認待ち</Button>
             <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerateLots}
-              disabled={isGeneratingLots}
-            >
-              {isGeneratingLots ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  生成中...
-                </>
-              ) : (
-                <>
-                  <Play className="mr-2 h-4 w-4" />
-                  全社員付与ロット生成
-                </>
-              )}
-            </Button>
-          </div>
         </div>
 
         <Card>

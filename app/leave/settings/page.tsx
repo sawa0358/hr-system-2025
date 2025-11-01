@@ -3,11 +3,14 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Plus, Trash2, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Plus, Trash2, Loader2, Lock, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import type { AppConfig } from "@/lib/vacation-config"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
 
 type HoverStepperInputProps = {
   value: number
@@ -43,6 +46,7 @@ function HoverStepperInput(props: HoverStepperInputProps) {
 export default function LeaveSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { currentUser } = useAuth()
   const [isSaving, setIsSaving] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -52,6 +56,11 @@ export default function LeaveSettingsPage() {
   const [expireYears, setExpireYears] = useState(2)
   const [minDays, setMinDays] = useState(5)
   const [minGrantDaysForAlert, setMinGrantDaysForAlert] = useState(10)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<'init' | 'generate' | null>(null)
+  const [isGeneratingLots, setIsGeneratingLots] = useState(false)
+  const [password, setPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
 
   const [yearsTable, setYearsTable] = useState<number[]>([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5])
   const [grantDaysTable, setGrantDaysTable] = useState<number[]>([10, 11, 12, 14, 16, 18, 20])
@@ -278,17 +287,107 @@ export default function LeaveSettingsPage() {
     }
   }
 
-  // 初期設定投入（管理者パスワード再入力）+ 自動実行の有効化
-  const handleInitConfig = async () => {
+  // パスワード確認
+  const handlePasswordVerify = async () => {
+    if (!currentUser) {
+      setPasswordError("ログインしていません")
+      return
+    }
+
+    // パスワード検証APIを呼び出し
     try {
-      const pwd = window.prompt('総務・管理者のパスワードを入力してください') || ''
+      const res = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employeeId: currentUser.id,
+          password: password,
+        }),
+      })
+
+      if (!res.ok) {
+        setPasswordError("パスワードが正しくありません")
+        return
+      }
+
+      const result = await res.json()
+      if (!result.valid) {
+        setPasswordError("パスワードが正しくありません")
+        return
+      }
+
+      // パスワード認証成功
+      setIsPasswordDialogOpen(false)
+      setPassword("")
+      setPasswordError("")
+
+      // 保留中のアクションを実行
+      if (pendingAction === 'init') {
+        await executeInitConfig()
+      } else if (pendingAction === 'generate') {
+        await executeGenerateLots()
+      }
+    } catch (error) {
+      console.error('パスワード検証エラー:', error)
+      setPasswordError("パスワード認証に失敗しました")
+    }
+  }
+
+  // 初期設定投入ボタンクリック
+  const handleInitConfigClick = () => {
+    setPendingAction('init')
+    setIsPasswordDialogOpen(true)
+  }
+
+  // 全社員付与ロット生成ボタンクリック
+  const handleGenerateLotsClick = () => {
+    setPendingAction('generate')
+    setIsPasswordDialogOpen(true)
+  }
+
+  // 全社員付与ロット生成実行
+  const executeGenerateLots = async () => {
+    try {
+      setIsGeneratingLots(true)
+      const res = await fetch('/api/vacation/admin/generate-lots', {
+        method: 'POST',
+      })
+      
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || '付与ロットの生成に失敗しました')
+      }
+
+      const result = await res.json()
+      const summary = result.summary || {}
+      
+      toast({
+        title: "付与ロット生成完了",
+        description: result.message || `成功: ${summary.success || 0}件、エラー: ${summary.error || 0}件`,
+      })
+    } catch (error: any) {
+      console.error('付与ロット生成エラー:', error)
+      toast({
+        title: "エラー",
+        description: error?.message || '付与ロットの生成に失敗しました',
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingLots(false)
+    }
+  }
+
+  // 初期設定投入実行
+  const executeInitConfig = async () => {
+    try {
       console.log('初期設定投入開始')
       setIsInitializing(true)
       
       // 1. 設定を有効化
       const res = await fetch('/api/vacation/config/init', {
         method: 'POST',
-        headers: pwd ? { 'x-admin-password': pwd } as any : undefined,
       })
       const json = await res.json().catch(() => ({}))
       console.log('初期設定投入レスポンス:', res.status, json)
@@ -370,7 +469,7 @@ export default function LeaveSettingsPage() {
                 "保存"
               )}
             </Button>
-            <Button variant="outline" onClick={handleInitConfig} disabled={isSaving || isInitializing}>
+            <Button variant="outline" onClick={handleInitConfigClick} disabled={isSaving || isInitializing}>
               {isInitializing ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -380,8 +479,82 @@ export default function LeaveSettingsPage() {
                 '初期設定投入（反映）'
               )}
             </Button>
+            <Button variant="outline" onClick={handleGenerateLotsClick} disabled={isSaving || isInitializing || isGeneratingLots}>
+              {isGeneratingLots ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  生成中...
+                </>
+              ) : (
+                '全社員付与ロット生成'
+              )}
+            </Button>
           </div>
         </div>
+
+        {/* パスワード確認ダイアログ */}
+        <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-amber-600" />
+                パスワード認証
+              </DialogTitle>
+              <DialogDescription>
+                {pendingAction === 'init' 
+                  ? '初期設定投入（反映）: 保存した設定を有効化し、全社員に適用します。設定変更後は必ずこの操作を実行してください。'
+                  : '全社員付与ロット生成: 全社員の有給付与ロットを一括生成・更新します。設定変更後やデータリセット後に実行してください。'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-800">
+                  {pendingAction === 'init'
+                    ? 'この操作により、保存した設定が全社員に適用されます。実行には管理者・総務のパスワードが必要です。'
+                    : 'この操作により、全社員の有給付与ロットが生成・更新されます。実行には管理者・総務のパスワードが必要です。'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">ログインパスワード</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setPasswordError("")
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handlePasswordVerify()
+                  }}
+                  placeholder="パスワードを入力"
+                  autoFocus
+                />
+                {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsPasswordDialogOpen(false)
+                  setPassword("")
+                  setPasswordError("")
+                  setPendingAction(null)
+                }}
+              >
+                キャンセル
+              </Button>
+              <Button onClick={handlePasswordVerify} className="bg-blue-600 hover:bg-blue-700" disabled={!password}>
+                認証して実行
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid gap-6 md:grid-cols-2">
           <Card>

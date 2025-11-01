@@ -561,12 +561,15 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           const today = new Date()
           today.setHours(0, 0, 0, 0)
           
-          if (status === "approved" && endDate && endDate < today) {
+          if (status === "pending") {
+            // 申請中の場合
+            employeeCardBackground = "#dbeafe"
+          } else if (status === "approved" && endDate && endDate < today) {
             // 消化(日付が過ぎる)された場合
             employeeCardBackground = "#f1f5f9"
           } else if (status === "rejected") {
             // 却下された場合
-            employeeCardBackground = "#dee4ea"
+            employeeCardBackground = "#e3e4e5"
           }
           // それ以外（承認中で日付が到来していない）は現状のまま（undefined）
         }

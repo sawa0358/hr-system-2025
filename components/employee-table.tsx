@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Mail, Phone, FileText, ArrowUpDown, SortAsc, SortDesc, ChevronDown } from "lucide-react"
+import { Mail, Phone, FileText, ArrowUpDown, SortAsc, SortDesc, ChevronDown, Copy } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useAuth } from "@/lib/auth-context"
 

@@ -5,11 +5,20 @@ import { generateGrantLotsForAllEmployees } from "@/lib/vacation-lot-generator"
  * 全社員の付与ロットを一括生成するAPI
  * POST /api/vacation/recalc/all
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     console.log("全社員の付与ロット生成を開始...")
-    
-    const results = await generateGrantLotsForAllEmployees()
+    // オプション: until（この日付までの付与ロットを生成）
+    let until: Date | undefined
+    try {
+      const body = await request.json().catch(() => ({} as any))
+      if (body?.until) {
+        const d = new Date(body.until)
+        if (!isNaN(d.getTime())) until = d
+      }
+    } catch {}
+
+    const results = await generateGrantLotsForAllEmployees(until)
     
     const summary = {
       total: results.length,

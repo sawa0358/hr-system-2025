@@ -10,7 +10,7 @@ import { VacationList } from "@yukyu-system/components/vacation-list"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { useMemo, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, Play, Database } from "lucide-react"
+import { Loader2, Play } from "lucide-react"
 
 export default function LeaveAdminPage() {
   const router = useRouter()
@@ -19,38 +19,7 @@ export default function LeaveAdminPage() {
   const { toast } = useToast()
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
-  const [isInitializing, setIsInitializing] = useState(false)
   const [isGeneratingLots, setIsGeneratingLots] = useState(false)
-
-  // 初期設定の投入
-  const handleInitConfig = async () => {
-    try {
-      setIsInitializing(true)
-      const res = await fetch('/api/vacation/config/init', {
-        method: 'POST',
-      })
-      
-      if (!res.ok) {
-        const error = await res.json().catch(() => ({}))
-        throw new Error(error?.error || '初期設定の投入に失敗しました')
-      }
-
-      const result = await res.json()
-      toast({
-        title: "初期設定完了",
-        description: result.message || "デフォルト設定を投入し、有効化しました",
-      })
-    } catch (error: any) {
-      console.error('初期設定投入エラー:', error)
-      toast({
-        title: "エラー",
-        description: error?.message || '初期設定の投入に失敗しました',
-        variant: "destructive",
-      })
-    } finally {
-      setIsInitializing(false)
-    }
-  }
 
   // 全社員の付与ロット生成
   const handleGenerateLots = async () => {
@@ -171,26 +140,8 @@ export default function LeaveAdminPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleInitConfig}
-              disabled={isInitializing || isGeneratingLots}
-            >
-              {isInitializing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  投入中...
-                </>
-              ) : (
-                <>
-                  <Database className="mr-2 h-4 w-4" />
-                  初期設定投入
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               onClick={handleGenerateLots}
-              disabled={isInitializing || isGeneratingLots}
+              disabled={isGeneratingLots}
             >
               {isGeneratingLots ? (
                 <>

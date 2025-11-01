@@ -92,14 +92,43 @@ export async function calculateUsedDays(
 }
 
 /**
- * 総付与数を計算（有効期限切れを含む全てのロットの合計）
+ * 総付与数を計算（新付与日時点の消費前の今年消費できる最大日数）
+ * - 昨年残高日数 + 新付与日数の合計
+ * - LIFO形式で、新しい付与日から消化される
+ * - 最新の付与基準日の時点で、失効していないロットの初期付与日数（daysGranted）の合計
+ * - この値は1年間変わりません（次の新付与日まで固定）
+ * 
+ * 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
+ * 
+ * 実際の計算：
+ * - 最新の付与基準日時点で有効だったロット（失効していない）のdaysGranted（初期付与日数）の合計
+ * - これは「今年消費できる最大日数（消費前の値）」を意味する
  */
-export async function calculateTotalGranted(employeeId: string): Promise<number> {
+export async function calculateTotalGranted(employeeId: string, today: Date = new Date()): Promise<number> {
+  // 失効していないロットを取得（最新の付与日順）
   const lots = await prisma.grantLot.findMany({
-    where: { employeeId },
+    where: {
+      employeeId,
+      expiryDate: { gte: today }, // 失効していないロットのみ
+    },
+    orderBy: { grantDate: 'desc' }, // 新しい付与日順（LIFO）
   });
 
-  return lots.reduce((sum, lot) => sum + Number(lot.daysGranted), 0);
+  if (lots.length === 0) {
+    return 0;
+  }
+
+  // 最新の付与基準日を取得
+  const latestGrantDate = lots[0].grantDate;
+
+  // 最新の付与基準日の時点で有効だったロット（失効していない）の初期付与日数（daysGranted）の合計
+  // これは「昨年残高日数 + 新付与日数」を意味し、消費前の値（1年間固定）
+  const total = lots
+    .filter(lot => lot.grantDate <= latestGrantDate) // 最新の付与基準日までのロットのみ
+    .reduce((sum, lot) => sum + Number(lot.daysGranted), 0); // daysRemainingではなくdaysGrantedを使用
+  
+  // 0.5日単位で丸める
+  return Math.round(total * 2) / 2;
 }
 
 /**
@@ -204,7 +233,7 @@ export async function getVacationStats(employeeId: string) {
     calculateRemainingDays(employeeId, today),
     calculateUsedDays(employeeId, today),
     calculatePendingDays(employeeId),
-    calculateTotalGranted(employeeId),
+    calculateTotalGranted(employeeId, today), // todayを渡す
     getNextGrantDateForEmployee(employeeId),
     calculateExpiringSoon(employeeId, 30, today),
   ]);

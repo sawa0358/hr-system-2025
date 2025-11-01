@@ -169,21 +169,26 @@ export async function saveAppConfig(config: AppConfig): Promise<void> {
 export async function loadAppConfig(version?: string): Promise<AppConfig> {
   const { prisma } = await import('@/lib/prisma');
   
-  if (version) {
-    const config = await prisma.vacationAppConfig.findUnique({
-      where: { version },
-    });
-    if (config) {
-      return JSON.parse(config.configJson) as AppConfig;
+  try {
+    if (version) {
+      const config = await prisma.vacationAppConfig.findUnique({
+        where: { version },
+      });
+      if (config) {
+        return JSON.parse(config.configJson) as AppConfig;
+      }
     }
-  }
-  
-  // アクティブな設定を探す
-  const activeConfig = await prisma.vacationAppConfig.findFirst({
-    where: { isActive: true },
-  });
-  if (activeConfig) {
-    return JSON.parse(activeConfig.configJson) as AppConfig;
+    
+    // アクティブな設定を探す
+    const activeConfig = await prisma.vacationAppConfig.findFirst({
+      where: { isActive: true },
+    });
+    if (activeConfig) {
+      return JSON.parse(activeConfig.configJson) as AppConfig;
+    }
+  } catch (error: any) {
+    // テーブルが存在しない場合やその他のエラーは無視してデフォルト設定を返す
+    console.warn('loadAppConfig error (fallback to default):', error?.message || error);
   }
   
   // デフォルト設定を返す

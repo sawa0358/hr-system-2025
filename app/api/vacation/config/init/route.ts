@@ -8,12 +8,36 @@ import { prisma } from "@/lib/prisma"
  * 
  * 初回セットアップ時に実行する想定
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    // シンプルな管理者パスワード認証（環境変数 ADMIN_PASSWORD が設定されている場合のみ有効）
+    const requiredPassword = process.env.ADMIN_PASSWORD
+    if (requiredPassword && requiredPassword.length > 0) {
+      const provided = request.headers.get('x-admin-password') || ''
+      if (provided !== requiredPassword) {
+        return NextResponse.json(
+          { success: false, error: '認証に失敗しました（管理者パスワードが不正）' },
+          { status: 401 }
+        )
+      }
+    }
     // 既にアクティブな設定があるか確認
-    const existingActive = await prisma.vacationAppConfig.findFirst({
-      where: { isActive: true },
-    })
+    let existingActive = null
+    try {
+      existingActive = await prisma.vacationAppConfig.findFirst({
+        where: { isActive: true },
+      })
+    } catch (tableError: any) {
+      // テーブルが存在しない場合は新規作成として扱う
+      if (tableError?.code === 'P2021' || tableError?.message?.includes('does not exist')) {
+        console.warn('vacationAppConfigテーブルが存在しません。マイグレーションが必要です。')
+        return NextResponse.json(
+          { success: false, error: 'データベーステーブルが存在しません。マイグレーションを実行してください。' },
+          { status: 500 }
+        )
+      }
+      throw tableError
+    }
 
     if (existingActive) {
       return NextResponse.json({

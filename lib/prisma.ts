@@ -8,6 +8,9 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+// 注: 新入社員作成時の自動付与ロット生成は、社員作成API側で実装してください
+// Prismaの$useミドルウェアは環境によって動作しない場合があるため、こちらでは実装していません
+
 // 「見えないTOP」社員の自動作成・管理（デプロイ時自動実行）
 async function ensureInvisibleTopEmployee() {
   try {

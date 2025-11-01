@@ -3,7 +3,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useEffect, useState } from "react"
-import { getPatternLabel, type VacationPattern, isApplicableEmploymentType } from "@/lib/vacation-pattern"
+import { getPatternLabel, type VacationPattern } from "@/lib/vacation-pattern"
 
 interface VacationPatternSelectorProps {
   employeeId: string
@@ -29,12 +29,8 @@ export function VacationPatternSelector({
     setPattern(currentPattern || null)
   }, [currentPattern])
 
-  // 適用対象外の場合は非表示
-  if (!isApplicableEmploymentType(employeeType)) {
-    return null
-  }
-
-  // パターンオプションを生成
+  // パターンオプションを生成（全パターン）
+  // 雇用形態に関わらず、すべてのパターンを表示
   const patternOptions: Array<{ value: VacationPattern; label: string }> = [
     { value: 'A', label: 'パターンA（正社員用）' },
     { value: 'B-1', label: 'パターンB-1（週1日勤務）' },
@@ -43,15 +39,19 @@ export function VacationPatternSelector({
     { value: 'B-4', label: 'パターンB-4（週4日勤務）' },
   ]
 
-  // 雇用形態に応じて表示するオプションをフィルタ
-  const availableOptions = patternOptions.filter((opt) => {
-    if (opt.value === 'A') {
-      // パターンAは正社員、契約社員、派遣社員のみ
-      return employeeType === '正社員' || employeeType === '契約社員' || employeeType === '派遣社員'
-    }
-    // パターンBはパートのみ
-    return employeeType === 'パート' || employeeType === 'パートタイム'
-  })
+  // 雇用形態に関わらず、すべてのパターンを表示
+  const availableOptions = patternOptions
+
+  // デバッグログ（開発環境のみ）
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[VacationPatternSelector]', {
+      employeeId,
+      employeeType: employeeType?.trim() || '未設定',
+      availableOptionsCount: availableOptions.length,
+      availableOptions: availableOptions.map(o => o.value),
+      currentPattern,
+    })
+  }
 
   const handlePatternChange = async (newPattern: VacationPattern) => {
     if (readonly) return
@@ -102,7 +102,7 @@ export function VacationPatternSelector({
         <SelectContent>
           {availableOptions.length === 0 ? (
             <SelectItem value="" disabled>
-              該当するパターンがありません
+              該当するパターンがありません（雇用形態: {employeeType || '未設定'}）
             </SelectItem>
           ) : (
             availableOptions.map((opt) => (

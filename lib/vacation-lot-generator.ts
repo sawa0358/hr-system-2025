@@ -75,7 +75,7 @@ export async function generateGrantLotsForEmployee(
       cfg.version
     );
 
-    // 既存のロットを確認
+    // 既存のロットを確認（dedupKeyで）
     const existing = await prisma.grantLot.findUnique({
       where: { dedupKey },
     });
@@ -103,6 +103,41 @@ export async function generateGrantLotsForEmployee(
         updated++;
       }
       continue;
+    }
+
+    // 同じ付与日で異なる設定バージョンのロットが存在する場合は削除
+    // （設定が更新された場合、古い設定のロットは無効にする）
+    const existingSameDate = await prisma.grantLot.findFirst({
+      where: {
+        employeeId,
+        grantDate: grantDate,
+        configVersion: { not: cfg.version }, // 現在の設定バージョンと異なるもの
+      },
+    });
+
+    if (existingSameDate) {
+      // 古い設定バージョンのロットを削除（ただし、既に消費されている場合は残日数だけ0にする）
+      const usedDays = await prisma.consumption.aggregate({
+        where: { lotId: existingSameDate.id },
+        _sum: { daysUsed: true },
+      });
+      const totalUsed = Number(usedDays._sum.daysUsed ?? 0);
+
+      if (totalUsed > 0) {
+        // 消費済みがある場合は削除せず、残日数を0にして無効化
+        await prisma.grantLot.update({
+          where: { id: existingSameDate.id },
+          data: {
+            daysRemaining: 0,
+          },
+        });
+      } else {
+        // 未使用の場合は削除
+        await prisma.grantLot.delete({
+          where: { id: existingSameDate.id },
+        });
+      }
+      updated++;
     }
 
     // 新規作成

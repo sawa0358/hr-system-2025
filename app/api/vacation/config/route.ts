@@ -11,9 +11,15 @@ export async function GET(request: NextRequest) {
 
     const config = await loadAppConfig(version || undefined)
     return NextResponse.json(config)
-  } catch (error) {
+  } catch (error: any) {
     console.error("GET /api/vacation/config error", error)
-    return NextResponse.json({ error: "設定の取得に失敗しました" }, { status: 500 })
+    // エラーが発生してもデフォルト設定を返す（画面が崩れないように）
+    try {
+      const { DEFAULT_APP_CONFIG } = await import('@/lib/vacation-config')
+      return NextResponse.json(DEFAULT_APP_CONFIG)
+    } catch (importError) {
+      return NextResponse.json({ error: "設定の取得に失敗しました" }, { status: 500 })
+    }
   }
 }
 

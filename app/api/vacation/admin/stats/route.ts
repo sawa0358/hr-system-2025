@@ -11,25 +11,55 @@ export async function GET(request: NextRequest) {
     const now = new Date()
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     
-    // 承認待ちの申請数
-    const pendingRequests = await prisma.timeOffRequest.count({
-      where: { status: "PENDING" },
-    })
+    let pendingRequests = 0
+    let approvedThisMonth = 0
+    let rejectedRequests = 0
+    
+    // 新システムのテーブルから取得を試す
+    try {
+      pendingRequests = await prisma.timeOffRequest.count({
+        where: { status: "PENDING" },
+      })
 
-    // 今月の承認済み申請数
-    const approvedThisMonth = await prisma.timeOffRequest.count({
-      where: {
-        status: "APPROVED",
-        approvedAt: {
-          gte: firstDayOfMonth,
+      approvedThisMonth = await prisma.timeOffRequest.count({
+        where: {
+          status: "APPROVED",
+          approvedAt: {
+            gte: firstDayOfMonth,
+          },
         },
-      },
-    })
+      })
 
-    // 却下申請数（全期間）
-    const rejectedRequests = await prisma.timeOffRequest.count({
-      where: { status: "REJECTED" },
-    })
+      rejectedRequests = await prisma.timeOffRequest.count({
+        where: { status: "REJECTED" },
+      })
+    } catch (newSystemError: any) {
+      // テーブルが存在しない場合は旧システムを使用
+      if (newSystemError?.code === 'P2021' || newSystemError?.message?.includes('does not exist')) {
+        try {
+          pendingRequests = await prisma.vacationRequest.count({
+            where: { status: "PENDING" },
+          })
+
+          approvedThisMonth = await prisma.vacationRequest.count({
+            where: {
+              status: "APPROVED",
+              approvedAt: {
+                gte: firstDayOfMonth,
+              },
+            },
+          })
+
+          rejectedRequests = await prisma.vacationRequest.count({
+            where: { status: "REJECTED" },
+          })
+        } catch (oldSystemError: any) {
+          console.warn('旧システムからの統計取得も失敗:', oldSystemError?.message)
+        }
+      } else {
+        console.warn('新システムからの統計取得エラー:', newSystemError?.message)
+      }
+    }
 
     // アラート数（残高が少ない社員数）
     // TODO: アラート評価ロジックを実装後に正確な数を取得
@@ -42,9 +72,15 @@ export async function GET(request: NextRequest) {
       rejected: rejectedRequests,
       alerts,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("GET /api/vacation/admin/stats error", error)
-    return NextResponse.json({ error: "統計情報の取得に失敗しました" }, { status: 500 })
+    // エラーが発生しても空の統計を返す（画面が崩れないように）
+    return NextResponse.json({
+      pending: 0,
+      approvedThisMonth: 0,
+      rejected: 0,
+      alerts: 0,
+    })
   }
 }
 

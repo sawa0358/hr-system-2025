@@ -44,6 +44,7 @@ export default function LeaveSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
+  const [isInitializing, setIsInitializing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
   const [firstGrantMonths, setFirstGrantMonths] = useState(6)
@@ -192,7 +193,7 @@ export default function LeaveSettingsPage() {
     return config
   }
 
-  // 保存処理
+  // 保存処理（保存のみ。即時有効化はせず、初期設定投入を促す）
   const handleSave = async () => {
     try {
       setIsSaving(true)
@@ -220,6 +221,7 @@ export default function LeaveSettingsPage() {
       }
 
       // 設定を保存
+      console.log('設定保存開始:', config.version)
       const saveResponse = await fetch('/api/vacation/config', {
         method: 'POST',
         headers: {
@@ -232,31 +234,17 @@ export default function LeaveSettingsPage() {
         const error = await saveResponse.json().catch(() => ({ error: '設定の保存に失敗しました' }))
         const errorMessage = error.error || '設定の保存に失敗しました'
         const errorDetails = error.details ? `\n詳細: ${JSON.stringify(error.details, null, 2)}` : ''
+        console.error('設定保存エラー:', errorMessage, errorDetails)
         throw new Error(`${errorMessage}${errorDetails}`)
       }
 
-      // 設定を有効化
-      const activateResponse = await fetch('/api/vacation/config', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ version: config.version }),
-      })
-
-      if (!activateResponse.ok) {
-        const error = await activateResponse.json().catch(() => ({ error: '設定の有効化に失敗しました' }))
-        const errorMessage = error.error || '設定の有効化に失敗しました'
-        throw new Error(errorMessage)
-      }
-
+      const saveResult = await saveResponse.json()
+      console.log('設定保存成功:', saveResult)
+      
       toast({
-        title: "保存完了",
-        description: "有給休暇設定を保存し、有効化しました",
+        title: "保存完了（未反映）",
+        description: "まだ反映していません。反映するには『初期設定投入』を実行してください。",
       })
-
-      // 管理者画面に戻る
-      router.push('/leave/admin')
     } catch (error) {
       console.error('保存エラー:', error)
       
@@ -280,6 +268,32 @@ export default function LeaveSettingsPage() {
       })
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // 初期設定投入（管理者パスワード再入力）
+  const handleInitConfig = async () => {
+    try {
+      const pwd = window.prompt('総務・管理者のパスワードを入力してください') || ''
+      console.log('初期設定投入開始')
+      setIsInitializing(true)
+      const res = await fetch('/api/vacation/config/init', {
+        method: 'POST',
+        headers: pwd ? { 'x-admin-password': pwd } as any : undefined,
+      })
+      const json = await res.json().catch(() => ({}))
+      console.log('初期設定投入レスポンス:', res.status, json)
+      if (!res.ok || json?.success === false) {
+        console.error('初期設定投入エラー:', json?.error || json?.message)
+        throw new Error(json?.error || json?.message || '初期設定の投入に失敗しました')
+      }
+      console.log('初期設定投入成功:', json)
+      toast({ title: '初期設定投入完了', description: json?.message || 'デフォルト設定を有効化しました' })
+    } catch (e: any) {
+      console.error('初期設定投入例外:', e)
+      toast({ title: 'エラー', description: e?.message || '初期設定の投入に失敗しました', variant: 'destructive' })
+    } finally {
+      setIsInitializing(false)
     }
   }
 
@@ -317,6 +331,16 @@ export default function LeaveSettingsPage() {
                 </>
               ) : (
                 "保存"
+              )}
+            </Button>
+            <Button variant="outline" onClick={handleInitConfig} disabled={isSaving || isInitializing}>
+              {isInitializing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  反映中...
+                </>
+              ) : (
+                '初期設定投入（反映）'
               )}
             </Button>
           </div>

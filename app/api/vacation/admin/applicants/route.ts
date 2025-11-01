@@ -8,7 +8,10 @@ export async function GET(request: NextRequest) {
     let employees
     try {
       employees = await prisma.employee.findMany({
-        where: { isInvisibleTop: false },
+        where: { 
+          isInvisibleTop: false,
+          status: { not: 'copy' }, // コピー社員を除外
+        },
         select: {
           id: true,
           name: true,
@@ -23,7 +26,10 @@ export async function GET(request: NextRequest) {
       // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して取得
       if (schemaError?.message?.includes('vacationPattern') || schemaError?.message?.includes('weeklyPattern')) {
         employees = await prisma.employee.findMany({
-          where: { isInvisibleTop: false },
+          where: { 
+            isInvisibleTop: false,
+            status: { not: 'copy' }, // コピー社員を除外
+          },
           select: {
             id: true,
             name: true,
@@ -48,6 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 社員ごとの統計を集計
+    const today = new Date()
     const results = await Promise.all(
       employees.map(async (e) => {
         let remaining = 0
@@ -55,19 +62,34 @@ export async function GET(request: NextRequest) {
         
         // まず新しいロットベースシステムを試す（テーブルが存在しない場合はスキップ）
         try {
-          const lots = await prisma.grantLot.findMany({
+          // 残日数: 失効していないロットの残日数の合計
+          const activeLots = await prisma.grantLot.findMany({
             where: {
               employeeId: e.id,
-              expiryDate: { gte: new Date() },
+              expiryDate: { gte: today },
               daysRemaining: { gt: 0 },
             },
+            orderBy: { grantDate: 'desc' }, // 新しい付与日順
           })
-          remaining = lots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0)
+          remaining = activeLots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0)
+          // 0.5日単位で丸める
+          remaining = Math.round(remaining * 2) / 2
           
-          const allLots = await prisma.grantLot.findMany({
-            where: { employeeId: e.id },
-          })
-          granted = allLots.reduce((sum, lot) => sum + Number(lot.daysGranted), 0)
+          // 総付与数: 最新の付与基準日時点で有効だったロットの初期付与日数（daysGranted）の合計
+          // これは「昨年残高日数 + 新付与日数」を意味し、消費前の値（1年間固定）
+          // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
+          if (activeLots.length > 0) {
+            // grantDateでソート（新しい順）
+            const sortedLots = [...activeLots].sort((a, b) => 
+              new Date(b.grantDate).getTime() - new Date(a.grantDate).getTime()
+            )
+            const latestGrantDate = sortedLots[0].grantDate
+            granted = sortedLots
+              .filter(lot => new Date(lot.grantDate).getTime() <= new Date(latestGrantDate).getTime())
+              .reduce((sum, lot) => sum + Number(lot.daysGranted), 0) // daysRemainingではなくdaysGrantedを使用
+            // 0.5日単位で丸める
+            granted = Math.round(granted * 2) / 2
+          }
         } catch (lotError: any) {
           // テーブルが存在しない場合は無視（フォールバック処理へ）
           // PrismaエラーコードP2021は「テーブルが存在しない」を意味する
@@ -141,6 +163,12 @@ export async function GET(request: NextRequest) {
           latestRequest = requests[0]
         } catch {}
 
+        // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
+        // 総付与数が0の場合は、残日数 + 取得済み + 申請中で逆算（フォールバック）
+        const calculatedRemaining = granted > 0 
+          ? Math.max(0, granted - used - pending) 
+          : Math.max(0, remaining - pending)
+        
         return {
           id: e.id,
           name: e.name,
@@ -148,10 +176,10 @@ export async function GET(request: NextRequest) {
           employeeType: e.employeeType || null,
           vacationPattern: e.vacationPattern || null,
           weeklyPattern: e.weeklyPattern || null,
-          remaining: Math.max(0, remaining > 0 ? remaining - pending : granted - used - pending),
+          remaining: calculatedRemaining,
           used,
           pending,
-          granted: granted > 0 ? granted : used + pending + Math.max(0, remaining),
+          granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
           requestId: latestRequest?.id || undefined,
           status: latestRequest ? "pending" : undefined,
           startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),
@@ -176,7 +204,10 @@ export async function GET(request: NextRequest) {
       let employees
       try {
         employees = await prisma.employee.findMany({
-          where: { isInvisibleTop: false },
+          where: { 
+            isInvisibleTop: false,
+            status: { not: 'copy' }, // コピー社員を除外
+          },
           select: {
             id: true,
             name: true,
@@ -191,7 +222,10 @@ export async function GET(request: NextRequest) {
         // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して取得
         if (schemaError?.message?.includes('vacationPattern') || schemaError?.message?.includes('weeklyPattern')) {
           employees = await prisma.employee.findMany({
-            where: { isInvisibleTop: false },
+            where: { 
+              isInvisibleTop: false,
+              status: { not: 'copy' }, // コピー社員を除外
+            },
             select: {
               id: true,
               name: true,

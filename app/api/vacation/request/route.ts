@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calculateRequestTotalDays } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
+import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-stats"
 
 /**
  * 有給申請API（TimeOffRequest対応）
@@ -10,10 +11,34 @@ import { loadAppConfig } from "@/lib/vacation-config"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason } = body || {}
+    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId } = body || {}
+
+    // requestIdが指定されている場合は修正処理（PUT）を呼び出すべき
+    if (requestId) {
+      console.warn('[POST /api/vacation/request] requestIdが指定されていますが、POSTリクエストです。修正の場合はPUTリクエストを使用してください。')
+      return NextResponse.json({ 
+        error: "修正の場合はPUTリクエストを使用してください" 
+      }, { status: 400 })
+    }
 
     if (!employeeId || !startDate || !endDate) {
       return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
+    }
+
+    // 日付の妥当性チェック
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(0, 0, 0, 0)
+
+    if (start < today) {
+      return NextResponse.json({ error: "開始日は今日以降の日付を選択してください" }, { status: 400 })
+    }
+
+    if (start > end) {
+      return NextResponse.json({ error: "開始日は終了日以前の日付を選択してください" }, { status: 400 })
     }
 
     // 社員存在チェック
@@ -32,9 +57,7 @@ export async function POST(request: NextRequest) {
     // 期間を考慮して、4時間以内は0.5日、超過は0.5日単位で丸める
     let totalDays: number
     
-    // 期間の日数を計算
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+    // 期間の日数を計算（既に定義されているstartとendを使用）
     const diffMs = end.getTime() - start.getTime()
     const periodDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1 // 期間の日数（開始日と終了日を含む）
     
@@ -106,7 +129,21 @@ export async function POST(request: NextRequest) {
       totalDays = Math.min(totalDays, maxDays)
     }
 
-    // TimeOffRequestを作成
+    // 残日数チェック
+    const remainingDays = await calculateRemainingDays(employeeId)
+    const pendingDays = await calculatePendingDays(employeeId)
+    const availableDays = remainingDays - pendingDays
+
+    if (totalDays > availableDays) {
+      return NextResponse.json(
+        { 
+          error: `残日数が不足しています。利用可能日数: ${availableDays}日（残日数: ${remainingDays}日、申請中: ${pendingDays}日）` 
+        }, 
+        { status: 400 }
+      )
+    }
+
+    // TimeOffRequestを作成（totalDaysを保存）
     const created = await prisma.timeOffRequest.create({
       data: {
         employeeId,
@@ -116,7 +153,7 @@ export async function POST(request: NextRequest) {
         hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
         reason: reason ?? null,
         status: "PENDING",
-        // totalDaysは承認時に確定
+        totalDays: totalDays, // 申請時に計算された日数を保存
       },
     })
 

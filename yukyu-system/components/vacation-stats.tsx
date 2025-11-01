@@ -40,6 +40,15 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
       }
     }
     load()
+    
+    // 申請更新イベントをリッスン
+    const handleUpdate = () => {
+      load()
+    }
+    window.addEventListener('vacation-request-updated', handleUpdate)
+    return () => {
+      window.removeEventListener('vacation-request-updated', handleUpdate)
+    }
   }, [employeeId, userRole])
 
   const employeeStats: Array<{
@@ -51,10 +60,19 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
   }> = [
     {
       title: "残り有給日数",
-      value: loading ? "-" : `${(statsData?.totalRemaining ?? 0).toFixed(1)}日`,
+      value: loading ? "-" : (() => {
+        // 総付与数 - 取得済み - 申請中 = 残り有給日数
+        const totalGranted = statsData?.totalGranted ?? 0
+        const used = statsData?.used ?? 0
+        const pending = statsData?.pending ?? 0
+        const calculated = Math.max(0, totalGranted - used - pending)
+        return `${calculated.toFixed(1)}日`
+      })(),
       icon: Calendar,
       color: "text-chart-1",
-      subtitle: statsData?.totalGranted ? `付与: ${statsData.totalGranted.toFixed(1)}日` : undefined,
+      subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.pending !== undefined
+        ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 申請中: ${statsData.pending.toFixed(1)}日`
+        : undefined,
     },
     {
       title: "取得済み",

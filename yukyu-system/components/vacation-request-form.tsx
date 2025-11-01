@@ -9,16 +9,34 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { useToast } from "@/hooks/use-toast"
 
-export function VacationRequestForm() {
+interface VacationRequestFormProps {
+  onSuccess?: () => void
+  initialData?: {
+    startDate: string
+    endDate: string
+    reason: string
+    unit: "DAY" | "HOUR"
+    usedDays: number
+    hoursPerDay: number
+    hours: number
+  }
+  requestId?: string // 修正時は既存の申請ID
+}
+
+export function VacationRequestForm({ onSuccess, initialData, requestId }: VacationRequestFormProps) {
+  const { currentUser } = useAuth()
+  const { toast } = useToast()
   const [formData, setFormData] = useState({
-    startDate: "",
-    endDate: "",
-    reason: "",
-    unit: "DAY" as "DAY" | "HOUR",
-    usedDays: 1,
-    hoursPerDay: 8,
-    hours: 8,
+    startDate: initialData?.startDate || "",
+    endDate: initialData?.endDate || "",
+    reason: initialData?.reason || "",
+    unit: initialData?.unit || ("DAY" as "DAY" | "HOUR"),
+    usedDays: initialData?.usedDays || 1,
+    hoursPerDay: initialData?.hoursPerDay || 8,
+    hours: initialData?.hours || 8,
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -45,16 +63,57 @@ export function VacationRequestForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // バリデーション
+    if (!currentUser?.id) {
+      toast({
+        title: "エラー",
+        description: "ユーザー情報が取得できません。再度ログインしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!formData.startDate || !formData.endDate) {
+      toast({
+        title: "エラー",
+        description: "開始日と終了日を入力してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 日付の妥当性チェック
+    const start = new Date(formData.startDate)
+    const end = new Date(formData.endDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    start.setHours(0, 0, 0, 0)
+    end.setHours(0, 0, 0, 0)
+
+    if (start < today) {
+      toast({
+        title: "エラー",
+        description: "開始日は今日以降の日付を選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (start > end) {
+      toast({
+        title: "エラー",
+        description: "開始日は終了日以前の日付を選択してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setIsSubmitting(true)
-      const current = (window as any).CURRENT_USER as { id?: string } | undefined
-      if (!current?.id) {
-        alert("ユーザー情報が取得できません")
-        return
-      }
 
       const requestData: any = {
-        employeeId: current.id,
+        employeeId: currentUser.id,
         startDate: formData.startDate,
         endDate: formData.endDate,
         unit: formData.unit,
@@ -68,19 +127,53 @@ export function VacationRequestForm() {
         requestData.usedDays = formData.usedDays || calculateDays()
       }
 
-      const res = await fetch("/api/vacation/request", {
-        method: "POST",
+      // 修正の場合はPUT、新規の場合はPOST
+      const url = requestId 
+        ? `/api/vacation/requests/${requestId}`
+        : "/api/vacation/request"
+      const method = requestId ? "PUT" : "POST"
+
+      console.log(`[VacationRequestForm] 申請${requestId ? '修正' : '新規作成'}:`, {
+        requestId,
+        method,
+        url,
+        requestData
+      })
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestData),
       })
+
+      const data = await res.json()
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error || "申請に失敗しました")
+        throw new Error(data?.error || (requestId ? "申請の修正に失敗しました" : "申請に失敗しました"))
       }
-      alert("申請が送信されました")
-      setFormData({ startDate: "", endDate: "", reason: "", unit: "DAY", usedDays: 1, hoursPerDay: 8, hours: 8 })
+
+      toast({
+        title: requestId ? "申請を修正しました" : "申請が送信されました",
+        description: requestId 
+          ? "申請内容が更新されました。承認後に有給が消化されます。"
+          : "申請は承認待ちです。承認後に有給が消化されます。",
+      })
+
+      // フォームリセット（新規申請の場合のみ）
+      if (!requestId) {
+        setFormData({ startDate: "", endDate: "", reason: "", unit: "DAY", usedDays: 1, hoursPerDay: 8, hours: 8 })
+      }
+
+      // 親コンポーネントに成功を通知
+      if (onSuccess) {
+        onSuccess()
+      }
     } catch (err: any) {
-      alert(err?.message ?? "申請に失敗しました")
+      toast({
+        title: "申請に失敗しました",
+        description: err?.message || "予期しないエラーが発生しました。",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -305,7 +398,9 @@ export function VacationRequestForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? "送信中..." : "申請を送信"}
+            {isSubmitting 
+              ? (requestId ? "更新中..." : "送信中...") 
+              : (requestId ? "申請を更新" : "申請を送信")}
           </Button>
         </form>
       </CardContent>

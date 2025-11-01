@@ -152,7 +152,23 @@ export default function LeavePage() {
         {tab === "form" ? (
           // 管理者が他の社員の画面を見ている場合は申請フォームを表示しない
           !isViewingOtherEmployee ? (
-            <div className="max-w-3xl"><VacationRequestForm /></div>
+            <div className="max-w-3xl">
+              <VacationRequestForm 
+                onSuccess={() => {
+                  // 申請成功後、申請一覧タブに切り替える（リロードしない）
+                  setTab("list")
+                  const params = new URLSearchParams()
+                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                  if (employeeNameParam) params.set("name", employeeNameParam)
+                  params.set("tab", "list")
+                  router.replace(`/leave?${params.toString()}`)
+                  // VacationStatsとVacationListを再読み込みさせるため、キーを更新
+                  setTimeout(() => {
+                    window.dispatchEvent(new Event('vacation-request-updated'))
+                  }, 100)
+                }}
+              />
+            </div>
           ) : (
             <Card>
               <CardContent className="p-6">

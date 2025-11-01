@@ -57,36 +57,27 @@ export async function calculatePendingDays(employeeId: string): Promise<number> 
 
 /**
  * 取得済み日数を計算（現在の付与期間内）
- * 設計メモ: 申請時間を日換算した合計
+ * 設計メモ: 承認済み申請のtotalDaysの合計
  */
 export async function calculateUsedDays(
   employeeId: string,
   today: Date = new Date()
 ): Promise<number> {
-  // 現在の付与サイクルの開始日を取得
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    select: { joinDate: true, configVersion: true },
-  });
-
-  if (!employee) return 0;
-
-  const cfg = await loadAppConfig(employee.configVersion || undefined);
-  const prevGrant = getPreviousGrantDate(employee.joinDate, cfg, today);
-  const curStart = prevGrant || employee.joinDate;
-
-  // 承認済み消費の合計
-  const consumptions = await prisma.consumption.findMany({
+  // 承認済み申請の日数合計を取得（Consumptionレコードの代わりにTimeOffRequestから直接計算）
+  const approvedRequests = await prisma.timeOffRequest.findMany({
     where: {
       employeeId,
-      date: {
-        gte: curStart,
-        lte: today,
-      },
+      status: "APPROVED",
+    },
+    select: {
+      totalDays: true,
     },
   });
 
-  const total = consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0);
+  const total = approvedRequests.reduce(
+    (sum, req) => sum + Number(req.totalDays || 0),
+    0
+  );
   // 0.5日単位で丸める
   return Math.round(total * 2) / 2;
 }

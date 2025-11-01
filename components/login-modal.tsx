@@ -65,6 +65,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // ログイン成功後、タスク管理ページにリダイレクト
           router.push('/tasks')
           // ログイン成功時はローディング状態を維持（ページ遷移まで）
+          return // ログイン成功時はここで終了
         } else {
           setError("名前またはパスワードが正しくありません")
           logAuthAction('login', name, false) // ログイン失敗を記録
@@ -73,13 +74,13 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
       } else {
         console.error("Failed to fetch employees from API, status:", response.status)
         setError("サーバーに接続できません。しばらく待ってから再試行してください。")
+        setIsLoading(false)
       }
     } catch (error) {
       console.error('ログインエラー:', error)
       setError("ログインに失敗しました")
+      setIsLoading(false)
     }
-
-    setIsLoading(false)
   }
 
   return (

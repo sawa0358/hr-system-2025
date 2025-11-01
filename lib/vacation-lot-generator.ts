@@ -38,9 +38,18 @@ export async function generateGrantLotsForEmployee(
     throw new Error('Employee joinDate is required');
   }
 
+  // アクティブな設定を取得（社員の設定バージョンが未設定の場合は最新のアクティブ設定を使用）
   const cfg = await loadAppConfig(employee.configVersion || undefined);
   const today = until || new Date();
   const joinDate = new Date(employee.joinDate);
+  
+  // 設定バージョンを社員レコードに保存（未設定の場合のみ）
+  if (!employee.configVersion && cfg.version) {
+    await prisma.employee.update({
+      where: { id: employeeId },
+      data: { configVersion: cfg.version },
+    });
+  }
 
   let generated = 0;
   let updated = 0;
@@ -108,39 +117,40 @@ export async function generateGrantLotsForEmployee(
       continue;
     }
 
-    // 同じ付与日で異なる設定バージョンのロットが存在する場合は削除
-    // （設定が更新された場合、古い設定のロットは無効にする）
-    const existingSameDate = await prisma.grantLot.findFirst({
+    // 同じ付与日のロットが存在する場合は全て削除（最新の設定で再生成するため）
+    // ただし、既に消費されている場合は残日数を考慮する
+    const existingSameDateLots = await prisma.grantLot.findMany({
       where: {
         employeeId,
         grantDate: grantDate,
-        configVersion: { not: cfg.version }, // 現在の設定バージョンと異なるもの
       },
     });
 
-    if (existingSameDate) {
-      // 古い設定バージョンのロットを削除（ただし、既に消費されている場合は残日数だけ0にする）
-      const usedDays = await prisma.consumption.aggregate({
-        where: { lotId: existingSameDate.id },
-        _sum: { daysUsed: true },
-      });
-      const totalUsed = Number(usedDays._sum.daysUsed ?? 0);
+    if (existingSameDateLots.length > 0) {
+      for (const existingLot of existingSameDateLots) {
+        // 既に消費されている日数を確認
+        const usedDays = await prisma.consumption.aggregate({
+          where: { lotId: existingLot.id },
+          _sum: { daysUsed: true },
+        });
+        const totalUsed = Number(usedDays._sum.daysUsed ?? 0);
 
-      if (totalUsed > 0) {
-        // 消費済みがある場合は削除せず、残日数を0にして無効化
-        await prisma.grantLot.update({
-          where: { id: existingSameDate.id },
-          data: {
-            daysRemaining: 0,
-          },
-        });
-      } else {
-        // 未使用の場合は削除
-        await prisma.grantLot.delete({
-          where: { id: existingSameDate.id },
-        });
+        if (totalUsed > 0) {
+          // 消費済みがある場合は削除せず、残日数を0にして無効化
+          await prisma.grantLot.update({
+            where: { id: existingLot.id },
+            data: {
+              daysRemaining: 0,
+            },
+          });
+        } else {
+          // 未使用の場合は削除
+          await prisma.grantLot.delete({
+            where: { id: existingLot.id },
+          });
+        }
+        updated++;
       }
-      updated++;
     }
 
     // 新規作成

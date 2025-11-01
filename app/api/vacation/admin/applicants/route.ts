@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { getNextGrantDate } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
 import { chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
+import { calculateRemainingDays, calculateUsedDays, calculatePendingDays, calculateTotalGranted, getNextGrantDateForEmployee } from "@/lib/vacation-stats"
 
 // 管理者向け: 全社員の有給カード表示用データ
 export async function GET(request: NextRequest) {
@@ -75,45 +76,22 @@ export async function GET(request: NextRequest) {
     const today = new Date()
     const resultsArrays = await Promise.all(
       employees.map(async (e) => {
+        // 新しいロットベースシステムを使用して統計を計算
         let remaining = 0
+        let used = 0
+        let pending = 0
         let granted = 0
         
-        // まず新しいロットベースシステムを試す（テーブルが存在しない場合はスキップ）
         try {
-          // 残日数: 失効していないロットの残日数の合計
-          const activeLots = await prisma.grantLot.findMany({
-            where: {
-              employeeId: e.id,
-              expiryDate: { gte: today },
-              daysRemaining: { gt: 0 },
-            },
-            orderBy: { grantDate: 'desc' }, // 新しい付与日順
-          })
-          remaining = activeLots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0)
-          // 0.5日単位で丸める
-          remaining = Math.round(remaining * 2) / 2
-          
-          // 総付与数: 最新の付与基準日時点で有効だったロットの初期付与日数（daysGranted）の合計
-          // これは「昨年残高日数 + 新付与日数」を意味し、消費前の値（1年間固定）
-          // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
-          if (activeLots.length > 0) {
-            // grantDateでソート（新しい順）
-            const sortedLots = [...activeLots].sort((a, b) => 
-              new Date(b.grantDate).getTime() - new Date(a.grantDate).getTime()
-            )
-            const latestGrantDate = sortedLots[0].grantDate
-            granted = sortedLots
-              .filter(lot => new Date(lot.grantDate).getTime() <= new Date(latestGrantDate).getTime())
-              .reduce((sum, lot) => sum + Number(lot.daysGranted), 0) // daysRemainingではなくdaysGrantedを使用
-            // 0.5日単位で丸める
-            granted = Math.round(granted * 2) / 2
-          }
-        } catch (lotError: any) {
+          // lib/vacation-stats.tsの関数を使用して統一された計算ロジックで取得
+          remaining = await calculateRemainingDays(e.id, today)
+          used = await calculateUsedDays(e.id, today)
+          pending = await calculatePendingDays(e.id)
+          granted = await calculateTotalGranted(e.id, today)
+        } catch (statsError: any) {
           // テーブルが存在しない場合は無視（フォールバック処理へ）
-          // PrismaエラーコードP2021は「テーブルが存在しない」を意味する
-          if (lotError?.code !== 'P2021' && !lotError?.message?.includes('does not exist')) {
-            // 予期しないエラーのみログに記録
-            console.warn(`GrantLot取得エラー (employeeId: ${e.id}):`, lotError?.code, lotError?.message)
+          if (statsError?.code !== 'P2021' && !statsError?.message?.includes('does not exist')) {
+            console.warn(`統計取得エラー (employeeId: ${e.id}):`, statsError?.code, statsError?.message)
           }
         }
         
@@ -130,32 +108,8 @@ export async function GET(request: NextRequest) {
             // エラーは無視（データなしとして扱う）
           }
         }
-
-        let used = 0
-        let pending = 0
         
-        // 新しいシステムから取得を試す（テーブルが存在しない場合はスキップ）
-        try {
-          const consumptions = await prisma.consumption.findMany({
-            where: { employeeId: e.id },
-          })
-          used = consumptions.reduce((sum, c) => sum + Number(c.daysUsed), 0)
-          
-          const pendingRequests = await prisma.timeOffRequest.findMany({
-            where: { employeeId: e.id, status: "PENDING" },
-            orderBy: { createdAt: "desc" },
-          })
-          pending = pendingRequests.reduce((sum, r) => sum + Number(r.totalDays ?? 0), 0)
-        } catch (newSystemError: any) {
-          // テーブルが存在しない場合は無視（フォールバック処理へ）
-          // PrismaエラーコードP2021は「テーブルが存在しない」を意味する
-          if (newSystemError?.code !== 'P2021' && !newSystemError?.message?.includes('does not exist')) {
-            // 予期しないエラーのみログに記録
-            console.warn(`新システム取得エラー (employeeId: ${e.id}):`, newSystemError?.code, newSystemError?.message)
-          }
-        }
-        
-        // 新システムでデータがない場合は旧システムを使用
+        // 旧システムのデータも取得を試す
         if (used === 0 && pending === 0) {
           try {
             const [approvedSum, pendingSum] = await Promise.all([
@@ -173,14 +127,12 @@ export async function GET(request: NextRequest) {
         let nextGrantDate: Date | null = null
         let nextGrantDays: number = 0
         try {
-          const cfg = await loadAppConfig(e.vacationPattern ? (e.configVersion || undefined) : undefined)
-          if (e.vacationPattern && e.joinDate) {
-            nextGrantDate = getNextGrantDate(e.joinDate, cfg, today)
-            if (nextGrantDate) {
-              // 次回付与日の勤続年数を計算
-              const yearsSinceJoin = (nextGrantDate.getTime() - e.joinDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
-              nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
-            }
+          nextGrantDate = await getNextGrantDateForEmployee(e.id)
+          if (nextGrantDate && e.vacationPattern) {
+            const cfg = await loadAppConfig(e.configVersion || undefined)
+            // 次回付与日の勤続年数を計算
+            const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+            nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
           }
         } catch (grantError: any) {
           console.warn(`次回付与日計算エラー (employeeId: ${e.id}):`, grantError?.message || grantError)

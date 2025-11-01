@@ -150,7 +150,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewOwnAttendance: true,
     viewSubordinateAttendance: false,
     editAttendance: false,
-    viewLeaveManagement: false,
+    viewLeaveManagement: true,
     editLeaveManagement: false,
     viewOwnPayroll: true,
     viewAllPayroll: false,

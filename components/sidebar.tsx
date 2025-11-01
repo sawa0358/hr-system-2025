@@ -55,15 +55,60 @@ export function Sidebar() {
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
 
+  // 有給管理を表示するべき雇用形態
+  const allowedEmployeeTypesForLeave = [
+    "正社員",
+    "契約社員",
+    "パートタイム",
+    "派遣社員"
+  ]
+
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => 
     menuItems.filter((item) => hasPermission(item.permission)), 
     [hasPermission]
   )
-  const visibleDropdownItems = React.useMemo(() => 
-    dropdownMenuItems.filter((item) => hasPermission(item.permission)), 
-    [hasPermission]
-  )
+  const visibleDropdownItems = React.useMemo(() => {
+    return dropdownMenuItems.filter((item) => {
+      // 権限チェック
+      if (!hasPermission(item.permission)) {
+        return false
+      }
+      
+      // 有給管理メニューの場合は雇用形態もチェック
+      if (item.href === "/leave") {
+        // ログインしていない場合は表示しない
+        if (!currentUser) {
+          console.log("[Sidebar] 有給管理メニュー: currentUserが存在しません")
+          return false
+        }
+        
+        // 雇用形態をチェック
+        const employeeType = currentUser.employeeType?.trim()
+        if (!employeeType) {
+          console.log("[Sidebar] 有給管理メニュー: employeeTypeが存在しません", currentUser)
+          return false
+        }
+        
+        // 許可された雇用形態かチェック（大文字小文字・前後の空白を無視）
+        const isAllowed = allowedEmployeeTypesForLeave.some(
+          allowed => allowed.trim().toLowerCase() === employeeType.toLowerCase()
+        )
+        
+        if (!isAllowed) {
+          console.log("[Sidebar] 有給管理メニュー: 雇用形態が許可されていません", {
+            employeeType,
+            allowedTypes: allowedEmployeeTypesForLeave
+          })
+          return false
+        }
+        
+        console.log("[Sidebar] 有給管理メニュー: 表示します", { employeeType })
+      }
+      
+      return true
+    })
+  }, [hasPermission, currentUser])
   const visibleAdminMenuItems = React.useMemo(() => 
     adminMenuItems.filter((item) => hasPermission(item.permission)), 
     [hasPermission]

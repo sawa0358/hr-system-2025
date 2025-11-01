@@ -132,8 +132,9 @@ export async function GET(request: NextRequest) {
           nextGrantDate = await getNextGrantDateForEmployee(e.id)
           if (nextGrantDate && e.vacationPattern) {
             const cfg = await loadAppConfig(e.configVersion || undefined)
-            // 次回付与日の勤続年数を計算
-            const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+            // 次回付与日の勤続年数を計算（半年刻み）
+            const { diffInYearsHalfStep } = await import('@/lib/vacation-grant-lot')
+            const yearsSinceJoin = diffInYearsHalfStep(new Date(e.joinDate), nextGrantDate)
             nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
           }
           

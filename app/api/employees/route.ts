@@ -490,6 +490,21 @@ export async function POST(request: NextRequest) {
       console.error(`S3への社員情報保存失敗: ${employee.id}`, s3Result.error);
     }
 
+    // 有給計算パターンが設定されている場合、自動でロットを生成
+    if (employee.vacationPattern && employee.joinDate) {
+      try {
+        console.log(`[有給管理] 新社員 ${employee.name} (${employee.id}) の有給ロットを自動生成します`)
+        const { generateGrantLotsForEmployee } = await import('@/lib/vacation-lot-generator')
+        const today = new Date()
+        // 入社日から今日までのロットを生成
+        const { generated, updated } = await generateGrantLotsForEmployee(employee.id, today)
+        console.log(`[有給管理] 新社員 ${employee.name} のロット生成完了: 生成=${generated}, 更新=${updated}`)
+      } catch (vacationError: any) {
+        console.error(`[有給管理] 新社員 ${employee.name} のロット生成エラー（無視）:`, vacationError?.message || vacationError)
+        // ロット生成エラーは警告のみで、社員登録自体は成功とする
+      }
+    }
+
     return NextResponse.json({
       success: true,
       employee

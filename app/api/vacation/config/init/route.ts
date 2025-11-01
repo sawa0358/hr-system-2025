@@ -61,10 +61,18 @@ export async function POST(request: NextRequest) {
       data: { isActive: true },
     })
 
+    // 自動実行の有効化（内部的なフラグとして、設定が有効化されたことを記録）
+    // 実際の自動実行は外部のcronサービス（Heroku Scheduler、Vercel Cron等）で設定する必要がある
+    
     return NextResponse.json({
       success: true,
-      message: "デフォルト設定を投入し、有効化しました",
+      message: "デフォルト設定を投入し、有効化しました。自動実行は外部のcronサービスで設定してください。",
       version: DEFAULT_APP_CONFIG.version,
+      autoRunEndpoints: {
+        expire: "/api/cron/expire",
+        grant: "/api/cron/grant",
+      },
+      note: "自動実行を有効化するには、Heroku SchedulerやVercel Cron等で上記のエンドポイントを設定してください。",
     })
   } catch (error: any) {
     console.error("初期設定投入エラー:", error)

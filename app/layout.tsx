@@ -10,6 +10,12 @@ import { AuthProvider } from "@/lib/auth-context"
 import { ClientOnly } from "@/components/client-only"
 import { ErrorBoundary } from "@/components/error-boundary"
 
+// サーバー起動時に有給管理スケジューラーを初期化
+if (typeof window === 'undefined') {
+  // サーバーサイドのみで実行
+  require('@/lib/init-vacation-scheduler')
+}
+
 export const metadata: Metadata = {
   title: "HR System",
   description: "Human Resources Management System",

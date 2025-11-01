@@ -105,7 +105,6 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
           <Badge variant="destructive" className="gap-1">
             <XCircle className="h-3 w-3" />
             却下
-            <span className="text-[9px] ml-1">残り有給日数は減少しません</span>
           </Badge>
         )
       default:
@@ -415,7 +414,11 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                         {request.days && <div className="text-foreground font-medium text-[10px]">({request.days}日間)</div>}
                       </div>
                     </div>
-                    {request.reason && <div className="text-[9px] text-muted-foreground line-clamp-2 mt-1">理由: {request.reason}</div>}
+                    {request.reason && (
+                      <div className="text-[9px] text-muted-foreground break-words whitespace-pre-wrap mt-1">
+                        理由: {request.reason}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -495,7 +498,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                     return `${calculatedDays.toFixed(1)}日`
                   })()}
                 </div>
-                <div className="text-[11px] text-muted-foreground">理由: {request.reason || "-"}</div>
+                <div className="text-[11px] text-muted-foreground break-words whitespace-pre-wrap">
+                  理由: {request.reason || "-"}
+                </div>
                 <div className="mt-1 flex items-center gap-2">
                   {getStatusBadge(request.status || "pending")}
                   {request.status?.toLowerCase() === "pending" && (
@@ -529,6 +534,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                     </div>
                   )}
                 </div>
+                {/* 却下された申請の場合、説明テキストを表示 */}
+                {request.status?.toLowerCase() === "rejected" && (
+                  <div className="text-[11px] text-muted-foreground mt-1">
+                    残り有給日数は減少しません
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

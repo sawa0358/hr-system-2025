@@ -144,31 +144,23 @@ export async function POST(request: NextRequest) {
     }
 
     // TimeOffRequestを作成（totalDaysを保存）
-    // 代理申請の場合は申請者情報も保存（スキーマにフィールドがある場合のみ）
-    const createData: any = {
+    // 代理申請の場合は理由に申請者情報を追記
+    let finalReason = reason ?? null
+    if (requestedBy && requestedBy !== employeeId && requestedByName) {
+      // 代理申請の場合、理由に申請者情報を追記
+      const proxyInfo = `（代理申請: ${requestedByName}）`
+      finalReason = finalReason ? `${finalReason} ${proxyInfo}` : proxyInfo
+    }
+
+    const createData = {
       employeeId,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       unit: unit as "DAY" | "HOUR",
       hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
-      reason: reason ?? null,
-      status: "PENDING",
+      reason: finalReason,
+      status: "PENDING" as const,
       totalDays: totalDays, // 申請時に計算された日数を保存
-    }
-
-    // 代理申請の場合は申請者情報を追加（スキーマにフィールドがある場合のみ）
-    if (requestedBy && requestedBy !== employeeId) {
-      // requestedByやrequestedByNameフィールドが存在する場合は追加
-      // スキーマに存在しない場合はエラーを無視（オプショナル）
-      try {
-        createData.requestedBy = requestedBy
-        if (requestedByName) {
-          createData.requestedByName = requestedByName
-        }
-      } catch (err) {
-        // フィールドが存在しない場合は無視
-        console.log('[POST /api/vacation/request] 代理申請者フィールドがスキーマに存在しない可能性があります')
-      }
     }
 
     const created = await prisma.timeOffRequest.create({

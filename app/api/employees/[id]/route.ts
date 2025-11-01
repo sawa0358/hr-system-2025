@@ -260,9 +260,18 @@ export async function PUT(
         return trimmed !== '' ? trimmed : null;
       })(),
       employeeNumber: body.employeeNumber,
-      employeeType: body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '' 
-        ? body.employeeType 
-        : currentEmployee?.employeeType,
+      employeeType: (() => {
+        // リクエストに含まれている場合はそれを使用
+        if (body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '') {
+          return body.employeeType;
+        }
+        // 既存の値がある場合はそれを使用
+        if (currentEmployee?.employeeType) {
+          return currentEmployee.employeeType;
+        }
+        // デフォルト値として'正社員'を使用
+        return '正社員';
+      })(),
       userId: (() => {
         if (!body.userId || body.userId === '' || body.userId === null || body.userId === undefined) {
           return null;

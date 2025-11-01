@@ -317,6 +317,41 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     return false // latestGrantDaysがない場合はアラートを表示しない（安全のため）
   }
 
+  // 次の付与日までの期間を計算して、アラートの色を決定
+  const getAlertColor = (nextGrantDate: string | null | undefined) => {
+    if (!nextGrantDate) {
+      // 次の付与日が設定されていない場合は黄色（安全のため）
+      return {
+        border: 'border-yellow-500',
+        bg: 'bg-yellow-50 dark:bg-yellow-950/20',
+        text: 'text-yellow-800 dark:text-yellow-300',
+        icon: 'text-yellow-600 dark:text-yellow-400',
+      }
+    }
+
+    const today = new Date()
+    const nextGrant = new Date(nextGrantDate)
+    const diffMs = nextGrant.getTime() - today.getTime()
+    const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30) // 簡易計算: 30日=1ヶ月
+
+    // 3ヶ月未満の場合は赤色、それ以上は黄色
+    if (diffMonths < 3) {
+      return {
+        border: 'border-red-500',
+        bg: 'bg-red-50 dark:bg-red-950/20',
+        text: 'text-red-800 dark:text-red-300',
+        icon: 'text-red-600 dark:text-red-400',
+      }
+    } else {
+      return {
+        border: 'border-[#f4b907]',
+        bg: 'bg-yellow-50 dark:bg-yellow-950/20',
+        text: 'text-yellow-800 dark:text-yellow-300',
+        icon: 'text-[#f4b907] dark:text-yellow-400',
+      }
+    }
+  }
+
   // 社員用申請一覧のフィルタリングとソート
   const filteredAndSortedEmployeeRequests = employeeRequests
     .filter((req: any) => {
@@ -562,14 +597,17 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                   </div>
                 </div>
 
-                {needsFiveDayAlert(request.latestGrantDays, request.used ?? 0) && (
-                  <Alert variant="destructive" className="border-orange-500 bg-orange-50 dark:bg-orange-950/20 py-1.5">
-                    <AlertTriangle className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                    <AlertDescription className="text-[10px] text-orange-800 dark:text-orange-300 leading-tight">
-                      5日消化義務未達成
-                    </AlertDescription>
-                  </Alert>
-                )}
+                {needsFiveDayAlert(request.latestGrantDays, request.used ?? 0) && (() => {
+                  const alertColors = getAlertColor(request.nextGrantDate)
+                  return (
+                    <Alert variant="destructive" className={`${alertColors.border} ${alertColors.bg} py-1.5`}>
+                      <AlertTriangle className={`h-3 w-3 ${alertColors.icon}`} />
+                      <AlertDescription className={`text-[10px] ${alertColors.text} leading-tight`}>
+                        5日消化義務未達成
+                      </AlertDescription>
+                    </Alert>
+                  )
+                })()}
 
                 <div className="flex flex-col gap-1.5 mt-auto">
                   {request.status && getStatusBadge(request.status)}

@@ -17,6 +17,7 @@ interface VacationListProps {
   filter: "pending" | "all"
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
   employeeId?: string // 表示する社員ID（社員モードで使用）
+  onPendingCountChange?: (count: number) => void // 承認待ちの申請数を通知するコールバック
   filters?: {
     searchQuery: string
     department: string
@@ -27,7 +28,7 @@ interface VacationListProps {
   }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
@@ -472,6 +473,40 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
 
   const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter(e => (e.pending ?? 0) > 0) : filteredAdminEmployees) : []
   
+  // 承認待ちの申請カード数を計算（管理者画面のみ）
+  // 承認待ち画面に実際に表示されているカード数を計算
+  useEffect(() => {
+    if (userRole === "admin" && onPendingCountChange) {
+      // 承認待ち画面では、各申請ごとにカードが生成される
+      // 実際に表示されるカード数は adminVisible の長さ（承認待ち画面の場合）
+      // 全社員画面にいる場合でも、承認待ちの申請カード数を別途取得する必要がある
+      if (filter === "pending") {
+        // 承認待ち画面では、各申請ごとにカードが生成される
+        const pendingCardCount = adminVisible.length
+        onPendingCountChange(pendingCardCount)
+      } else {
+        // 全社員画面にいる場合、承認待ちの申請カード数を別途取得する
+        fetch(`/api/vacation/admin/applicants?view=pending`)
+          .then((res) => {
+            if (res.ok) {
+              return res.json()
+            }
+            throw new Error('API呼び出しに失敗しました')
+          })
+          .then((json) => {
+            // 承認待ち画面では各申請ごとにカードが生成されるため、レスポンスのカード数が承認待ちの申請カード数
+            const pendingCardCount = json.employees?.length || 0
+            onPendingCountChange(pendingCardCount)
+          })
+          .catch((error) => {
+            console.error('[有給管理] 承認待ちカード数取得エラー:', error)
+            // エラー時は0を設定
+            onPendingCountChange(0)
+          })
+      }
+    }
+  }, [adminVisible, userRole, onPendingCountChange, filter])
+  
   // デバッグ用ログ（開発環境のみ）
   if (userRole === "admin" && typeof window !== "undefined") {
     console.log(`[有給管理] 表示データ: adminEmployees=${adminEmployees.length}, filteredAdminEmployees=${filteredAdminEmployees.length}, adminVisible=${adminVisible.length}, filter=${filter}`)
@@ -514,8 +549,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </div>
       )}
       {(userRole === "admin" ? adminVisible : filteredAndSortedEmployeeRequests).map((request: any) => {
-        // 管理者画面: 申請中カードの背景色を#b3e1f9にする
-        const adminPendingBackground = userRole === "admin" && filter === "pending" ? "#b3e1f9" : undefined
+        // 管理者画面: 申請中カードの背景色を#dbeafeにする（承認待ち画面・全社員画面ともに）
+        const hasPendingRequest = userRole === "admin" && (request.pending ?? 0) > 0
+        const adminPendingBackground = hasPendingRequest ? "#dbeafe" : undefined
         
         // 社員画面: 状態に応じて背景色を設定
         let employeeCardBackground: string | undefined = undefined

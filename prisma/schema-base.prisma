@@ -137,6 +137,9 @@ model Employee {
   
   // ユーザー設定関係
   userSettings          UserSettings[] @relation("UserSettingsEmployee")
+  
+  // 家族構成関係
+  familyMembers         FamilyMember[]
 
   @@map("employees")
 }
@@ -144,7 +147,7 @@ model Employee {
 model Evaluation {
   id            String   @id @default(cuid())
   employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id])
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   period        String
   evaluator     String
   status        String
@@ -164,7 +167,7 @@ model Task {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   employeeId  String
-  employee    Employee @relation("TaskAssignee", fields: [employeeId], references: [id])
+  employee    Employee @relation("TaskAssignee", fields: [employeeId], references: [id], onDelete: Cascade)
   members     TaskMember[]
 
   @@map("tasks")
@@ -185,7 +188,7 @@ model TaskMember {
 model Attendance {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   date       DateTime
   clockIn    DateTime?
   clockOut   DateTime?
@@ -201,7 +204,7 @@ model Attendance {
 model Payroll {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   period     String
   amount     Float
   status     String   @default("pending")
@@ -214,7 +217,7 @@ model Payroll {
 model File {
   id           String   @id @default(cuid())
   employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id])
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   originalName String
   filename     String
   filePath     String?
@@ -232,7 +235,7 @@ model File {
 model Folder {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   name       String
   parentId   String?
   parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
@@ -246,7 +249,7 @@ model Folder {
 model ActivityLog {
   id        String   @id @default(cuid())
   userId    String
-  user      Employee @relation(fields: [userId], references: [id])
+  user      Employee @relation(fields: [userId], references: [id], onDelete: Cascade)
   userName  String
   action    String
   module    String
@@ -260,7 +263,7 @@ model ActivityLog {
 model LeaveRequest {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   startDate  DateTime
   endDate    DateTime
   type       String
@@ -277,7 +280,7 @@ model Workspace {
   name        String
   description String?
   createdBy   String
-  creator     Employee @relation("WorkspaceCreator", fields: [createdBy], references: [id])
+  creator     Employee @relation("WorkspaceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   members     WorkspaceMember[]
   boards      Board[]
   createdAt   DateTime @default(now())
@@ -306,7 +309,7 @@ model Board {
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String
-  creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id])
+  creator     Employee @relation("BoardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   position    Int      @default(0)
   lists       BoardList[]
   cards       Card[]
@@ -339,7 +342,7 @@ model Card {
   boardId     String
   board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   createdBy   String
-  creator     Employee @relation("CardCreator", fields: [createdBy], references: [id])
+  creator     Employee @relation("CardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   members     CardMember[]
   attachments Json?
   labels      Json?
@@ -370,6 +373,7 @@ model CardMember {
 model FamilyMember {
   id           String   @id @default(cuid())
   employeeId   String
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   name         String
   relationship String
   birthDate    DateTime?
@@ -399,7 +403,7 @@ model CustomFolder {
 model UserSettings {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id])
+  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   key        String
   value      String
   createdAt  DateTime @default(now())
@@ -494,7 +498,7 @@ model VacationBalance {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  employee      Employee       @relation(fields: [employeeId], references: [id])
+  employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   usages        VacationUsage[]
 
   @@index([employeeId, grantDate])
@@ -514,7 +518,7 @@ model VacationRequest {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  employee     Employee       @relation(fields: [employeeId], references: [id])
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   usageDetails VacationUsage[]
 
   @@map("vacation_requests")
@@ -528,8 +532,8 @@ model VacationUsage {
 
   createdAt DateTime         @default(now())
 
-  request   VacationRequest  @relation(fields: [requestId], references: [id])
-  balance   VacationBalance  @relation(fields: [balanceId], references: [id])
+  request   VacationRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  balance   VacationBalance  @relation(fields: [balanceId], references: [id], onDelete: Cascade)
 
   @@map("vacation_usage")
 }

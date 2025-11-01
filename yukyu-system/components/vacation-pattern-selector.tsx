@@ -171,26 +171,33 @@ export function VacationPatternSelector({
 
   return (
     <>
-      <div className="space-y-1">
+      <div className="space-y-1" onClick={(e) => e.stopPropagation()}>
         <label className="text-[9px] text-muted-foreground">有給計算パターン</label>
         <Select
           value={pattern || ''}
           onValueChange={(value) => handlePatternSelect(value as VacationPattern)}
           disabled={loading || readonly || availableOptions.length === 0}
         >
-          <SelectTrigger className="h-7 text-[11px]">
+          <SelectTrigger 
+            className="h-7 text-[11px]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <SelectValue placeholder="パターンを選択">
               {pattern ? getPatternLabel(pattern) : '未設定'}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent onClick={(e) => e.stopPropagation()}>
             {availableOptions.length === 0 ? (
               <SelectItem value="" disabled>
                 該当するパターンがありません（雇用形態: {employeeType || '未設定'}）
               </SelectItem>
             ) : (
               availableOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
+                <SelectItem 
+                  key={opt.value} 
+                  value={opt.value}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {opt.label}
                 </SelectItem>
               ))
@@ -206,7 +213,11 @@ export function VacationPatternSelector({
 
       {/* パスワード確認ダイアログ */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent 
+          className="max-w-md"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lock className="w-5 h-5 text-amber-600" />
@@ -217,7 +228,7 @@ export function VacationPatternSelector({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4" onClick={(e) => e.stopPropagation()}>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
               <p className="text-xs text-amber-800">
@@ -235,8 +246,12 @@ export function VacationPatternSelector({
                   setPassword(e.target.value)
                   setPasswordError("")
                 }}
+                onClick={(e) => e.stopPropagation()}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handlePasswordVerify()
+                  if (e.key === "Enter") {
+                    e.stopPropagation()
+                    handlePasswordVerify()
+                  }
                 }}
                 placeholder="パスワードを入力"
               />
@@ -244,11 +259,23 @@ export function VacationPatternSelector({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelChange}>
+          <DialogFooter onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCancelChange()
+              }}
+            >
               キャンセル
             </Button>
-            <Button onClick={handlePasswordVerify} className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation()
+                handlePasswordVerify()
+              }} 
+              className="bg-blue-600 hover:bg-blue-700"
+            >
               認証する
             </Button>
           </DialogFooter>
@@ -257,7 +284,11 @@ export function VacationPatternSelector({
 
       {/* 変更確認ダイアログ */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent 
+          className="max-w-md"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <DialogHeader>
             <DialogTitle>有給計算パターンの変更確認</DialogTitle>
             <DialogDescription>
@@ -265,7 +296,7 @@ export function VacationPatternSelector({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm font-medium text-blue-900 mb-2">変更内容:</p>
               <p className="text-sm text-blue-800">
@@ -283,11 +314,24 @@ export function VacationPatternSelector({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={handleCancelChange}>
+          <DialogFooter onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="outline" 
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCancelChange()
+              }}
+            >
               いいえ（キャンセル）
             </Button>
-            <Button onClick={handleConfirmChange} className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+            <Button 
+              onClick={(e) => {
+                e.stopPropagation()
+                handleConfirmChange()
+              }} 
+              className="bg-blue-600 hover:bg-blue-700" 
+              disabled={loading}
+            >
               {loading ? "変更中..." : "はい（変更する）"}
             </Button>
           </DialogFooter>

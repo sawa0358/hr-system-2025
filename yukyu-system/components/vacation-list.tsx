@@ -352,7 +352,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
         <Card
           key={request.id}
           className="flex flex-col min-h-[92px] p-0 cursor-pointer"
-          onClick={() => {
+          onClick={(e) => {
+            // ダイアログやSelect内のクリックは無視
+            if ((e.target as HTMLElement).closest('[role="dialog"]') || 
+                (e.target as HTMLElement).closest('[role="listbox"]') ||
+                (e.target as HTMLElement).closest('button') ||
+                (e.target as HTMLElement).closest('input')) {
+              return
+            }
             if (userRole === "admin" && onEmployeeClick) {
               onEmployeeClick(String(request.id), request.employee || request.name)
             }

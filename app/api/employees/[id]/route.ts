@@ -381,6 +381,21 @@ export async function PUT(
 
     console.log('更新成功:', employee.id, employee.name, employee.furigana, employee.parentEmployeeId)
 
+    // 有給計算パターンが設定/更新された場合、自動でロットを生成
+    if (body.vacationPattern && employee.joinDate) {
+      try {
+        console.log(`[有給管理] 社員 ${employee.name} (${employee.id}) の有給計算パターンが設定されました。ロットを自動生成します`)
+        const { generateGrantLotsForEmployee } = await import('@/lib/vacation-lot-generator')
+        const today = new Date()
+        // 入社日から今日までのロットを生成
+        const { generated, updated } = await generateGrantLotsForEmployee(employee.id, today)
+        console.log(`[有給管理] 社員 ${employee.name} のロット生成完了: 生成=${generated}, 更新=${updated}`)
+      } catch (vacationError: any) {
+        console.error(`[有給管理] 社員 ${employee.name} のロット生成エラー（無視）:`, vacationError?.message || vacationError)
+        // ロット生成エラーは警告のみで、社員更新自体は成功とする
+      }
+    }
+
     // 家族データの保存
     if (body.familyMembers && Array.isArray(body.familyMembers)) {
       console.log('家族構成保存開始:', {

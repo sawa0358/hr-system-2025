@@ -26,9 +26,10 @@ interface VacationRequestFormProps {
   }
   requestId?: string // 修正時は既存の申請ID
   proxyEmployeeId?: string // 代理申請する社員ID（管理者が他の社員に代わって申請する場合）
+  force?: boolean // 承認済み・却下の申請を編集する場合のフラグ
 }
 
-export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEmployeeId }: VacationRequestFormProps) {
+export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEmployeeId, force }: VacationRequestFormProps) {
   const { currentUser } = useAuth()
   const { toast } = useToast()
   
@@ -103,6 +104,11 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         ? `/api/vacation/requests/${requestId}`
         : "/api/vacation/request"
       const method = requestId ? "PUT" : "POST"
+      
+      // 承認済み・却下の申請を編集する場合はforceフラグを追加
+      if (force) {
+        requestData.force = true
+      }
 
       console.log(`[VacationRequestForm] 申請${requestId ? '修正' : '新規作成'}:`, {
         requestId,
@@ -113,7 +119,10 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser?.id || "",
+        },
         body: JSON.stringify(requestData),
       })
 
@@ -128,6 +137,12 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         toast({
           title: "申請が承認されました",
           description: "過去の日付の代理申請のため、自動で承認され、有給が消化されました。",
+        })
+      } else if (data.reapproved) {
+        // 承認済みの申請を再承認した場合
+        toast({
+          title: "申請を更新しました",
+          description: "承認済みの申請を更新しました。承認済みのまま有給が再計算されました。",
         })
       } else {
         toast({
@@ -200,6 +215,14 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
 
     // 代理申請かどうかを判定
     const isProxyRequest = proxyEmployeeId && proxyEmployeeId !== currentUser.id
+
+    // 承認済み・却下の申請を編集する場合（force=true）は過去の日付も許可（代理申請チェックをスキップ）
+    if (force && start < today) {
+      // 過去の日付でも許可（バリデーションをスキップ）
+      // 実際の送信処理を実行
+      await submitRequest()
+      return
+    }
 
     // 過去の日付かつ代理申請の場合
     if (start < today && isProxyRequest) {

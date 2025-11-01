@@ -11,6 +11,9 @@ import { VacationPatternSelector } from "./vacation-pattern-selector"
 import { VacationRequestForm } from "./vacation-request-form"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
+import { getPermissions } from "@/lib/permissions"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -47,6 +50,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [minGrantDaysForAlert, setMinGrantDaysForAlert] = useState(10) // デフォルト: 10日
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [passwordDialogAction, setPasswordDialogAction] = useState<'edit' | 'delete' | null>(null)
+  const [passwordDialogRequestId, setPasswordDialogRequestId] = useState<string | null>(null)
+  const [passwordDialogEditingRequest, setPasswordDialogEditingRequest] = useState<any | null>(null)
+  const [password, setPassword] = useState("")
+  const [passwordError, setPasswordError] = useState("")
 
   useEffect(() => {
     const load = async () => {
@@ -253,10 +262,15 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
 
   // 修正処理
   const handleEdit = (request: any) => {
-    if (request.status?.toLowerCase() !== "pending") {
+    // 承認済み・却下の申請の編集は、パスワード確認ダイアログ経由で実行される
+    // ここでは通常の編集（承認待ち）のみ処理
+    const status = request.status?.toLowerCase()
+    if (status === "approved" || status === "rejected") {
+      // 承認済み・却下の申請は、パスワード確認ダイアログ経由で編集される
+      // ここでは通常の編集（承認待ち）のみ処理する
       toast({
         title: "エラー",
-        description: "承認待ちの申請のみ修正できます",
+        description: "承認済み・却下の申請は、パスワード確認後に編集できます",
         variant: "destructive",
       })
       return
@@ -301,10 +315,57 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         description: error?.message || "削除に失敗しました",
         variant: "destructive",
       })
+      } finally {
+        setProcessingRequestId(null)
+        setIsDeleteDialogOpen(false)
+        setDeletingRequestId(null)
+      }
+    }
+
+  // 削除処理（承認済み・却下用）
+  const handleDeleteApprovedOrRejected = async (requestId: string) => {
+    try {
+      setProcessingRequestId(requestId)
+      const res = await fetch(`/api/vacation/requests/${requestId}`, {
+        method: "DELETE",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser?.id || "",
+        },
+        body: JSON.stringify({ 
+          employeeId: currentUser?.id,
+          force: true, // 承認済み・却下の削除フラグ
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || "削除に失敗しました")
+      }
+
+      toast({
+        title: "削除完了",
+        description: "有給申請を削除しました。承認済みの場合は消化された有給が戻りました。",
+      })
+
+      // データを再読み込み
+      window.dispatchEvent(new Event('vacation-request-updated'))
+      if (userRole === "employee" && employeeId) {
+        const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
+        if (res.ok) {
+          const json = await res.json()
+          setEmployeeRequests(json.requests || [])
+        }
+      }
+    } catch (error: any) {
+      console.error("削除エラー:", error)
+      toast({
+        title: "削除エラー",
+        description: error?.message || "削除に失敗しました",
+        variant: "destructive",
+      })
     } finally {
       setProcessingRequestId(null)
-      setIsDeleteDialogOpen(false)
-      setDeletingRequestId(null)
     }
   }
 
@@ -775,6 +836,58 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                       </Button>
                     </div>
                   )}
+                  {/* 総務・管理者権限のみ表示: 承認済み・却下のカードに編集・削除アイコン */}
+                  {userRole === "employee" && currentUser && (() => {
+                    const userPermissions = getPermissions(currentUser.role as any)
+                    const canEditOrDelete = userPermissions.editLeaveManagement || currentUser.role === "admin" || currentUser.role === "hr"
+                    const status = request.status?.toLowerCase()
+                    const isApprovedOrRejected = status === "approved" || status === "rejected"
+                    
+                    if (canEditOrDelete && isApprovedOrRejected) {
+                      const isApproved = status === "approved"
+                      const isRejected = status === "rejected"
+                      
+                      return (
+                        <div className="flex gap-1">
+                          {/* 承認済みの申請のみ編集アイコンを表示 */}
+                          {isApproved && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 w-6 p-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPasswordDialogAction('edit')
+                                setPasswordDialogRequestId(request.id)
+                                setPasswordDialogEditingRequest(request)
+                                setIsPasswordDialogOpen(true)
+                              }}
+                              title="編集"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                          )}
+                          {/* 削除アイコンは承認済み・却下両方に表示 */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPasswordDialogAction('delete')
+                              setPasswordDialogRequestId(request.id)
+                              setIsPasswordDialogOpen(true)
+                            }}
+                            disabled={processingRequestId === request.id}
+                            title="削除"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
                 {/* 却下された申請の場合、説明テキストを表示 */}
                 {request.status?.toLowerCase() === "rejected" && (
@@ -812,6 +925,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 hours: editingRequest.unit === "HOUR" ? (editingRequest.days || editingRequest.totalDays || 8) : 8,
               }}
               requestId={editingRequest.id}
+              force={editingRequest.status?.toLowerCase() === "approved" || editingRequest.status?.toLowerCase() === "rejected"}
               onSuccess={() => {
                 setIsEditDialogOpen(true) // ダイアログを開いたままにする（修正中）
                 // 修正処理を確認するために少し待機
@@ -873,6 +987,100 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               削除
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* パスワード確認ダイアログ（承認済み・却下の編集・削除用） */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>パスワード確認</DialogTitle>
+            <DialogDescription>
+              承認済み・却下の申請を{passwordDialogAction === 'edit' ? '編集' : '削除'}するにはパスワードが必要です。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">パスワード</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setPasswordError("")
+                }}
+                placeholder="パスワードを入力"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="text-sm text-destructive">{passwordError}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPasswordDialogOpen(false)
+                setPassword("")
+                setPasswordError("")
+                setPasswordDialogAction(null)
+                setPasswordDialogRequestId(null)
+                setPasswordDialogEditingRequest(null)
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!currentUser?.id || !password) {
+                  setPasswordError("パスワードを入力してください")
+                  return
+                }
+                try {
+                  const res = await fetch('/api/auth/verify-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ employeeId: currentUser.id, password: password }),
+                  })
+                  const result = await res.json()
+                  if (!res.ok || !result.valid) {
+                    setPasswordError("パスワードが正しくありません")
+                    return
+                  }
+                  // パスワード確認成功
+                  setIsPasswordDialogOpen(false)
+                  setPassword("")
+                  setPasswordError("")
+                  
+                  if (passwordDialogAction === 'edit') {
+                    // 確認ダイアログを表示
+                    if (confirm("本当に編集しますか？編集すると承認済みの場合は消化された有給が戻り、新しい申請として再処理されます。")) {
+                      setEditingRequest(passwordDialogEditingRequest)
+                      setIsEditDialogOpen(true)
+                    }
+                  } else if (passwordDialogAction === 'delete') {
+                    // 確認ダイアログを表示
+                    if (confirm("本当に削除しますか？")) {
+                      if (passwordDialogRequestId) {
+                        await handleDeleteApprovedOrRejected(passwordDialogRequestId)
+                      }
+                    }
+                  }
+                  
+                  setPasswordDialogAction(null)
+                  setPasswordDialogRequestId(null)
+                  setPasswordDialogEditingRequest(null)
+                } catch (error) {
+                  console.error('パスワード検証エラー:', error)
+                  setPasswordError("パスワード認証に失敗しました")
+                }
+              }}
+            >
+              確認
             </Button>
           </DialogFooter>
         </DialogContent>

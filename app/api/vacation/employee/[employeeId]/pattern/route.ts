@@ -105,6 +105,29 @@ export async function PUT(
       },
     })
 
+    // 有給計算パターンが設定された場合、自動でロットを生成
+    if (pattern) {
+      try {
+        const { generateGrantLotsForEmployee } = await import('@/lib/vacation-lot-generator')
+        const today = new Date()
+        const { generated, updated } = await generateGrantLotsForEmployee(params.employeeId, today)
+        console.log(`[有給管理] 社員 ${params.employeeId} のロット自動生成完了: 生成=${generated}, 更新=${updated}`)
+        return NextResponse.json({ 
+          success: true, 
+          vacationPattern: pattern,
+          grantLots: { generated, updated }
+        })
+      } catch (grantError: any) {
+        console.error(`[有給管理] 社員 ${params.employeeId} のロット自動生成エラー（無視）:`, grantError?.message || grantError)
+        // ロット生成エラーは警告のみで、パターン更新自体は成功とする
+        return NextResponse.json({ 
+          success: true, 
+          vacationPattern: pattern,
+          grantLotsError: grantError?.message || 'ロット生成エラー'
+        })
+      }
+    }
+
     return NextResponse.json({ success: true, vacationPattern: pattern })
   } catch (error) {
     console.error("PUT /api/vacation/employee/[employeeId]/pattern error", error)

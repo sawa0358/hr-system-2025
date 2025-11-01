@@ -132,15 +132,14 @@ export function VacationPatternSelector({
       })
 
       if (response.ok) {
+        const result = await response.json()
         setPattern(pendingPattern)
         onPatternChange?.(pendingPattern)
-        // ロット自動生成をトリガー
-        try {
-          const { generateGrantLotsForEmployee } = await import('@/lib/vacation-lot-generator')
-          const today = new Date()
-          await generateGrantLotsForEmployee(employeeId, today)
-        } catch (error) {
-          console.error('ロット自動生成エラー（無視）:', error)
+        // ロット自動生成はAPI側で実行される（result.grantLotsに結果が含まれる）
+        if (result.grantLots) {
+          console.log('ロット自動生成完了:', result.grantLots)
+        } else if (result.grantLotsError) {
+          console.warn('ロット自動生成エラー（無視）:', result.grantLotsError)
         }
       } else {
         const error = await response.json()

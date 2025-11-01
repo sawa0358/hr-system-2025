@@ -24,11 +24,15 @@ interface VacationRequestFormProps {
     hours: number
   }
   requestId?: string // 修正時は既存の申請ID
+  proxyEmployeeId?: string // 代理申請する社員ID（管理者が他の社員に代わって申請する場合）
 }
 
-export function VacationRequestForm({ onSuccess, initialData, requestId }: VacationRequestFormProps) {
+export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEmployeeId }: VacationRequestFormProps) {
   const { currentUser } = useAuth()
   const { toast } = useToast()
+  
+  // 代理申請する社員ID（管理者が他の社員に代わって申請する場合）
+  const targetEmployeeId = proxyEmployeeId || currentUser?.id
   const [formData, setFormData] = useState({
     startDate: initialData?.startDate || "",
     endDate: initialData?.endDate || "",
@@ -74,6 +78,15 @@ export function VacationRequestForm({ onSuccess, initialData, requestId }: Vacat
       return
     }
 
+    if (!targetEmployeeId) {
+      toast({
+        title: "エラー",
+        description: "申請対象の社員IDが取得できません。",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!formData.startDate || !formData.endDate) {
       toast({
         title: "エラー",
@@ -113,11 +126,17 @@ export function VacationRequestForm({ onSuccess, initialData, requestId }: Vacat
       setIsSubmitting(true)
 
       const requestData: any = {
-        employeeId: currentUser.id,
+        employeeId: targetEmployeeId, // 代理申請の場合は対象社員IDを使用
         startDate: formData.startDate,
         endDate: formData.endDate,
         unit: formData.unit,
         reason: formData.reason || undefined,
+      }
+
+      // 管理者が代理申請している場合は、申請者情報を追加
+      if (proxyEmployeeId && proxyEmployeeId !== currentUser.id) {
+        requestData.requestedBy = currentUser.id // 申請者のID
+        requestData.requestedByName = currentUser.name // 申請者の名前
       }
 
       if (formData.unit === "HOUR") {

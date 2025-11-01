@@ -83,74 +83,6 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
       window.removeEventListener('vacation-request-updated', handleUpdate)
     }
   }, [userRole, employeeId])
-  const mockRequests = [
-    {
-      id: 1,
-      employee: "山田太郎",
-      hireDate: "2020/04/01",
-      startDate: "2025-11-01",
-      endDate: "2025-11-03",
-      days: 3,
-      reason: "家族旅行",
-      status: "pending",
-      remaining: 8,
-      used: 7,
-      pending: 3,
-      granted: 18,
-      nextGrantDate: "2026/04/01",
-      nextGrantDays: 20,
-    },
-    {
-      id: 2,
-      employee: "佐藤花子",
-      hireDate: "2018/07/15",
-      startDate: "2025-11-10",
-      endDate: "2025-11-12",
-      days: 3,
-      reason: "私用",
-      status: "pending",
-      remaining: 3,
-      used: 12,
-      pending: 3,
-      granted: 18,
-      nextGrantDate: "2026/07/15",
-      nextGrantDays: 20,
-    },
-    {
-      id: 3,
-      employee: "鈴木一郎",
-      hireDate: "2015/10/01",
-      startDate: "2025-10-20",
-      endDate: "2025-10-22",
-      days: 3,
-      reason: "通院",
-      status: "approved",
-      remaining: 10,
-      used: 5,
-      pending: 0,
-      granted: 15,
-      nextGrantDate: "2026/10/01",
-      nextGrantDays: 20,
-    },
-    {
-      id: 4,
-      employee: "田中美咲",
-      hireDate: "2022/01/10",
-      startDate: "2025-10-15",
-      endDate: "2025-10-15",
-      days: 1,
-      reason: "私用",
-      status: "rejected",
-      remaining: 14,
-      used: 4,
-      pending: 0,
-      granted: 18,
-      nextGrantDate: "2026/01/10",
-      nextGrantDays: 18,
-    },
-  ]
-
-  const filteredRequests = filter === "pending" ? mockRequests.filter((req) => req.status === "pending") : mockRequests
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -417,7 +349,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
           </button>
         </div>
       )}
-      {(userRole === "admin" ? adminVisible : (filteredAndSortedEmployeeRequests.length > 0 ? filteredAndSortedEmployeeRequests : filteredRequests)).map((request: any) => (
+      {(userRole === "admin" ? adminVisible : filteredAndSortedEmployeeRequests).map((request: any) => (
         <Card
           key={request.id}
           className="flex flex-col min-h-[92px] p-0 cursor-pointer"
@@ -691,7 +623,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {(userRole === "admin" ? adminVisible.length === 0 : (filteredAndSortedEmployeeRequests.length === 0 && filteredRequests.length === 0)) && !loading && (
+      {(userRole === "admin" ? adminVisible.length === 0 : filteredAndSortedEmployeeRequests.length === 0) && !loading && (
         <Card className="col-span-full">
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">データがありません</p>

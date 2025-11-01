@@ -125,22 +125,20 @@ export default function LeavePage() {
             >
               申請一覧
             </Button>
-            {/* 管理者が他の社員の画面を見ている場合は申請ボタンを非表示 */}
-            {!isViewingOtherEmployee && (
-              <Button 
-                variant={tab === "form" ? "default" : "outline"} 
-                onClick={() => { 
-                  setTab("form"); 
-                  const params = new URLSearchParams()
-                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
-                  if (employeeNameParam) params.set("name", employeeNameParam)
-                  params.set("tab", "form")
-                  router.replace(`/leave?${params.toString()}`)
-                }}
-              >
-                新規申請
-              </Button>
-            )}
+            {/* 新規申請ボタン（管理者でも表示） */}
+            <Button 
+              variant={tab === "form" ? "default" : "outline"} 
+              onClick={() => { 
+                setTab("form"); 
+                const params = new URLSearchParams()
+                if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                if (employeeNameParam) params.set("name", employeeNameParam)
+                params.set("tab", "form")
+                router.replace(`/leave?${params.toString()}`)
+              }}
+            >
+              {isViewingOtherEmployee ? "代理申請" : "新規申請"}
+            </Button>
           </div>
           <div>
             {tab === "form" && (
@@ -150,32 +148,33 @@ export default function LeavePage() {
         </div>
 
         {tab === "form" ? (
-          // 管理者が他の社員の画面を見ている場合は申請フォームを表示しない
-          !isViewingOtherEmployee ? (
-            <div className="max-w-3xl">
-              <VacationRequestForm 
-                onSuccess={() => {
-                  // 申請成功後、申請一覧タブに切り替える（リロードしない）
-                  setTab("list")
-                  const params = new URLSearchParams()
-                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
-                  if (employeeNameParam) params.set("name", employeeNameParam)
-                  params.set("tab", "list")
-                  router.replace(`/leave?${params.toString()}`)
-                  // VacationStatsとVacationListを再読み込みさせるため、キーを更新
-                  setTimeout(() => {
-                    window.dispatchEvent(new Event('vacation-request-updated'))
-                  }, 100)
-                }}
-              />
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-muted-foreground">管理者は他の社員に代わって申請できません。</p>
-              </CardContent>
-            </Card>
-          )
+          <div className="max-w-3xl">
+            {isViewingOtherEmployee && (
+              <Card className="mb-4 border-blue-200 bg-blue-50">
+                <CardContent className="p-4">
+                  <p className="text-sm text-blue-900">
+                    <strong>{displayEmployeeName}</strong> に代わって代理申請を行います。
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+            <VacationRequestForm 
+              proxyEmployeeId={isViewingOtherEmployee ? displayEmployeeId : undefined}
+              onSuccess={() => {
+                // 申請成功後、申請一覧タブに切り替える（リロードしない）
+                setTab("list")
+                const params = new URLSearchParams()
+                if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                if (employeeNameParam) params.set("name", employeeNameParam)
+                params.set("tab", "list")
+                router.replace(`/leave?${params.toString()}`)
+                // VacationStatsとVacationListを再読み込みさせるため、キーを更新
+                setTimeout(() => {
+                  window.dispatchEvent(new Event('vacation-request-updated'))
+                }, 100)
+              }}
+            />
+          </div>
         ) : (
             <Card>
               <CardContent className="p-6">

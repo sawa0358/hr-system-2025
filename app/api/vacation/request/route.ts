@@ -11,7 +11,7 @@ import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-sta
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId } = body || {}
+    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId, requestedBy, requestedByName } = body || {}
 
     // requestIdが指定されている場合は修正処理（PUT）を呼び出すべき
     if (requestId) {
@@ -144,17 +144,35 @@ export async function POST(request: NextRequest) {
     }
 
     // TimeOffRequestを作成（totalDaysを保存）
+    // 代理申請の場合は申請者情報も保存（スキーマにフィールドがある場合のみ）
+    const createData: any = {
+      employeeId,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      unit: unit as "DAY" | "HOUR",
+      hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
+      reason: reason ?? null,
+      status: "PENDING",
+      totalDays: totalDays, // 申請時に計算された日数を保存
+    }
+
+    // 代理申請の場合は申請者情報を追加（スキーマにフィールドがある場合のみ）
+    if (requestedBy && requestedBy !== employeeId) {
+      // requestedByやrequestedByNameフィールドが存在する場合は追加
+      // スキーマに存在しない場合はエラーを無視（オプショナル）
+      try {
+        createData.requestedBy = requestedBy
+        if (requestedByName) {
+          createData.requestedByName = requestedByName
+        }
+      } catch (err) {
+        // フィールドが存在しない場合は無視
+        console.log('[POST /api/vacation/request] 代理申請者フィールドがスキーマに存在しない可能性があります')
+      }
+    }
+
     const created = await prisma.timeOffRequest.create({
-      data: {
-        employeeId,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        unit: unit as "DAY" | "HOUR",
-        hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
-        reason: reason ?? null,
-        status: "PENDING",
-        totalDays: totalDays, // 申請時に計算された日数を保存
-      },
+      data: createData,
     })
 
     return NextResponse.json({ request: created, calculatedDays: totalDays }, { status: 201 })

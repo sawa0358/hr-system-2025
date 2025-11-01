@@ -63,7 +63,7 @@ export async function generateGrantLotsForEmployee(
     // ゼロ付与はスキップ
     if (daysGranted === 0) continue;
 
-    // 有効期限を計算
+    // 有効期限を計算（基本設定から参照、現在は2年）
     const expiryDate = computeExpiry(grantDate, cfg.expiry);
 
     // dedupKeyを生成

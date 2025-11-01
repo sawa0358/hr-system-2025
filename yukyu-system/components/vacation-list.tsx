@@ -513,10 +513,35 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           </button>
         </div>
       )}
-      {(userRole === "admin" ? adminVisible : filteredAndSortedEmployeeRequests).map((request: any) => (
+      {(userRole === "admin" ? adminVisible : filteredAndSortedEmployeeRequests).map((request: any) => {
+        // 管理者画面: 申請中カードの背景色を#b3e1f9にする
+        const adminPendingBackground = userRole === "admin" && filter === "pending" ? "#b3e1f9" : undefined
+        
+        // 社員画面: 状態に応じて背景色を設定
+        let employeeCardBackground: string | undefined = undefined
+        if (userRole === "employee") {
+          const status = request.status?.toLowerCase()
+          const endDate = request.endDate ? new Date(request.endDate) : null
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          
+          if (status === "approved" && endDate && endDate < today) {
+            // 消化(日付が過ぎる)された場合
+            employeeCardBackground = "#f1f5f9"
+          } else if (status === "rejected") {
+            // 却下された場合
+            employeeCardBackground = "#dee4ea"
+          }
+          // それ以外（承認中で日付が到来していない）は現状のまま（undefined）
+        }
+        
+        const cardBackgroundColor = adminPendingBackground || employeeCardBackground
+        
+        return (
         <Card
           key={request.id}
           className="flex flex-col min-h-[92px] p-0 cursor-pointer"
+          style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
           onClick={(e) => {
             // ダイアログやSelect内のクリックは無視
             if ((e.target as HTMLElement).closest('[role="dialog"]') || 
@@ -722,7 +747,8 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
             )}
           </CardContent>
         </Card>
-      ))}
+        )
+      })}
       
       {/* 修正ダイアログ */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -43,7 +43,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
       if (userRole === "admin") {
         setLoading(true)
         try {
-          const res = await fetch("/api/vacation/admin/applicants")
+          // 現在のview（pending or all）を取得
+          const currentView = filter === "pending" ? "pending" : "all"
+          const res = await fetch(`/api/vacation/admin/applicants?view=${currentView}`)
           if (res.ok) {
             const json = await res.json()
             setAdminEmployees(json.employees || [])
@@ -82,7 +84,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
     return () => {
       window.removeEventListener('vacation-request-updated', handleUpdate)
     }
-  }, [userRole, employeeId])
+  }, [userRole, employeeId, filter])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -361,7 +363,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
               return
             }
             if (userRole === "admin" && onEmployeeClick) {
-              onEmployeeClick(String(request.id), request.employee || request.name)
+              // 「承認待ち」画面では employeeId が存在するのでそれを使用、「全社員」画面では id を使用
+              const targetEmployeeId = request.employeeId || request.id
+              onEmployeeClick(String(targetEmployeeId), request.employee || request.name)
             }
           }}
         >
@@ -373,7 +377,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                   <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
                   {userRole === "admin" && (
                     <VacationPatternSelector
-                      employeeId={String(request.id)}
+                      employeeId={String(request.employeeId || request.id)}
                       employeeType={request.employeeType || null}
                       currentPattern={request.vacationPattern || null}
                       currentWeeklyPattern={request.weeklyPattern || null}
@@ -405,10 +409,10 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId }: 
                   <div className="rounded-md bg-muted/50 p-1.5 space-y-1">
                     <div>
                       <div className="text-[9px] text-muted-foreground mb-0.5">次回付与日</div>
-                      <div className="text-[10px] font-semibold text-foreground leading-tight">{request.nextGrantDate || '-'}</div>
+                      <div className="text-[10px] font-semibold text-foreground leading-tight">{request.nextGrantDate ? request.nextGrantDate.replaceAll('-', '/') : '-'}</div>
                     </div>
                     <div>
-                      <div className="text-[9px] text-muted-foreground mb-0.5">付与日数</div>
+                      <div className="text-[9px] text-muted-foreground mb-0.5">付与予定日数</div>
                       <div className="text-base font-bold text-chart-1">{request.nextGrantDays ?? '-'}{request.nextGrantDays ? '日' : ''}</div>
                     </div>
                   </div>

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getNextGrantDate } from "@/lib/vacation-grant-lot"
+import { loadAppConfig } from "@/lib/vacation-config"
+import { chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
 
 // 管理者向け: 全社員の有給カード表示用データ
 export async function GET(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams
+    const view = searchParams.get("view") || "all" // "pending" or "all"
+    
     // 社員の基本情報取得（vacationPatternとweeklyPatternはオプショナル）
     let employees
     try {
@@ -55,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     // 社員ごとの統計を集計
     const today = new Date()
-    const results = await Promise.all(
+    const resultsArrays = await Promise.all(
       employees.map(async (e) => {
         let remaining = 0
         let granted = 0
@@ -126,7 +132,6 @@ export async function GET(request: NextRequest) {
           const pendingRequests = await prisma.timeOffRequest.findMany({
             where: { employeeId: e.id, status: "PENDING" },
             orderBy: { createdAt: "desc" },
-            take: 1, // 最新の申請のみ取得
           })
           pending = pendingRequests.reduce((sum, r) => sum + Number(r.totalDays ?? 0), 0)
         } catch (newSystemError: any) {
@@ -152,15 +157,33 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        // 最新の申請を取得（表示用）
-        let latestRequest = null
+        // 次回付与日と付与予定日数を計算
+        let nextGrantDate: Date | null = null
+        let nextGrantDays: number = 0
         try {
-          const requests = await prisma.timeOffRequest.findMany({
+          const cfg = await loadAppConfig(e.vacationPattern ? (e.configVersion || undefined) : undefined)
+          if (e.vacationPattern && e.joinDate) {
+            nextGrantDate = getNextGrantDate(e.joinDate, cfg, today)
+            if (nextGrantDate) {
+              // 次回付与日の勤続年数を計算
+              const yearsSinceJoin = (nextGrantDate.getTime() - e.joinDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+              nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
+            }
+          }
+        } catch (grantError: any) {
+          console.warn(`次回付与日計算エラー (employeeId: ${e.id}):`, grantError?.message || grantError)
+        }
+
+        // 申請を取得（表示用）
+        // 「承認待ち」画面では全ての申請、「全社員」画面では最新の申請のみ
+        let requests: any[] = []
+        try {
+          const allPendingRequests = await prisma.timeOffRequest.findMany({
             where: { employeeId: e.id, status: "PENDING" },
             orderBy: { createdAt: "desc" },
-            take: 1,
           })
-          latestRequest = requests[0]
+          // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
+          requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
         } catch {}
 
         // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
@@ -169,26 +192,65 @@ export async function GET(request: NextRequest) {
           ? Math.max(0, granted - used - pending) 
           : Math.max(0, remaining - pending)
         
-        return {
-          id: e.id,
-          name: e.name,
-          joinDate: e.joinDate?.toISOString(),
-          employeeType: e.employeeType || null,
-          vacationPattern: e.vacationPattern || null,
-          weeklyPattern: e.weeklyPattern || null,
-          remaining: calculatedRemaining,
-          used,
-          pending,
-          granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
-          requestId: latestRequest?.id || undefined,
-          status: latestRequest ? "pending" : undefined,
-          startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),
-          endDate: latestRequest?.endDate?.toISOString()?.slice(0, 10),
-          days: latestRequest ? Number(latestRequest.totalDays || 0) : undefined,
-          reason: latestRequest?.reason || undefined,
+        // 「承認待ち」画面では各申請ごとにカードを返す、「全社員」画面では社員ごとに1カードのみ
+        if (view === "pending") {
+          // 「承認待ち」画面では申請がある場合のみカードを返す
+          if (requests.length > 0) {
+            // 各申請ごとにカードを生成
+            return requests.map((req) => ({
+              id: `${e.id}_${req.id}`, // ユニークID
+              employeeId: e.id, // 元の社員IDを保持
+              name: e.name,
+              joinDate: e.joinDate?.toISOString(),
+              employeeType: e.employeeType || null,
+              vacationPattern: e.vacationPattern || null,
+              weeklyPattern: e.weeklyPattern || null,
+              remaining: calculatedRemaining,
+              used,
+              pending,
+              granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
+              nextGrantDate: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10) : null,
+              nextGrantDays: nextGrantDays,
+              requestId: req.id,
+              status: "pending",
+              startDate: req.startDate?.toISOString()?.slice(0, 10),
+              endDate: req.endDate?.toISOString()?.slice(0, 10),
+              days: Number(req.totalDays || 0),
+              reason: req.reason || undefined,
+            }))
+          } else {
+            // 申請がない場合は空配列を返す
+            return []
+          }
+        } else {
+          // 「全社員」画面では社員ごとに1カードのみ（最新の申請情報を表示）
+          const latestRequest = requests.length > 0 ? requests[0] : null
+          return {
+            id: e.id,
+            name: e.name,
+            joinDate: e.joinDate?.toISOString(),
+            employeeType: e.employeeType || null,
+            vacationPattern: e.vacationPattern || null,
+            weeklyPattern: e.weeklyPattern || null,
+            remaining: calculatedRemaining,
+            used,
+            pending,
+            granted: granted > 0 ? granted : (used + pending + calculatedRemaining),
+            nextGrantDate: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10) : null,
+            nextGrantDays: nextGrantDays,
+            requestId: latestRequest?.id || undefined,
+            status: latestRequest ? "pending" : undefined,
+            startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),
+            endDate: latestRequest?.endDate?.toISOString()?.slice(0, 10),
+            days: latestRequest ? Number(latestRequest.totalDays || 0) : undefined,
+            reason: latestRequest?.reason || undefined,
+          }
         }
       })
     )
+
+    // 「承認待ち」画面では配列が返されるのでフラット化、「全社員」画面ではそのまま
+    const results = resultsArrays.flat()
 
     return NextResponse.json({ employees: results })
   } catch (error: any) {

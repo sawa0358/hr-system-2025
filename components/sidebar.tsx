@@ -164,6 +164,30 @@ export function Sidebar() {
     [hasPermission]
   )
 
+  // プルダウンボタン全体の表示制御（雇用形態チェック）
+  const canShowDropdown = React.useMemo(() => {
+    // ドロップダウンアイテムがある場合のみ表示をチェック
+    if (visibleDropdownItems.length === 0) {
+      return false
+    }
+    
+    // 雇用形態チェック（正社員・契約社員・パートタイム・派遣社員のみ）
+    if (!currentUser) {
+      return false
+    }
+    
+    const employeeType = currentUser.employeeType?.trim()
+    if (!employeeType) {
+      return false
+    }
+    
+    const isAllowed = allowedEmployeeTypesForLeave.some(
+      allowed => allowed.trim().toLowerCase() === employeeType.toLowerCase()
+    )
+    
+    return isAllowed
+  }, [visibleDropdownItems, currentUser, allowedEmployeeTypesForLeave])
+
   return (
     <>
       <LoginModal open={!isAuthenticated} onLoginSuccess={login} />
@@ -216,7 +240,7 @@ export function Sidebar() {
             })}
 
             {/* プルダウンメニュー */}
-            {visibleDropdownItems.length > 0 && (
+            {canShowDropdown && (
               <li>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}

@@ -607,7 +607,7 @@ function KanbanColumn({
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={isMobile ? "w-full" : "flex-1 min-w-[300px]"}
+      className={isMobile ? "w-full flex-shrink-0" : "flex-shrink-0"}
     >
       <div 
         className="rounded-lg p-4 relative z-0"
@@ -772,6 +772,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [listColorModalOpen, setListColorModalOpen] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [colorChangeListId, setColorChangeListId] = useState<string | null>(null)
+  
 
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
@@ -1546,92 +1547,91 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
   const activeTask = activeId && tasksById[activeId] ? tasksById[activeId] : null
   
-  // モバイル用: 現在表示中のリストインデックス
-  const [currentListIndex, setCurrentListIndex] = useState(0)
-  const listContainerRef = useRef<HTMLDivElement>(null)
-  const touchStartX = useRef<number>(0)
-  const touchEndX = useRef<number>(0)
+  // スクロールコンテナのref
+  const desktopScrollContainerRef = useRef<HTMLDivElement>(null)
 
-  // フリックスクロール処理（タッチイベントのみ、PCのマウスドラッグでは動作しない）
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // カードドラッグ中は無視
-    if (activeId) return
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    // カードドラッグ中は無視
-    if (activeId) return
-    touchEndX.current = e.touches[0].clientX
-  }
-
-  const handleTouchEnd = () => {
-    // カードドラッグ中は無視
-    if (activeId) {
-      touchStartX.current = 0
-      touchEndX.current = 0
-      return
-    }
-    
-    if (!touchStartX.current || !touchEndX.current) return
-    
-    const diff = touchStartX.current - touchEndX.current
-    const minSwipeDistance = 50
-
-    if (Math.abs(diff) > minSwipeDistance) {
-      if (diff > 0 && currentListIndex < lists.length - 1) {
-        // 左スワイプ（次のリストへ）
-        setCurrentListIndex(currentListIndex + 1)
-      } else if (diff < 0 && currentListIndex > 0) {
-        // 右スワイプ（前のリストへ）
-        setCurrentListIndex(currentListIndex - 1)
-      }
-    }
-    
-    touchStartX.current = 0
-    touchEndX.current = 0
-  }
-
-  // ドラッグ中にスクロール位置を調整（カードドラッグ時に隣のリストが見えるように）
+  // モバイル・PC共通: ドラッグ中に自動スクロール（カーソル位置に応じて隣のリストを表示）
+  const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastMouseXRef = useRef<number>(0)
+  const lastTouchXRef = useRef<number>(0)
+  
   useEffect(() => {
-    if (!isMobile || !activeId || !listContainerRef.current) return
+    // マウス位置を追跡（PC用）
+    const handleMouseMove = (e: MouseEvent) => {
+      lastMouseXRef.current = e.clientX
+    }
     
-    const scrollToActiveList = () => {
-      const activeTask = tasksById[activeId]
-      if (!activeTask) return
-      
-      const activeListIndex = lists.findIndex(list => list.taskIds.includes(activeId))
-      if (activeListIndex !== -1 && activeListIndex !== currentListIndex) {
-        // アニメーションなしで即座にスクロール
-        setCurrentListIndex(activeListIndex)
+    // タッチ位置を追跡（モバイル用）
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        lastTouchXRef.current = e.touches[0].clientX
       }
     }
     
-    scrollToActiveList()
-  }, [activeId, isMobile, lists, tasksById, currentListIndex])
-
-  // ドラッグオーバー時に隣のリストが見えるようにスクロール
-  const handleDragOverWithScroll = (event: DragOverEvent) => {
+    if (activeId) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('touchmove', handleTouchMove, { passive: true })
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('touchmove', handleTouchMove)
+      }
+    }
+  }, [activeId])
+  
+  const handleDragOverWithAutoScroll = (event: DragOverEvent) => {
     handleDragOver(event)
     
-    if (!isMobile || !activeId) return
+    if (!activeId || !desktopScrollContainerRef.current) return
     
-    const { over } = event
-    if (!over) return
+    // タスクがドラッグされている場合のみ処理
+    if (!tasksById[activeId]) return
     
-    const overId = over.id as string
+    const container = desktopScrollContainerRef.current
+    const containerRect = container.getBoundingClientRect()
     
-    // タスクがドラッグされている場合、ターゲットリストにスクロール
-    if (tasksById[activeId]) {
-      const targetListIndex = lists.findIndex(list => 
-        list.id === overId || list.taskIds.includes(overId)
-      )
-      
-      if (targetListIndex !== -1 && targetListIndex !== currentListIndex) {
-        setCurrentListIndex(targetListIndex)
-      }
+    // PC/モバイルどちらでも対応
+    const pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
+    
+    // 既存の自動スクロールをクリア
+    if (autoScrollIntervalRef.current) {
+      clearInterval(autoScrollIntervalRef.current)
+      autoScrollIntervalRef.current = null
+    }
+    
+    // 画面の左右端に近い場合、自動スクロールを開始
+    const scrollThreshold = 150 // 画面端から150px以内でスクロール開始
+    const scrollSpeed = 15 // スクロール速度
+    
+    if (pointerX < containerRect.left + scrollThreshold) {
+      // 左端に近い場合、左にスクロール
+      autoScrollIntervalRef.current = setInterval(() => {
+        if (desktopScrollContainerRef.current && activeId) {
+          desktopScrollContainerRef.current.scrollBy({ left: -scrollSpeed, behavior: 'auto' })
+        } else if (autoScrollIntervalRef.current) {
+          clearInterval(autoScrollIntervalRef.current)
+          autoScrollIntervalRef.current = null
+        }
+      }, 16) // 約60fps
+    } else if (pointerX > containerRect.right - scrollThreshold) {
+      // 右端に近い場合、右にスクロール
+      autoScrollIntervalRef.current = setInterval(() => {
+        if (desktopScrollContainerRef.current && activeId) {
+          desktopScrollContainerRef.current.scrollBy({ left: scrollSpeed, behavior: 'auto' })
+        } else if (autoScrollIntervalRef.current) {
+          clearInterval(autoScrollIntervalRef.current)
+          autoScrollIntervalRef.current = null
+        }
+      }, 16) // 約60fps
     }
   }
+  
+  // ドラッグ終了時に自動スクロールを停止
+  useEffect(() => {
+    if (!activeId && autoScrollIntervalRef.current) {
+      clearInterval(autoScrollIntervalRef.current)
+      autoScrollIntervalRef.current = null
+    }
+  }, [activeId])
 
   return (
     <div>
@@ -1664,107 +1664,35 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
-        onDragOver={isMobile ? handleDragOverWithScroll : handleDragOver}
+        onDragOver={handleDragOverWithAutoScroll}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {isMobile ? (
-          // モバイル: 1つのリストを全幅表示、フリックで切り替え
-          <div 
-            ref={listContainerRef}
-            className="relative w-full overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-          >
-            {lists.length > 0 ? (
-              <div 
-                className="flex transition-transform duration-300 ease-out"
-                style={{ 
-                  transform: `translateX(-${currentListIndex * 100}%)`,
-                  width: `${lists.length * 100}%`
-                }}
-              >
-                {lists.map((list, index) => {
-                  const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
-                  return (
-                    <div key={list.id} className="w-full flex-shrink-0 px-2">
-                      <KanbanColumn
-                        list={list}
-                        tasks={listTasks}
-                        viewMode={viewMode}
-                        onTaskClick={handleTaskClick}
-                        onAddCard={() => handleAddCard(list.id)}
-                        onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
-                        onEditList={handleEditList}
-                        onDeleteList={handleDeleteList}
-                        onListColorChange={(listId) => {
-                          setColorChangeListId(listId)
-                          setListColorModalOpen(true)
-                        }}
-                        boardId={boardData?.id}
-                        currentUserId={currentUserId}
-                        currentUserRole={currentUserRole}
-                        activeId={activeId}
-                        isMobile={isMobile}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="flex-1 text-center py-12 text-slate-500">
-                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-lg font-medium mb-2">リストがありません</p>
-                <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
-              </div>
-            )}
-            
-            {/* リストインジケーター */}
-            {lists.length > 1 && (
-              <div className="flex justify-center gap-2 mt-4 pb-2">
-                {lists.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentListIndex(index)}
-                    className={`h-2 rounded-full transition-all ${
-                      index === currentListIndex 
-                        ? 'w-8 bg-blue-600' 
-                        : 'w-2 bg-slate-300'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
-            
-            {/* リスト追加ボタン（モバイル） */}
-            {currentUserRole && (() => {
-              const listPermissions = checkListPermissions(currentUserRole as any)
-              if (!listPermissions.canCreate) return null
-              
-              return (
-                <div className="mt-4 px-2">
-                  <button
-                    onClick={handleAddList}
-                    className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+        {/* モバイル・PC共通: 横スクロール表示（スクロールスナップ対応、リスト幅固定） */}
+        <div 
+          ref={desktopScrollContainerRef}
+          className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
+          style={{
+            scrollSnapType: 'x mandatory',
+            scrollBehavior: 'smooth',
+          }}
+        >
+          {lists.length > 0 ? (
+            <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+              {lists.map((list) => {
+                const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
+                return (
+                  <div
+                    key={list.id}
+                    style={{
+                      scrollSnapAlign: 'start',
+                      scrollSnapStop: 'always',
+                      width: '320px', // モバイル・PC共通でリスト幅を固定
+                      minWidth: '320px',
+                    }}
+                    className="flex-shrink-0 px-2 md:px-0"
                   >
-                    <Plus className="w-5 h-5" />
-                    リストを追加
-                  </button>
-                </div>
-              )
-            })()}
-          </div>
-        ) : (
-          // デスクトップ: 通常の横スクロール表示
-          <div className="flex gap-6 overflow-x-auto pb-4">
-            {lists.length > 0 ? (
-              <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-                {lists.map((list) => {
-                  const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
-                  return (
                     <KanbanColumn
-                      key={list.id}
                       list={list}
                       tasks={listTasks}
                       viewMode={viewMode}
@@ -1781,36 +1709,37 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                       currentUserId={currentUserId}
                       currentUserRole={currentUserRole}
                       activeId={activeId}
+                      isMobile={isMobile}
                     />
-                  )
-                })}
-              </SortableContext>
-            ) : (
-              <div className="flex-1 text-center py-12 text-slate-500">
-                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-lg font-medium mb-2">リストがありません</p>
-                <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
-              </div>
-            )}
+                  </div>
+                )
+              })}
+            </SortableContext>
+          ) : (
+            <div className="flex-1 text-center py-12 text-slate-500">
+              <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+              <p className="text-lg font-medium mb-2">リストがありません</p>
+              <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
+            </div>
+          )}
 
-            {currentUserRole && (() => {
-              const listPermissions = checkListPermissions(currentUserRole as any)
-              if (!listPermissions.canCreate) return null
-              
-              return (
-                <div className="flex-shrink-0 w-[300px]">
-                  <button
-                    onClick={handleAddList}
-                    className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
-                  >
-                    <Plus className="w-5 h-5" />
-                    リストを追加
-                  </button>
-                </div>
-              )
-            })()}
-          </div>
-        )}
+          {currentUserRole && (() => {
+            const listPermissions = checkListPermissions(currentUserRole as any)
+            if (!listPermissions.canCreate) return null
+            
+            return (
+              <div className="flex-shrink-0 w-[320px] px-2 md:px-0">
+                <button
+                  onClick={handleAddList}
+                  className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
+                >
+                  <Plus className="w-5 h-5" />
+                  リストを追加
+                </button>
+              </div>
+            )
+          })()}
+        </div>
 
         <DragOverlay>
           {activeTask && tasksById[activeTask.id] ? (

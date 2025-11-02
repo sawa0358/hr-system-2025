@@ -1737,26 +1737,26 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     // ポインタ位置を取得（イベントから直接取得、またはリファレンスから）
     let pointerX = 0
     if (event.activatorEvent && 'clientX' in event.activatorEvent) {
-      pointerX = event.activatorEvent.clientX
-    } else if (event.activatorEvent && 'touches' in event.activatorEvent && event.activatorEvent.touches.length > 0) {
-      pointerX = event.activatorEvent.touches[0].clientX
+      pointerX = (event.activatorEvent as { clientX: number }).clientX
+    } else if (event.activatorEvent && 'touches' in event.activatorEvent) {
+      const touches = (event.activatorEvent as TouchEvent).touches
+      if (touches && touches.length > 0) {
+        pointerX = touches[0].clientX
+      }
     } else {
       // フォールバック: リファレンスから取得
       pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
     }
     
-    // モバイルの場合、カードを左右に動かしたときのスクロール処理を優先
+    // モバイルの場合、カードを左右に動かしたときの滑らかなスクロール処理
     if (isMobile) {
-      const scrollSpeed = 40 // モバイルでのスクロール速度（上げる）
-      const scrollThreshold = 120 // 画面端からの距離（調整）
-      
       // 既存の自動スクロールをクリア
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current)
         autoScrollIntervalRef.current = null
       }
       
-      // まずカード要素を取得して、カードの位置を基準にスクロール
+      // カード要素を取得
       const allCards = document.querySelectorAll('[data-sortable-id]')
       let activeCardElement: Element | null = null
       
@@ -1767,23 +1767,39 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         }
       }
       
-      if (activeCardElement) {
-        const cardRect = activeCardElement.getBoundingClientRect()
-        const cardLeft = cardRect.left
-        const cardRight = cardRect.right
-        const cardWidth = cardRect.width
+      // ポインタ位置に基づく積極的なスクロール処理
+      if (pointerX > 0 || activeCardElement) {
+        const containerWidth = containerRect.width
+        const containerCenter = containerRect.left + containerWidth / 2
         
-        // カードが画面端に近いかを判定（カードの端が画面端から一定距離内にある場合）
-        const leftDistance = cardLeft - containerRect.left
-        const rightDistance = containerRect.right - cardRight
+        // カードの位置またはポインタ位置を基準にする
+        let targetX = pointerX
+        if (activeCardElement) {
+          const cardRect = activeCardElement.getBoundingClientRect()
+          targetX = cardRect.left + cardRect.width / 2 // カードの中心位置
+        }
         
-        // カードが左端に近い場合（左端から150px以内）、左にスクロール
-        if (leftDistance < scrollThreshold && leftDistance > -cardWidth) {
+        // 画面の中心からの距離を計算
+        const distanceFromCenter = targetX - containerCenter
+        const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
+        
+        // スクロール速度を距離に応じて計算（最大60px/10ms、最小20px/10ms）
+        const maxSpeed = 60
+        const minSpeed = 20
+        const scrollSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
+        
+        // 画面端からの距離に応じた感度調整（画面の30%の範囲でスクロール開始）
+        const sensitivityZone = containerWidth * 0.3
+        
+        // 左側スクロール判定（画面左30%の範囲）
+        if (targetX < containerRect.left + sensitivityZone) {
           autoScrollIntervalRef.current = setInterval(() => {
             if (desktopScrollContainerRef.current && activeId) {
               const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
               if (currentScrollLeft > 0) {
-                desktopScrollContainerRef.current.scrollBy({ left: -scrollSpeed, behavior: 'auto' })
+                // 距離に応じた速度でスクロール
+                const speed = Math.min(scrollSpeed, currentScrollLeft) // 残り距離を超えないように
+                desktopScrollContainerRef.current.scrollBy({ left: -speed, behavior: 'auto' })
               } else if (autoScrollIntervalRef.current) {
                 clearInterval(autoScrollIntervalRef.current)
                 autoScrollIntervalRef.current = null
@@ -1796,57 +1812,17 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           return
         }
         
-        // カードが右端に近い場合（右端から150px以内）、右にスクロール
-        if (rightDistance < scrollThreshold && rightDistance > -cardWidth) {
+        // 右側スクロール判定（画面右30%の範囲）
+        if (targetX > containerRect.right - sensitivityZone) {
           autoScrollIntervalRef.current = setInterval(() => {
             if (desktopScrollContainerRef.current && activeId) {
               const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
               const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
               if (currentScrollLeft < maxScrollLeft) {
-                desktopScrollContainerRef.current.scrollBy({ left: scrollSpeed, behavior: 'auto' })
-              } else if (autoScrollIntervalRef.current) {
-                clearInterval(autoScrollIntervalRef.current)
-                autoScrollIntervalRef.current = null
-              }
-            } else if (autoScrollIntervalRef.current) {
-              clearInterval(autoScrollIntervalRef.current)
-              autoScrollIntervalRef.current = null
-            }
-          }, 10)
-          return
-        }
-      }
-      
-      // カード要素が見つからない場合は、ポインタ位置に基づいてスクロール
-      if (pointerX > 0) {
-        const leftEdge = containerRect.left + scrollThreshold
-        const rightEdge = containerRect.right - scrollThreshold
-        
-        if (pointerX < leftEdge) {
-          // 左端に近い場合、左にスクロール
-          autoScrollIntervalRef.current = setInterval(() => {
-            if (desktopScrollContainerRef.current && activeId) {
-              const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
-              if (currentScrollLeft > 0) {
-                desktopScrollContainerRef.current.scrollBy({ left: -scrollSpeed, behavior: 'auto' })
-              } else if (autoScrollIntervalRef.current) {
-                clearInterval(autoScrollIntervalRef.current)
-                autoScrollIntervalRef.current = null
-              }
-            } else if (autoScrollIntervalRef.current) {
-              clearInterval(autoScrollIntervalRef.current)
-              autoScrollIntervalRef.current = null
-            }
-          }, 10)
-          return
-        } else if (pointerX > rightEdge) {
-          // 右端に近い場合、右にスクロール
-          autoScrollIntervalRef.current = setInterval(() => {
-            if (desktopScrollContainerRef.current && activeId) {
-              const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
-              const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
-              if (currentScrollLeft < maxScrollLeft) {
-                desktopScrollContainerRef.current.scrollBy({ left: scrollSpeed, behavior: 'auto' })
+                // 距離に応じた速度でスクロール
+                const remainingDistance = maxScrollLeft - currentScrollLeft
+                const speed = Math.min(scrollSpeed, remainingDistance) // 残り距離を超えないように
+                desktopScrollContainerRef.current.scrollBy({ left: speed, behavior: 'auto' })
               } else if (autoScrollIntervalRef.current) {
                 clearInterval(autoScrollIntervalRef.current)
                 autoScrollIntervalRef.current = null

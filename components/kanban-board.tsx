@@ -1007,6 +1007,15 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         document.body.style.overflow = 'hidden'
         document.body.style.touchAction = 'none'
         
+        // 親要素（リストセクション）のスクロールも無効化
+        if (desktopScrollContainerRef.current) {
+          const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
+          if (listSection instanceof HTMLElement) {
+            listSection.style.overflowY = 'hidden'
+            listSection.style.touchAction = 'none'
+          }
+        }
+        
         // ドラッグ開始時に右側に少しスクロール（浮く効果）
         if (desktopScrollContainerRef.current) {
           const container = desktopScrollContainerRef.current
@@ -1078,6 +1087,15 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     if (isMobile) {
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
+      
+      // 親要素（リストセクション）のスクロールも再有効化
+      if (desktopScrollContainerRef.current) {
+        const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
+        if (listSection instanceof HTMLElement) {
+          listSection.style.overflowY = ''
+          listSection.style.touchAction = ''
+        }
+      }
     }
     
     // ドラッグ終了後、少し遅延させてフラグをリセット（クリックイベントと競合しないように）
@@ -2001,6 +2019,15 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           if (isMobile) {
             document.body.style.overflow = ''
             document.body.style.touchAction = ''
+            
+            // 親要素（リストセクション）のスクロールも再有効化
+            if (desktopScrollContainerRef.current) {
+              const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
+              if (listSection instanceof HTMLElement) {
+                listSection.style.overflowY = ''
+                listSection.style.touchAction = ''
+              }
+            }
           }
         }}
       >
@@ -2010,6 +2037,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
           style={{
             scrollBehavior: 'smooth',
+            touchAction: isMobile ? 'pan-x pinch-zoom' : 'auto', // モバイルでは横スクロールのみ許可
           }}
         >
           {lists.length > 0 ? (

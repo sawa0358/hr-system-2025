@@ -796,9 +796,9 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
   }
 
   return (
-    <main className="overflow-y-auto" style={{ backgroundColor: '#B4D5E7' }}>
-      {/* 上部セクション - 背景色#B4D5E7 */}
-      <div className={`${isMobile ? 'px-4 py-4' : 'px-8 py-6'} min-w-full`}>
+    <main className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: '#B4D5E7' }}>
+      {/* 上部セクション - 背景色#B4D5E7（固定） */}
+      <div className={`flex-shrink-0 ${isMobile ? 'px-4 py-4' : 'px-8 py-6'} min-w-full overflow-y-auto`} style={{ maxHeight: isMobile ? '50vh' : '40vh' }}>
         {/* モバイル時: タイトル */}
         {isMobile && (
           <div className="flex items-center justify-center mb-4">
@@ -1166,8 +1166,17 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         )}
       </div>
 
-      {/* アーカイブ表示またはカンバンボード */}
-      <div style={{ backgroundColor: '#E6DDCD', padding: '0', width: '100%' }}>
+      {/* アーカイブ表示またはカンバンボード - 独立したスクロールコンテナ */}
+      <div 
+        className="flex-1 overflow-x-hidden overflow-y-auto"
+        data-list-section="true"
+        style={{ 
+          backgroundColor: '#E6DDCD', 
+          padding: '0', 
+          width: '100%',
+          touchAction: 'pan-y pinch-zoom' // 縦スクロールを許可、カード移動時の横スクロールも許可
+        }}
+      >
         {taskFilters.showArchived && currentBoard ? (
           <ArchiveLargeView
             boardId={currentBoard}

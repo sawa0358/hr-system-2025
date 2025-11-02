@@ -1016,19 +1016,14 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           desktopScrollContainerRef.current.style.touchAction = 'pan-x pinch-zoom'
         }
         
-        // ドラッグ開始時に右側に少しスクロール（浮く効果）
-        if (desktopScrollContainerRef.current) {
-          const container = desktopScrollContainerRef.current
-          const currentScrollLeft = container.scrollLeft
-          // 右側に少しスクロール（80px）
-          setTimeout(() => {
-            if (desktopScrollContainerRef.current && activeId) {
-              desktopScrollContainerRef.current.scrollTo({ 
-                left: currentScrollLeft + 80, 
-                behavior: 'smooth' 
-              })
-            }
-          }, 100)
+        // ドラッグ開始時のカード中心位置を記録
+        const allCards = document.querySelectorAll('[data-sortable-id]')
+        for (const card of allCards) {
+          if (card.getAttribute('data-sortable-id') === activeId) {
+            const cardRect = card.getBoundingClientRect()
+            dragStartCardCenterXRef.current = cardRect.left + cardRect.width / 2
+            break
+          }
         }
       }
     }
@@ -1675,6 +1670,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const lastMouseXRef = useRef<number>(0)
   const lastTouchXRef = useRef<number>(0)
+  const dragStartCardCenterXRef = useRef<number | null>(null) // ドラッグ開始時のカード中心位置
   
   useEffect(() => {
     // マウス位置を追跡（PC用）
@@ -1714,6 +1710,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       // ドラッグが終了したら位置をリセット
       lastMouseXRef.current = 0
       lastTouchXRef.current = 0
+      dragStartCardCenterXRef.current = null // ドラッグ開始位置をリセット
       
       // ドラッグ終了時に自動スクロールを停止
       if (autoScrollIntervalRef.current) {
@@ -1777,20 +1774,34 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const containerWidth = containerRect.width
         const containerCenter = containerRect.left + containerWidth / 2
         
+        // ドラッグ開始位置からの移動距離を計算
+        const dragStartX = dragStartCardCenterXRef.current ?? cardCenterX
+        const dragDistance = cardCenterX - dragStartX
+        const dragDistancePercent = Math.abs(dragDistance) / containerWidth
+        
         // 画面の中心からの距離を計算
         const distanceFromCenter = cardCenterX - containerCenter
         const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
         
-        // スクロール速度を距離に応じて計算（最大60px/10ms、最小20px/10ms）
-        const maxSpeed = 60
-        const minSpeed = 20
-        const scrollSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
+        // スクロール速度を大幅に上げる（最大100px/10ms、最小40px/10ms）
+        // ドラッグ距離が大きいほど速く、画面端に近いほど速く
+        const maxSpeed = 100
+        const minSpeed = 40
+        const baseSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
+        // ドラッグ距離が大きい場合、さらに速度を上げる
+        const dragBonus = Math.min(dragDistancePercent * 50, 30) // 最大30px/10msのボーナス
+        const scrollSpeed = baseSpeed + dragBonus
         
-        // 画面端からの距離に応じた感度調整（画面の30%の範囲でスクロール開始）
-        const sensitivityZone = containerWidth * 0.3
+        // スクロール開始の感度を大幅に上げる（画面の50%の範囲、または少しでも動いたら）
+        const sensitivityZone = containerWidth * 0.5
+        const minDragThreshold = containerWidth * 0.05 // 画面幅の5%以上動いたらスクロール開始
         
-        // 左側スクロール判定（画面左30%の範囲）
-        if (cardCenterX < containerRect.left + sensitivityZone) {
+        // 左側スクロール判定
+        // 条件：画面左50%の範囲 OR 左に5%以上動いた
+        const shouldScrollLeft = cardCenterX < containerRect.left + sensitivityZone || 
+                                 (dragDistance < -minDragThreshold)
+        
+        if (shouldScrollLeft) {
           autoScrollIntervalRef.current = setInterval(() => {
             if (desktopScrollContainerRef.current && activeId) {
               // カードの位置を再取得（ドラッグ中の位置変化に対応）
@@ -1799,11 +1810,16 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 const currentCardRect = currentCard.getBoundingClientRect()
                 const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
                 
-                // カードが左端の30%範囲内にある場合のみスクロール継続
-                if (currentCardCenterX < containerRect.left + sensitivityZone) {
+                // カードの現在位置を再計算
+                const currentDragDistance = currentCardCenterX - dragStartX
+                // 左側スクロール継続条件：画面左50%範囲内 OR 左に5%以上動いている
+                const shouldContinueLeft = currentCardCenterX < containerRect.left + sensitivityZone || 
+                                           currentDragDistance < -minDragThreshold
+                
+                if (shouldContinueLeft) {
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   if (currentScrollLeft > 0) {
-                    // 距離に応じた速度でスクロール
+                    // 距離に応じた速度でスクロール（速度を上げる）
                     const speed = Math.min(scrollSpeed, currentScrollLeft) // 残り距離を超えないように
                     desktopScrollContainerRef.current.scrollBy({ left: -speed, behavior: 'auto' })
                   } else if (autoScrollIntervalRef.current) {
@@ -1827,8 +1843,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           return
         }
         
-        // 右側スクロール判定（画面右30%の範囲）
-        if (cardCenterX > containerRect.right - sensitivityZone) {
+        // 右側スクロール判定
+        // 条件：画面右50%の範囲 OR 右に5%以上動いた
+        const shouldScrollRight = cardCenterX > containerRect.right - sensitivityZone || 
+                                  (dragDistance > minDragThreshold)
+        
+        if (shouldScrollRight) {
           autoScrollIntervalRef.current = setInterval(() => {
             if (desktopScrollContainerRef.current && activeId) {
               // カードの位置を再取得（ドラッグ中の位置変化に対応）
@@ -1837,12 +1857,17 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 const currentCardRect = currentCard.getBoundingClientRect()
                 const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
                 
-                // カードが右端の30%範囲内にある場合のみスクロール継続
-                if (currentCardCenterX > containerRect.right - sensitivityZone) {
+                // カードの現在位置を再計算
+                const currentDragDistance = currentCardCenterX - dragStartX
+                // 右側スクロール継続条件：画面右50%範囲内 OR 右に5%以上動いている
+                const shouldContinueRight = currentCardCenterX > containerRect.right - sensitivityZone || 
+                                            currentDragDistance > minDragThreshold
+                
+                if (shouldContinueRight) {
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
                   if (currentScrollLeft < maxScrollLeft) {
-                    // 距離に応じた速度でスクロール
+                    // 距離に応じた速度でスクロール（速度を上げる）
                     const remainingDistance = maxScrollLeft - currentScrollLeft
                     const speed = Math.min(scrollSpeed, remainingDistance) // 残り距離を超えないように
                     desktopScrollContainerRef.current.scrollBy({ left: speed, behavior: 'auto' })

@@ -13,15 +13,18 @@ import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { TaskSearchFilters, type TaskFilters } from "@/components/task-search-filters"
 import { ArchiveLargeView } from "@/components/archive-large-view"
-import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown } from "lucide-react"
+import { Plus, Filter, LayoutGrid, Calendar, Settings, Edit, Trash2, ChevronDown, ChevronUp } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 // import { employees } from "@/lib/mock-data" // モックデータの代わりに実際のデータベースから取得
 
 export default function TasksPage() {
   const { currentUser } = useAuth()
   const permissions = currentUser?.role ? getPermissions(currentUser.role) : null
   const kanbanBoardRef = useRef<any>(null)
+  const isMobile = useIsMobile()
   
   // デバッグ用ログ
   console.log("TasksPage - currentUser:", currentUser)
@@ -42,6 +45,9 @@ export default function TasksPage() {
     dateFrom: "",
     dateTo: "",
   })
+  
+  // モバイル用の状態
+  const [topSectionOpen, setTopSectionOpen] = useState(false)
 
   // Dialog states
   const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false)
@@ -792,206 +798,361 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
   return (
     <main className="overflow-y-auto" style={{ backgroundColor: '#B4D5E7' }}>
       {/* 上部セクション - 背景色#B4D5E7 */}
-      <div className="px-8 py-6 min-w-full">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
-            <div className="relative">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  console.log("オプションボタンがクリックされました")
-                  setShowCalendar(!showCalendar)
-                }}
-              >
-                <Calendar className="w-4 h-4 mr-2" />
-                {showCalendar ? "カレンダー非表示" : "カレンダー表示"}
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="ml-2"
-                onClick={() => {
-                  console.log("フィルターボタンがクリックされました")
-                  setShowFilters(!showFilters)
-                }}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                {showFilters ? "フィルター非表示" : "フィルター表示"}
-              </Button>
+      <div className={`${isMobile ? 'px-4 py-4' : 'px-8 py-6'} min-w-full`}>
+        {/* モバイル時: タイトル */}
+        {isMobile && (
+          <div className="flex items-center justify-center mb-4">
+            <h1 className="text-xl font-bold text-slate-900">タスク管理</h1>
+          </div>
+        )}
+        
+        {/* デスクトップ時: 通常のレイアウト */}
+        {!isMobile && (
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-slate-900">タスク管理</h1>
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => {
+                    console.log("オプションボタンがクリックされました")
+                    setShowCalendar(!showCalendar)
+                  }}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {showCalendar ? "カレンダー非表示" : "カレンダー表示"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="ml-2"
+                  onClick={() => {
+                    console.log("フィルターボタンがクリックされました")
+                    setShowFilters(!showFilters)
+                  }}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  {showFilters ? "フィルター非表示" : "フィルター表示"}
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <TaskStructureGuide />
+              <AIAskButton context={buildAIContext()} />
             </div>
           </div>
-          <div className="flex gap-3">
-            <TaskStructureGuide />
-            <AIAskButton context={buildAIContext()} />
-          </div>
-        </div>
+        )}
+        
 
-        {/* ワークスペースとボード選択 */}
-        <div className="flex items-center gap-6 mb-3 min-w-full">
-          <WorkspaceSelector
-            workspaces={workspaces}
-            currentWorkspace={currentWorkspace}
-            currentUserId={currentUser?.id}
-            onWorkspaceChange={handleWorkspaceChange}
-            onCreateWorkspace={handleCreateWorkspace}
-            onEditWorkspace={handleEditWorkspace}
-            onDeleteWorkspace={handleDeleteWorkspace}
-            canCreateWorkspace={permissions?.createWorkspace || false}
-            isAdmin={currentUser?.role === 'admin' || false}
-            canEditWorkspace={(() => {
-              console.log('[canEditWorkspace] Debug info:', {
-                currentWorkspace,
-                currentUserRole: currentUser?.role,
-                currentUserId: currentUser?.id
-              })
-              
-              if (!currentWorkspace || !currentUser?.role) {
-                console.log('[canEditWorkspace] Early return: no workspace or role')
-                return false
-              }
-              
-              const workspace = workspaces.find(w => w.id === currentWorkspace)
-              console.log('[canEditWorkspace] Found workspace:', workspace)
-              
-              if (!workspace) {
-                console.log('[canEditWorkspace] Early return: workspace not found')
-                return false
-              }
-              
-              const permissions = checkWorkspacePermissions(
-                currentUser.role,
-                currentUser.id,
-                workspace.createdBy || '',
-                workspace.members?.map((m: any) => m.employeeId) || [],
-                workspace.name
-              )
-              
-              console.log('[canEditWorkspace] Final permissions:', permissions)
-              console.log('[canEditWorkspace] canEdit result:', permissions.canEdit)
-              
-              return permissions.canEdit
-            })()}
-            canDeleteWorkspace={(() => {
-              if (!currentWorkspace || !currentUser?.role) return false
-              const workspace = workspaces.find(w => w.id === currentWorkspace)
-              if (!workspace) return false
-              return checkWorkspacePermissions(
-                currentUser.role,
-                currentUser.id,
-                workspace.createdBy || '',
-                workspace.members?.map((m: any) => m.employeeId) || [],
-                workspace.name
-              ).canDelete
-            })()}
-          />
-          
-          {currentWorkspace && (
-            <>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-sm">
-                    2
+        {/* ワークスペースとボード選択（モバイル時は折りたたみ可能） */}
+        {isMobile ? (
+          <Collapsible open={topSectionOpen} onOpenChange={setTopSectionOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full mb-3">
+                {topSectionOpen ? (
+                  <>
+                    <ChevronUp className="w-4 h-4 mr-2" />
+                    メニューを閉じる
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 mr-2" />
+                    メニューを開く
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-3">
+              {/* ワークスペース選択 */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <WorkspaceSelector
+                      workspaces={workspaces}
+                      currentWorkspace={currentWorkspace}
+                      currentUserId={currentUser?.id}
+                      onWorkspaceChange={handleWorkspaceChange}
+                      onCreateWorkspace={handleCreateWorkspace}
+                      onEditWorkspace={handleEditWorkspace}
+                      onDeleteWorkspace={handleDeleteWorkspace}
+                      canCreateWorkspace={permissions?.createWorkspace || false}
+                      isAdmin={currentUser?.role === 'admin' || false}
+                      canEditWorkspace={(() => {
+                        if (!currentWorkspace || !currentUser?.role) return false
+                        const workspace = workspaces.find(w => w.id === currentWorkspace)
+                        if (!workspace) return false
+                        return checkWorkspacePermissions(
+                          currentUser.role,
+                          currentUser.id,
+                          workspace.createdBy || '',
+                          workspace.members?.map((m: any) => m.employeeId) || [],
+                          workspace.name
+                        ).canEdit
+                      })()}
+                      canDeleteWorkspace={(() => {
+                        if (!currentWorkspace || !currentUser?.role) return false
+                        const workspace = workspaces.find(w => w.id === currentWorkspace)
+                        if (!workspace) return false
+                        return checkWorkspacePermissions(
+                          currentUser.role,
+                          currentUser.id,
+                          workspace.createdBy || '',
+                          workspace.members?.map((m: any) => m.employeeId) || [],
+                          workspace.name
+                        ).canDelete
+                      })()}
+                    />
                   </div>
-                  <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
-                    <SelectTrigger className="w-64">
-                      <SelectValue placeholder="ボードを選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {boards.map((board) => (
-                        <SelectItem key={board.id} value={board.id}>
-                          {board.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                   {(() => {
-                    if (!currentUser?.role) return false
-                    const workspace = workspaces.find(w => w.id === currentWorkspace)
-                    if (!workspace) return false
-                    const board = boards.find(b => b.id === currentBoard)
-                    return checkBoardPermissions(
-                      currentUser.role,
-                      currentUser.id,
-                      board?.createdBy || workspace.createdBy || '',
-                      workspace.name,
-                      workspace.createdBy
-                    ).canCreate
-                  })() && (
-                    <Button variant="outline" size="sm" onClick={handleCreateBoard}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      ボード追加
-                    </Button>
-                  )}
-                  {(() => {
-                    if (!currentUser?.role || !currentBoard) return null
+                    if (!currentUser?.role || !currentWorkspace) return null
                     const workspace = workspaces.find(w => w.id === currentWorkspace)
                     if (!workspace) return null
-                    const board = boards.find(b => b.id === currentBoard)
-                    const boardPermissions = checkBoardPermissions(
+                    const canEdit = checkWorkspacePermissions(
                       currentUser.role,
                       currentUser.id,
-                      board?.createdBy || workspace.createdBy || '',
-                      workspace.name,
-                      workspace.createdBy
-                    )
-                    const canEdit = boardPermissions.canEdit
-                    const canDelete = boardPermissions.canDelete
-                    
-                    if (!canEdit && !canDelete) return null
-                    
-                    return (
-                      canEdit && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => {
-                            console.log("ボード編集ボタンがクリックされました")
-                            handleEditBoard()
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                      )
-                    )
+                      workspace.createdBy || '',
+                      workspace.members?.map((m: any) => m.employeeId) || [],
+                      workspace.name
+                    ).canEdit
+                    return canEdit ? (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleEditWorkspace}
+                        className="flex-shrink-0"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    ) : null
                   })()}
-                  
-                  {/* ボードサイズ調整 */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-slate-600">サイズ:</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
-                      disabled={boardScale <= 0.5}
-                      className="h-8 w-8 p-0"
-                    >
-                      <span className="text-sm">-</span>
-                    </Button>
-                    <span className="text-sm font-medium w-12 text-center">
-                      {Math.round(boardScale * 100)}%
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
-                      disabled={boardScale >= 1.5}
-                      className="h-8 w-8 p-0"
-                    >
-                      <span className="text-sm">+</span>
-                    </Button>
-                  </div>
                 </div>
-                {boards.find(b => b.id === currentBoard)?.description && (
-                  <div className="ml-8 text-xs text-slate-500 max-w-[280px] break-words whitespace-pre-wrap">
-                    {boards.find(b => b.id === currentBoard)?.description}
+                
+                {/* ボード選択 */}
+                {currentWorkspace && (
+                  <div className="flex items-center gap-2">
+                    <Select value={currentBoard || undefined} onValueChange={setCurrentBoard} className="flex-1">
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="ボードを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boards.map((board) => (
+                          <SelectItem key={board.id} value={board.id}>
+                            {board.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {(() => {
+                      if (!currentUser?.role) return null
+                      const workspace = workspaces.find(w => w.id === currentWorkspace)
+                      if (!workspace) return null
+                      const board = boards.find(b => b.id === currentBoard)
+                      const boardPermissions = checkBoardPermissions(
+                        currentUser.role,
+                        currentUser.id,
+                        board?.createdBy || workspace.createdBy || '',
+                        workspace.name,
+                        workspace.createdBy
+                      )
+                      return (
+                        <>
+                          {boardPermissions.canCreate && (
+                            <Button variant="outline" size="sm" onClick={handleCreateBoard} className="flex-shrink-0">
+                              <Plus className="w-4 h-4 mr-1" />
+                              追加
+                            </Button>
+                          )}
+                          {boardPermissions.canEdit && (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={handleEditBoard}
+                              className="flex-shrink-0"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
+                
+                {/* カレンダー・フィルターボタン */}
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowCalendar(!showCalendar)}
+                    className="flex-1"
+                  >
+                    <Calendar className="w-4 h-4 mr-2" />
+                    {showCalendar ? "カレンダー非表示" : "カレンダー表示"}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="flex-1"
+                  >
+                    <Filter className="w-4 h-4 mr-2" />
+                    {showFilters ? "フィルター非表示" : "フィルター表示"}
+                  </Button>
+                </div>
+                
+                {/* その他のボタン */}
+                <div className="flex gap-2 pt-2">
+                  <TaskStructureGuide />
+                  <AIAskButton context={buildAIContext()} />
+                </div>
               </div>
-            </>
-          )}
-        </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <div className="flex items-center gap-6 mb-3 min-w-full">
+            <WorkspaceSelector
+              workspaces={workspaces}
+              currentWorkspace={currentWorkspace}
+              currentUserId={currentUser?.id}
+              onWorkspaceChange={handleWorkspaceChange}
+              onCreateWorkspace={handleCreateWorkspace}
+              onEditWorkspace={handleEditWorkspace}
+              onDeleteWorkspace={handleDeleteWorkspace}
+              canCreateWorkspace={permissions?.createWorkspace || false}
+              isAdmin={currentUser?.role === 'admin' || false}
+              canEditWorkspace={(() => {
+                if (!currentWorkspace || !currentUser?.role) return false
+                const workspace = workspaces.find(w => w.id === currentWorkspace)
+                if (!workspace) return false
+                return checkWorkspacePermissions(
+                  currentUser.role,
+                  currentUser.id,
+                  workspace.createdBy || '',
+                  workspace.members?.map((m: any) => m.employeeId) || [],
+                  workspace.name
+                ).canEdit
+              })()}
+              canDeleteWorkspace={(() => {
+                if (!currentWorkspace || !currentUser?.role) return false
+                const workspace = workspaces.find(w => w.id === currentWorkspace)
+                if (!workspace) return false
+                return checkWorkspacePermissions(
+                  currentUser.role,
+                  currentUser.id,
+                  workspace.createdBy || '',
+                  workspace.members?.map((m: any) => m.employeeId) || [],
+                  workspace.name
+                ).canDelete
+              })()}
+            />
+            
+            {currentWorkspace && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      2
+                    </div>
+                    <Select value={currentBoard || undefined} onValueChange={setCurrentBoard}>
+                      <SelectTrigger className="w-64">
+                        <SelectValue placeholder="ボードを選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {boards.map((board) => (
+                          <SelectItem key={board.id} value={board.id}>
+                            {board.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {(() => {
+                      if (!currentUser?.role) return false
+                      const workspace = workspaces.find(w => w.id === currentWorkspace)
+                      if (!workspace) return false
+                      const board = boards.find(b => b.id === currentBoard)
+                      return checkBoardPermissions(
+                        currentUser.role,
+                        currentUser.id,
+                        board?.createdBy || workspace.createdBy || '',
+                        workspace.name,
+                        workspace.createdBy
+                      ).canCreate
+                    })() && (
+                      <Button variant="outline" size="sm" onClick={handleCreateBoard}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        ボード追加
+                      </Button>
+                    )}
+                    {(() => {
+                      if (!currentUser?.role || !currentBoard) return null
+                      const workspace = workspaces.find(w => w.id === currentWorkspace)
+                      if (!workspace) return null
+                      const board = boards.find(b => b.id === currentBoard)
+                      const boardPermissions = checkBoardPermissions(
+                        currentUser.role,
+                        currentUser.id,
+                        board?.createdBy || workspace.createdBy || '',
+                        workspace.name,
+                        workspace.createdBy
+                      )
+                      const canEdit = boardPermissions.canEdit
+                      const canDelete = boardPermissions.canDelete
+                      
+                      if (!canEdit && !canDelete) return null
+                      
+                      return (
+                        canEdit && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              console.log("ボード編集ボタンがクリックされました")
+                              handleEditBoard()
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        )
+                      )
+                    })()}
+                    
+                    {/* ボードサイズ調整 */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600">サイズ:</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBoardScale(Math.max(0.5, boardScale - 0.1))}
+                        disabled={boardScale <= 0.5}
+                        className="h-8 w-8 p-0"
+                      >
+                        <span className="text-sm">-</span>
+                      </Button>
+                      <span className="text-sm font-medium w-12 text-center">
+                        {Math.round(boardScale * 100)}%
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setBoardScale(Math.min(1.5, boardScale + 0.1))}
+                        disabled={boardScale >= 1.5}
+                        className="h-8 w-8 p-0"
+                      >
+                        <span className="text-sm">+</span>
+                      </Button>
+                    </div>
+                  </div>
+                  {boards.find(b => b.id === currentBoard)?.description && (
+                    <div className="ml-8 text-xs text-slate-500 max-w-[280px] break-words whitespace-pre-wrap">
+                      {boards.find(b => b.id === currentBoard)?.description}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* フィルターとカレンダー */}
         {currentWorkspace && (
@@ -1040,13 +1201,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
           />
         ) : currentBoard ? (
           <div 
-            style={{ 
+            style={!isMobile ? { 
               transform: `scale(${boardScale})`,
               transformOrigin: 'top left',
               width: `${100 / boardScale}%`,
               height: `${100 / boardScale}%`,
               minWidth: '100%'
-            }}
+            } : undefined}
           >
             <KanbanBoard 
               ref={kanbanBoardRef}
@@ -1057,6 +1218,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
               showArchived={false}
               dateFrom={taskFilters.dateFrom}
               dateTo={taskFilters.dateTo}
+              isMobile={isMobile}
             />
           </div>
         ) : (

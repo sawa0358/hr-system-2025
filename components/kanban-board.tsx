@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -510,6 +510,7 @@ function KanbanColumn({
   currentUserId,
   currentUserRole,
   activeId,
+  isMobile = false,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -524,6 +525,7 @@ function KanbanColumn({
   currentUserId?: string
   currentUserRole?: string
   activeId?: string | null
+  isMobile?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -605,7 +607,7 @@ function KanbanColumn({
     <div 
       ref={setNodeRef} 
       style={style} 
-      className="flex-1 min-w-[300px]"
+      className={isMobile ? "w-full" : "flex-1 min-w-[300px]"}
     >
       <div 
         className="rounded-lg p-4 relative z-0"
@@ -758,9 +760,10 @@ interface KanbanBoardProps {
   showArchived?: boolean
   dateFrom?: string
   dateTo?: string
+  isMobile?: boolean
 }
 
-export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo }, ref) => {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo, isMobile = false }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -1542,93 +1545,272 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }
 
   const activeTask = activeId && tasksById[activeId] ? tasksById[activeId] : null
+  
+  // モバイル用: 現在表示中のリストインデックス
+  const [currentListIndex, setCurrentListIndex] = useState(0)
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef<number>(0)
+  const touchEndX = useRef<number>(0)
+
+  // フリックスクロール処理（タッチイベントのみ、PCのマウスドラッグでは動作しない）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    // カードドラッグ中は無視
+    if (activeId) return
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // カードドラッグ中は無視
+    if (activeId) return
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    // カードドラッグ中は無視
+    if (activeId) {
+      touchStartX.current = 0
+      touchEndX.current = 0
+      return
+    }
+    
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const diff = touchStartX.current - touchEndX.current
+    const minSwipeDistance = 50
+
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0 && currentListIndex < lists.length - 1) {
+        // 左スワイプ（次のリストへ）
+        setCurrentListIndex(currentListIndex + 1)
+      } else if (diff < 0 && currentListIndex > 0) {
+        // 右スワイプ（前のリストへ）
+        setCurrentListIndex(currentListIndex - 1)
+      }
+    }
+    
+    touchStartX.current = 0
+    touchEndX.current = 0
+  }
+
+  // ドラッグ中にスクロール位置を調整（カードドラッグ時に隣のリストが見えるように）
+  useEffect(() => {
+    if (!isMobile || !activeId || !listContainerRef.current) return
+    
+    const scrollToActiveList = () => {
+      const activeTask = tasksById[activeId]
+      if (!activeTask) return
+      
+      const activeListIndex = lists.findIndex(list => list.taskIds.includes(activeId))
+      if (activeListIndex !== -1 && activeListIndex !== currentListIndex) {
+        // アニメーションなしで即座にスクロール
+        setCurrentListIndex(activeListIndex)
+      }
+    }
+    
+    scrollToActiveList()
+  }, [activeId, isMobile, lists, tasksById, currentListIndex])
+
+  // ドラッグオーバー時に隣のリストが見えるようにスクロール
+  const handleDragOverWithScroll = (event: DragOverEvent) => {
+    handleDragOver(event)
+    
+    if (!isMobile || !activeId) return
+    
+    const { over } = event
+    if (!over) return
+    
+    const overId = over.id as string
+    
+    // タスクがドラッグされている場合、ターゲットリストにスクロール
+    if (tasksById[activeId]) {
+      const targetListIndex = lists.findIndex(list => 
+        list.id === overId || list.taskIds.includes(overId)
+      )
+      
+      if (targetListIndex !== -1 && targetListIndex !== currentListIndex) {
+        setCurrentListIndex(targetListIndex)
+      }
+    }
+  }
 
   return (
     <div>
-      <div className="flex items-center justify-end mb-4">
-        <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-          <Button
-            variant={viewMode === "card" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("card")}
-            className="h-8 gap-2"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            カード
-          </Button>
-          <Button
-            variant={viewMode === "list" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setViewMode("list")}
-            className="h-8 gap-2"
-          >
-            <List className="w-4 h-4" />
-            全体
-          </Button>
+      {!isMobile && (
+        <div className="flex items-center justify-end mb-4">
+          <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+            <Button
+              variant={viewMode === "card" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("card")}
+              className="h-8 gap-2"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              カード
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="h-8 gap-2"
+            >
+              <List className="w-4 h-4" />
+              全体
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
+        onDragOver={isMobile ? handleDragOverWithScroll : handleDragOver}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="flex gap-6 overflow-x-auto pb-4">
-          {lists.length > 0 ? (
-            <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
-              {lists.map((list) => {
-                const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
-                return (
-                  <KanbanColumn
-                    key={list.id}
-                    list={list}
-                    tasks={listTasks}
-                    viewMode={viewMode}
-                    onTaskClick={handleTaskClick}
-                    onAddCard={() => handleAddCard(list.id)}
-                    onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
-                    onEditList={handleEditList}
-                    onDeleteList={handleDeleteList}
-                    onListColorChange={(listId) => {
-                      setColorChangeListId(listId)
-                      setListColorModalOpen(true)
-                    }}
-                    boardId={boardData?.id}
-                    currentUserId={currentUserId}
-                    currentUserRole={currentUserRole}
-                    activeId={activeId}
-                  />
-                )
-              })}
-            </SortableContext>
-          ) : (
-            <div className="flex-1 text-center py-12 text-slate-500">
-              <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-              <p className="text-lg font-medium mb-2">リストがありません</p>
-              <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
-            </div>
-          )}
-
-          {currentUserRole && (() => {
-            const listPermissions = checkListPermissions(currentUserRole as any)
-            if (!listPermissions.canCreate) return null
-            
-            return (
-              <div className="flex-shrink-0 w-[300px]">
-                <button
-                  onClick={handleAddList}
-                  className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
-                >
-                  <Plus className="w-5 h-5" />
-                  リストを追加
-                </button>
+        {isMobile ? (
+          // モバイル: 1つのリストを全幅表示、フリックで切り替え
+          <div 
+            ref={listContainerRef}
+            className="relative w-full overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {lists.length > 0 ? (
+              <div 
+                className="flex transition-transform duration-300 ease-out"
+                style={{ 
+                  transform: `translateX(-${currentListIndex * 100}%)`,
+                  width: `${lists.length * 100}%`
+                }}
+              >
+                {lists.map((list, index) => {
+                  const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
+                  return (
+                    <div key={list.id} className="w-full flex-shrink-0 px-2">
+                      <KanbanColumn
+                        list={list}
+                        tasks={listTasks}
+                        viewMode={viewMode}
+                        onTaskClick={handleTaskClick}
+                        onAddCard={() => handleAddCard(list.id)}
+                        onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
+                        onEditList={handleEditList}
+                        onDeleteList={handleDeleteList}
+                        onListColorChange={(listId) => {
+                          setColorChangeListId(listId)
+                          setListColorModalOpen(true)
+                        }}
+                        boardId={boardData?.id}
+                        currentUserId={currentUserId}
+                        currentUserRole={currentUserRole}
+                        activeId={activeId}
+                        isMobile={isMobile}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })()}
-        </div>
+            ) : (
+              <div className="flex-1 text-center py-12 text-slate-500">
+                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="text-lg font-medium mb-2">リストがありません</p>
+                <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
+              </div>
+            )}
+            
+            {/* リストインジケーター */}
+            {lists.length > 1 && (
+              <div className="flex justify-center gap-2 mt-4 pb-2">
+                {lists.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentListIndex(index)}
+                    className={`h-2 rounded-full transition-all ${
+                      index === currentListIndex 
+                        ? 'w-8 bg-blue-600' 
+                        : 'w-2 bg-slate-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* リスト追加ボタン（モバイル） */}
+            {currentUserRole && (() => {
+              const listPermissions = checkListPermissions(currentUserRole as any)
+              if (!listPermissions.canCreate) return null
+              
+              return (
+                <div className="mt-4 px-2">
+                  <button
+                    onClick={handleAddList}
+                    className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    リストを追加
+                  </button>
+                </div>
+              )
+            })()}
+          </div>
+        ) : (
+          // デスクトップ: 通常の横スクロール表示
+          <div className="flex gap-6 overflow-x-auto pb-4">
+            {lists.length > 0 ? (
+              <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
+                {lists.map((list) => {
+                  const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
+                  return (
+                    <KanbanColumn
+                      key={list.id}
+                      list={list}
+                      tasks={listTasks}
+                      viewMode={viewMode}
+                      onTaskClick={handleTaskClick}
+                      onAddCard={() => handleAddCard(list.id)}
+                      onAddFromTemplate={(template) => handleAddFromTemplate(list.id, template)}
+                      onEditList={handleEditList}
+                      onDeleteList={handleDeleteList}
+                      onListColorChange={(listId) => {
+                        setColorChangeListId(listId)
+                        setListColorModalOpen(true)
+                      }}
+                      boardId={boardData?.id}
+                      currentUserId={currentUserId}
+                      currentUserRole={currentUserRole}
+                      activeId={activeId}
+                    />
+                  )
+                })}
+              </SortableContext>
+            ) : (
+              <div className="flex-1 text-center py-12 text-slate-500">
+                <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <p className="text-lg font-medium mb-2">リストがありません</p>
+                <p className="text-sm">最初のリストを作成してタスク管理を始めましょう</p>
+              </div>
+            )}
+
+            {currentUserRole && (() => {
+              const listPermissions = checkListPermissions(currentUserRole as any)
+              if (!listPermissions.canCreate) return null
+              
+              return (
+                <div className="flex-shrink-0 w-[300px]">
+                  <button
+                    onClick={handleAddList}
+                    className="w-full p-4 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 h-full min-h-[120px]"
+                  >
+                    <Plus className="w-5 h-5" />
+                    リストを追加
+                  </button>
+                </div>
+              )
+            })()}
+          </div>
+        )}
 
         <DragOverlay>
           {activeTask && tasksById[activeTask.id] ? (

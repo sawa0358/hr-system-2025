@@ -1050,6 +1050,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     setActiveId(activeId)
   }
 
+  // モバイル用：最後に移動したリストID（連続移動をスムーズに）
+  const lastMovedListIdRef = useRef<string | null>(null)
+  const autoMoveToClosestListRef = useRef<NodeJS.Timeout | null>(null)
+  
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
@@ -1064,32 +1068,103 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
       if (!activeList || !overList || activeList === overList) return
 
-      setLists((lists) => {
-        const activeItems = activeList.taskIds
-        const overItems = overList.taskIds
+      // モバイル用：即座に移動（リストに入る前でも移動）
+      const shouldMove = isMobile || (overList && activeList.id !== overList.id)
+      
+      if (shouldMove) {
+        setLists((lists) => {
+          const activeItems = activeList.taskIds
+          const overItems = overList.taskIds
 
-        const activeIndex = activeItems.indexOf(activeId)
-        const overIndex = overItems.indexOf(overId)
+          const activeIndex = activeItems.indexOf(activeId)
+          const overIndex = overItems.indexOf(overId)
 
-        let newIndex: number
-        if (overId in tasksById) {
-          newIndex = overIndex
-        } else {
-          newIndex = overItems.length
-        }
-
-        return lists.map((list) => {
-          if (list.id === activeList.id) {
-            return { ...list, taskIds: activeItems.filter((id) => id !== activeId) }
+          let newIndex: number
+          if (overId in tasksById) {
+            newIndex = overIndex
+          } else {
+            newIndex = overItems.length
           }
-          if (list.id === overList.id) {
-            const newTaskIds = [...overItems]
-            newTaskIds.splice(newIndex, 0, activeId)
-            return { ...list, taskIds: newTaskIds }
+
+          const updatedLists = lists.map((list) => {
+            if (list.id === activeList.id) {
+              return { ...list, taskIds: activeItems.filter((id) => id !== activeId) }
+            }
+            if (list.id === overList.id) {
+              const newTaskIds = [...overItems]
+              newTaskIds.splice(newIndex, 0, activeId)
+              return { ...list, taskIds: newTaskIds }
+            }
+            return list
+          })
+          
+          // 最後に移動したリストを記録
+          if (isMobile && overList.id !== lastMovedListIdRef.current) {
+            lastMovedListIdRef.current = overList.id
           }
-          return list
+          
+          return updatedLists
         })
-      })
+      }
+    }
+  }
+  
+  // モバイル用：カードの位置に基づいて最も近いリストに自動移動
+  const autoMoveToClosestList = (cardCenterX: number, activeId: string) => {
+    if (!isMobile || !desktopScrollContainerRef.current) return
+    
+    const activeList = lists.find((list) => list.taskIds.includes(activeId))
+    if (!activeList) return
+    
+    // すべてのリスト要素を取得
+    const allListElements = document.querySelectorAll('[data-list-id]')
+    let closestList: { id: string; element: Element; distance: number } | null = null
+    
+    allListElements.forEach((listEl) => {
+      const listId = listEl.getAttribute('data-list-id')
+      if (!listId || listId === activeList.id) return
+      
+      const listRect = listEl.getBoundingClientRect()
+      const listCenterX = listRect.left + listRect.width / 2
+      const distance = Math.abs(cardCenterX - listCenterX)
+      
+      // リストの範囲内（±50%マージン）にある場合のみ考慮
+      if (cardCenterX >= listRect.left - listRect.width * 0.5 && 
+          cardCenterX <= listRect.right + listRect.width * 0.5) {
+        if (!closestList || distance < closestList.distance) {
+          closestList = { id: listId, element: listEl, distance }
+        }
+      }
+    })
+    
+    // 最も近いリストが見つかり、現在のリストと異なる場合
+    if (closestList && closestList.id !== activeList.id) {
+      const targetList = lists.find((list) => list.id === closestList.id)
+      if (!targetList) return
+      
+      // 即座に移動（重複防止：最後に移動したリストと異なる場合のみ）
+      if (lastMovedListIdRef.current !== closestList.id) {
+        setLists((currentLists) => {
+          const currentActiveList = currentLists.find((list) => list.taskIds.includes(activeId))
+          if (!currentActiveList || currentActiveList.id === targetList.id) return currentLists
+          
+          const activeItems = currentActiveList.taskIds
+          const targetItems = targetList.taskIds
+          
+          const updatedLists = currentLists.map((list) => {
+            if (list.id === currentActiveList.id) {
+              return { ...list, taskIds: activeItems.filter((id) => id !== activeId) }
+            }
+            if (list.id === targetList.id) {
+              return { ...list, taskIds: [...targetItems, activeId] }
+            }
+            return list
+          })
+          
+          lastMovedListIdRef.current = closestList.id
+          return updatedLists
+        })
+      }
     }
   }
 
@@ -1741,6 +1816,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         cancelAnimationFrame(autoScrollAnimationFrameRef.current)
         autoScrollAnimationFrameRef.current = null
       }
+      if (autoMoveToClosestListRef.current) {
+        clearTimeout(autoMoveToClosestListRef.current)
+        autoMoveToClosestListRef.current = null
+      }
+      lastMovedListIdRef.current = null // リセット
     }
   }, [activeId, isMobile])
   
@@ -1794,6 +1874,21 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       if (activeCardElement) {
         const cardRect = activeCardElement.getBoundingClientRect()
         const cardCenterX = cardRect.left + cardRect.width / 2 // カードの中心位置
+        
+        // モバイル用：最も近いリストに自動移動（左右に動かし始めたら即座に移動）
+        if (isMobile && activeId) {
+          // 既存のタイマーをクリア
+          if (autoMoveToClosestListRef.current) {
+            clearTimeout(autoMoveToClosestListRef.current)
+            autoMoveToClosestListRef.current = null
+          }
+          
+          // 即座に最も近いリストに移動（50ms以内）
+          autoMoveToClosestListRef.current = setTimeout(() => {
+            autoMoveToClosestList(cardCenterX, activeId)
+            autoMoveToClosestListRef.current = null
+          }, 50)
+        }
         
         const containerWidth = containerRect.width
         const containerCenter = containerRect.left + containerWidth / 2
@@ -2123,6 +2218,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 return (
                   <div
                     key={list.id}
+                    data-list-id={list.id}
                     style={{
                       width: '320px', // モバイル・PC共通でリスト幅を固定
                       minWidth: '320px',

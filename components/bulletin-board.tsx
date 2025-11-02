@@ -201,24 +201,24 @@ export function BulletinBoard({ isAdmin = false }: BulletinBoardProps) {
     <>
       <Card className="border-slate-200 shadow-sm bg-white">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Pin className="w-5 h-5 text-blue-600" />
-              お知らせ
-            </CardTitle>
-            {isAdmin && (
-              <div className="flex gap-2">
-                <Button onClick={() => setIsCategoryDialogOpen(true)} size="sm" variant="outline" className="gap-2">
-                  <Tag className="w-4 h-4" />
-                  カテゴリ管理
-                </Button>
-                <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  追加
-                </Button>
-              </div>
-            )}
-          </div>
+          {/* カテゴリ管理・追加ボタンを最上部に配置 */}
+          {isAdmin && (
+            <div className="flex gap-2 mb-4">
+              <Button onClick={() => setIsCategoryDialogOpen(true)} size="sm" variant="outline" className="gap-2">
+                <Tag className="w-4 h-4" />
+                カテゴリ管理
+              </Button>
+              <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                追加
+              </Button>
+            </div>
+          )}
+          {/* 次の段にお知らせタイトル */}
+          <CardTitle className="flex items-center gap-2">
+            <Pin className="w-5 h-5 text-blue-600" />
+            お知らせ
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

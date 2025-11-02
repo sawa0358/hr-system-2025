@@ -187,6 +187,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       ref={setNodeRef} 
       style={style}
       className="mb-1"
+      data-sortable-id={task.id}
     >
       <Card
         className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
@@ -353,6 +354,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
       ref={setNodeRef} 
       style={style}
       className="mb-2"
+      data-sortable-id={task.id}
     >
       <Card
         className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
@@ -676,6 +678,7 @@ function KanbanColumn({
       <div 
         className="rounded-lg p-4 relative z-0"
         style={{ backgroundColor: list.color || "#f1f5f9" }}
+        data-list-id={list.id}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2 flex-1">
@@ -1704,15 +1707,85 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     // pointerXが0の場合（初期化されていない）は処理をスキップ（左側への勝手な動きを防ぐ）
     if (pointerX === 0) return
     
+    // ドラッグ中のカード要素を取得（data-sortable-id属性で検索）
+    const allCards = document.querySelectorAll('[data-sortable-id]')
+    let activeCardElement: Element | null = null
+    
+    for (const card of allCards) {
+      if (card.getAttribute('data-sortable-id') === activeId) {
+        activeCardElement = card
+        break
+      }
+    }
+    
+    // カード要素が見つかった場合、リストからのはみ出しを判定
+    if (activeCardElement) {
+      const cardRect = activeCardElement.getBoundingClientRect()
+      
+      // カードがどのリストに属しているか判定
+      const currentList = lists.find(list => list.taskIds.includes(activeId))
+      if (currentList) {
+        // リスト要素を取得
+        const listElement = document.querySelector(`[data-list-id="${currentList.id}"]`)
+        if (listElement) {
+          const listRect = listElement.getBoundingClientRect()
+          
+          // カードの幅の1/3を計算
+          const cardWidth = cardRect.width
+          const oneThirdCardWidth = cardWidth / 3
+          
+          // カードがリストの左境界から1/3以上はみ出しているか
+          const isOverflowingLeft = cardRect.left < listRect.left - oneThirdCardWidth
+          
+          // カードがリストの右境界から1/3以上はみ出しているか
+          const isOverflowingRight = cardRect.right > listRect.right + oneThirdCardWidth
+          
+          // 既存の自動スクロールをクリア
+          if (autoScrollIntervalRef.current) {
+            clearInterval(autoScrollIntervalRef.current)
+            autoScrollIntervalRef.current = null
+          }
+          
+          if (isOverflowingLeft || isOverflowingRight) {
+            const scrollSpeed = isMobile ? 25 : 20
+            
+            if (isOverflowingLeft) {
+              // 左にスクロール（隣のリストが見えるように）
+              autoScrollIntervalRef.current = setInterval(() => {
+                if (desktopScrollContainerRef.current && activeId) {
+                  desktopScrollContainerRef.current.scrollBy({ left: -scrollSpeed, behavior: 'auto' })
+                } else if (autoScrollIntervalRef.current) {
+                  clearInterval(autoScrollIntervalRef.current)
+                  autoScrollIntervalRef.current = null
+                }
+              }, 10)
+            } else if (isOverflowingRight) {
+              // 右にスクロール（隣のリストが見えるように）
+              autoScrollIntervalRef.current = setInterval(() => {
+                if (desktopScrollContainerRef.current && activeId) {
+                  desktopScrollContainerRef.current.scrollBy({ left: scrollSpeed, behavior: 'auto' })
+                } else if (autoScrollIntervalRef.current) {
+                  clearInterval(autoScrollIntervalRef.current)
+                  autoScrollIntervalRef.current = null
+                }
+              }, 10)
+            }
+            
+            return // カード要素が見つかり、はみ出しが検出されたら処理終了
+          }
+        }
+      }
+    }
+    
+    // フォールバック: 画面端に近い場合の従来の動作
+    const scrollThreshold = isMobile ? 100 : 150
+    const scrollSpeed = isMobile ? 25 : 15
+    
     // 既存の自動スクロールをクリア
     if (autoScrollIntervalRef.current) {
       clearInterval(autoScrollIntervalRef.current)
       autoScrollIntervalRef.current = null
     }
-    
-    // 画面の左右端に近い場合、自動スクロールを開始
-    const scrollThreshold = isMobile ? 100 : 150 // モバイルは少し小さめの閾値
-    const scrollSpeed = isMobile ? 25 : 15 // モバイルは右側へのスクロールを速く
     
     if (pointerX < containerRect.left + scrollThreshold) {
       // 左端に近い場合、左にスクロール（スムーズに）

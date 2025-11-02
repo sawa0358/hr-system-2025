@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         where: { 
           isInvisibleTop: false,
           status: { not: 'copy' }, // コピー社員を除外
+          role: { not: 'admin' }, // 管理者を除外
         },
         select: {
           id: true,
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
           where: { 
             isInvisibleTop: false,
             status: { not: 'copy' }, // コピー社員を除外
+            role: { not: 'admin' }, // 管理者を除外
           },
           select: {
             id: true,

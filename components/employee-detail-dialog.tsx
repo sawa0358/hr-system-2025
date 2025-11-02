@@ -58,6 +58,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // コピー社員かどうかの判定
   const isCopyEmployee = employee?.status === 'copy'
   
+  // 総務が管理者を編集しようとしているかの判定
+  const isViewingAdminAsHR = currentUser?.role === 'hr' && employee?.role === 'admin' && !isNewEmployee
+  
+  // 編集可能かどうかの判定（総務が管理者を編集する場合は不可）
+  const canEdit = !isViewingAdminAsHR && canEditInvisibleTop
+  
+  // 全入力欄を無効化するかどうかの判定（総務が管理者を編集する場合）
+  const isAllInputDisabled = isViewingAdminAsHR
+  
   // ダイアログが開かれた時に最新の社員データを取得
   useEffect(() => {
     if (open && employee?.id) {
@@ -193,11 +202,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   }
   
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
-  const canEditProfile = isAdminOrHR && !isCopyEmployee // 通常の編集権限
+  const canEditProfile = canEdit && isAdminOrHR && !isCopyEmployee // 通常の編集権限（総務が管理者を編集する場合は不可）
   const canEditCopyEmployee = currentUser?.role === 'admin' && isCopyEmployee // コピー社員の編集権限（管理者のみ）
   const canViewMyNumber = isAdminOrHR // 管理者・総務権限のみ閲覧可能
   const canViewUserInfo = permissions.permissions.viewAllProfiles || permissions.permissions.editAllProfiles || isAdminOrHR
-  const canEditUserInfo = isCopyEmployee ? canEditCopyEmployee : (permissions.permissions.editAllProfiles || isAdminOrHR) // コピー社員は管理者のみ編集可能
+  const canEditUserInfo = canEdit && (isCopyEmployee ? canEditCopyEmployee : (permissions.permissions.editAllProfiles || isAdminOrHR)) // コピー社員は管理者のみ編集可能（総務が管理者を編集する場合は不可）
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
   
@@ -209,7 +218,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     canViewUserInfo,
     canEditUserInfo,
     canViewFamily,
-    canViewFiles
+    canViewFiles,
+    canEdit,
+    isViewingAdminAsHR,
+    currentUserRole: currentUser?.role,
+    employeeRole: employee?.role
   })
 
   // フォーム状態管理
@@ -624,8 +637,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     console.log('formData:', formData)
     console.log('employee:', employee)
     
-    if (!canEditUserInfo && !isNewEmployee && !isAdminOrHR) {
+    if (!canEditUserInfo && !isNewEmployee) {
       console.log('権限が不足しています')
+      alert('編集権限がありません。総務は管理者のユーザー情報を編集できません。')
       return
     }
 
@@ -1535,6 +1549,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   コピー社員（編集不可）
                 </span>
               )}
+              {isViewingAdminAsHR && (
+                <span className="text-sm font-normal bg-amber-100 text-amber-700 px-3 py-1 rounded-full border border-amber-300 flex items-center gap-1">
+                  <Lock className="w-4 h-4" />
+                  閲覧のみ（総務は管理者を編集できません）
+                </span>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -1553,8 +1573,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee}
-                      className={(!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)}
+                      className={(isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1562,9 +1582,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={formData.furigana}
                       onChange={(e) => setFormData({ ...formData, furigana: e.target.value })}
-                      disabled={!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)}
                       placeholder="ヤマダタロウ"
-                      className={(!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      className={(isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
                   {canViewMyNumber && (
@@ -1581,13 +1601,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           onChange={(e) => setFormData({...formData, myNumber: e.target.value})}
                           placeholder="マイナンバー（12桁）"
                           className={`font-mono ${(!showEmployeeMyNumber || !canEditUserInfo) ? "text-[#374151] bg-[#edeaed]" : ""}`}
-                          disabled={!showEmployeeMyNumber || !canEditUserInfo}
+                          disabled={isAllInputDisabled || !showEmployeeMyNumber || !canEditUserInfo}
                         />
                         <Button
                           variant="outline"
                           size="icon"
                           onClick={() => handleToggleMyNumber("employee")}
                           className="flex-shrink-0"
+                          disabled={isAllInputDisabled}
                         >
                           {showEmployeeMyNumber ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </Button>
@@ -1603,7 +1624,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           type="date" 
                           value={privacySettings.birthDate ? formData.birthDate : ''}
                           onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                          disabled={!canEditUserInfo && !isNewEmployee || !privacySettings.birthDate}
+                          disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee) || !privacySettings.birthDate}
                           className={(!canEditUserInfo && !isNewEmployee || !privacySettings.birthDate) ? "text-[#374151] bg-[#edeaed]" : ""}
                         />
                         {!privacySettings.birthDate && (
@@ -1662,6 +1683,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                               checked={formData.showInOrgChart}
                               onCheckedChange={(checked) => setFormData({...formData, showInOrgChart: checked})}
                               className="data-[state=checked]:bg-blue-600"
+                              disabled={isAllInputDisabled}
                             />
                           </div>
                         )}
@@ -1669,7 +1691,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <div className="col-span-2 space-y-2">
                         {!isNewEmployee && (
                           <div className="flex items-center gap-2">
-                            <Switch checked={changePassword} onCheckedChange={setChangePassword} />
+                            <Switch checked={changePassword} onCheckedChange={setChangePassword} disabled={isAllInputDisabled} />
                             <Label>パスワードを変更する</Label>
                           </div>
                         )}
@@ -1711,7 +1733,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="date" 
                       value={formData.joinDate}
                       onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
-                      disabled={!canEditUserInfo && !isNewEmployee}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                       className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
@@ -1721,7 +1743,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       value={formData.employeeNumber || ''}
                       onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
                       placeholder="社員番号を入力"
-                      disabled={!canEditUserInfo && !isNewEmployee}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                       className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
@@ -1742,7 +1764,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Select 
                       value={formData.employeeType} 
                       onValueChange={(value) => setFormData({...formData, employeeType: value})}
-                      disabled={!canEditUserInfo && !isNewEmployee}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                     >
                       <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
                         <SelectValue />
@@ -1763,7 +1785,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Select 
                       value={formData.status} 
                       onValueChange={(value) => setFormData({...formData, status: value})}
-                      disabled={!canEditUserInfo && !isNewEmployee}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                     >
                       <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
                         <SelectValue />
@@ -1782,7 +1804,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           type="date"
                           value={formData.retirementDate || ''}
                           onChange={(e) => setFormData({...formData, retirementDate: e.target.value})}
-                          disabled={!canEditUserInfo && !isNewEmployee}
+                          disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                         />
                       </div>
                     )}
@@ -1807,7 +1829,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Input 
                       value={privacySettings.displayName ? formData.name : '非公開'} 
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.displayName}
+                      disabled={isAllInputDisabled || !canEditProfile || !privacySettings.displayName}
                       className={(!canEditProfile || !privacySettings.displayName) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.displayName && (
@@ -1918,7 +1940,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           setOrganizations(newOrgs)
                           setFormData({...formData, organization: e.target.value})
                         }}
-                        disabled={!canEditProfile}
+                        disabled={isAllInputDisabled || !canEditProfile}
                         className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                       />
                       <div className="flex items-center gap-2">
@@ -1991,7 +2013,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           setDepartments(newDepts)
                           setFormData({...formData, department: value})
                         }}
-                        disabled={!canEditProfile}
+                        disabled={isAllInputDisabled || !canEditProfile}
                       >
                         <SelectTrigger className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}>
                           <SelectValue placeholder="部署を選択" />
@@ -2067,7 +2089,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             setPositions(newPos)
                             setFormData({...formData, position: value})
                           }}
-                          disabled={!canEditProfile}
+                          disabled={isAllInputDisabled || !canEditProfile}
                         >
                           <SelectTrigger className={`flex-1 ${!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}`}>
                             <SelectValue placeholder="役職を選択" />
@@ -2091,7 +2113,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             setPositions(newPos)
                             setFormData({...formData, position: e.target.value})
                           }}
-                          disabled={!canEditProfile}
+                          disabled={isAllInputDisabled || !canEditProfile}
                           className="flex-1"
                         />
                       </div>
@@ -2129,7 +2151,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="url" 
                       value={formData.url}
                       onChange={(e) => setFormData({...formData, url: e.target.value})}
-                      disabled={!canEditProfile}
+                      disabled={isAllInputDisabled || !canEditProfile}
                       className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                   </div>
@@ -2151,7 +2173,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <Textarea 
                       value={formData.description || ''}
                       onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      disabled={!canEditProfile}
+                      disabled={isAllInputDisabled || !canEditProfile}
                       placeholder="自由項目として備考を入力"
                       rows={3}
                     />
@@ -2168,7 +2190,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <Input 
                         value={formData.address}
                         onChange={(e) => setFormData({...formData, address: e.target.value})}
-                        disabled={!canEditProfile}
+                        disabled={isAllInputDisabled || !canEditProfile}
                         placeholder="住所を入力"
                       />
                     </div>
@@ -2183,7 +2205,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="email" 
                       value={privacySettings.email ? formData.email : '非公開'}
                       onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.email}
+                      disabled={isAllInputDisabled || !canEditProfile || !privacySettings.email}
                       className={(!canEditProfile || !privacySettings.email) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.email && (
@@ -2208,7 +2230,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="tel" 
                       value={privacySettings.workPhone ? formData.phone : '非公開'}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.workPhone}
+                      disabled={isAllInputDisabled || !canEditProfile || !privacySettings.workPhone}
                       className={(!canEditProfile || !privacySettings.workPhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.workPhone && (
@@ -2233,7 +2255,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       type="tel" 
                       value={privacySettings.extension ? formData.phoneInternal : '非公開'}
                       onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
-                      disabled={!canEditProfile || !privacySettings.extension}
+                      disabled={isAllInputDisabled || !canEditProfile || !privacySettings.extension}
                       className={(!canEditProfile || !privacySettings.extension) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
                     {!privacySettings.extension && (
@@ -2260,7 +2282,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         type="tel" 
                         value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
                         onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
-                        disabled={!canEditProfile || !privacySettings.mobilePhone}
+                        disabled={isAllInputDisabled || !canEditProfile || !privacySettings.mobilePhone}
                         className={(!canEditProfile || !privacySettings.mobilePhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                       />
                       {!privacySettings.mobilePhone && (
@@ -2354,7 +2376,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="氏名" 
-                              disabled={!canEditProfile} 
+                              disabled={isAllInputDisabled || !canEditProfile} 
                             />
                           </div>
                           <div className="space-y-2">
@@ -2367,7 +2389,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 )
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
-                              disabled={!canEditProfile}
+                              disabled={isAllInputDisabled || !canEditProfile}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="選択" />
@@ -2393,7 +2415,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="電話番号" 
-                              disabled={!canEditProfile} 
+                              disabled={isAllInputDisabled || !canEditProfile} 
                             />
                           </div>
                           <div className="space-y-2">
@@ -2411,7 +2433,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 )
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
-                              disabled={!canEditProfile} 
+                              disabled={isAllInputDisabled || !canEditProfile} 
                             />
                           </div>
                           {canViewMyNumber && (
@@ -2439,6 +2461,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                   size="icon"
                                   onClick={() => handleToggleMyNumber("family", member.id)}
                                   className="flex-shrink-0"
+                                  disabled={isAllInputDisabled}
                                 >
                                   {showFamilyMyNumber[member.id] ? (
                                     <EyeOff className="w-4 h-4" />
@@ -2460,7 +2483,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                   )
                                   updateFamilyMembersAndSave(updatedMembers)
                                 }}
-                                disabled={!canEditProfile} 
+                                disabled={isAllInputDisabled || !canEditProfile} 
                               />
                               <Label htmlFor={`separate-${member.id}`}>別居</Label>
                             </div>
@@ -2473,7 +2496,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 updateFamilyMembersAndSave(updatedMembers)
                               }}
                               placeholder="別居の場合は住所を入力" 
-                              disabled={!canEditProfile}
+                              disabled={isAllInputDisabled || !canEditProfile}
                             />
                           </div>
                           <div className="col-span-2 space-y-2">
@@ -2488,7 +2511,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                               }}
                               placeholder="備考を入力（任意）" 
                               rows={2}
-                              disabled={!canEditProfile}
+                              disabled={isAllInputDisabled || !canEditProfile}
                             />
                           </div>
                         </div>
@@ -2725,6 +2748,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   setFormData({...formData, isSuspended: newSuspendedState})
                 }}
                 className={formData.isSuspended ? "bg-green-600 hover:bg-green-700" : ""}
+                disabled={isAllInputDisabled}
               >
                 {formData.isSuspended ? '稼働させる' : '停止させる'}
               </Button>
@@ -2734,7 +2758,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <Button 
                   variant="outline"
                   onClick={handleCopy}
-                  disabled={copying}
+                  disabled={isAllInputDisabled || copying}
                   className="border-slate-300"
                 >
                   <Copy className="w-4 h-4 mr-2" />
@@ -2745,7 +2769,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <Button 
                   variant="destructive" 
                   onClick={handleDelete}
-                  disabled={deleting}
+                  disabled={isAllInputDisabled || deleting}
                 >
                   {deleting ? '削除中...' : '削除'}
                 </Button>
@@ -2753,7 +2777,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 戻る
               </Button>
-              {((!isCopyEmployee && (canEditUserInfo || isNewEmployee || isAdminOrHR)) || canEditCopyEmployee) && canEditInvisibleTop && (
+              {((!isCopyEmployee && (canEditUserInfo || isNewEmployee)) || canEditCopyEmployee) && canEditInvisibleTop && (
                 <Button 
                   onClick={handleSave} 
                   disabled={saving}

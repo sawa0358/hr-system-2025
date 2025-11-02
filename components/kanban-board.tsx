@@ -1687,6 +1687,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
   // モバイル・PC共通: ドラッグ中に自動スクロール（カーソル位置に応じて隣のリストを表示）
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const autoScrollAnimationFrameRef = useRef<number | null>(null) // requestAnimationFrame用
   const lastMouseXRef = useRef<number>(0)
   const lastTouchXRef = useRef<number>(0)
   const dragStartCardCenterXRef = useRef<number | null>(null) // ドラッグ開始時のカード中心位置
@@ -1735,6 +1736,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current)
         autoScrollIntervalRef.current = null
+      }
+      if (autoScrollAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationFrameRef.current)
+        autoScrollAnimationFrameRef.current = null
       }
     }
   }, [activeId, isMobile])
@@ -1802,13 +1807,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const distanceFromCenter = cardCenterX - containerCenter
         const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
         
-        // スクロール速度を大幅に上げる（最大100px/10ms、最小40px/10ms）
+        // スクロール速度を大幅に上げる（requestAnimationFrame用、60fps=16.67ms基準）
         // ドラッグ距離が大きいほど速く、画面端に近いほど速く
-        const maxSpeed = 100
-        const minSpeed = 40
+        const maxSpeed = 25 // 25px/frame = 約1500px/s（60fps時）
+        const minSpeed = 8 // 8px/frame = 約480px/s（60fps時）
         const baseSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
         // ドラッグ距離が大きい場合、さらに速度を上げる
-        const dragBonus = Math.min(dragDistancePercent * 50, 30) // 最大30px/10msのボーナス
+        const dragBonus = Math.min(dragDistancePercent * 15, 10) // 最大10px/frameのボーナス
         const scrollSpeed = baseSpeed + dragBonus
         
         // スクロール開始の感度を調整（Trello風：画面端10-20%の範囲、または少しでも動いたら）
@@ -1820,7 +1825,14 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                                  (dragDistance < -minDragThreshold)
         
         if (shouldScrollLeft) {
-          autoScrollIntervalRef.current = setInterval(() => {
+          // 既存のアニメーションフレームをクリア
+          if (autoScrollAnimationFrameRef.current !== null) {
+            cancelAnimationFrame(autoScrollAnimationFrameRef.current)
+            autoScrollAnimationFrameRef.current = null
+          }
+          
+          // requestAnimationFrameで滑らかにスクロール
+          const scrollLeft = () => {
             if (desktopScrollContainerRef.current && activeId) {
               // カードの位置を再取得（ドラッグ中の位置変化に対応）
               const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
@@ -1837,27 +1849,31 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 if (shouldContinueLeft) {
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   if (currentScrollLeft > 0) {
-                    // 距離に応じた速度でスクロール（速度を上げる）
+                    // 距離に応じた速度でスクロール（速度を上げる、滑らかに）
                     const speed = Math.min(scrollSpeed, currentScrollLeft) // 残り距離を超えないように
-                    desktopScrollContainerRef.current.scrollBy({ left: -speed, behavior: 'auto' })
-                  } else if (autoScrollIntervalRef.current) {
-                    clearInterval(autoScrollIntervalRef.current)
-                    autoScrollIntervalRef.current = null
+                    desktopScrollContainerRef.current.scrollLeft -= speed // scrollByの代わりに直接代入で高速化
+                    // 次のフレームをスケジュール
+                    autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
+                  } else {
+                    // スクロール終了
+                    autoScrollAnimationFrameRef.current = null
                   }
-                } else if (autoScrollIntervalRef.current) {
+                } else {
                   // カードが範囲外に出たらスクロール停止
-                  clearInterval(autoScrollIntervalRef.current)
-                  autoScrollIntervalRef.current = null
+                  autoScrollAnimationFrameRef.current = null
                 }
-              } else if (autoScrollIntervalRef.current) {
-                clearInterval(autoScrollIntervalRef.current)
-                autoScrollIntervalRef.current = null
+              } else {
+                // カードが見つからない
+                autoScrollAnimationFrameRef.current = null
               }
-            } else if (autoScrollIntervalRef.current) {
-              clearInterval(autoScrollIntervalRef.current)
-              autoScrollIntervalRef.current = null
+            } else {
+              // コンテナまたはアクティブIDが無い
+              autoScrollAnimationFrameRef.current = null
             }
-          }, 10)
+          }
+          
+          // 初回のアニメーションフレームをスケジュール
+          autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
           return
         }
         
@@ -1866,7 +1882,14 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                                   (dragDistance > minDragThreshold)
         
         if (shouldScrollRight) {
-          autoScrollIntervalRef.current = setInterval(() => {
+          // 既存のアニメーションフレームをクリア
+          if (autoScrollAnimationFrameRef.current !== null) {
+            cancelAnimationFrame(autoScrollAnimationFrameRef.current)
+            autoScrollAnimationFrameRef.current = null
+          }
+          
+          // requestAnimationFrameで滑らかにスクロール
+          const scrollRight = () => {
             if (desktopScrollContainerRef.current && activeId) {
               // カードの位置を再取得（ドラッグ中の位置変化に対応）
               const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
@@ -1884,28 +1907,32 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
                   if (currentScrollLeft < maxScrollLeft) {
-                    // 距離に応じた速度でスクロール（速度を上げる）
+                    // 距離に応じた速度でスクロール（速度を上げる、滑らかに）
                     const remainingDistance = maxScrollLeft - currentScrollLeft
                     const speed = Math.min(scrollSpeed, remainingDistance) // 残り距離を超えないように
-                    desktopScrollContainerRef.current.scrollBy({ left: speed, behavior: 'auto' })
-                  } else if (autoScrollIntervalRef.current) {
-                    clearInterval(autoScrollIntervalRef.current)
-                    autoScrollIntervalRef.current = null
+                    desktopScrollContainerRef.current.scrollLeft += speed // scrollByの代わりに直接代入で高速化
+                    // 次のフレームをスケジュール
+                    autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
+                  } else {
+                    // スクロール終了
+                    autoScrollAnimationFrameRef.current = null
                   }
-                } else if (autoScrollIntervalRef.current) {
+                } else {
                   // カードが範囲外に出たらスクロール停止
-                  clearInterval(autoScrollIntervalRef.current)
-                  autoScrollIntervalRef.current = null
+                  autoScrollAnimationFrameRef.current = null
                 }
-              } else if (autoScrollIntervalRef.current) {
-                clearInterval(autoScrollIntervalRef.current)
-                autoScrollIntervalRef.current = null
+              } else {
+                // カードが見つからない
+                autoScrollAnimationFrameRef.current = null
               }
-            } else if (autoScrollIntervalRef.current) {
-              clearInterval(autoScrollIntervalRef.current)
-              autoScrollIntervalRef.current = null
+            } else {
+              // コンテナまたはアクティブIDが無い
+              autoScrollAnimationFrameRef.current = null
             }
-          }, 10)
+          }
+          
+          // 初回のアニメーションフレームをスケジュール
+          autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
           return
         }
       }

@@ -9,19 +9,9 @@ import { AIAskButton } from "@/components/ai-ask-button"
 import { Button } from "@/components/ui/button"
 import { Plus } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { LoginModal } from "@/components/login-modal"
 
 export default function EmployeesPage() {
-  const { currentUser, isAuthenticated, login } = useAuth()
-  const [showLoginModal, setShowLoginModal] = useState(false)
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setShowLoginModal(true)
-    } else {
-      setShowLoginModal(false)
-    }
-  }, [isAuthenticated])
+  const { currentUser, isAuthenticated } = useAuth()
   const [detailOpen, setDetailOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState(null)
   const [evaluationOpen, setEvaluationOpen] = useState(false)
@@ -30,12 +20,11 @@ export default function EmployeesPage() {
   const [filters, setFilters] = useState({
     searchQuery: "",
     department: "all",
-    status: "active",
-    employeeType: "正社員",
+    status: "all",
+    employeeType: "all",
     position: "all",
-    showInOrgChart: "1"
+    showInOrgChart: "all"
   })
-  const [searchResultCount, setSearchResultCount] = useState<number | undefined>(undefined)
 
   // 管理者・総務権限のチェック
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
@@ -46,6 +35,10 @@ export default function EmployeesPage() {
   }
 
   const handleEmployeeClick = (employee: any) => {
+    console.log('社員クリック:', employee)
+    console.log('社員ID:', employee?.id)
+    console.log('社員名:', employee?.name)
+    
     // 古いIDを検出して警告
     if (employee?.id && employee.id.includes('cmganegqz')) {
       console.error('古いIDが検出されました:', employee.id)
@@ -108,36 +101,30 @@ ${isAdminOrHR ? `- 新規社員登録
 - その他、人事管理システム全般に関する質問`
   }
 
-  const handleLoginSuccess = (employee: any, rememberMe: boolean) => {
-    // 認証コンテキストのlogin関数を呼び出し
-    login(employee, rememberMe)
-  }
-
   if (!isAuthenticated) {
     return (
-      <>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-600">読み込み中...</p>
-          </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-600">読み込み中...</p>
         </div>
-        <LoginModal 
-          open={showLoginModal} 
-          onLoginSuccess={handleLoginSuccess} 
-        />
-      </>
+      </div>
     )
   }
 
   return (
     <main className="overflow-y-auto">
       <div className="p-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col gap-4 mb-8">
+          {/* 1段目: タイトル */}
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">社員情報</h1>
-            <p className="text-slate-600">社員の基本情報を管理(デフォルト: 在籍中のみ表示)</p>
+            <h1 className="text-3xl font-bold text-slate-900">社員情報</h1>
           </div>
+          {/* 2段目: 説明文 */}
+          <div>
+            <p className="text-slate-600">デフォルト: 正社員・在籍中のみ表示</p>
+          </div>
+          {/* 3段目: ボタン（AIに聞く・新規登録） */}
           {isAdminOrHR && (
             <div className="flex gap-3">
               <AIAskButton context={buildAIContext()} />
@@ -149,7 +136,7 @@ ${isAdminOrHR ? `- 新規社員登録
           )}
         </div>
 
-        <EmployeeFilters onFiltersChange={handleFiltersChange} searchResultCount={searchResultCount} />
+        <EmployeeFilters onFiltersChange={handleFiltersChange} />
 
         <div className="mt-6">
           <EmployeeTable 
@@ -157,7 +144,6 @@ ${isAdminOrHR ? `- 新規社員登録
             onEvaluationClick={handleEvaluationClick}
             refreshTrigger={refreshTrigger}
             filters={filters}
-            onSearchResultCountChange={setSearchResultCount}
           />
         </div>
       </div>
@@ -172,11 +158,6 @@ ${isAdminOrHR ? `- 新規社員登録
       {evaluationEmployee && (
         <EvaluationDetailDialog open={evaluationOpen} onOpenChange={setEvaluationOpen} employee={evaluationEmployee} />
       )}
-
-      <LoginModal 
-        open={showLoginModal} 
-        onLoginSuccess={handleLoginSuccess} 
-      />
     </main>
   )
 }

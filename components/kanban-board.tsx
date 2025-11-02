@@ -1807,13 +1807,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const distanceFromCenter = cardCenterX - containerCenter
         const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
         
-        // スクロール速度を大幅に上げる（Trello風：高速スクロール）
+        // スクロール速度を大幅に上げる（さらに2倍高速化）
         // ドラッグ距離が大きいほど速く、画面端に近いほど速く
-        const maxSpeed = 80 // 80px/frame = 約4800px/s（60fps時、Trello風に高速化）
-        const minSpeed = 20 // 20px/frame = 約1200px/s（60fps時）
+        const maxSpeed = 160 // 160px/frame = 約9600px/s（60fps時、さらに2倍高速化）
+        const minSpeed = 40 // 40px/frame = 約2400px/s（60fps時）
         const baseSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
         // ドラッグ距離が大きい場合、さらに速度を上げる
-        const dragBonus = Math.min(dragDistancePercent * 40, 30) // 最大30px/frameのボーナス（大幅増量）
+        const dragBonus = Math.min(dragDistancePercent * 80, 60) // 最大60px/frameのボーナス（さらに2倍）
         const scrollSpeed = baseSpeed + dragBonus
         
         // スクロール開始の感度を調整（Trello風：画面端を広めに、より敏感に）

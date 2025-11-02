@@ -976,18 +976,18 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   // モバイル用：TouchSensor（タッチイベントベース、より敏感）
   // PC用：PointerSensor（マウスイベントベース）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、Trello風に感度向上）
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 150, // 150ms長押しでドラッグ開始（Trello風）
-        tolerance: 3, // 3px以内の移動は許容（感度向上）
+        delay: 100, // 100ms長押しでドラッグ開始（Trello風、より敏感に）
+        distance: 5, // 5px移動でドラッグ開始（Trello推奨、感度向上）
       },
     }),
     // PC用：PointerSensor（マウス・タッチ両対応だがモバイルではTouchSensorが優先）
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: isMobile ? 150 : 0, // モバイルは150ms、PCは即座に反応
-        tolerance: 3, // 3px以内の移動は許容（感度向上）
+        delay: isMobile ? 100 : 0, // モバイルは100ms、PCは即座に反応
+        distance: 5, // 5px移動でドラッグ開始（Trello推奨）
       },
     }),
     useSensor(KeyboardSensor, {
@@ -1807,20 +1807,20 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const distanceFromCenter = cardCenterX - containerCenter
         const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
         
-        // スクロール速度を大幅に上げる（requestAnimationFrame用、60fps=16.67ms基準）
+        // スクロール速度を大幅に上げる（Trello風：高速スクロール）
         // ドラッグ距離が大きいほど速く、画面端に近いほど速く
-        const maxSpeed = 25 // 25px/frame = 約1500px/s（60fps時）
-        const minSpeed = 8 // 8px/frame = 約480px/s（60fps時）
+        const maxSpeed = 80 // 80px/frame = 約4800px/s（60fps時、Trello風に高速化）
+        const minSpeed = 20 // 20px/frame = 約1200px/s（60fps時）
         const baseSpeed = Math.max(minSpeed, Math.abs(normalizedDistance) * maxSpeed)
         // ドラッグ距離が大きい場合、さらに速度を上げる
-        const dragBonus = Math.min(dragDistancePercent * 15, 10) // 最大10px/frameのボーナス
+        const dragBonus = Math.min(dragDistancePercent * 40, 30) // 最大30px/frameのボーナス（大幅増量）
         const scrollSpeed = baseSpeed + dragBonus
         
-        // スクロール開始の感度を調整（Trello風：画面端10-20%の範囲、または少しでも動いたら）
-        const sensitivityZone = containerWidth * 0.2 // 画面端20%の範囲（Trello風）
-        const minDragThreshold = containerWidth * 0.03 // 画面幅の3%以上動いたらスクロール開始（より敏感に）
+        // スクロール開始の感度を調整（Trello風：画面端を広めに、より敏感に）
+        const sensitivityZone = containerWidth * 0.3 // 画面端30%の範囲（Trello風、より広く）
+        const minDragThreshold = containerWidth * 0.02 // 画面幅の2%以上動いたらスクロール開始（より敏感に）
         
-        // 左側スクロール判定（Trello風：画面端20%の範囲 OR 左に3%以上動いた）
+        // 左側スクロール判定（Trello風：画面端30%の範囲 OR 左に2%以上動いた）
         const shouldScrollLeft = cardCenterX < containerRect.left + sensitivityZone || 
                                  (dragDistance < -minDragThreshold)
         
@@ -1842,16 +1842,19 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 
                 // カードの現在位置を再計算
                 const currentDragDistance = currentCardCenterX - dragStartX
-                // 左側スクロール継続条件：画面左20%範囲内 OR 左に3%以上動いている（Trello風）
+                // 左側スクロール継続条件：画面左30%範囲内 OR 左に2%以上動いている（Trello風）
                 const shouldContinueLeft = currentCardCenterX < containerRect.left + sensitivityZone || 
                                            currentDragDistance < -minDragThreshold
                 
                 if (shouldContinueLeft) {
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   if (currentScrollLeft > 0) {
-                    // 距離に応じた速度でスクロール（速度を上げる、滑らかに）
-                    const speed = Math.min(scrollSpeed, currentScrollLeft) // 残り距離を超えないように
-                    desktopScrollContainerRef.current.scrollLeft -= speed // scrollByの代わりに直接代入で高速化
+                    // 距離に応じた速度でスクロール（Trello風：高速、滑らかに）
+                    // 残り距離に応じて速度を調整（近いほど遅く、遠いほど速く）
+                    const remainingDistance = currentScrollLeft
+                    const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
+                    const speed = Math.min(scrollSpeed * speedFactor, remainingDistance) // 残り距離を超えないように
+                    desktopScrollContainerRef.current.scrollLeft -= speed // 直接代入で高速化
                     // 次のフレームをスケジュール
                     autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
                   } else {
@@ -1877,7 +1880,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           return
         }
         
-        // 右側スクロール判定（Trello風：画面端20%の範囲 OR 右に3%以上動いた）
+        // 右側スクロール判定（Trello風：画面端30%の範囲 OR 右に2%以上動いた）
         const shouldScrollRight = cardCenterX > containerRect.right - sensitivityZone || 
                                   (dragDistance > minDragThreshold)
         
@@ -1899,7 +1902,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 
                 // カードの現在位置を再計算
                 const currentDragDistance = currentCardCenterX - dragStartX
-                // 右側スクロール継続条件：画面右20%範囲内 OR 右に3%以上動いている（Trello風）
+                // 右側スクロール継続条件：画面右30%範囲内 OR 右に2%以上動いている（Trello風）
                 const shouldContinueRight = currentCardCenterX > containerRect.right - sensitivityZone || 
                                             currentDragDistance > minDragThreshold
                 
@@ -1907,10 +1910,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
                   const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
                   if (currentScrollLeft < maxScrollLeft) {
-                    // 距離に応じた速度でスクロール（速度を上げる、滑らかに）
+                    // 距離に応じた速度でスクロール（Trello風：高速、滑らかに）
                     const remainingDistance = maxScrollLeft - currentScrollLeft
-                    const speed = Math.min(scrollSpeed, remainingDistance) // 残り距離を超えないように
-                    desktopScrollContainerRef.current.scrollLeft += speed // scrollByの代わりに直接代入で高速化
+                    // 残り距離に応じて速度を調整（近いほど遅く、遠いほど速く）
+                    const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
+                    const speed = Math.min(scrollSpeed * speedFactor, remainingDistance) // 残り距離を超えないように
+                    desktopScrollContainerRef.current.scrollLeft += speed // 直接代入で高速化
                     // 次のフレームをスケジュール
                     autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
                   } else {

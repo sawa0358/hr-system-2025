@@ -673,7 +673,16 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                       employeeType={request.employeeType || undefined}
                       className="text-blue-700 font-semibold text-xs"
                     >
-                      {(request.employee || request.name || '未').slice(0, 3)}
+                      {(() => {
+                        // DBから取得したavatarTextを優先、なければlocalStorage、それもなければ名前の最初の3文字
+                        const dbAvatarText = request.avatarText || null
+                        const localStorageText = typeof window !== 'undefined'
+                          ? localStorage.getItem(`employee-avatar-text-${request.employeeId || request.id}`)
+                          : null
+                        const defaultText = (request.employee || request.name || '未').slice(0, 3)
+                        const text = dbAvatarText || localStorageText || defaultText
+                        return text.slice(0, 3)
+                      })()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-0.5 flex-1 min-w-0">

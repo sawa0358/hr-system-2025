@@ -72,6 +72,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ employees: [] })
     }
 
+    // 全社員のUserSettingsを一括取得（avatar-text用）
+    const employeeIds = employees.map(e => e.id)
+    const userSettings = await prisma.userSettings.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        key: 'avatar-text'
+      },
+      select: {
+        employeeId: true,
+        value: true
+      }
+    })
+    // employeeIdをキーとするマップに変換
+    const avatarTextMap = new Map<string, string>()
+    userSettings.forEach(setting => {
+      avatarTextMap.set(setting.employeeId, setting.value)
+    })
+
     // 社員ごとの統計を集計
     const today = new Date()
     const resultsArrays = await Promise.all(
@@ -176,6 +194,7 @@ export async function GET(request: NextRequest) {
           // 「承認待ち」画面では申請がある場合のみカードを返す
           if (requests.length > 0) {
             // 各申請ごとにカードを生成
+            const avatarText = avatarTextMap.get(e.id) || null
             return requests.map((req) => ({
               id: `${e.id}_${req.id}`, // ユニークID
               employeeId: e.id, // 元の社員IDを保持
@@ -190,6 +209,7 @@ export async function GET(request: NextRequest) {
               showInOrgChart: e.showInOrgChart || null,
               vacationPattern: e.vacationPattern || null,
               weeklyPattern: e.weeklyPattern || null,
+              avatarText: avatarText, // 画像テキスト（DBから取得）
               remaining: calculatedRemaining,
               used,
               pending,
@@ -211,6 +231,7 @@ export async function GET(request: NextRequest) {
         } else {
           // 「全社員」画面では社員ごとに1カードのみ（最新の申請情報を表示）
           const latestRequest = requests.length > 0 ? requests[0] : null
+          const avatarText = avatarTextMap.get(e.id) || null
           return {
             id: e.id,
             name: e.name,
@@ -224,6 +245,7 @@ export async function GET(request: NextRequest) {
             showInOrgChart: e.showInOrgChart || null,
             vacationPattern: e.vacationPattern || null,
             weeklyPattern: e.weeklyPattern || null,
+            avatarText: avatarText, // 画像テキスト（DBから取得）
             remaining: calculatedRemaining,
             used,
             pending,
@@ -306,6 +328,23 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      // フォールバック時もUserSettingsからavatar-textを取得
+      const employeeIds = employees.map(e => e.id)
+      const fallbackUserSettings = await prisma.userSettings.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          key: 'avatar-text'
+        },
+        select: {
+          employeeId: true,
+          value: true
+        }
+      }).catch(() => [])
+      const fallbackAvatarTextMap = new Map<string, string>()
+      fallbackUserSettings.forEach(setting => {
+        fallbackAvatarTextMap.set(setting.employeeId, setting.value)
+      })
+      
       const fallbackResults = employees.map(e => ({
         id: e.id,
         name: e.name,
@@ -319,6 +358,7 @@ export async function GET(request: NextRequest) {
         showInOrgChart: e.showInOrgChart || null,
         vacationPattern: e.vacationPattern || null,
         weeklyPattern: e.weeklyPattern || null,
+        avatarText: fallbackAvatarTextMap.get(e.id) || null, // 画像テキスト（DBから取得）
         remaining: 0,
         used: 0,
         pending: 0,

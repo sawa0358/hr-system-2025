@@ -156,9 +156,9 @@ export async function PUT(
       );
     }
 
-    // 雇用形態のバリデーション
+    // 雇用形態のバリデーション（コピー社員は除外）
     const validEmployeeTypes = ['正社員', '契約社員', 'パートタイム', '派遣社員', '業務委託', '外注先'];
-    if (body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '') {
+    if (!isCopyEmployee && body.employeeType !== undefined && body.employeeType !== null && body.employeeType !== '') {
       if (!validEmployeeTypes.includes(body.employeeType)) {
         return NextResponse.json(
           { error: '雇用形態は 正社員、契約社員、パートタイム、派遣社員、業務委託、外注先 のみ有効です' },

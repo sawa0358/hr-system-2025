@@ -125,7 +125,7 @@ export function Sidebar() {
         return false
       }
       
-      // 有給管理メニューの場合は雇用形態もチェック
+      // 有給管理メニューの場合は雇用形態もチェック（全権限者対象）
       if (item.href === "/leave") {
         // ログインしていない場合は表示しない
         if (!currentUser) {
@@ -133,13 +133,7 @@ export function Sidebar() {
           return false
         }
         
-        // 管理者・総務は雇用形態チェックをスキップ
-        if (currentUser.role === "admin" || currentUser.role === "hr") {
-          console.log("[Sidebar] 有給管理メニュー: 管理者/総務のため表示します")
-          return true
-        }
-        
-        // 雇用形態をチェック
+        // 雇用形態をチェック（全権限者が対象）
         const employeeType = currentUser.employeeType?.trim()
         if (!employeeType) {
           console.log("[Sidebar] 有給管理メニュー: employeeTypeが存在しません", currentUser)

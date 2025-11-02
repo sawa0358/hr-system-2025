@@ -81,12 +81,12 @@ export default function LeavePage() {
   
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
-
+  
   const tabs = [
-    { name: "社員", href: "/leave" },
-    { name: "管理者", href: "/leave/admin" },
-    { name: "設定", href: "/leave/settings" },
-  ] as const
+    { name: "社員", href: "/leave", show: true },
+    { name: "管理者", href: "/leave/admin", show: isAdminOrHR },
+    { name: "設定", href: "/leave/settings", show: isAdminOrHR },
+  ].filter(tab => tab.show)
 
   return (
     <main className="overflow-y-auto">

@@ -47,6 +47,10 @@ export default function LeaveSettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { currentUser } = useAuth()
+  
+  // 総務・管理者のみアクセス可
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
   const [isSaving, setIsSaving] = useState(false)
   const [isInitializing, setIsInitializing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -457,6 +461,24 @@ export default function LeaveSettingsPage() {
     } finally {
       setIsInitializing(false)
     }
+  }
+
+  // 総務・管理者以外はアクセス不可
+  if (!isAdminOrHR) {
+    return (
+      <main className="overflow-y-auto">
+        <div className="p-8 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-bold text-slate-900 mb-2">アクセス権限がありません</h2>
+            <p className="text-muted-foreground">このページは総務・管理者のみアクセス可能です。</p>
+            <Button className="mt-4" onClick={() => router.push("/leave/admin")}>
+              管理者画面に戻る
+            </Button>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   if (isLoading) {

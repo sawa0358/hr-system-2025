@@ -713,6 +713,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                       currentPattern={request.vacationPattern || null}
                       currentWeeklyPattern={request.weeklyPattern || null}
                       employeeName={request.employee || request.name}
+                      readonly={!(currentUser?.role === 'admin' || currentUser?.role === 'hr')}
                     />
                   )}
                 </div>

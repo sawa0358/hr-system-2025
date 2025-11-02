@@ -989,42 +989,49 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             </CollapsibleContent>
           </Collapsible>
         ) : (
-          <div className="flex items-center gap-6 mb-3 min-w-full">
-            <WorkspaceSelector
-              workspaces={workspaces}
-              currentWorkspace={currentWorkspace}
-              currentUserId={currentUser?.id}
-              onWorkspaceChange={handleWorkspaceChange}
-              onCreateWorkspace={handleCreateWorkspace}
-              onEditWorkspace={handleEditWorkspace}
-              onDeleteWorkspace={handleDeleteWorkspace}
-              canCreateWorkspace={permissions?.createWorkspace || false}
-              isAdmin={currentUser?.role === 'admin' || false}
-              canEditWorkspace={(() => {
-                if (!currentWorkspace || !currentUser?.role) return false
-                const workspace = workspaces.find(w => w.id === currentWorkspace)
-                if (!workspace) return false
-                return checkWorkspacePermissions(
-                  currentUser.role,
-                  currentUser.id,
-                  workspace.createdBy || '',
-                  workspace.members?.map((m: any) => m.employeeId) || [],
-                  workspace.name
-                ).canEdit
-              })()}
-              canDeleteWorkspace={(() => {
-                if (!currentWorkspace || !currentUser?.role) return false
-                const workspace = workspaces.find(w => w.id === currentWorkspace)
-                if (!workspace) return false
-                return checkWorkspacePermissions(
-                  currentUser.role,
-                  currentUser.id,
-                  workspace.createdBy || '',
-                  workspace.members?.map((m: any) => m.employeeId) || [],
-                  workspace.name
-                ).canDelete
-              })()}
-            />
+          <div className="flex items-start gap-6 mb-3 min-w-full">
+            <div className="flex flex-col gap-1">
+              <WorkspaceSelector
+                workspaces={workspaces}
+                currentWorkspace={currentWorkspace}
+                currentUserId={currentUser?.id}
+                onWorkspaceChange={handleWorkspaceChange}
+                onCreateWorkspace={handleCreateWorkspace}
+                onEditWorkspace={handleEditWorkspace}
+                onDeleteWorkspace={handleDeleteWorkspace}
+                canCreateWorkspace={permissions?.createWorkspace || false}
+                isAdmin={currentUser?.role === 'admin' || false}
+                canEditWorkspace={(() => {
+                  if (!currentWorkspace || !currentUser?.role) return false
+                  const workspace = workspaces.find(w => w.id === currentWorkspace)
+                  if (!workspace) return false
+                  return checkWorkspacePermissions(
+                    currentUser.role,
+                    currentUser.id,
+                    workspace.createdBy || '',
+                    workspace.members?.map((m: any) => m.employeeId) || [],
+                    workspace.name
+                  ).canEdit
+                })()}
+                canDeleteWorkspace={(() => {
+                  if (!currentWorkspace || !currentUser?.role) return false
+                  const workspace = workspaces.find(w => w.id === currentWorkspace)
+                  if (!workspace) return false
+                  return checkWorkspacePermissions(
+                    currentUser.role,
+                    currentUser.id,
+                    workspace.createdBy || '',
+                    workspace.members?.map((m: any) => m.employeeId) || [],
+                    workspace.name
+                  ).canDelete
+                })()}
+              />
+              {workspaces.find(w => w.id === currentWorkspace)?.description && (
+                <div className="ml-8 text-xs text-slate-500 max-w-[280px] break-words whitespace-pre-wrap">
+                  {workspaces.find(w => w.id === currentWorkspace)?.description}
+                </div>
+              )}
+            </div>
             
             {currentWorkspace && (
               <>
@@ -1171,7 +1178,7 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         className={isMobile ? "flex-1 overflow-y-auto" : "flex-1 overflow-hidden"}
         data-list-section="true"
         style={{ 
-          backgroundColor: '#E6DDCD', 
+          backgroundColor: '#7eb8d6', 
           padding: '0', 
           width: '100%',
           touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto' // モバイルのみ縦スクロールを許可

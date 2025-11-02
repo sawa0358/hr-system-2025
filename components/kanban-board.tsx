@@ -1701,8 +1701,16 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     const container = desktopScrollContainerRef.current
     const containerRect = container.getBoundingClientRect()
     
-    // PC/モバイルどちらでも対応
-    const pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
+    // ポインタ位置を取得（イベントから直接取得、またはリファレンスから）
+    let pointerX = 0
+    if (event.activatorEvent && 'clientX' in event.activatorEvent) {
+      pointerX = event.activatorEvent.clientX
+    } else if (event.activatorEvent && 'touches' in event.activatorEvent && event.activatorEvent.touches.length > 0) {
+      pointerX = event.activatorEvent.touches[0].clientX
+    } else {
+      // フォールバック: リファレンスから取得
+      pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
+    }
     
     // pointerXが0の場合（初期化されていない）は処理をスキップ（左側への勝手な動きを防ぐ）
     if (pointerX === 0) return
@@ -1854,12 +1862,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        {/* モバイル・PC共通: 横スクロール表示（スクロールスナップ対応、リスト幅固定） */}
+        {/* モバイル・PC共通: 横スクロール表示（スムーズスクロール、リスト幅固定） */}
         <div 
           ref={desktopScrollContainerRef}
           className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
           style={{
-            scrollSnapType: 'x mandatory',
             scrollBehavior: 'smooth',
           }}
         >
@@ -1871,8 +1878,6 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                   <div
                     key={list.id}
                     style={{
-                      scrollSnapAlign: 'start',
-                      scrollSnapStop: 'always',
                       width: '320px', // モバイル・PC共通でリスト幅を固定
                       minWidth: '320px',
                     }}

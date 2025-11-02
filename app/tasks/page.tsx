@@ -938,9 +938,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                       return (
                         <>
                           {boardPermissions.canCreate && (
-                            <Button variant="outline" size="sm" onClick={handleCreateBoard} className="flex-shrink-0">
-                              <Plus className="w-4 h-4 mr-1" />
-                              追加
+                            <Button variant="outline" size="sm" onClick={handleCreateBoard} className="flex-shrink-0 px-2">
+                              <Plus className="w-4 h-4" />
                             </Button>
                           )}
                           {boardPermissions.canEdit && (
@@ -1065,9 +1064,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                         workspace.createdBy
                       ).canCreate
                     })() && (
-                      <Button variant="outline" size="sm" onClick={handleCreateBoard}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        ボード追加
+                      <Button variant="outline" size="sm" onClick={handleCreateBoard} className="px-2">
+                        <Plus className="w-4 h-4" />
                       </Button>
                     )}
                     {(() => {

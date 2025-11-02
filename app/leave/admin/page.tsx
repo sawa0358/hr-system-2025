@@ -88,7 +88,7 @@ export default function LeaveAdminPage() {
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {isManagerOrStoreManager ? "有給承認" : "有給管理（管理者）"}
@@ -97,7 +97,7 @@ export default function LeaveAdminPage() {
               {isManagerOrStoreManager ? "部下の有給申請を承認・却下できます" : "承認や全申請の確認、設定変更ができます"}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
             {tabs.map((tab) => (
               <Button
                 key={tab.name}

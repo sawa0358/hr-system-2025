@@ -204,9 +204,8 @@ export function WorkspaceSelector({
           </SelectContent>
         </Select>
         {canCreateWorkspace && onCreateWorkspace && (
-          <Button variant="outline" size="sm" onClick={onCreateWorkspace}>
-            <Plus className="w-4 h-4 mr-1" />
-            新規作成
+          <Button variant="outline" size="sm" onClick={onCreateWorkspace} className="px-2">
+            <Plus className="w-4 h-4" />
           </Button>
         )}
         {(canEditWorkspace || canDeleteWorkspace) && currentWorkspace && (

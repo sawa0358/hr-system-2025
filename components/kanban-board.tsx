@@ -2176,30 +2176,28 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
   return (
     <div className={isMobile ? '' : 'h-full flex flex-col'}>
-      {!isMobile && (
-        <div className="flex items-center justify-end mb-4 flex-shrink-0">
-          <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-            <Button
-              variant={viewMode === "card" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("card")}
-              className="h-8 gap-2"
-            >
-              <LayoutGrid className="w-4 h-4" />
-              カード
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="h-8 gap-2"
-            >
-              <List className="w-4 h-4" />
-              全体
-            </Button>
-          </div>
+      <div className={`flex items-center ${isMobile ? 'justify-center' : 'justify-end'} mb-4 flex-shrink-0`}>
+        <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
+          <Button
+            variant={viewMode === "card" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("card")}
+            className={isMobile ? "h-8 px-3 gap-2" : "h-8 gap-2"}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            カード
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className={isMobile ? "h-8 px-3 gap-2" : "h-8 gap-2"}
+          >
+            <List className="w-4 h-4" />
+            全体
+          </Button>
         </div>
-      )}
+      </div>
 
       <DndContext
         sensors={sensors}

@@ -91,7 +91,7 @@ export default function LeavePage() {
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-8">
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {isViewingOtherEmployee ? `${displayEmployeeName} の有給管理` : `${displayEmployeeName}さんの有給管理`}
@@ -100,7 +100,7 @@ export default function LeavePage() {
               {isViewingOtherEmployee ? "管理者プレビュー" : "社員の有給休暇を管理"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
             {tabs.map((tab) => (
               <Button
                 key={tab.name}

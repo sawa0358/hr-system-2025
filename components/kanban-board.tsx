@@ -1007,13 +1007,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         document.body.style.overflow = 'hidden'
         document.body.style.touchAction = 'none'
         
-        // 親要素（リストセクション）のスクロールも無効化
+        // 親要素（リストセクション）の縦スクロールは維持し、横スクロールコンテナだけ無効化
+        // リストセクションの縦スクロールは許可（touchActionは変更しない）
+        
+        // 横スクロールコンテナのスクロール動作を調整
         if (desktopScrollContainerRef.current) {
-          const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
-          if (listSection instanceof HTMLElement) {
-            listSection.style.overflowY = 'hidden'
-            listSection.style.touchAction = 'none'
-          }
+          // 横スクロールコンテナのtouchActionを調整して、ドラッグを優先
+          desktopScrollContainerRef.current.style.touchAction = 'pan-x pinch-zoom'
         }
         
         // ドラッグ開始時に右側に少しスクロール（浮く効果）
@@ -1088,13 +1088,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       document.body.style.overflow = ''
       document.body.style.touchAction = ''
       
-      // 親要素（リストセクション）のスクロールも再有効化
+      // 横スクロールコンテナのtouchActionを元に戻す
       if (desktopScrollContainerRef.current) {
-        const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
-        if (listSection instanceof HTMLElement) {
-          listSection.style.overflowY = ''
-          listSection.style.touchAction = ''
-        }
+        desktopScrollContainerRef.current.style.touchAction = ''
       }
     }
     
@@ -1751,8 +1747,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     
     // モバイルの場合、カードを左右に動かしたときのスクロール処理を優先
     if (isMobile) {
-      const scrollSpeed = 30 // モバイルでのスクロール速度（上げる）
-      const scrollThreshold = 150 // 画面端からの距離（広く）
+      const scrollSpeed = 40 // モバイルでのスクロール速度（上げる）
+      const scrollThreshold = 120 // 画面端からの距離（調整）
       
       // 既存の自動スクロールをクリア
       if (autoScrollIntervalRef.current) {
@@ -2020,13 +2016,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             document.body.style.overflow = ''
             document.body.style.touchAction = ''
             
-            // 親要素（リストセクション）のスクロールも再有効化
+            // 横スクロールコンテナのtouchActionを元に戻す
             if (desktopScrollContainerRef.current) {
-              const listSection = desktopScrollContainerRef.current.closest('[data-list-section="true"]')
-              if (listSection instanceof HTMLElement) {
-                listSection.style.overflowY = ''
-                listSection.style.touchAction = ''
-              }
+              desktopScrollContainerRef.current.style.touchAction = ''
             }
           }
         }}
@@ -2037,7 +2029,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
           style={{
             scrollBehavior: 'smooth',
-            touchAction: isMobile ? 'pan-x pinch-zoom' : 'auto', // モバイルでは横スクロールのみ許可
+            touchAction: isMobile ? 'pan-x pan-y pinch-zoom' : 'auto', // モバイルでは横縦両方のスクロールを許可
+            WebkitOverflowScrolling: 'touch', // iOSでのスムーズスクロール
           }}
         >
           {lists.length > 0 ? (

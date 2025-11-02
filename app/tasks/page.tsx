@@ -1168,13 +1168,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
 
       {/* アーカイブ表示またはカンバンボード - 独立したスクロールコンテナ */}
       <div 
-        className="flex-1 overflow-x-hidden overflow-y-auto"
+        className="flex-1 overflow-y-auto"
         data-list-section="true"
         style={{ 
           backgroundColor: '#E6DDCD', 
           padding: '0', 
           width: '100%',
-          touchAction: 'pan-y pinch-zoom' // 縦スクロールを許可、カード移動時の横スクロールも許可
+          touchAction: 'pan-y pinch-zoom' // 縦スクロールを許可
         }}
       >
         {taskFilters.showArchived && currentBoard ? (

@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle, Loader2, Edit, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -115,9 +116,15 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     const handleUpdate = () => {
       load()
     }
+    // パターン更新イベントをリッスン（画面遷移を防ぐため）
+    const handlePatternUpdate = () => {
+      load()
+    }
     window.addEventListener('vacation-request-updated', handleUpdate)
+    window.addEventListener('vacation-pattern-updated', handlePatternUpdate)
     return () => {
       window.removeEventListener('vacation-request-updated', handleUpdate)
+      window.removeEventListener('vacation-pattern-updated', handlePatternUpdate)
     }
   }, [userRole, employeeId, filter])
 
@@ -660,9 +667,21 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
             {userRole === "admin" ? (
               <div className="space-y-2 flex-1 flex flex-col">
+                <div className="flex items-center gap-2 mb-1">
+                  <Avatar className="w-8 h-8 flex-shrink-0">
+                    <AvatarFallback 
+                      employeeType={request.employeeType || undefined}
+                      className="text-blue-700 font-semibold text-xs"
+                    >
+                      {(request.employee || request.name || '未').slice(0, 3)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-0.5 flex-1 min-w-0">
+                    <div className="font-semibold text-sm text-foreground truncate">{request.employee || request.name}</div>
+                    <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
+                  </div>
+                </div>
                 <div className="space-y-0.5">
-                  <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
-                  <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
                   {userRole === "admin" && (
                     <VacationPatternSelector
                       employeeId={String(request.employeeId || request.id)}

@@ -141,6 +141,8 @@ export function VacationPatternSelector({
         } else if (result.grantLotsError) {
           console.warn('ロット自動生成エラー（無視）:', result.grantLotsError)
         }
+        // データ更新イベントを発火（画面遷移を防ぐため、現在のviewを維持）
+        window.dispatchEvent(new Event('vacation-pattern-updated'))
       } else {
         const error = await response.json()
         alert(error.error || 'パターン値の更新に失敗しました')

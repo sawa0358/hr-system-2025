@@ -9,10 +9,27 @@ import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { Button } from "@/components/ui/button"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 
 export default function LeavePage() {
   const { currentUser } = useAuth()
+  const router = useRouter()
+  const params = useSearchParams()
+  const pathname = usePathname()
+  
+  // 総務・管理者権限者はデフォルトで「管理者画面」の「承認待ち」にリダイレクト
+  useEffect(() => {
+    if (!currentUser) return // currentUserが未設定の場合は何もしない
+    
+    const isAdminOrHR = currentUser.role === 'admin' || currentUser.role === 'hr'
+    if (!isAdminOrHR) return // 管理者・総務以外は何もしない
+    
+    // employeeIdパラメータがない場合（管理者が特定社員の画面を見ていない場合）のみリダイレクト
+    const employeeIdParam = params?.get("employeeId")
+    if (!employeeIdParam && pathname === '/leave') {
+      router.replace('/leave/admin?view=pending')
+    }
+  }, [currentUser?.role, params?.get("employeeId"), pathname, router])
 
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
@@ -47,14 +64,10 @@ export default function LeavePage() {
 
   // 社員トップ（/leave）は常に社員用UIを表示する
   const userRole: 'employee' | 'admin' = 'employee'
-
-  const router = useRouter()
-  const pathname = usePathname()
-  const params = useSearchParams()
   
   // employeeIdパラメータを取得（管理者が特定社員の画面を見る場合）
-  const employeeIdParam = params.get("employeeId")
-  const employeeNameParam = params.get("name")
+  const employeeIdParam = params?.get("employeeId")
+  const employeeNameParam = params?.get("name")
   
   // 表示する社員IDを決定（パラメータがあればそれを使用、なければ自分のID）
   const displayEmployeeId = employeeIdParam || currentUser?.id

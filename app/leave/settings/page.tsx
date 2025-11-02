@@ -257,10 +257,36 @@ export default function LeaveSettingsPage() {
       const saveResult = await saveResponse.json()
       console.log('設定保存成功:', saveResult)
       
-      toast({
-        title: "保存完了（未反映）",
-        description: "まだ反映していません。反映するには『初期設定投入』を実行してください。",
-      })
+      // 保存後に即座に全社員の有給日数を再計算
+      try {
+        console.log('有給日数の即時再計算を開始...')
+        const recalcResponse = await fetch('/api/vacation/recalc/all', {
+          method: 'POST',
+        })
+        
+        if (recalcResponse.ok) {
+          const recalcResult = await recalcResponse.json()
+          console.log('有給日数再計算成功:', recalcResult)
+          toast({
+            title: "保存完了・日数反映済み",
+            description: `設定を保存し、全社員の有給日数を即座に再計算しました。成功: ${recalcResult.summary?.success || 0}件`,
+          })
+        } else {
+          console.warn('有給日数再計算エラー（設定は保存済み）:', await recalcResponse.text())
+          toast({
+            title: "保存完了（日数反映に失敗）",
+            description: "設定は保存されましたが、日数の再計算に失敗しました。手動で『全社員付与ロット生成』を実行してください。",
+            variant: "default",
+          })
+        }
+      } catch (recalcError) {
+        console.error('有給日数再計算例外（設定は保存済み）:', recalcError)
+        toast({
+          title: "保存完了（日数反映に失敗）",
+          description: "設定は保存されましたが、日数の再計算に失敗しました。手動で『全社員付与ロット生成』を実行してください。",
+          variant: "default",
+        })
+      }
     } catch (error) {
       console.error('保存エラー:', error)
       

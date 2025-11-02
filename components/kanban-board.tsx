@@ -68,6 +68,7 @@ import {
   closestCorners,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -196,7 +197,11 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         style={{ 
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
-            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
+            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
+          touchAction: isMobile ? 'none' : 'auto', // モバイルではタッチアクションを無効化（ドラッグ優先）
+          willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
+          WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
+          userSelect: 'none',
         }}
         {...attributes}
         {...listeners}
@@ -363,7 +368,11 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         style={{ 
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
-            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
+            : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
+          touchAction: isMobile ? 'none' : 'auto', // モバイルではタッチアクションを無効化（ドラッグ優先）
+          willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
+          WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
+          userSelect: 'none',
         }}
         {...attributes}
         {...listeners}
@@ -963,12 +972,22 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [boardData, showArchived, dateFrom, dateTo])
 
-  // モバイル・PC共通：長押し（500ms）でドラッグを開始
+  // モバイル・PC共通：長押し（150ms）でドラッグを開始（Trello風に感度向上）
+  // モバイル用：TouchSensor（タッチイベントベース、より敏感）
+  // PC用：PointerSensor（マウスイベントベース）
   const sensors = useSensors(
+    // モバイル用：TouchSensor（タッチイベントを直接処理）
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150, // 150ms長押しでドラッグ開始（Trello風）
+        tolerance: 3, // 3px以内の移動は許容（感度向上）
+      },
+    }),
+    // PC用：PointerSensor（マウス・タッチ両対応だがモバイルではTouchSensorが優先）
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 250, // 250ms長押しでドラッグ開始
-        tolerance: 5, // 5px以内の移動は許容
+        delay: isMobile ? 150 : 0, // モバイルは150ms、PCは即座に反応
+        tolerance: 3, // 3px以内の移動は許容（感度向上）
       },
     }),
     useSensor(KeyboardSensor, {
@@ -1792,12 +1811,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const dragBonus = Math.min(dragDistancePercent * 50, 30) // 最大30px/10msのボーナス
         const scrollSpeed = baseSpeed + dragBonus
         
-        // スクロール開始の感度を大幅に上げる（画面の50%の範囲、または少しでも動いたら）
-        const sensitivityZone = containerWidth * 0.5
-        const minDragThreshold = containerWidth * 0.05 // 画面幅の5%以上動いたらスクロール開始
+        // スクロール開始の感度を調整（Trello風：画面端10-20%の範囲、または少しでも動いたら）
+        const sensitivityZone = containerWidth * 0.2 // 画面端20%の範囲（Trello風）
+        const minDragThreshold = containerWidth * 0.03 // 画面幅の3%以上動いたらスクロール開始（より敏感に）
         
-        // 左側スクロール判定
-        // 条件：画面左50%の範囲 OR 左に5%以上動いた
+        // 左側スクロール判定（Trello風：画面端20%の範囲 OR 左に3%以上動いた）
         const shouldScrollLeft = cardCenterX < containerRect.left + sensitivityZone || 
                                  (dragDistance < -minDragThreshold)
         
@@ -1812,7 +1830,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 
                 // カードの現在位置を再計算
                 const currentDragDistance = currentCardCenterX - dragStartX
-                // 左側スクロール継続条件：画面左50%範囲内 OR 左に5%以上動いている
+                // 左側スクロール継続条件：画面左20%範囲内 OR 左に3%以上動いている（Trello風）
                 const shouldContinueLeft = currentCardCenterX < containerRect.left + sensitivityZone || 
                                            currentDragDistance < -minDragThreshold
                 
@@ -1843,8 +1861,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           return
         }
         
-        // 右側スクロール判定
-        // 条件：画面右50%の範囲 OR 右に5%以上動いた
+        // 右側スクロール判定（Trello風：画面端20%の範囲 OR 右に3%以上動いた）
         const shouldScrollRight = cardCenterX > containerRect.right - sensitivityZone || 
                                   (dragDistance > minDragThreshold)
         
@@ -1859,7 +1876,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 
                 // カードの現在位置を再計算
                 const currentDragDistance = currentCardCenterX - dragStartX
-                // 右側スクロール継続条件：画面右50%範囲内 OR 右に5%以上動いている
+                // 右側スクロール継続条件：画面右20%範囲内 OR 右に3%以上動いている（Trello風）
                 const shouldContinueRight = currentCardCenterX > containerRect.right - sensitivityZone || 
                                             currentDragDistance > minDragThreshold
                 
@@ -2062,8 +2079,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
           style={{
             scrollBehavior: 'smooth',
-            touchAction: isMobile ? 'pan-x pan-y pinch-zoom' : 'auto', // モバイルでは横縦両方のスクロールを許可
+            touchAction: isMobile ? 'pan-x pinch-zoom' : 'auto', // モバイルでは横スクロールのみ許可（縦スクロールは親要素）
             WebkitOverflowScrolling: 'touch', // iOSでのスムーズスクロール
+            overscrollBehaviorX: 'contain', // 横スクロールのオーバースクロールを抑制
           }}
         >
           {lists.length > 0 ? (

@@ -227,7 +227,35 @@ export function BulletinBoard({ isAdmin = false }: BulletinBoardProps) {
                 key={bulletin.id}
                 className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-colors bg-white"
               >
-                <div className="flex items-start justify-between mb-2">
+                {/* スマホ: 一番上にカテゴリ・編集・削除アイコンを横並び */}
+                <div className="flex items-center justify-between mb-3 md:hidden">
+                  <Badge variant={getCategoryColor(bulletin.category)} className="text-xs">
+                    {bulletin.category}
+                  </Badge>
+                  {isAdmin && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(bulletin)}
+                        className="h-7 w-7 p-0"
+                      >
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(bulletin.id)}
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* PC: 通常のレイアウト（タイトルとカテゴリ・アイコンが横並び） */}
+                <div className="hidden md:flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 flex-1">
                     {bulletin.pinned && <Pin className="w-4 h-4 text-blue-600 fill-blue-600" />}
                     <h3 className="font-semibold text-slate-900">{bulletin.title}</h3>
@@ -263,7 +291,22 @@ export function BulletinBoard({ isAdmin = false }: BulletinBoardProps) {
                     )}
                   </div>
                 </div>
+                
+                {/* タイトル（スマホ表示） */}
+                <div className="flex items-center gap-2 mb-2 md:hidden">
+                  {bulletin.pinned && <Pin className="w-4 h-4 text-blue-600 fill-blue-600" />}
+                  <h3 className="font-semibold text-slate-900 flex-1">{bulletin.title}</h3>
+                  {isAdmin && isNewBulletin(bulletin.date) && (
+                    <Badge variant="default" className="bg-red-500 text-white text-xs">
+                      NEW
+                    </Badge>
+                  )}
+                </div>
+                
+                {/* 内容 */}
                 <p className="text-sm text-slate-600 mb-3 leading-relaxed">{bulletin.content}</p>
+                
+                {/* 日付 */}
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <Calendar className="w-3 h-3" />
                   <span>{bulletin.date}</span>

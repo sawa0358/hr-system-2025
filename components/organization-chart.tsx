@@ -1890,24 +1890,24 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   return (
     <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="h-full w-full rounded-none border-0 shadow-none" style={{ backgroundColor: '#b4d5e7' }}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <h3 className="font-semibold text-slate-900">組織図</h3>
+        <div className="overflow-x-auto p-4 border-b border-slate-200">
+          <div className="flex items-center gap-3 min-w-max">
+            <h3 className="font-semibold text-slate-900 whitespace-nowrap">組織図</h3>
             {!canEdit && (
-              <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <Badge variant="secondary" className="text-xs flex items-center gap-1 whitespace-nowrap">
                 <Eye className="w-3 h-3" />
                 閲覧のみ
               </Badge>
             )}
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs whitespace-nowrap">
               表示: {zoom}%
             </Badge>
             {selectedNodeId && (
-              <Button variant="outline" size="sm" onClick={handleResetView}>
+              <Button variant="outline" size="sm" onClick={handleResetView} className="whitespace-nowrap">
                 全体表示に戻る
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => setShowLevelControls(!showLevelControls)}>
+            <Button variant="outline" size="sm" onClick={() => setShowLevelControls(!showLevelControls)} className="whitespace-nowrap">
               <Users className="w-4 h-4 mr-2" />
               表示階層設定
             </Button>
@@ -1915,6 +1915,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               variant="outline" 
               size="sm" 
               onClick={() => setShowUnassignedArea(!showUnassignedArea)}
+              className="whitespace-nowrap"
             >
               <List className="w-4 h-4 mr-2" />
               未配置社員({unassignedEmployees.length})
@@ -1923,21 +1924,22 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               variant="outline" 
               size="sm" 
               onClick={() => setIsCompactMode(!isCompactMode)}
+              className="whitespace-nowrap"
             >
               {isCompactMode ? '詳細表示' : 'コンパクト表示'}
             </Button>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 50}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleResetZoom}>
-              <Maximize2 className="w-4 h-4 mr-2" />
-              100%
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleZoomIn} disabled={zoom >= 200}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button variant="outline" size="sm" onClick={handleZoomOut} disabled={zoom <= 50} className="whitespace-nowrap">
+                <ZoomOut className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleResetZoom} className="whitespace-nowrap">
+                <Maximize2 className="w-4 h-4 mr-2" />
+                100%
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleZoomIn} disabled={zoom >= 200} className="whitespace-nowrap">
+                <ZoomIn className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -55,6 +55,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
+  const sidebarRef = useRef<HTMLElement>(null)
 
   // 有給管理を表示するべき雇用形態
   const allowedEmployeeTypesForLeave = [
@@ -112,6 +113,107 @@ export function Sidebar() {
       window.removeEventListener('vacation-request-updated', handleVacationUpdate)
     }
   }, [currentUser, isAuthenticated])
+
+  // 展開状態の時にスクロールやクリックで自動的に閉じる
+  useEffect(() => {
+    if (collapsed) {
+      // 折りたたみ状態の時は何もしない
+      return
+    }
+
+    // スクロールイベントで閉じる（縦・横両方のスクロールを検知）
+    const handleScroll = () => {
+      setCollapsed(true)
+    }
+
+    // ホイールイベントで横スクロールを明示的に検知
+    const handleWheel = (event: WheelEvent) => {
+      // 横スクロール（deltaXが0でない）の場合に閉じる
+      if (Math.abs(event.deltaX) > 0) {
+        // サイドバー内の横スクロールは無視
+        const target = event.target as Node
+        if (sidebarRef.current && sidebarRef.current.contains(target)) {
+          return
+        }
+        setCollapsed(true)
+      }
+      // 縦スクロールも検知（deltaYが0でない場合）
+      else if (Math.abs(event.deltaY) > 0) {
+        // サイドバー内の縦スクロールは無視
+        const target = event.target as Node
+        if (sidebarRef.current && sidebarRef.current.contains(target)) {
+          return
+        }
+        setCollapsed(true)
+      }
+    }
+
+    // クリックイベントで閉じる（サイドバー内のクリックは除外）
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (sidebarRef.current && sidebarRef.current.contains(target)) {
+        // サイドバー内のクリックは無視
+        return
+      }
+      // サイドバー外のクリックで閉じる
+      setCollapsed(true)
+    }
+
+    // 画面全体のスクロールを検知（window、document、bodyなど複数の要素で監視）
+    // scrollイベントは縦・横両方のスクロールを検知できる
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    document.addEventListener('scroll', handleScroll, { passive: true })
+    document.documentElement.addEventListener('scroll', handleScroll, { passive: true })
+    document.body.addEventListener('scroll', handleScroll, { passive: true })
+    
+    // ホイールイベントで横スクロールを明示的に検知
+    window.addEventListener('wheel', handleWheel, { passive: true })
+    document.addEventListener('wheel', handleWheel, { passive: true })
+    document.documentElement.addEventListener('wheel', handleWheel, { passive: true })
+    document.body.addEventListener('wheel', handleWheel, { passive: true })
+    
+    // メインコンテンツエリアのスクロールも検知
+    const mainElement = document.querySelector('main')
+    if (mainElement) {
+      mainElement.addEventListener('scroll', handleScroll, { passive: true })
+      mainElement.addEventListener('wheel', handleWheel, { passive: true })
+    }
+    
+    // すべてのスクロール可能な要素を監視（横スクロール対応）
+    const scrollableElements = document.querySelectorAll('[style*="overflow"], [class*="overflow"]')
+    scrollableElements.forEach((element) => {
+      element.addEventListener('scroll', handleScroll, { passive: true })
+      element.addEventListener('wheel', handleWheel, { passive: true })
+    })
+    
+    // 少し遅延させて、展開ボタンのクリックイベントが先に処理されるようにする
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClick)
+    }, 100)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('scroll', handleScroll)
+      document.documentElement.removeEventListener('scroll', handleScroll)
+      document.body.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('wheel', handleWheel)
+      document.removeEventListener('wheel', handleWheel)
+      document.documentElement.removeEventListener('wheel', handleWheel)
+      document.body.removeEventListener('wheel', handleWheel)
+      // クリーンアップ時に再度取得してイベントリスナーを削除
+      const mainElementForCleanup = document.querySelector('main')
+      if (mainElementForCleanup) {
+        mainElementForCleanup.removeEventListener('scroll', handleScroll)
+        mainElementForCleanup.removeEventListener('wheel', handleWheel)
+      }
+      scrollableElements.forEach((element) => {
+        element.removeEventListener('scroll', handleScroll)
+        element.removeEventListener('wheel', handleWheel)
+      })
+      clearTimeout(timeoutId)
+      document.removeEventListener('click', handleClick)
+    }
+  }, [collapsed])
 
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => 
@@ -193,6 +295,7 @@ export function Sidebar() {
       <LoginModal open={!isAuthenticated} onLoginSuccess={login} />
 
       <aside
+        ref={sidebarRef}
         className={cn(
           "bg-white border-r border-slate-200 transition-all duration-300 flex flex-col",
           collapsed ? "w-16" : "w-64",
@@ -209,7 +312,15 @@ export function Sidebar() {
               </div>
             </div>
           )}
-          <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="ml-auto">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={(e) => {
+              e.stopPropagation()
+              setCollapsed(!collapsed)
+            }} 
+            className="ml-auto"
+          >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </Button>
         </div>
@@ -225,6 +336,7 @@ export function Sidebar() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={(e) => e.stopPropagation()}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                       "hover:bg-blue-50 hover:text-blue-600",
@@ -243,7 +355,10 @@ export function Sidebar() {
             {canShowDropdown && (
               <li>
                 <button
-                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDropdownOpen(!dropdownOpen)
+                  }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                     "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
@@ -277,6 +392,7 @@ export function Sidebar() {
                         <li key={item.href}>
                           <Link
                             href={item.href}
+                            onClick={(e) => e.stopPropagation()}
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm relative",
                               "hover:bg-blue-50 hover:text-blue-600",
@@ -315,6 +431,7 @@ export function Sidebar() {
                     <li key={item.href}>
                       <Link
                         href={item.href}
+                        onClick={(e) => e.stopPropagation()}
                         className={cn(
                           "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                           "hover:bg-blue-50 hover:text-blue-600",
@@ -353,7 +470,10 @@ export function Sidebar() {
               variant="outline"
               size="sm"
               className="w-full justify-start text-slate-700 hover:text-red-600 hover:border-red-300 bg-transparent"
-              onClick={logout}
+              onClick={(e) => {
+                e.stopPropagation()
+                logout()
+              }}
             >
               <LogOut className="w-4 h-4 mr-2" />
               ログアウト

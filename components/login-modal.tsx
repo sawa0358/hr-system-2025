@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useId } from "react"
 import { useRouter } from "next/navigation"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -10,9 +10,6 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, AlertCircle } from "lucide-react"
-// import { mockEmployees } from "@/lib/mock-data" // 実際のAPIから取得するため不要
-import { prisma } from "@/lib/prisma"
-import { logAuthAction } from "@/lib/activity-logger"
 
 interface LoginModalProps {
   open: boolean
@@ -21,6 +18,9 @@ interface LoginModalProps {
 
 export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
   const router = useRouter()
+  const nameId = useId()
+  const passwordId = useId()
+  const rememberId = useId()
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -41,14 +41,13 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
       if (response.ok) {
         const employees = await response.json()
         console.log("Found employees:", employees.length)
-        const employee = employees.find((emp: any) => emp.name === name && emp.password === password)
+        const employee = employees.find((emp: any) => emp.name === name && emp.password === password && emp.role)
         console.log("Found employee:", employee ? `${employee.name} (ID: ${employee.id}, Role: ${employee.role})` : "None")
         
         if (employee) {
           // 停止中ユーザーのログインをブロック
           if (employee.isSuspended || employee.status === 'suspended') {
             setError("このアカウントは停止中です。管理者にお問い合わせください。")
-            logAuthAction('login', name, false) // ログイン失敗を記録
             setIsLoading(false)
             return
           }
@@ -56,19 +55,18 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           // 休職・退職ユーザーのログインをブロック
           if (employee.status === 'leave' || employee.status === 'retired') {
             setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
-            logAuthAction('login', name, false) // ログイン失敗を記録
             setIsLoading(false)
             return
           }
           
           onLoginSuccess(employee, rememberMe)
-          // ログイン成功後、タスク管理ページにリダイレクト
-          router.push('/tasks')
-          // ログイン成功時はローディング状態を維持（ページ遷移まで）
-          return // ログイン成功時はここで終了
+          setIsLoading(false)
+          // ログイン成功後、少し待ってからタスク管理ページにリダイレクト
+          setTimeout(() => {
+            router.push('/tasks')
+          }, 100)
         } else {
           setError("名前またはパスワードが正しくありません")
-          logAuthAction('login', name, false) // ログイン失敗を記録
           setIsLoading(false)
         }
       } else {
@@ -98,9 +96,9 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
         <form onSubmit={handleLogin} className="space-y-4 mt-4">
           <div className="space-y-2">
-            <Label htmlFor="name">名前（登録名）</Label>
+            <Label htmlFor={nameId}>名前（登録名）</Label>
             <Input
-              id="name"
+              id={nameId}
               type="text"
               placeholder="フルネーム（スペースを入れない）"
               value={name}
@@ -111,9 +109,9 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">パスワード</Label>
+            <Label htmlFor={passwordId}>パスワード</Label>
             <Input
-              id="password"
+              id={passwordId}
               type="password"
               placeholder="パスワードを入力"
               value={password}
@@ -124,13 +122,13 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
           <div className="flex items-center space-x-2">
             <Checkbox
-              id="remember"
+              id={rememberId}
               checked={rememberMe}
               onCheckedChange={(checked) => setRememberMe(checked === true)}
             />
             <label
-              htmlFor="remember"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              htmlFor={rememberId}
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               ログイン情報を保存
             </label>

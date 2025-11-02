@@ -15,6 +15,7 @@ import { useAuth } from "@/lib/auth-context"
 import { getPermissions } from "@/lib/permissions"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { cn } from "@/lib/utils"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -22,6 +23,7 @@ interface VacationListProps {
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
   employeeId?: string // 表示する社員ID（社員モードで使用）
   onPendingCountChange?: (count: number) => void // 承認待ちの申請数を通知するコールバック
+  disableCardClick?: boolean // カードクリックを無効化（店長・マネージャー用）
   filters?: {
     searchQuery: string
     department: string
@@ -32,7 +34,7 @@ interface VacationListProps {
   }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange, disableCardClick = false }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
@@ -79,15 +81,21 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         try {
           // 現在のview（pending or all）を取得
           const currentView = filter === "pending" ? "pending" : "all"
+          console.log(`[有給管理] API呼び出し: /api/vacation/admin/applicants?view=${currentView}`)
           const res = await fetch(`/api/vacation/admin/applicants?view=${currentView}`)
+          console.log(`[有給管理] APIレスポンス: status=${res.status}, ok=${res.ok}`)
           if (res.ok) {
             const json = await res.json()
-            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`)
+            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`, json.employees?.slice(0, 2))
             setAdminEmployees(json.employees || [])
           } else {
-            console.error(`[有給管理] APIエラー: ${res.status}`)
+            const errorText = await res.text()
+            console.error(`[有給管理] APIエラー: ${res.status}`, errorText)
             setAdminEmployees([])
           }
+        } catch (error) {
+          console.error(`[有給管理] API呼び出しエラー:`, error)
+          setAdminEmployees([])
         } finally {
           setLoading(false)
         }
@@ -647,9 +655,16 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return (
         <Card
           key={request.id}
-          className="flex flex-col min-h-[92px] p-0 cursor-pointer"
+          className={cn(
+            "flex flex-col min-h-[92px] p-0",
+            !disableCardClick && onEmployeeClick && userRole === "admin" ? "cursor-pointer" : "cursor-default"
+          )}
           style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
           onClick={(e) => {
+            // カードクリックが無効化されている場合は何もしない
+            if (disableCardClick) {
+              return
+            }
             // ダイアログやSelect内のクリックは無視
             if ((e.target as HTMLElement).closest('[role="dialog"]') || 
                 (e.target as HTMLElement).closest('[role="listbox"]') ||

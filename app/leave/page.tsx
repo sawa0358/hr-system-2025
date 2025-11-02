@@ -17,12 +17,14 @@ export default function LeavePage() {
   const params = useSearchParams()
   const pathname = usePathname()
   
-  // 総務・管理者権限者はデフォルトで「管理者画面」の「承認待ち」にリダイレクト
+  // 総務・管理者・店長・マネージャー権限者はデフォルトで「管理者画面」の「承認待ち」にリダイレクト
   useEffect(() => {
     if (!currentUser) return // currentUserが未設定の場合は何もしない
     
     const isAdminOrHR = currentUser.role === 'admin' || currentUser.role === 'hr'
-    if (!isAdminOrHR) return // 管理者・総務以外は何もしない
+    const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
+    const canAccessAdminPage = isAdminOrHR || isManagerOrStoreManager
+    if (!canAccessAdminPage) return // 権限がない場合は何もしない
     
     // employeeIdパラメータがない場合（管理者が特定社員の画面を見ていない場合）のみリダイレクト
     const employeeIdParam = params?.get("employeeId")

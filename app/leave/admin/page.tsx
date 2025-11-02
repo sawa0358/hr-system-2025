@@ -10,12 +10,14 @@ import { EmployeeFilters } from "@/components/employee-filters"
 import { useMemo, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Play } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function LeaveAdminPage() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
   const { toast } = useToast()
+  const { currentUser } = useAuth()
   const initialView = useMemo(() => (params.get("view") === "all" ? "all" : "pending"), [params])
   const [view, setView] = useState<"pending" | "all">(initialView)
   const [isGeneratingLots, setIsGeneratingLots] = useState(false)
@@ -28,6 +30,14 @@ export default function LeaveAdminPage() {
     position: "all",
     showInOrgChart: "all"
   })
+
+  // 総務・管理者のみ「管理者」「設定」ボタンを表示
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  // 店長・マネージャーは承認待ちのみ表示
+  const isManagerOrStoreManager = currentUser?.role === 'manager' || currentUser?.role === 'store_manager'
+  
+  // 店長・マネージャーの場合は「承認待ち」のみ表示し、「全社員」ボタンは非表示
+  const canViewAllEmployees = isAdminOrHR && !isManagerOrStoreManager
 
   // 全社員の付与ロット生成
   const handleGenerateLots = async () => {
@@ -66,18 +76,26 @@ export default function LeaveAdminPage() {
   }
 
   const tabs = [
-    { name: "社員", href: "/leave" },
-    { name: "管理者", href: "/leave/admin" },
-    { name: "設定", href: "/leave/settings" },
-  ] as const
+    { 
+      name: "社員", 
+      href: currentUser ? `/leave?employeeId=${currentUser.id}&name=${encodeURIComponent(currentUser.name || '')}` : "/leave", 
+      show: true 
+    },
+    { name: "管理者", href: "/leave/admin", show: isAdminOrHR },
+    { name: "設定", href: "/leave/settings", show: isAdminOrHR },
+  ].filter(tab => tab.show)
 
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">有給管理（管理者）</h1>
-            <p className="text-slate-600">承認や全申請の確認、設定変更ができます</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              {isManagerOrStoreManager ? "有給承認" : "有給管理（管理者）"}
+            </h1>
+            <p className="text-slate-600">
+              {isManagerOrStoreManager ? "部下の有給申請を承認・却下できます" : "承認や全申請の確認、設定変更ができます"}
+            </p>
           </div>
           <div className="flex gap-2">
             {tabs.map((tab) => (
@@ -122,7 +140,9 @@ export default function LeaveAdminPage() {
                 </span>
               )}
             </Button>
-            <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
+            {canViewAllEmployees && (
+              <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
+            )}
           </div>
         </div>
 
@@ -132,8 +152,9 @@ export default function LeaveAdminPage() {
               userRole="admin"
               filter={view === "pending" ? "pending" : "all"}
               filters={filters}
-              onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
+              onEmployeeClick={isManagerOrStoreManager ? undefined : (id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
               onPendingCountChange={setPendingCount}
+              disableCardClick={isManagerOrStoreManager}
             />
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -51,6 +51,7 @@ const roleLabels: Record<string, string> = {
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(true)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const pathname = usePathname()
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
@@ -62,6 +63,55 @@ export function Sidebar() {
     "パートタイム",
     "派遣社員"
   ]
+
+  // 承認待ちの件数を取得（店長・マネージャー・総務・管理者のみ）
+  useEffect(() => {
+    // 店長・マネージャー・総務・管理者で、ログイン済みの場合のみ取得
+    if (!currentUser || (!isAuthenticated)) {
+      return
+    }
+
+    const canViewBadge = currentUser.role === 'admin' || currentUser.role === 'hr' || 
+                         currentUser.role === 'manager' || currentUser.role === 'store_manager'
+    if (!canViewBadge) {
+      setPendingCount(0)
+      return
+    }
+
+    // 承認待ちの件数を取得
+    const fetchPendingCount = async () => {
+      try {
+        const res = await fetch('/api/vacation/admin/applicants?view=pending')
+        if (res.ok) {
+          const json = await res.json()
+          // 承認待ち画面では各申請ごとにカードが生成されるため、レスポンスのカード数が承認待ちの申請カード数
+          const count = json.employees?.length || 0
+          setPendingCount(count)
+        } else {
+          setPendingCount(0)
+        }
+      } catch (error) {
+        console.error('[Sidebar] 承認待ち件数取得エラー:', error)
+        setPendingCount(0)
+      }
+    }
+
+    fetchPendingCount()
+
+    // 定期的に更新（30秒ごと）
+    const interval = setInterval(fetchPendingCount, 30000)
+
+    // カスタムイベントで承認状態が変わった時に更新
+    const handleVacationUpdate = () => {
+      fetchPendingCount()
+    }
+    window.addEventListener('vacation-request-updated', handleVacationUpdate)
+
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('vacation-request-updated', handleVacationUpdate)
+    }
+  }, [currentUser, isAuthenticated])
 
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => 
@@ -202,19 +252,29 @@ export function Sidebar() {
                     {visibleDropdownItems.map((item) => {
                       const Icon = item.icon
                       const isActive = pathname === item.href
+                      // 有給管理メニューの場合のみバッジを表示
+                      const showBadge = item.href === "/leave" && pendingCount > 0
 
                       return (
                         <li key={item.href}>
                           <Link
                             href={item.href}
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
+                              "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm relative",
                               "hover:bg-blue-50 hover:text-blue-600",
                               isActive ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-600",
                             )}
                           >
                             <Icon className="w-4 h-4 flex-shrink-0" />
-                            <span className="font-medium">{item.label}</span>
+                            <span className="font-medium flex-1">{item.label}</span>
+                            {showBadge && (
+                              <span className={cn(
+                                "bg-red-500 text-white text-xs font-bold rounded-full h-5 px-1.5 flex items-center justify-center min-w-[20px]",
+                                isActive ? "bg-red-400" : ""
+                              )}>
+                                {pendingCount > 99 ? '99+' : pendingCount}
+                              </span>
+                            )}
                           </Link>
                         </li>
                       )

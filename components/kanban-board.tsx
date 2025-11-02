@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, GripVertical, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
+import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { taskTemplates } from "@/lib/mock-data"
 import { checkListPermissions, checkCardPermissions, getPermissionErrorMessage } from "@/lib/permissions"
@@ -110,7 +110,7 @@ interface KanbanList {
   color?: string
 }
 
-function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string }) {
+function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -121,12 +121,39 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     id: task.id,
     disabled: !canDrag // 権限がない場合はドラッグを無効化
   })
+  
+  // モバイル用：クリックとドラッグを区別するためのフラグ
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
+  const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // モバイルでドラッグが開始されていない場合のみクリックを実行
+    if (isMobile && !isDragging && activeId !== task.id) {
+      // 少し遅延させて、ドラッグイベントと競合しないようにする
+      clickTimeoutRef.current = setTimeout(() => {
+        if (!isDragging && activeId !== task.id) {
+          onClick()
+        }
+      }, 200)
+    } else if (!isMobile) {
+      onClick()
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
   }
+  
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -162,7 +189,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       className="mb-1"
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow ${
+        className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -170,18 +197,23 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
         }}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => {
+          // ドラッグ中でない場合のみクリックイベントを実行
+          if (!isDragging && e.detail === 1) {
+            // シングルクリックのみ処理（ダブルクリックは無視）
+            setTimeout(() => {
+              if (!isDragging && activeId !== task.id) {
+                onClick()
+              }
+            }, 100)
+          }
+        }}
       >
         <CardContent className="p-2">
           <div className="flex items-center gap-2">
-            <div
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200/50 rounded transition-colors flex-shrink-0"
-              {...attributes}
-              {...listeners}
-              title="ドラッグして移動"
-            >
-              <GripVertical className="w-3 h-3 text-slate-400" />
-            </div>
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
+            <div className="flex-1 min-w-0">
               <span className="font-medium text-slate-900 text-xs truncate block">{task.title}</span>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -244,7 +276,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   )
 }
 
-function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string }) {
+function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -255,12 +287,39 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }:
     id: task.id,
     disabled: !canDrag // 権限がない場合はドラッグを無効化
   })
+  
+  // モバイル用：クリックとドラッグを区別するためのフラグ
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
+  const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
+    // モバイルでドラッグが開始されていない場合のみクリックを実行
+    if (isMobile && !isDragging && activeId !== task.id) {
+      // 少し遅延させて、ドラッグイベントと競合しないようにする
+      clickTimeoutRef.current = setTimeout(() => {
+        if (!isDragging && activeId !== task.id) {
+          onClick()
+        }
+      }, 200)
+    } else if (!isMobile) {
+      onClick()
+    }
+  }
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0 : 1,
   }
+  
+  // クリーンアップ
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -296,7 +355,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }:
       className="mb-2"
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow ${
+        className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -304,18 +363,23 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole }:
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white")
         }}
+        {...attributes}
+        {...listeners}
+        onClick={(e) => {
+          // ドラッグ中でない場合のみクリックイベントを実行
+          if (!isDragging && e.detail === 1) {
+            // シングルクリックのみ処理（ダブルクリックは無視）
+            setTimeout(() => {
+              if (!isDragging && activeId !== task.id) {
+                onClick()
+              }
+            }, 100)
+          }
+        }}
       >
         <CardContent className="p-2">
           <div className="flex items-start gap-2">
-            <div
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-slate-200/50 rounded transition-colors flex-shrink-0 mt-1"
-              {...attributes}
-              {...listeners}
-              title="ドラッグして移動"
-            >
-              <GripVertical className="w-3 h-3 text-slate-400" />
-            </div>
-            <div className="flex-1 cursor-pointer" onClick={onClick}>
+            <div className="flex-1 cursor-pointer">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-slate-900 text-sm leading-relaxed">{task.title}</h3>
                 <div className="flex items-center gap-1">
@@ -632,7 +696,7 @@ function KanbanColumn({
               {...listeners}
               title="ドラッグしてリストを移動"
             >
-              <GripVertical className="w-4 h-4 text-slate-500" />
+              <List className="w-4 h-4 text-slate-500" />
             </div>
             <h2 className="font-semibold text-slate-900">{list.name || list.title || 'No name'}</h2>
           </div>
@@ -674,9 +738,9 @@ function KanbanColumn({
           <div className="space-y-3">
             {tasks.map((task) =>
               viewMode === "list" ? (
-                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} />
+                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
               ) : (
-                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} />
+                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
               ),
             )}
 
@@ -896,10 +960,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [boardData, showArchived, dateFrom, dateTo])
 
+  // モバイル・PC共通：長押し（500ms）でドラッグを開始
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 10,
+        delay: 250, // 250ms長押しでドラッグ開始
+        tolerance: 5, // 5px以内の移動は許容
       },
     }),
     useSensor(KeyboardSensor, {
@@ -907,8 +973,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }),
   )
 
+  // ドラッグ開始フラグ（モバイル用：クリックとドラッグを区別）
+  const draggingTaskIdRef = useRef<string | null>(null)
+  
   const handleDragStart = (event: DragStartEvent) => {
     const activeId = event.active.id as string
+    draggingTaskIdRef.current = activeId // ドラッグ開始を記録
     
     // タスクのドラッグの場合、権限チェックを行う
     if (tasksById[activeId]) {
@@ -924,8 +994,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         alert('カードの移動権限がありません: カードメンバーではありません')
         // ドラッグ操作をキャンセル
         setActiveId(null)
+        draggingTaskIdRef.current = null
         return
       }
+      
     }
     
     setActiveId(activeId)
@@ -977,6 +1049,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     setActiveId(null)
+    
+    // ドラッグ終了後、少し遅延させてフラグをリセット（クリックイベントと競合しないように）
+    setTimeout(() => {
+      draggingTaskIdRef.current = null
+    }, 300)
 
     if (!over) return
 
@@ -1742,7 +1819,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         </div>
 
         <DragOverlay>
-          {activeTask && tasksById[activeTask.id] ? (
+          {activeId && typeof activeId === 'string' && activeTask && activeTask.id && tasksById[activeTask.id] && activeTask.id === activeId ? (
             <div 
               className="cursor-grabbing"
               style={{
@@ -1755,9 +1832,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               }}
             >
               {viewMode === "list" ? (
-                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} />
+                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
               ) : (
-                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} />
+                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
               )}
             </div>
           ) : null}

@@ -621,6 +621,10 @@ function KanbanColumn({
   const handleToggleCollapse = (collapsed: boolean) => {
     setIsCollapsed(collapsed)
     localStorage.setItem(`list-collapsed-${list.id}`, String(collapsed))
+    // 親コンポーネントに再レンダリングを促すためにカスタムイベントを発火
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('listCollapseChanged', { detail: { listId: list.id } }))
+    }
   }
 
   // localStorageからテンプレートを読み込む（ボードごと）
@@ -848,7 +852,21 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [listColorModalOpen, setListColorModalOpen] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [colorChangeListId, setColorChangeListId] = useState<string | null>(null)
-  
+  const [collapseUpdateTrigger, setCollapseUpdateTrigger] = useState(0) // 折りたたみ状態更新用のトリガー
+
+  // 折りたたみ状態変更イベントをリッスン
+  useEffect(() => {
+    const handleCollapseChange = () => {
+      setCollapseUpdateTrigger(prev => prev + 1) // トリガーを更新して再レンダリングを促す
+    }
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('listCollapseChanged', handleCollapseChange)
+      return () => {
+        window.removeEventListener('listCollapseChanged', handleCollapseChange)
+      }
+    }
+  }, [])
 
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
@@ -1138,12 +1156,15 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     })
     
     // 最も近いリストが見つかり、現在のリストと異なる場合
-    if (closestList && closestList.id !== activeList.id) {
-      const targetList = lists.find((list) => list.id === closestList.id)
+    if (!closestList) return
+    
+    const closestListId: string = (closestList as { id: string; element: Element; distance: number }).id
+    if (closestListId !== activeList.id) {
+      const targetList = lists.find((list) => list.id === closestListId)
       if (!targetList) return
       
       // 即座に移動（重複防止：最後に移動したリストと異なる場合のみ）
-      if (lastMovedListIdRef.current !== closestList.id) {
+      if (lastMovedListIdRef.current !== closestListId) {
         setLists((currentLists) => {
           const currentActiveList = currentLists.find((list) => list.taskIds.includes(activeId))
           if (!currentActiveList || currentActiveList.id === targetList.id) return currentLists
@@ -1161,7 +1182,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             return list
           })
           
-          lastMovedListIdRef.current = closestList.id
+          lastMovedListIdRef.current = closestListId
           return updatedLists
         })
       }
@@ -2216,13 +2237,27 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             <SortableContext items={lists.map((l) => l.id)} strategy={horizontalListSortingStrategy}>
               {lists.map((list) => {
                 const listTasks = list.taskIds?.map((id) => tasksById[id]).filter(Boolean) || []
+                // 折りたたみ状態をlocalStorageから取得（collapseUpdateTriggerで再レンダリングを促す）
+                const isCollapsed = typeof window !== 'undefined' ? 
+                  (() => {
+                    // 常時運用タスクリストはデフォルトで畳んだ状態
+                    if ((list.name || list.title) === "常時運用タスク") {
+                      const saved = localStorage.getItem(`list-collapsed-${list.id}`)
+                      return saved === 'true' || saved === null
+                    }
+                    const saved = localStorage.getItem(`list-collapsed-${list.id}`)
+                    return saved === 'true'
+                  })() : false
+                // collapseUpdateTriggerを参照して再レンダリングを促す
+                void collapseUpdateTrigger
+                
                 return (
                   <div
                     key={list.id}
                     data-list-id={list.id}
                     style={{
-                      width: '320px', // モバイル・PC共通でリスト幅を固定
-                      minWidth: '320px',
+                      width: isCollapsed ? '48px' : '320px', // 折りたたみ時は48px（w-12）、展開時は320px
+                      minWidth: isCollapsed ? '48px' : '320px', // 折りたたみ時は48px、展開時は320px
                     }}
                     className="flex-shrink-0 px-2 md:px-0"
                   >

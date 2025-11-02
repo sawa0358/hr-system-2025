@@ -997,7 +997,21 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         draggingTaskIdRef.current = null
         return
       }
-      
+
+      // モバイルの場合、ドラッグ開始時に右側に少しスクロール（浮く効果）
+      if (isMobile && desktopScrollContainerRef.current) {
+        const container = desktopScrollContainerRef.current
+        const currentScrollLeft = container.scrollLeft
+        // 右側に少しスクロール（80px）
+        setTimeout(() => {
+          if (desktopScrollContainerRef.current && activeId) {
+            desktopScrollContainerRef.current.scrollTo({ 
+              left: currentScrollLeft + 80, 
+              behavior: 'smooth' 
+            })
+          }
+        }, 100)
+      }
     }
     
     setActiveId(activeId)
@@ -1639,6 +1653,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
     
     // タッチ位置を追跡（モバイル用）
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        lastTouchXRef.current = e.touches[0].clientX
+      }
+    }
+    
     const handleTouchMove = (e: TouchEvent) => {
       if (e.touches.length > 0) {
         lastTouchXRef.current = e.touches[0].clientX
@@ -1646,14 +1666,26 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
     
     if (activeId) {
+      // 初期位置を設定（ドラッグ開始時の位置を取得）
+      if (isMobile) {
+        // モバイルの場合はタッチ開始時にも位置を記録
+        window.addEventListener('touchstart', handleTouchStart, { passive: true })
+      }
       window.addEventListener('mousemove', handleMouseMove)
       window.addEventListener('touchmove', handleTouchMove, { passive: true })
       return () => {
+        if (isMobile) {
+          window.removeEventListener('touchstart', handleTouchStart)
+        }
         window.removeEventListener('mousemove', handleMouseMove)
         window.removeEventListener('touchmove', handleTouchMove)
       }
+    } else {
+      // ドラッグが終了したら位置をリセット
+      lastMouseXRef.current = 0
+      lastTouchXRef.current = 0
     }
-  }, [activeId])
+  }, [activeId, isMobile])
   
   const handleDragOverWithAutoScroll = (event: DragOverEvent) => {
     handleDragOver(event)
@@ -1669,6 +1701,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     // PC/モバイルどちらでも対応
     const pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
     
+    // pointerXが0の場合（初期化されていない）は処理をスキップ（左側への勝手な動きを防ぐ）
+    if (pointerX === 0) return
+    
     // 既存の自動スクロールをクリア
     if (autoScrollIntervalRef.current) {
       clearInterval(autoScrollIntervalRef.current)
@@ -1676,11 +1711,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
     
     // 画面の左右端に近い場合、自動スクロールを開始
-    const scrollThreshold = 150 // 画面端から150px以内でスクロール開始
-    const scrollSpeed = 15 // スクロール速度
+    const scrollThreshold = isMobile ? 100 : 150 // モバイルは少し小さめの閾値
+    const scrollSpeed = isMobile ? 25 : 15 // モバイルは右側へのスクロールを速く
     
     if (pointerX < containerRect.left + scrollThreshold) {
-      // 左端に近い場合、左にスクロール
+      // 左端に近い場合、左にスクロール（スムーズに）
       autoScrollIntervalRef.current = setInterval(() => {
         if (desktopScrollContainerRef.current && activeId) {
           desktopScrollContainerRef.current.scrollBy({ left: -scrollSpeed, behavior: 'auto' })
@@ -1688,17 +1723,18 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           clearInterval(autoScrollIntervalRef.current)
           autoScrollIntervalRef.current = null
         }
-      }, 16) // 約60fps
+      }, 10) // 約100fpsでよりスムーズに
     } else if (pointerX > containerRect.right - scrollThreshold) {
-      // 右端に近い場合、右にスクロール
+      // 右端に近い場合、右にスクロール（スムーズに、特にモバイルで速く）
+      const rightScrollSpeed = isMobile ? 30 : 20 // モバイルではより速くスクロール
       autoScrollIntervalRef.current = setInterval(() => {
         if (desktopScrollContainerRef.current && activeId) {
-          desktopScrollContainerRef.current.scrollBy({ left: scrollSpeed, behavior: 'auto' })
+          desktopScrollContainerRef.current.scrollBy({ left: rightScrollSpeed, behavior: 'auto' })
         } else if (autoScrollIntervalRef.current) {
           clearInterval(autoScrollIntervalRef.current)
           autoScrollIntervalRef.current = null
         }
-      }, 16) // 約60fps
+      }, 10) // 約100fpsでよりスムーズに
     }
   }
   

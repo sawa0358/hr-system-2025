@@ -1889,7 +1889,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   return (
     <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="rounded-xl border border-slate-200 shadow-sm" style={{ backgroundColor: '#b4d5e7' }}>
+      <div className="h-full w-full rounded-none border-0 shadow-none" style={{ backgroundColor: '#b4d5e7' }}>
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div className="flex items-center gap-3">
             <h3 className="font-semibold text-slate-900">組織図</h3>
@@ -1979,7 +1979,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           </div>
         )}
 
-        <div className="p-8 overflow-auto max-h-[calc(100vh-300px)]">
+        <div className="p-8 overflow-auto h-[calc(100vh-80px)]">
           {!isMounted ? (
             <div className="text-center py-8">
               <div className="text-slate-500">読み込み中...</div>

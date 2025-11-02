@@ -866,9 +866,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             <CollapsibleContent className="space-y-3">
               {/* ワークスペース選択 */}
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <WorkspaceSelector
+                <div className="w-full">
+                  <WorkspaceSelector
                       workspaces={workspaces}
                       currentWorkspace={currentWorkspace}
                       currentUserId={currentUser?.id}
@@ -904,33 +903,14 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                       })()}
                     />
                   </div>
-                  {(() => {
-                    if (!currentUser?.role || !currentWorkspace) return null
-                    const workspace = workspaces.find(w => w.id === currentWorkspace)
-                    if (!workspace) return null
-                    const canEdit = checkWorkspacePermissions(
-                      currentUser.role,
-                      currentUser.id,
-                      workspace.createdBy || '',
-                      workspace.members?.map((m: any) => m.employeeId) || [],
-                      workspace.name
-                    ).canEdit
-                    return canEdit ? (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={handleEditWorkspace}
-                        className="flex-shrink-0"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    ) : null
-                  })()}
                 </div>
                 
                 {/* ボード選択 */}
                 {currentWorkspace && (
                   <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                      2
+                    </div>
                     <Select value={currentBoard || undefined} onValueChange={setCurrentBoard} className="flex-1">
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="ボードを選択" />
@@ -1006,7 +986,6 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
                   <TaskStructureGuide />
                   <AIAskButton context={buildAIContext()} />
                 </div>
-              </div>
             </CollapsibleContent>
           </Collapsible>
         ) : (

@@ -797,8 +797,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
 
   return (
     <main className="flex flex-col h-screen overflow-hidden" style={{ backgroundColor: '#B4D5E7' }}>
-      {/* 上部セクション - 背景色#B4D5E7（固定） */}
-      <div className={`flex-shrink-0 ${isMobile ? 'px-4 py-4' : 'px-8 py-6'} min-w-full overflow-y-auto`} style={{ maxHeight: isMobile ? '50vh' : '40vh' }}>
+      {/* 上部セクション - 背景色#B4D5E7（固定、横スクロール必要） */}
+      <div className={`flex-shrink-0 ${isMobile ? 'px-4 py-4' : 'px-8 py-6'} overflow-y-auto overflow-x-auto`} style={{ maxHeight: isMobile ? '50vh' : '40vh' }}>
         {/* モバイル時: タイトル */}
         {isMobile && (
           <div className="flex items-center justify-center mb-4">
@@ -1166,15 +1166,15 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
         )}
       </div>
 
-      {/* アーカイブ表示またはカンバンボード - 独立したスクロールコンテナ */}
+      {/* アーカイブ表示またはカンバンボード - 独立したスクロールコンテナ（PCでは横スクロールを最下部に） */}
       <div 
-        className="flex-1 overflow-y-auto"
+        className={isMobile ? "flex-1 overflow-y-auto" : "flex-1 overflow-hidden"}
         data-list-section="true"
         style={{ 
           backgroundColor: '#E6DDCD', 
           padding: '0', 
           width: '100%',
-          touchAction: 'pan-y pinch-zoom' // 縦スクロールを許可
+          touchAction: isMobile ? 'pan-y pinch-zoom' : 'auto' // モバイルのみ縦スクロールを許可
         }}
       >
         {taskFilters.showArchived && currentBoard ? (

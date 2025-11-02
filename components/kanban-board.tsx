@@ -2154,9 +2154,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }, [activeId])
 
   return (
-    <div>
+    <div className={isMobile ? '' : 'h-full flex flex-col'}>
       {!isMobile && (
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center justify-end mb-4 flex-shrink-0">
           <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
             <Button
               variant={viewMode === "card" ? "default" : "ghost"}
@@ -2201,9 +2201,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         }}
       >
         {/* モバイル・PC共通: 横スクロール表示（スムーズスクロール、リスト幅固定） */}
+        {/* PCでは最下部に横スクロールバーを設置 */}
         <div 
           ref={desktopScrollContainerRef}
-          className="flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth"
+          className={`flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth ${!isMobile ? 'flex-1 min-h-0' : ''}`}
           style={{
             scrollBehavior: 'smooth',
             touchAction: isMobile ? 'pan-x pinch-zoom' : 'auto', // モバイルでは横スクロールのみ許可（縦スクロールは親要素）

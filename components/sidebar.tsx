@@ -53,6 +53,8 @@ export function Sidebar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const pathname = usePathname()
+  
+  // フックは通常通り呼び出す（Reactのルールに従う）
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
   const sidebarRef = useRef<HTMLElement>(null)
@@ -308,7 +310,7 @@ export function Sidebar() {
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
                 <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-slate-500 font-medium">v2.3.0</span>
+                <span className="text-xs text-slate-500 font-medium">v2.3.1</span>
               </div>
             </div>
           )}
@@ -336,7 +338,23 @@ export function Sidebar() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      try {
+                        e.stopPropagation()
+                        // 認証状態を確認（エラーが発生しても再ログインを強制しない）
+                        if (!isAuthenticated || !currentUser) {
+                          e.preventDefault()
+                          console.warn("[Sidebar] 認証されていません。メニュークリックをキャンセルします。")
+                          return false
+                        }
+                        // 認証状態は問題ないので、通常通り遷移
+                      } catch (error) {
+                        console.error("[Sidebar] メニュークリックエラー:", error)
+                        // エラーが発生しても再ログインを強制しない
+                        e.preventDefault()
+                        return false
+                      }
+                    }}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                       "hover:bg-blue-50 hover:text-blue-600",
@@ -392,7 +410,23 @@ export function Sidebar() {
                         <li key={item.href}>
                           <Link
                             href={item.href}
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // 認証状態を確認
+                              if (!isAuthenticated || !currentUser) {
+                                e.preventDefault()
+                                console.warn("[Sidebar] 認証されていません。メニュークリックをキャンセルします。")
+                                return false
+                              }
+                              // エラーが発生しても再ログインを強制しない
+                              try {
+                                // 認証状態は問題ないので、通常通り遷移
+                              } catch (error) {
+                                console.error("[Sidebar] メニュークリックエラー:", error)
+                                e.preventDefault()
+                                return false
+                              }
+                            }}
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm relative",
                               "hover:bg-blue-50 hover:text-blue-600",
@@ -431,7 +465,23 @@ export function Sidebar() {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // 認証状態を確認
+                          if (!isAuthenticated || !currentUser) {
+                            e.preventDefault()
+                            console.warn("[Sidebar] 認証されていません。メニュークリックをキャンセルします。")
+                            return false
+                          }
+                          // エラーが発生しても再ログインを強制しない
+                          try {
+                            // 認証状態は問題ないので、通常通り遷移
+                          } catch (error) {
+                            console.error("[Sidebar] メニュークリックエラー:", error)
+                            e.preventDefault()
+                            return false
+                          }
+                        }}
                         className={cn(
                           "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                           "hover:bg-blue-50 hover:text-blue-600",

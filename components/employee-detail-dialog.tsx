@@ -82,8 +82,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
       }
       fetchLatestEmployee()
+    } else if (open && !employee) {
+      // 新規登録モーダルを開いた時：最新の社員データとavatarTextをリセット
+      setLatestEmployee(null)
+      setAvatarText('')
+      console.log('新規登録モーダルを開きました: avatarTextをリセットしました')
     }
-  }, [open, employee?.id])
+  }, [open, employee?.id, employee])
   
   // デバッグ用：現在のユーザー情報をコンソールに出力
   console.log('Current User:', currentUser)
@@ -118,6 +123,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         if (settings['password-visible']) {
           setShowPassword(settings['password-visible'])
         }
+        // avatarTextは存在する場合のみ設定、存在しない場合は空文字列（既にリセット済み）
         if (settings['avatar-text']) {
           setAvatarText(settings['avatar-text'])
           // ローカルストレージにも保存して全画面で共通利用
@@ -126,10 +132,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               localStorage.setItem(`employee-avatar-text-${employeeId}`, settings['avatar-text'])
             } catch {}
           }
+        } else {
+          // avatar-textが存在しない場合は空文字列を設定（他の社員の値が残らないように）
+          setAvatarText('')
         }
       }
     } catch (error) {
       console.error('ユーザー設定取得エラー:', error)
+      // エラー時もavatarTextをリセット（他の社員の値が残らないように）
+      setAvatarText('')
     }
   }
 
@@ -325,6 +336,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setPositions(latestEmployee.positions && latestEmployee.positions.length > 0 ? latestEmployee.positions : 
                   latestEmployee.position ? [latestEmployee.position] : [""])
       
+      // avatarTextを一旦リセットしてから、正しい値を取得（他の社員の値が残らないように）
+      setAvatarText('')
+      
       // ユーザー設定も再取得（avatarTextなど）
       fetchUserSettings(latestEmployee.id)
       
@@ -344,6 +358,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // 社員データが変更された時にフォームデータを更新
   React.useEffect(() => {
     if (employee && open) { // employeeが変更され、ダイアログが開いている時に更新
+      // 別の社員を開いた時：avatarTextをリセット（他の社員の値が残らないように）
+      setAvatarText('')
       setFormData({
         name: employee.name || '',
         furigana: employee.furigana || '',
@@ -558,6 +574,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       fetchUploadedFiles(employee.id)
     } else if (!employee) {
       // 新規登録の場合はフォームをリセット
+      setAvatarText('') // 新規登録時はavatarTextもリセット
       setFormData({
         name: '',
         furigana: '',

@@ -191,7 +191,13 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       data-sortable-id={task.id}
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
+        className={`shadow-sm hover:shadow-md transition-shadow ${
+          isDragging 
+            ? 'cursor-grabbing' 
+            : canDrag 
+              ? 'cursor-grab' 
+              : 'cursor-pointer'
+        } ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -202,6 +208,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
+          cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
         }}
         {...attributes}
         {...listeners}
@@ -362,7 +369,13 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
       data-sortable-id={task.id}
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow cursor-pointer active:cursor-grabbing ${
+        className={`shadow-sm hover:shadow-md transition-shadow ${
+          isDragging 
+            ? 'cursor-grabbing' 
+            : canDrag 
+              ? 'cursor-grab' 
+              : 'cursor-pointer'
+        } ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -373,6 +386,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
+          cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
         }}
         {...attributes}
         {...listeners}
@@ -990,22 +1004,22 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [boardData, showArchived, dateFrom, dateTo])
 
-  // モバイル・PC共通：長押し（150ms）でドラッグを開始（Trello風に感度向上）
-  // モバイル用：TouchSensor（タッチイベントベース、より敏感）
-  // PC用：PointerSensor（マウスイベントベース）
+  // モバイル・PC共通：長押し（300ms）でドラッグを開始（スクロールとドラッグを区別）
+  // モバイル用：TouchSensor（タッチイベントベース、0.3秒の遅延でスクロール誤動作を防止）
+  // PC用：PointerSensor（マウスイベントベース、0.3秒の遅延で意図しないドラッグを防止）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、Trello風に感度向上）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、0.3秒の遅延でスクロール誤動作を防止）
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 100, // 100ms長押しでドラッグ開始（Trello風、より敏感に）
-        distance: 5, // 5px移動でドラッグ開始（Trello推奨、感度向上）
+        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（スクロールとドラッグを区別）
+        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
       },
     }),
-    // PC用：PointerSensor（マウス・タッチ両対応だがモバイルではTouchSensorが優先）
+    // PC用：PointerSensor（マウス・タッチ両対応、0.3秒の遅延で意図しないドラッグを防止）
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: isMobile ? 100 : 0, // モバイルは100ms、PCは即座に反応
-        distance: 5, // 5px移動でドラッグ開始（Trello推奨）
+        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（PCでも意図しないドラッグを防止）
+        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
       },
     }),
     useSensor(KeyboardSensor, {
@@ -2319,6 +2333,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                 transform: 'rotate(2deg) scale(1.05)',
                 transition: 'none', // ドラッグ中はアニメーションを無効化
                 animation: 'dragStart 0.2s ease-out forwards',
+                cursor: 'grabbing', // グーに握ったカーソル
               }}
             >
               {viewMode === "list" ? (

@@ -135,16 +135,16 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       touchStartTimeRef.current = Date.now()
       isLongPressingRef.current = false
       
-      // 200ms後に長押し開始とみなしてスクロールをブロック
+      // 300ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 200) {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300) {
           isLongPressingRef.current = true
           // カード要素にスクロールブロッククラスを追加
           if (e.currentTarget) {
             (e.currentTarget as HTMLElement).style.touchAction = 'none'
           }
         }
-      }, 200)
+      }, 300)
     }
   }
   
@@ -153,8 +153,8 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
-      // 長押しでなく短いタッチの場合はクリックとして処理（200ms未満）
-      if (touchDuration < 200 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      // 長押しでなく短いタッチの場合はクリックとして処理（300ms未満）
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -180,7 +180,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
           onClick()
         }
-      }, 200)
+      }, 300)
     } else if (!isMobile) {
       onClick()
     }
@@ -436,16 +436,16 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
       touchStartTimeRef.current = Date.now()
       isLongPressingRef.current = false
       
-      // 200ms後に長押し開始とみなしてスクロールをブロック
+      // 300ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 200) {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300) {
           isLongPressingRef.current = true
           // カード要素にスクロールブロッククラスを追加
           if (e.currentTarget) {
             (e.currentTarget as HTMLElement).style.touchAction = 'none'
           }
         }
-      }, 200)
+      }, 300)
     }
   }
   
@@ -454,8 +454,8 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
-      // 長押しでなく短いタッチの場合はクリックとして処理（200ms未満）
-      if (touchDuration < 200 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      // 長押しでなく短いタッチの場合はクリックとして処理（300ms未満）
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -481,7 +481,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
           onClick()
         }
-      }, 200)
+      }, 300)
     } else if (!isMobile) {
       onClick()
     }
@@ -1245,14 +1245,14 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }, [boardData, showArchived, dateFrom, dateTo])
 
   // モバイル・PC共通：長押しベースのアクティベーション（スクロールとドラッグを区別）
-  // モバイル用：TouchSensor（タッチイベントベース、0.2秒長押しでドラッグ開始）
+  // モバイル用：TouchSensor（タッチイベントベース、0.3秒長押しでドラッグ開始）
   // PC用：PointerSensor（マウスイベントベース、8px以上の移動でドラッグ開始）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、0.2秒長押しでドラッグ開始）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、0.3秒長押しでドラッグ開始）
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // 200ms（0.2秒）長押しでドラッグ開始（スクロールとドラッグを区別）
-        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
+        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（スクロールとドラッグを確実に区別）
+        tolerance: 15, // 15px以内の移動は長押しの遅延に影響しない（スクロール中の動きを無視）
       },
     }),
     // PC用：PointerSensor（マウス・タッチ両対応、8px以上の移動でドラッグ開始）
@@ -1342,10 +1342,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             const containerRect = container.getBoundingClientRect()
             const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
             
-            // 短いアニメーションで移動方向が分かるようにする（150ms - 一気に動くが方向が分かる）
+            // アニメーションで移動方向が分かるようにする（300ms）
             const startScrollLeft = container.scrollLeft
             const distance = targetScrollLeft - startScrollLeft
-            const duration = 150 // 150msで一気に移動（方向が分かる程度）
+            const duration = 300 // 300msで移動（方向が分かる）
             const startTime = performance.now()
             
             const animateScroll = (currentTime: number) => {

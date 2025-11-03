@@ -520,58 +520,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           }
         } else {
           console.error('[TaskDetailDialog] Failed to fetch default settings:', response.status)
-          // エラーの場合のみフォールバック
-          if (typeof window !== 'undefined') {
-            const priorityStored = localStorage.getItem('task-priority-options')
-            if (priorityStored) {
-              setPriorityOptions(JSON.parse(priorityStored))
-            } else {
-              setPriorityOptions(PRIORITY_OPTIONS)
-            }
-            
-            const statusStored = localStorage.getItem('task-status-options')
-            if (statusStored) {
-              const customOptions = JSON.parse(statusStored)
-              const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
-              const filteredCustomOptions = customOptions.filter((option: any) => 
-                !defaultValues.includes(option.value)
-              )
-              setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions])
-            } else {
-              setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
-            }
-          } else {
-            setPriorityOptions(PRIORITY_OPTIONS)
-            setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
-          }
+          // フォールバック: コード定義のデフォルトを使用（localStorageは無視）
+          setPriorityOptions(PRIORITY_OPTIONS)
+          setStatusOptions([...DEFAULT_STATUS_OPTIONS])
         }
       }
     } catch (error) {
       console.error('[TaskDetailDialog] Failed to load default settings:', error)
-      // エラーの場合のみフォールバック
-      if (typeof window !== 'undefined') {
-        const priorityStored = localStorage.getItem('task-priority-options')
-        if (priorityStored) {
-          setPriorityOptions(JSON.parse(priorityStored))
-        } else {
-          setPriorityOptions(PRIORITY_OPTIONS)
-        }
-        
-        const statusStored = localStorage.getItem('task-status-options')
-        if (statusStored) {
-          const customOptions = JSON.parse(statusStored)
-          const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
-          const filteredCustomOptions = customOptions.filter((option: any) => 
-            !defaultValues.includes(option.value)
-          )
-          setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions])
-        } else {
-          setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
-        }
-      } else {
-        setPriorityOptions(PRIORITY_OPTIONS)
-        setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
-      }
+      // フォールバック: コード定義のデフォルトを使用（localStorageは無視）
+      setPriorityOptions(PRIORITY_OPTIONS)
+      setStatusOptions([...DEFAULT_STATUS_OPTIONS])
     }
   }
 

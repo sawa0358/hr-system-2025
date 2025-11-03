@@ -142,10 +142,21 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     }
   }
 
-  const style = {
+  // アクティベートされた時点（0.3秒長押し完了、activeId設定）でカードを浮かせる（ドラッグ開始前でも）
+  const isActivated = activeId === task.id // activeIdが設定された時点でアクティベート（長押し完了）
+  const shouldFloat = isActivated || isDragging // アクティベート時またはドラッグ中に浮かせる
+  
+  const dragStyle = shouldFloat ? {
+    transform: `${CSS.Transform.toString(transform)} translateY(-8px) scale(1.02)`,
+    transition: 'transform 0.2s ease-out, box-shadow 0.2s ease-out',
+  } : {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0 : 1,
+  }
+
+  const style = {
+    ...dragStyle,
+    opacity: 1, // ドラッグ中も透明度を維持（浮いている見た目）
   }
   
   // クリーンアップ
@@ -193,13 +204,13 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       data-sortable-id={task.id}
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow ${
-          isDragging 
-            ? 'cursor-grabbing' 
+        className={`${
+          shouldFloat
+            ? 'shadow-xl cursor-grabbing' 
             : canDrag 
-              ? 'cursor-grab' 
-              : 'cursor-pointer'
-        } ${
+              ? 'shadow-sm hover:shadow-md cursor-grab' 
+              : 'shadow-sm hover:shadow-md cursor-pointer'
+        } transition-all ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -331,10 +342,21 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     }
   }
 
-  const style = {
+  // アクティベートされた時点（0.3秒長押し完了、activeId設定）でカードを浮かせる（ドラッグ開始前でも）
+  const isActivated = activeId === task.id // activeIdが設定された時点でアクティベート（長押し完了）
+  const shouldFloat = isActivated || isDragging // アクティベート時またはドラッグ中に浮かせる
+  
+  const dragStyle = shouldFloat ? {
+    transform: `${CSS.Transform.toString(transform)} translateY(-8px) scale(1.02)`,
+    transition: 'transform 0.2s ease-out, box-shadow 0.2s ease-out',
+  } : {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0 : 1,
+  }
+
+  const style = {
+    ...dragStyle,
+    opacity: 1, // ドラッグ中も透明度を維持（浮いている見た目）
   }
   
   // クリーンアップ
@@ -382,13 +404,13 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
       data-sortable-id={task.id}
     >
       <Card
-        className={`shadow-sm hover:shadow-md transition-shadow ${
-          isDragging 
-            ? 'cursor-grabbing' 
+        className={`${
+          shouldFloat
+            ? 'shadow-xl cursor-grabbing' 
             : canDrag 
-              ? 'cursor-grab' 
-              : 'cursor-pointer'
-        } ${
+              ? 'shadow-sm hover:shadow-md cursor-grab' 
+              : 'shadow-sm hover:shadow-md cursor-pointer'
+        } transition-all ${
           task.isArchived ? "border-gray-300 opacity-70" : "border-slate-200"
         }`}
         style={{ 
@@ -1037,14 +1059,15 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [boardData, showArchived, dateFrom, dateTo])
 
-  // モバイル・PC共通：距離ベースのアクティベーション（スクロールとドラッグを区別）
-  // モバイル用：TouchSensor（タッチイベントベース、5px以上の移動でドラッグ開始）
+  // モバイル・PC共通：長押しベースのアクティベーション（スクロールとドラッグを区別）
+  // モバイル用：TouchSensor（タッチイベントベース、0.3秒長押しでドラッグ開始）
   // PC用：PointerSensor（マウスイベントベース、8px以上の移動でドラッグ開始）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、5px以上の移動でドラッグ開始）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、0.3秒長押しでドラッグ開始）
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: 5, // 5px以上の移動でドラッグ開始（小さな移動はスクロールとして認識）
+        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（スクロールとドラッグを区別）
+        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
       },
     }),
     // PC用：PointerSensor（マウス・タッチ両対応、8px以上の移動でドラッグ開始）
@@ -1954,7 +1977,99 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const dragDistance = cardCenterX - dragStartX
         const dragDistancePercent = Math.abs(dragDistance) / containerWidth
         
-        // 画面の中心からの距離を計算
+        // スマホのみ：ドラッグ方向と逆にスクロール（右にドラッグ→左にスクロール、左にドラッグ→右にスクロール）
+        if (isMobile) {
+          // 既存のアニメーションフレームをクリア
+          if (autoScrollAnimationFrameRef.current !== null) {
+            cancelAnimationFrame(autoScrollAnimationFrameRef.current)
+            autoScrollAnimationFrameRef.current = null
+          }
+          
+          // ドラッグ方向を判定（最小閾値：画面幅の1%）
+          const dragThreshold = containerWidth * 0.01
+          const isDraggingRight = dragDistance > dragThreshold
+          const isDraggingLeft = dragDistance < -dragThreshold
+          
+          // スクロール速度（ドラッグ距離に応じて変化）
+          const baseSpeed = 60 // 基本速度
+          const speedMultiplier = Math.min(Math.abs(dragDistance) / 50, 3) // ドラッグ距離に応じて最大3倍
+          const scrollSpeed = baseSpeed * speedMultiplier
+          
+          // 右にドラッグしている場合、左にスクロール（逆方向）
+          if (isDraggingRight && dragDistance > dragThreshold) {
+            const scrollLeft = () => {
+              if (desktopScrollContainerRef.current && activeId) {
+                const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
+                if (currentCard) {
+                  const currentCardRect = currentCard.getBoundingClientRect()
+                  const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
+                  const currentDragDistance = currentCardCenterX - dragStartX
+                  
+                  // 右にドラッグしている間は左にスクロール継続
+                  if (currentDragDistance > dragThreshold) {
+                    const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
+                    if (currentScrollLeft > 0) {
+                      const remainingDistance = currentScrollLeft
+                      const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
+                      const speed = Math.min(scrollSpeed * speedFactor, remainingDistance)
+                      desktopScrollContainerRef.current.scrollLeft -= speed
+                      autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
+                    } else {
+                      autoScrollAnimationFrameRef.current = null
+                    }
+                  } else {
+                    autoScrollAnimationFrameRef.current = null
+                  }
+                } else {
+                  autoScrollAnimationFrameRef.current = null
+                }
+              } else {
+                autoScrollAnimationFrameRef.current = null
+              }
+            }
+            autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
+            return
+          }
+          
+          // 左にドラッグしている場合、右にスクロール（逆方向）
+          if (isDraggingLeft && dragDistance < -dragThreshold) {
+            const scrollRight = () => {
+              if (desktopScrollContainerRef.current && activeId) {
+                const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
+                if (currentCard) {
+                  const currentCardRect = currentCard.getBoundingClientRect()
+                  const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
+                  const currentDragDistance = currentCardCenterX - dragStartX
+                  
+                  // 左にドラッグしている間は右にスクロール継続
+                  if (currentDragDistance < -dragThreshold) {
+                    const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
+                    const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
+                    if (currentScrollLeft < maxScrollLeft) {
+                      const remainingDistance = maxScrollLeft - currentScrollLeft
+                      const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
+                      const speed = Math.min(scrollSpeed * speedFactor, remainingDistance)
+                      desktopScrollContainerRef.current.scrollLeft += speed
+                      autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
+                    } else {
+                      autoScrollAnimationFrameRef.current = null
+                    }
+                  } else {
+                    autoScrollAnimationFrameRef.current = null
+                  }
+                } else {
+                  autoScrollAnimationFrameRef.current = null
+                }
+              } else {
+                autoScrollAnimationFrameRef.current = null
+              }
+            }
+            autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
+            return
+          }
+        }
+        
+        // PC用（既存ロジック）：画面端に近づいたときにスクロール
         const distanceFromCenter = cardCenterX - containerCenter
         const normalizedDistance = distanceFromCenter / (containerWidth / 2) // -1 to 1
         

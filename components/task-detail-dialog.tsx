@@ -303,55 +303,94 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [showLabelManager, setShowLabelManager] = useState(false)
   const [showLabelSelector, setShowLabelSelector] = useState(false)
   
-  // localStorageからラベルを取得（default-card-settingsとtask-custom-labelsをマージ）
-  const getStoredLabels = () => {
+  // ラベルを取得（APIから取得 + localStorageからカスタムラベルをマージ）
+  const getStoredLabels = async (): Promise<Label[]> => {
+    try {
+      // まずAPIからデフォルト設定を取得
+      if (currentUser) {
+        const response = await fetch('/api/default-card-settings', {
+          headers: {
+            'x-employee-id': currentUser.id,
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          let defaultLabels: Label[] = data.labels || []
+          
+          // カスタムラベルを取得（個別ユーザー用）
+          if (typeof window !== 'undefined') {
+            const customStored = localStorage.getItem('task-custom-labels')
+            let customLabels: Label[] = []
+            if (customStored) {
+              try {
+                customLabels = JSON.parse(customStored)
+              } catch (e) {
+                console.error('Failed to parse task-custom-labels:', e)
+              }
+            }
+            
+            // デフォルトラベルとカスタムラベルをマージ（重複を除去）
+            const allLabels = [...defaultLabels]
+            customLabels.forEach((customLabel) => {
+              if (!allLabels.find((l) => l.id === customLabel.id && l.name === customLabel.name)) {
+                allLabels.push(customLabel)
+              }
+            })
+            
+            if (allLabels.length > 0) {
+              return allLabels
+            }
+          }
+          
+          if (defaultLabels.length > 0) {
+            return defaultLabels
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch default card settings:', error)
+    }
+    
+    // フォールバック: localStorageから取得
     if (typeof window !== 'undefined') {
-      // デフォルト設定からラベルを取得（全ユーザー共通）
       const defaultSettings = localStorage.getItem('default-card-settings')
-      let defaultLabels: Label[] = []
       if (defaultSettings) {
         try {
           const settings = JSON.parse(defaultSettings)
-          defaultLabels = settings.labels || []
+          const defaultLabels = settings.labels || []
+          if (defaultLabels.length > 0) {
+            return defaultLabels
+          }
         } catch (e) {
           console.error('Failed to parse default-card-settings:', e)
         }
       }
-      
-      // カスタムラベルを取得（個別ユーザー用）
-      const customStored = localStorage.getItem('task-custom-labels')
-      let customLabels: Label[] = []
-      if (customStored) {
-        try {
-          customLabels = JSON.parse(customStored)
-        } catch (e) {
-          console.error('Failed to parse task-custom-labels:', e)
-        }
-      }
-      
-      // デフォルトラベルとカスタムラベルをマージ（重複を除去）
-      const allLabels = [...defaultLabels]
-      customLabels.forEach((customLabel) => {
-        if (!allLabels.find((l) => l.id === customLabel.id && l.name === customLabel.name)) {
-          allLabels.push(customLabel)
-        }
-      })
-      
-      if (allLabels.length > 0) {
-        return allLabels
-      }
     }
+    
     return PRESET_LABELS
   }
   
-  const [customLabels, setCustomLabels] = useState<Label[]>(getStoredLabels)
+  const [customLabels, setCustomLabels] = useState<Label[]>(PRESET_LABELS)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
   
+  // ラベルリストを初期化・更新
+  useEffect(() => {
+    const loadLabels = async () => {
+      const labels = await getStoredLabels()
+      setCustomLabels(labels)
+    }
+    
+    if (currentUser && open) {
+      loadLabels()
+    }
+  }, [currentUser, open])
+  
   // default-card-settingsが変更されたときにラベルリストを更新
   useEffect(() => {
-    const handleDefaultSettingsChange = () => {
-      const updatedLabels = getStoredLabels()
+    const handleDefaultSettingsChange = async () => {
+      const updatedLabels = await getStoredLabels()
       setCustomLabels(updatedLabels)
     }
     
@@ -360,7 +399,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     return () => {
       window.removeEventListener('defaultCardSettingsChanged', handleDefaultSettingsChange)
     }
-  }, [])
+  }, [currentUser])
 
   // ファイル管理の状態（ユーザー詳細を参考にした実装）
   const [folders, setFolders] = useState<string[]>(["資料", "画像", "参考資料"])
@@ -398,66 +437,102 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [showPriorityManager, setShowPriorityManager] = useState(false)
   const [showStatusManager, setShowStatusManager] = useState(false)
   
-  // localStorageから優先度オプションを取得
-  const getStoredPriorityOptions = () => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('task-priority-options')
-      if (stored) {
-        return JSON.parse(stored)
+  // APIから優先度・状態オプションを取得
+  const loadDefaultSettings = async () => {
+    try {
+      if (currentUser) {
+        const response = await fetch('/api/default-card-settings', {
+          headers: {
+            'x-employee-id': currentUser.id,
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          
+          // 優先度オプションを設定
+          if (data.priorities && data.priorities.length > 0) {
+            setPriorityOptions(data.priorities)
+          } else {
+            // フォールバック: localStorageから取得
+            if (typeof window !== 'undefined') {
+              const stored = localStorage.getItem('task-priority-options')
+              if (stored) {
+                setPriorityOptions(JSON.parse(stored))
+              } else {
+                setPriorityOptions(PRIORITY_OPTIONS)
+              }
+            } else {
+              setPriorityOptions(PRIORITY_OPTIONS)
+            }
+          }
+          
+          // 状態オプションを設定
+          if (data.statuses && data.statuses.length > 0) {
+            // デフォルトオプションとマージ
+            const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+            const filteredCustomStatuses = data.statuses.filter((option: any) => 
+              !defaultValues.includes(option.value)
+            )
+            setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomStatuses])
+          } else {
+            // フォールバック: localStorageから取得
+            if (typeof window !== 'undefined') {
+              const stored = localStorage.getItem('task-status-options')
+              if (stored) {
+                const customOptions = JSON.parse(stored)
+                const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+                const filteredCustomOptions = customOptions.filter((option: any) => 
+                  !defaultValues.includes(option.value)
+                )
+                setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions])
+              } else {
+                setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
+              }
+            } else {
+              setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load default settings:', error)
+      // フォールバック: localStorageから取得
+      if (typeof window !== 'undefined') {
+        const priorityStored = localStorage.getItem('task-priority-options')
+        if (priorityStored) {
+          setPriorityOptions(JSON.parse(priorityStored))
+        } else {
+          setPriorityOptions(PRIORITY_OPTIONS)
+        }
+        
+        const statusStored = localStorage.getItem('task-status-options')
+        if (statusStored) {
+          const customOptions = JSON.parse(statusStored)
+          const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+          const filteredCustomOptions = customOptions.filter((option: any) => 
+            !defaultValues.includes(option.value)
+          )
+          setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions])
+        } else {
+          setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
+        }
+      } else {
+        setPriorityOptions(PRIORITY_OPTIONS)
+        setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
       }
     }
-    return PRIORITY_OPTIONS
   }
+
+  const [priorityOptions, setPriorityOptions] = useState(PRIORITY_OPTIONS)
+  const [statusOptions, setStatusOptions] = useState([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
   
-  // localStorageから状態オプションを取得
-  const getStoredStatusOptions = () => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('task-status-options')
-      if (stored) {
-        const customOptions = JSON.parse(stored)
-        // デフォルトオプションの値と重複しないカスタムオプションのみをフィルタリング
-        const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
-        const filteredCustomOptions = customOptions.filter((option: any) => 
-          !defaultValues.includes(option.value)
-        )
-        // デフォルトオプションとフィルタリングされたカスタムオプションをマージ
-        return [...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions]
-      }
+  // ダイアログが開いたときにAPIから設定を取得
+  useEffect(() => {
+    if (open && currentUser) {
+      loadDefaultSettings()
     }
-    // 初回時はデフォルト + カスタムオプション（重複チェック済み）
-    return [...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS]
-  }
-  
-  const [priorityOptions, setPriorityOptions] = useState(getStoredPriorityOptions)
-  const [statusOptions, setStatusOptions] = useState(() => {
-    const options = getStoredStatusOptions()
-    // 初回読み込み時に重複をクリーンアップ
-    const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
-    
-    // 削除すべき古い値のリスト
-    const deprecatedValues = ['todo', 'review']
-    
-    const cleanedOptions = options.filter((option, index, self) => {
-      // 古い値を除外
-      if (deprecatedValues.includes(option.value)) {
-        return false
-      }
-      // デフォルト値との重複をチェック
-      if (defaultValues.includes(option.value) && !option.isDefault) {
-        return false
-      }
-      // 配列内での重複をチェック
-      return index === self.findIndex(opt => opt.value === option.value)
-    })
-    
-    // クリーンアップされたカスタムオプションをlocalStorageに保存
-    if (typeof window !== 'undefined' && cleanedOptions.length !== options.length) {
-      const customOptions = cleanedOptions.filter(s => !s.isDefault)
-      localStorage.setItem('task-status-options', JSON.stringify(customOptions))
-    }
-    
-    return cleanedOptions
-  })
+  }, [open, currentUser])
   const [newPriorityLabel, setNewPriorityLabel] = useState("")
   const [newStatusLabel, setNewStatusLabel] = useState("")
 

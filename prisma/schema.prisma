@@ -89,7 +89,7 @@ model Employee {
   privacyPosition       Boolean           @default(true)
   privacyUrl            Boolean           @default(true)
   privacyAddress        Boolean           @default(true)
-  privacyBio            Boolean           @default(true)
+  privacyBio             Boolean           @default(true)
   privacyEmail          Boolean           @default(true)
   privacyWorkPhone      Boolean           @default(true)
   privacyExtension      Boolean           @default(true)
@@ -625,7 +625,7 @@ model TimeOffRequest {
   breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
   reason         String?
   createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  updatedAt     DateTime @updatedAt
   
   consumptions   Consumption[]
   
@@ -674,4 +674,18 @@ model VacationAppConfig {
   updatedAt     DateTime @updatedAt
   
   @@map("vacation_app_configs")
+}
+
+// デフォルトカード設定（全ユーザー共通）
+model DefaultCardSettings {
+  id            String   @id @default(cuid())
+  labels        Json     // ラベル設定
+  priorities    Json     // 重要度設定
+  statuses      Json     // 状態設定
+  defaultCardColor String? // デフォルトカード色
+  defaultListColor String? // デフォルトリスト色
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("default_card_settings")
 }

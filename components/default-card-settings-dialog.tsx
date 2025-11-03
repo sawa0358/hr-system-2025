@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Settings, Plus, Trash2, Palette } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 interface DefaultLabel {
   id: string
@@ -78,12 +79,72 @@ const LIST_COLORS = [
 ]
 
 export function DefaultCardSettingsDialog() {
+  const { currentUser } = useAuth()
   const [open, setOpen] = useState(false)
   const [labels, setLabels] = useState<DefaultLabel[]>(INITIAL_LABELS)
   const [priorities, setPriorities] = useState<DefaultPriority[]>(INITIAL_PRIORITIES)
   const [statuses, setStatuses] = useState<DefaultStatus[]>(INITIAL_STATUSES)
   const [defaultCardColor, setDefaultCardColor] = useState("#ffffff")
   const [defaultListColor, setDefaultListColor] = useState("#f1f5f9")
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // ダイアログが開いたときにAPIから設定を取得
+  useEffect(() => {
+    if (open && currentUser) {
+      loadSettings()
+    }
+  }, [open, currentUser])
+
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true)
+      const response = await fetch('/api/default-card-settings', {
+        headers: {
+          'x-employee-id': currentUser?.id || '',
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.labels && data.labels.length > 0) {
+          setLabels(data.labels)
+        }
+        if (data.priorities && data.priorities.length > 0) {
+          setPriorities(data.priorities)
+        }
+        if (data.statuses && data.statuses.length > 0) {
+          setStatuses(data.statuses)
+        }
+        if (data.defaultCardColor) {
+          setDefaultCardColor(data.defaultCardColor)
+        }
+        if (data.defaultListColor) {
+          setDefaultListColor(data.defaultListColor)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load default card settings:', error)
+      // エラーの場合はlocalStorageから読み込む（フォールバック）
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('default-card-settings')
+        if (stored) {
+          try {
+            const data = JSON.parse(stored)
+            if (data.labels) setLabels(data.labels)
+            if (data.priorities) setPriorities(data.priorities)
+            if (data.statuses) setStatuses(data.statuses)
+            if (data.defaultCardColor) setDefaultCardColor(data.defaultCardColor)
+            if (data.defaultListColor) setDefaultListColor(data.defaultListColor)
+          } catch (e) {
+            console.error('Failed to parse stored settings:', e)
+          }
+        }
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
@@ -132,28 +193,64 @@ export function DefaultCardSettingsDialog() {
     setStatuses(statuses.filter((s) => s.value !== value))
   }
 
-  const handleSave = () => {
-    console.log("[v0] Saving default card settings:", { 
-      labels, 
-      priorities, 
-      statuses, 
-      defaultCardColor, 
-      defaultListColor 
-    })
-    // localStorageに保存
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('default-card-settings', JSON.stringify({
-        labels,
-        priorities,
-        statuses,
-        defaultCardColor,
-        defaultListColor
-      }))
-      // カスタムイベントを発火してS3に自動保存
-      window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
+  const handleSave = async () => {
+    if (!currentUser) {
+      alert("ログインが必要です")
+      return
     }
-    alert("デフォルト設定を保存しました。全てのボードのカードに反映されます。")
-    setOpen(false)
+
+    try {
+      setIsSaving(true)
+      console.log("[v0] Saving default card settings:", { 
+        labels, 
+        priorities, 
+        statuses, 
+        defaultCardColor, 
+        defaultListColor 
+      })
+
+      // PostgreSQLに保存
+      const response = await fetch('/api/default-card-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          labels,
+          priorities,
+          statuses,
+          defaultCardColor,
+          defaultListColor
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '保存に失敗しました')
+      }
+
+      // localStorageにも保存（フォールバック用）
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('default-card-settings', JSON.stringify({
+          labels,
+          priorities,
+          statuses,
+          defaultCardColor,
+          defaultListColor
+        }))
+        // カスタムイベントを発火して他のコンポーネントに通知
+        window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
+      }
+
+      alert("デフォルト設定を保存しました。全てのボードのカードに反映されます。")
+      setOpen(false)
+    } catch (error) {
+      console.error('Failed to save default card settings:', error)
+      alert(`保存に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (

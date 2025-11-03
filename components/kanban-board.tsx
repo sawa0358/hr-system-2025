@@ -111,16 +111,17 @@ interface KanbanList {
   color?: string
 }
 
-function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null }) {
+function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
   const isCardMember = cardMemberIds.includes(currentUserId || '') || task.createdBy === currentUserId
   const canDrag = isAdminOrHr || isCardMember
   
+  // スクロール直後はドラッグを無効化（指が当たるだけで即座に掴まないように）
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
     id: task.id,
-    disabled: !canDrag // 権限がない場合はドラッグを無効化
+    disabled: !canDrag || (isMobile && isScrollingRecently) // 権限がない場合、またはスクロール直後の場合はドラッグを無効化
   })
   
   // クリックとドラッグを区別するためのフラグ
@@ -131,13 +132,14 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   
   // タッチ開始ハンドラー（長押し判定用）
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isMobile && canDrag) {
+    // スクロール直後はドラッグを開始しない（指が当たるだけで即座に掴まないように）
+    if (isMobile && canDrag && !isScrollingRecently) {
       touchStartTimeRef.current = Date.now()
       isLongPressingRef.current = false
       
       // 300ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300) {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300 && !isScrollingRecently) {
           isLongPressingRef.current = true
           // カード要素にスクロールブロッククラスを追加
           if (e.currentTarget) {
@@ -412,16 +414,17 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   )
 }
 
-function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null }) {
+function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
   const isCardMember = cardMemberIds.includes(currentUserId || '') || task.createdBy === currentUserId
   const canDrag = isAdminOrHr || isCardMember
   
+  // スクロール直後はドラッグを無効化（指が当たるだけで即座に掴まないように）
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ 
     id: task.id,
-    disabled: !canDrag // 権限がない場合はドラッグを無効化
+    disabled: !canDrag || (isMobile && isScrollingRecently) // 権限がない場合、またはスクロール直後の場合はドラッグを無効化
   })
   
   // クリックとドラッグを区別するためのフラグ
@@ -432,13 +435,14 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   
   // タッチ開始ハンドラー（長押し判定用）
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (isMobile && canDrag) {
+    // スクロール直後はドラッグを開始しない（指が当たるだけで即座に掴まないように）
+    if (isMobile && canDrag && !isScrollingRecently) {
       touchStartTimeRef.current = Date.now()
       isLongPressingRef.current = false
       
       // 300ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300) {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 300 && !isScrollingRecently) {
           isLongPressingRef.current = true
           // カード要素にスクロールブロッククラスを追加
           if (e.currentTarget) {
@@ -829,6 +833,7 @@ function KanbanColumn({
   currentUserRole,
   activeId,
   isMobile = false,
+  isScrollingRecently = false,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -844,6 +849,7 @@ function KanbanColumn({
   currentUserRole?: string
   activeId?: string | null
   isMobile?: boolean
+  isScrollingRecently?: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -1000,12 +1006,12 @@ function KanbanColumn({
                 <CompactTaskCard key={task.id} task={task} onClick={() => {
                   console.log('CompactTaskCard onClick callback:', task.id)
                   onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
               ) : (
                 <TaskCard key={task.id} task={task} onClick={() => {
                   console.log('TaskCard onClick callback:', task.id)
                   onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
               ),
             )}
 
@@ -1107,6 +1113,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
   const [colorChangeListId, setColorChangeListId] = useState<string | null>(null)
   const [collapseUpdateTrigger, setCollapseUpdateTrigger] = useState(0) // 折りたたみ状態更新用のトリガー
+  const [isScrollingRecently, setIsScrollingRecently] = useState(false) // スクロール直後かどうか
 
   // 折りたたみ状態変更イベントをリッスン
   useEffect(() => {
@@ -2175,6 +2182,46 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   
   // スクロールコンテナのref
   const desktopScrollContainerRef = useRef<HTMLDivElement>(null)
+  
+  // スクロール検知用（スクロール直後はドラッグを無効化）
+  const lastScrollTimeRef = useRef<number>(0)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // スクロールイベントの監視（モバイルでスクロール直後はドラッグを無効化）
+  useEffect(() => {
+    if (!isMobile || !desktopScrollContainerRef.current) return
+    
+    const container = desktopScrollContainerRef.current
+    
+    const handleScroll = () => {
+      // スクロール発生時刻を記録
+      lastScrollTimeRef.current = Date.now()
+      
+      // スクロール中はドラッグを無効化
+      setIsScrollingRecently(true)
+      
+      // スクロール終了を検知するため、タイムアウトをリセット
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+      
+      // スクロールが止まってから500ms後までドラッグを無効化
+      scrollTimeoutRef.current = setTimeout(() => {
+        // スクロール終了後も500msはドラッグを無効化
+        lastScrollTimeRef.current = Date.now() + 500
+        setIsScrollingRecently(false)
+      }, 500)
+    }
+    
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [isMobile])
 
   // モバイル・PC共通: ドラッグ中に自動スクロール（カーソル位置に応じて隣のリストを表示）
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -2686,6 +2733,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                       currentUserRole={currentUserRole}
                       activeId={activeId}
                       isMobile={isMobile}
+                      isScrollingRecently={isScrollingRecently}
                     />
                   </div>
                 )

@@ -153,8 +153,8 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
-      // 長押しでなく短いタッチの場合はクリックとして処理
-      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      // 長押しでなく短いタッチの場合はクリックとして処理（200ms未満）
+      if (touchDuration < 200 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -454,8 +454,8 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
-      // 長押しでなく短いタッチの場合はクリックとして処理
-      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      // 長押しでなく短いタッチの場合はクリックとして処理（200ms未満）
+      if (touchDuration < 200 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -1245,13 +1245,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }, [boardData, showArchived, dateFrom, dateTo])
 
   // モバイル・PC共通：長押しベースのアクティベーション（スクロールとドラッグを区別）
-  // モバイル用：TouchSensor（タッチイベントベース、0.3秒長押しでドラッグ開始）
+  // モバイル用：TouchSensor（タッチイベントベース、0.2秒長押しでドラッグ開始）
   // PC用：PointerSensor（マウスイベントベース、8px以上の移動でドラッグ開始）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、0.3秒長押しでドラッグ開始）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、0.2秒長押しでドラッグ開始）
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（スクロールとドラッグを区別）
+        delay: 200, // 200ms（0.2秒）長押しでドラッグ開始（スクロールとドラッグを区別）
         tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
       },
     }),
@@ -1335,16 +1335,33 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             }
           }
           
-          // 隣のリストを即座に表示（スクロールアニメーションなし）
+          // 隣のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
           if (targetListElement) {
             const container = desktopScrollContainerRef.current
-            const originalScrollBehavior = container.style.scrollBehavior
+            const targetRect = targetListElement.getBoundingClientRect()
+            const containerRect = container.getBoundingClientRect()
+            const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
+            
+            // 短いアニメーションで移動方向が分かるようにする（150ms - 一気に動くが方向が分かる）
+            const startScrollLeft = container.scrollLeft
+            const distance = targetScrollLeft - startScrollLeft
+            const duration = 150 // 150msで一気に移動（方向が分かる程度）
+            const startTime = performance.now()
+            
+            const animateScroll = (currentTime: number) => {
+              const elapsed = currentTime - startTime
+              const progress = Math.min(elapsed / duration, 1)
+              // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
+              const easeOut = 1 - Math.pow(1 - progress, 3)
+              container.scrollLeft = startScrollLeft + (distance * easeOut)
+              
+              if (progress < 1) {
+                requestAnimationFrame(animateScroll)
+              }
+            }
+            
             container.style.scrollBehavior = 'auto'
-            targetListElement.scrollIntoView({ block: 'nearest', inline: 'center' })
-            // すぐに元に戻す（次のフレームで）
-            requestAnimationFrame(() => {
-              container.style.scrollBehavior = originalScrollBehavior
-            })
+            requestAnimationFrame(animateScroll)
           }
         }
       }
@@ -1410,21 +1427,37 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         return updatedLists
       })
       
-      // 次のリストを即座に表示
+      // 次のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
       const currentListIndex = lists.findIndex((list) => list.id === currentListId)
       if (currentListIndex >= 0 && currentListIndex < lists.length - 1 && currentListId !== lastScrolledListIdRef.current) {
         const nextList = lists[currentListIndex + 1]
         const nextListElement = document.querySelector(`[data-list-id="${nextList.id}"]`)
-        if (nextListElement) {
-          // スクロールアニメーションを無効化して即座に表示
+        if (nextListElement && desktopScrollContainerRef.current) {
           const container = desktopScrollContainerRef.current
-          const originalScrollBehavior = container.style.scrollBehavior
+          const targetRect = nextListElement.getBoundingClientRect()
+          const containerRect = container.getBoundingClientRect()
+          const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
+          
+          // 短いアニメーションで移動方向が分かるようにする（150ms - 一気に動くが方向が分かる）
+          const startScrollLeft = container.scrollLeft
+          const distance = targetScrollLeft - startScrollLeft
+          const duration = 150 // 150msで一気に移動（方向が分かる程度）
+          const startTime = performance.now()
+          
+          const animateScroll = (currentTime: number) => {
+            const elapsed = currentTime - startTime
+            const progress = Math.min(elapsed / duration, 1)
+            // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
+            const easeOut = 1 - Math.pow(1 - progress, 3)
+            container.scrollLeft = startScrollLeft + (distance * easeOut)
+            
+            if (progress < 1) {
+              requestAnimationFrame(animateScroll)
+            }
+          }
+          
           container.style.scrollBehavior = 'auto'
-          nextListElement.scrollIntoView({ block: 'nearest', inline: 'center' })
-          // すぐに元に戻す（次のフレームで）
-          requestAnimationFrame(() => {
-            container.style.scrollBehavior = originalScrollBehavior
-          })
+          requestAnimationFrame(animateScroll)
           lastScrolledListIdRef.current = currentListId
         }
       }
@@ -2598,12 +2631,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         {/* PCでは最下部に横スクロールバーを設置 */}
         <div 
           ref={desktopScrollContainerRef}
-          className={`flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth ${!isMobile ? 'flex-1 min-h-0' : ''}`}
+          className={`flex gap-4 md:gap-6 overflow-x-auto pb-4 ${isMobile ? '' : 'scroll-smooth'} ${!isMobile ? 'flex-1 min-h-0' : ''}`}
           style={{
-            scrollBehavior: 'smooth',
+            scrollBehavior: 'auto', // デフォルトはauto、必要に応じてsmoothに切り替え
             touchAction: isMobile ? 'pan-x pan-y pinch-zoom' : 'auto', // モバイルでは横スクロールと縦スクロールの両方を許可（親要素の縦スクロールも有効化）
             WebkitOverflowScrolling: 'touch', // iOSでのスムーズスクロール
             overscrollBehaviorX: 'contain', // 横スクロールのオーバースクロールを抑制
+            // アニメーションはJavaScriptで制御するため、CSSのトランジションは不要
           }}
         >
           {lists.length > 0 ? (
@@ -2683,18 +2717,33 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           })()}
         </div>
 
-        <DragOverlay>
+        <DragOverlay
+          adjustScale={false}
+          style={{
+            // モバイルの場合、カードを指の真下に表示するための調整
+            ...(isMobile ? {
+              cursor: 'grabbing',
+            } : {
+              cursor: 'grabbing',
+            }),
+          }}
+        >
           {activeId && typeof activeId === 'string' && activeTask && activeTask.id && tasksById[activeTask.id] && activeTask.id === activeId ? (
             <div 
               className="cursor-grabbing"
               style={{
                 filter: 'drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3)) brightness(1.05)',
                 zIndex: 1000,
-                opacity: 0.8, // 移動中のカードを透過
-                transform: 'rotate(2deg) scale(1.05)',
+                opacity: 0.9, // 移動中のカードを少し透過
+                transform: isMobile ? 'scale(1.05)' : 'rotate(2deg) scale(1.05)',
                 transition: 'none', // ドラッグ中はアニメーションを無効化
                 animation: 'dragStart 0.2s ease-out forwards',
                 cursor: 'grabbing', // グーに握ったカーソル
+                // モバイルの場合、カードの中心がタッチ位置になるように調整
+                ...(isMobile ? {
+                  transformOrigin: 'center center',
+                  pointerEvents: 'none', // タッチイベントがカードを透過するように
+                } : {}),
               }}
             >
               {viewMode === "list" ? (

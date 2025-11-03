@@ -303,12 +303,42 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [showLabelManager, setShowLabelManager] = useState(false)
   const [showLabelSelector, setShowLabelSelector] = useState(false)
   
-  // localStorageからラベルを取得
+  // localStorageからラベルを取得（default-card-settingsとtask-custom-labelsをマージ）
   const getStoredLabels = () => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('task-custom-labels')
-      if (stored) {
-        return JSON.parse(stored)
+      // デフォルト設定からラベルを取得（全ユーザー共通）
+      const defaultSettings = localStorage.getItem('default-card-settings')
+      let defaultLabels: Label[] = []
+      if (defaultSettings) {
+        try {
+          const settings = JSON.parse(defaultSettings)
+          defaultLabels = settings.labels || []
+        } catch (e) {
+          console.error('Failed to parse default-card-settings:', e)
+        }
+      }
+      
+      // カスタムラベルを取得（個別ユーザー用）
+      const customStored = localStorage.getItem('task-custom-labels')
+      let customLabels: Label[] = []
+      if (customStored) {
+        try {
+          customLabels = JSON.parse(customStored)
+        } catch (e) {
+          console.error('Failed to parse task-custom-labels:', e)
+        }
+      }
+      
+      // デフォルトラベルとカスタムラベルをマージ（重複を除去）
+      const allLabels = [...defaultLabels]
+      customLabels.forEach((customLabel) => {
+        if (!allLabels.find((l) => l.id === customLabel.id && l.name === customLabel.name)) {
+          allLabels.push(customLabel)
+        }
+      })
+      
+      if (allLabels.length > 0) {
+        return allLabels
       }
     }
     return PRESET_LABELS
@@ -317,6 +347,20 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [customLabels, setCustomLabels] = useState<Label[]>(getStoredLabels)
   const [newLabelName, setNewLabelName] = useState("")
   const [newLabelColor, setNewLabelColor] = useState("#3b82f6")
+  
+  // default-card-settingsが変更されたときにラベルリストを更新
+  useEffect(() => {
+    const handleDefaultSettingsChange = () => {
+      const updatedLabels = getStoredLabels()
+      setCustomLabels(updatedLabels)
+    }
+    
+    window.addEventListener('defaultCardSettingsChanged', handleDefaultSettingsChange)
+    
+    return () => {
+      window.removeEventListener('defaultCardSettingsChanged', handleDefaultSettingsChange)
+    }
+  }, [])
 
   // ファイル管理の状態（ユーザー詳細を参考にした実装）
   const [folders, setFolders] = useState<string[]>(["資料", "画像", "参考資料"])
@@ -1323,7 +1367,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 {title || "タスク名なし"}
               </DialogTitle>
             )}
-            {!isEditingTitle && (currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+            {!isEditingTitle && cardPermissions?.canEdit && (
               <Button
                 variant="ghost"
                 size="sm"

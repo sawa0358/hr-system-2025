@@ -1325,7 +1325,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="w-[calc(100vw-2rem)] !max-w-full max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%] pointer-events-auto sm:w-auto sm:!max-w-5xl"
+        className="w-[calc(100vw-2rem)] !max-w-full max-w-5xl max-h-[90vh] overflow-y-auto overflow-x-hidden z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%] pointer-events-auto sm:w-auto sm:!max-w-5xl"
         showCloseButton={false}
         style={{ 
           backgroundColor: cardColor && cardColor !== "" ? cardColor : "white",
@@ -1344,7 +1344,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           <X className="w-5 h-5 text-slate-700" />
         </Button>
         <DialogHeader>
-          <div className="flex items-start justify-between gap-4 pr-8">
+          <div className="flex items-start justify-between gap-4 pr-8 min-w-0 w-full">
             {isEditingTitle ? (
               <Input
                 value={title}
@@ -1358,12 +1358,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     // 元のタイトルに戻す（必要に応じて）
                   }
                 }}
-                className="text-2xl font-bold border-2 border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 px-3 py-2"
+                className="text-2xl font-bold border-2 border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 px-3 py-2 w-full max-w-full"
                 placeholder="タスク名"
                 autoFocus
               />
             ) : (
-              <DialogTitle className="text-2xl font-bold text-slate-900 flex-1 pr-4">
+              <DialogTitle className="text-2xl font-bold text-slate-900 flex-1 pr-4 break-words min-w-0">
                 {title || "タスク名なし"}
               </DialogTitle>
             )}
@@ -1381,7 +1381,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 overflow-x-hidden w-full max-w-full break-words">
           {/* Labels Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -1437,13 +1437,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="ラベル名"
-                    value={newLabelName}
-                    onChange={(e) => setNewLabelName(e.target.value)}
-                    className="bg-white"
-                  />
+            <div className="flex gap-2 flex-wrap">
+              <Input
+                placeholder="ラベル名"
+                value={newLabelName}
+                onChange={(e) => setNewLabelName(e.target.value)}
+                className="bg-white flex-1 min-w-0"
+              />
                   <input
                     type="color"
                     value={newLabelColor}
@@ -1459,13 +1459,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           {/* Description */}
           <div>
             <label className="text-sm font-medium mb-2 block">説明</label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="タスクの詳細を入力..."
-              rows={4}
-              className="bg-white"
-            />
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="タスクの詳細を入力..."
+                rows={4}
+                className="bg-white w-full max-w-full resize-none"
+              />
           </div>
 
           {/* Due Date with Google Calendar Sync */}
@@ -1474,10 +1474,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               <CalendarIcon className="w-4 h-4" />
               締切日
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <Button 
                 variant="outline" 
-                className="flex-1 justify-start bg-transparent pointer-events-auto"
+                className="flex-1 justify-start bg-transparent pointer-events-auto min-w-0 overflow-hidden text-ellipsis"
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -1485,13 +1485,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   setShowCalendarSelector(true)
                 }}
               >
-                {dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}
+                <span className="truncate">{dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}</span>
               </Button>
             </div>
           </div>
 
           {/* Priority and Status with Management */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium">重要度</label>
@@ -1527,14 +1527,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Input
                       placeholder="重要度の表示名（例：最高）"
                       value={newPriorityLabel}
                       onChange={(e) => setNewPriorityLabel(e.target.value)}
-                      className="text-sm flex-1 bg-white"
+                      className="text-sm flex-1 min-w-0 bg-white"
                     />
-                    <Button size="sm" onClick={handleAddPriority}>
+                    <Button size="sm" onClick={handleAddPriority} className="flex-shrink-0">
                       追加
                     </Button>
                   </div>
@@ -1589,14 +1589,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Input
                       placeholder="状態の表示名（例：保留中）"
                       value={newStatusLabel}
                       onChange={(e) => setNewStatusLabel(e.target.value)}
-                      className="text-sm flex-1 bg-white"
+                      className="text-sm flex-1 min-w-0 bg-white"
                     />
-                    <Button size="sm" onClick={handleAddStatus}>
+                    <Button size="sm" onClick={handleAddStatus} className="flex-shrink-0">
                       追加
                     </Button>
                   </div>
@@ -1619,8 +1619,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   : (member.name || "未").slice(0, 3)
                 
                 return (
-                  <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
-                    <Avatar className="w-8 h-8">
+                  <div key={member.id} className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1 min-w-0">
+                    <Avatar className="w-8 h-8 flex-shrink-0">
                       <AvatarFallback 
                         employeeType={member.employee?.employeeType}
                         className={`font-semibold whitespace-nowrap overflow-hidden ${
@@ -1630,7 +1630,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                         {avatarText.slice(0, 3)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-sm">{member.name}</span>
+                    <span className="text-sm truncate min-w-0">{member.name}</span>
                     {cardPermissions?.canAddMembers && (
                       <button onClick={() => handleRemoveMember(member.id)} className="hover:opacity-70">
                         <X className="w-3 h-3" />
@@ -1755,13 +1755,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 return (
                   <div key={checklist.id} className="border rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-1">
-                        <h4 className="font-medium">{checklist.title}</h4>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <h4 className="font-medium break-words flex-1 min-w-0">{checklist.title}</h4>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEditChecklistTitle(checklist.id, checklist.title)}
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 p-0 flex-shrink-0"
                         >
                           <Edit2 className="w-3 h-3" />
                         </Button>
@@ -1786,12 +1786,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     </div>
                     <div className="space-y-2">
                       {checklist.items.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2">
+                        <div key={item.id} className="flex items-center gap-2 min-w-0">
                           <Checkbox
                             checked={item.completed}
                             onCheckedChange={() => handleToggleChecklistItem(checklist.id, item.id)}
+                            className="flex-shrink-0"
                           />
-                          <span className={`flex-1 text-sm ${item.completed ? "line-through text-slate-500" : ""}`}>
+                          <span className={`flex-1 text-sm min-w-0 break-words ${item.completed ? "line-through text-slate-500" : ""}`}>
                             {item.text}
                           </span>
                           <Button
@@ -1855,16 +1856,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     フォルダ追加
                   </Button>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Input
                       placeholder="フォルダ名"
                       value={newFileFolderName}
                       onChange={(e) => setNewFileFolderName(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleAddFileFolder()}
-                      className="w-32 h-8 text-sm bg-white"
+                      className="flex-1 min-w-0 sm:w-32 h-8 text-sm bg-white"
                       autoFocus
                     />
-                    <Button size="sm" onClick={handleAddFileFolder}>
+                    <Button size="sm" onClick={handleAddFileFolder} className="flex-shrink-0">
                       追加
                     </Button>
                     <Button
@@ -1874,6 +1875,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                         setIsAddingFileFolder(false)
                         setNewFileFolderName("")
                       }}
+                      className="flex-shrink-0"
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -2070,29 +2072,29 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           </div>
 
           {/* Action Buttons */}
-          <div className="flex justify-between gap-2 pt-4 border-t">
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t pb-6 sm:pb-0 w-full">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 onClick={handleDelete}
-                className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 bg-transparent border-red-200"
+                className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 bg-transparent border-red-200 flex-1 sm:flex-initial min-w-0"
               >
                 <Trash2 className="w-4 h-4" />
                 削除
               </Button>
-              <Button variant="outline" onClick={handleMakeTemplate} className="gap-2 bg-transparent">
+              <Button variant="outline" onClick={handleMakeTemplate} className="gap-2 bg-transparent flex-1 sm:flex-initial min-w-0">
                 <FileText className="w-4 h-4" />
-                テンプレート化する
+                <span className="truncate">テンプレート化</span>
               </Button>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-initial">
                 キャンセル
               </Button>
               <Button 
                 onClick={handleSave} 
                 disabled={isSaving}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-blue-600 hover:bg-blue-700 flex-1 sm:flex-initial"
               >
                 {isSaving ? "保存中..." : "保存"}
               </Button>

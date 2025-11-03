@@ -1303,6 +1303,51 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           }
         }
       }
+      
+      // モバイルのみ：ドラッグ開始時に隣のリストを即座に表示（キビキビ動く）
+      if (isMobile) {
+        const activeList = lists.find((list) => list.taskIds.includes(activeId))
+        if (activeList && desktopScrollContainerRef.current) {
+          const allListElements = document.querySelectorAll('[data-list-id]')
+          const currentListIndex = lists.findIndex((list) => list.id === activeList.id)
+          
+          // 右隣のリストを優先的に表示（なければ左隣）
+          let targetListElement: Element | null = null
+          if (currentListIndex < lists.length - 1) {
+            // 右隣のリスト
+            const rightList = lists[currentListIndex + 1]
+            for (const listEl of allListElements) {
+              if (listEl.getAttribute('data-list-id') === rightList.id) {
+                targetListElement = listEl
+                break
+              }
+            }
+          }
+          
+          if (!targetListElement && currentListIndex > 0) {
+            // 左隣のリスト
+            const leftList = lists[currentListIndex - 1]
+            for (const listEl of allListElements) {
+              if (listEl.getAttribute('data-list-id') === leftList.id) {
+                targetListElement = listEl
+                break
+              }
+            }
+          }
+          
+          // 隣のリストを即座に表示（スクロールアニメーションなし）
+          if (targetListElement) {
+            const container = desktopScrollContainerRef.current
+            const originalScrollBehavior = container.style.scrollBehavior
+            container.style.scrollBehavior = 'auto'
+            targetListElement.scrollIntoView({ block: 'nearest', inline: 'center' })
+            // すぐに元に戻す（次のフレームで）
+            requestAnimationFrame(() => {
+              container.style.scrollBehavior = originalScrollBehavior
+            })
+          }
+        }
+      }
     }
     
     setActiveId(activeId)
@@ -1311,6 +1356,80 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   // モバイル用：最後に移動したリストID（連続移動をスムーズに）
   const lastMovedListIdRef = useRef<string | null>(null)
   const autoMoveToClosestListRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // 最後にスクロールしたリストID（連続スクロール防止用）
+  const lastScrolledListIdRef = useRef<string | null>(null)
+  
+  // カードがリスト範囲内に入っているか判定し、次のリストへ即座に移動
+  const checkAndMoveToNextList = (cardCenterX: number, activeId: string) => {
+    if (!desktopScrollContainerRef.current) return
+    
+    const activeList = lists.find((list) => list.taskIds.includes(activeId))
+    if (!activeList) return
+    
+    // すべてのリスト要素を取得
+    const allListElements = document.querySelectorAll('[data-list-id]')
+    
+    // 現在のカード位置を含むリストを見つける
+    let currentListElement: Element | null = null
+    for (const listEl of allListElements) {
+      const listRect = listEl.getBoundingClientRect()
+      if (cardCenterX >= listRect.left && cardCenterX <= listRect.right) {
+        currentListElement = listEl
+        break
+      }
+    }
+    
+    if (!currentListElement) return
+    
+    const currentListId = currentListElement.getAttribute('data-list-id')
+    if (!currentListId || currentListId === activeList.id) return
+    
+    // 現在のリストと異なり、最後に移動したリストとも異なる場合
+    if (currentListId !== activeList.id && currentListId !== lastMovedListIdRef.current) {
+      // カードを新しいリストに移動
+      setLists((currentLists) => {
+        const sourceList = currentLists.find((list) => list.taskIds.includes(activeId))
+        const targetList = currentLists.find((list) => list.id === currentListId)
+        
+        if (!sourceList || !targetList || sourceList.id === targetList.id) {
+          return currentLists
+        }
+        
+        const updatedLists = currentLists.map((list) => {
+          if (list.id === sourceList.id) {
+            return { ...list, taskIds: list.taskIds.filter((id) => id !== activeId) }
+          }
+          if (list.id === targetList.id) {
+            return { ...list, taskIds: [...list.taskIds, activeId] }
+          }
+          return list
+        })
+        
+        lastMovedListIdRef.current = currentListId
+        return updatedLists
+      })
+      
+      // 次のリストを即座に表示
+      const currentListIndex = lists.findIndex((list) => list.id === currentListId)
+      if (currentListIndex >= 0 && currentListIndex < lists.length - 1 && currentListId !== lastScrolledListIdRef.current) {
+        const nextList = lists[currentListIndex + 1]
+        const nextListElement = document.querySelector(`[data-list-id="${nextList.id}"]`)
+        if (nextListElement) {
+          // スクロールアニメーションを無効化して即座に表示
+          const container = desktopScrollContainerRef.current
+          const originalScrollBehavior = container.style.scrollBehavior
+          container.style.scrollBehavior = 'auto'
+          nextListElement.scrollIntoView({ block: 'nearest', inline: 'center' })
+          // すぐに元に戻す（次のフレームで）
+          requestAnimationFrame(() => {
+            container.style.scrollBehavior = originalScrollBehavior
+          })
+          lastScrolledListIdRef.current = currentListId
+        }
+      }
+    }
+  }
   
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
@@ -2096,6 +2215,41 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     // タスクがドラッグされている場合のみ処理
     if (!tasksById[activeId]) return
     
+    // モバイルの場合のみ新しい実装（即座にリスト表示とリスト内移動）
+    if (isMobile) {
+      // カード要素を取得
+      const allCards = document.querySelectorAll('[data-sortable-id]')
+      let activeCardElement: Element | null = null
+      
+      for (const card of allCards) {
+        if (card.getAttribute('data-sortable-id') === activeId) {
+          activeCardElement = card
+          break
+        }
+      }
+      
+      if (activeCardElement) {
+        const cardRect = activeCardElement.getBoundingClientRect()
+        const cardCenterX = cardRect.left + cardRect.width / 2
+        
+        // カードがリスト範囲内に入っているかチェックし、次のリストへ即座に移動
+        checkAndMoveToNextList(cardCenterX, activeId)
+      }
+      
+      // 既存のスクロールアニメーションを停止
+      if (autoScrollAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(autoScrollAnimationFrameRef.current)
+        autoScrollAnimationFrameRef.current = null
+      }
+      if (autoScrollIntervalRef.current) {
+        clearInterval(autoScrollIntervalRef.current)
+        autoScrollIntervalRef.current = null
+      }
+      
+      return // モバイルの場合はここで終了
+    }
+    
+    // PC用の既存実装（従来通り）
     const container = desktopScrollContainerRef.current
     const containerRect = container.getBoundingClientRect()
     
@@ -2110,13 +2264,12 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       }
     } else {
       // フォールバック: リファレンスから取得
-      pointerX = isMobile ? lastTouchXRef.current : lastMouseXRef.current
+      pointerX = lastMouseXRef.current
     }
     
-    // モバイルの場合、カードを左右に動かしたときの滑らかなスクロール処理
-    // 実際のスマホでも動作するように、カードの位置を基準にする
+    // PC用の既存実装（モバイルは上で処理済み）
     const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
-    if (isMobile || isTouchDevice) {
+    if (!isMobile && !isTouchDevice) {
       // 既存の自動スクロールをクリア
       if (autoScrollIntervalRef.current) {
         clearInterval(autoScrollIntervalRef.current)
@@ -2139,21 +2292,6 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const cardRect = activeCardElement.getBoundingClientRect()
         const cardCenterX = cardRect.left + cardRect.width / 2 // カードの中心位置
         
-        // モバイル用：最も近いリストに自動移動（左右に動かし始めたら即座に移動）
-        if (isMobile && activeId) {
-          // 既存のタイマーをクリア
-          if (autoMoveToClosestListRef.current) {
-            clearTimeout(autoMoveToClosestListRef.current)
-            autoMoveToClosestListRef.current = null
-          }
-          
-          // 即座に最も近いリストに移動（50ms以内）
-          autoMoveToClosestListRef.current = setTimeout(() => {
-            autoMoveToClosestList(cardCenterX, activeId)
-            autoMoveToClosestListRef.current = null
-          }, 50)
-        }
-        
         const containerWidth = containerRect.width
         const containerCenter = containerRect.left + containerWidth / 2
         
@@ -2161,98 +2299,6 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const dragStartX = dragStartCardCenterXRef.current ?? cardCenterX
         const dragDistance = cardCenterX - dragStartX
         const dragDistancePercent = Math.abs(dragDistance) / containerWidth
-        
-        // スマホのみ：ドラッグ方向と逆にスクロール（右にドラッグ→左にスクロール、左にドラッグ→右にスクロール）
-        if (isMobile) {
-          // 既存のアニメーションフレームをクリア
-          if (autoScrollAnimationFrameRef.current !== null) {
-            cancelAnimationFrame(autoScrollAnimationFrameRef.current)
-            autoScrollAnimationFrameRef.current = null
-          }
-          
-          // ドラッグ方向を判定（最小閾値：画面幅の1%）
-          const dragThreshold = containerWidth * 0.01
-          const isDraggingRight = dragDistance > dragThreshold
-          const isDraggingLeft = dragDistance < -dragThreshold
-          
-          // スクロール速度（ドラッグ距離に応じて変化）
-          const baseSpeed = 60 // 基本速度
-          const speedMultiplier = Math.min(Math.abs(dragDistance) / 50, 3) // ドラッグ距離に応じて最大3倍
-          const scrollSpeed = baseSpeed * speedMultiplier
-          
-          // 右にドラッグしている場合、左にスクロール（逆方向）
-          if (isDraggingRight && dragDistance > dragThreshold) {
-            const scrollLeft = () => {
-              if (desktopScrollContainerRef.current && activeId) {
-                const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
-                if (currentCard) {
-                  const currentCardRect = currentCard.getBoundingClientRect()
-                  const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
-                  const currentDragDistance = currentCardCenterX - dragStartX
-                  
-                  // 右にドラッグしている間は左にスクロール継続
-                  if (currentDragDistance > dragThreshold) {
-                    const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
-                    if (currentScrollLeft > 0) {
-                      const remainingDistance = currentScrollLeft
-                      const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
-                      const speed = Math.min(scrollSpeed * speedFactor, remainingDistance)
-                      desktopScrollContainerRef.current.scrollLeft -= speed
-                      autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
-                    } else {
-                      autoScrollAnimationFrameRef.current = null
-                    }
-                  } else {
-                    autoScrollAnimationFrameRef.current = null
-                  }
-                } else {
-                  autoScrollAnimationFrameRef.current = null
-                }
-              } else {
-                autoScrollAnimationFrameRef.current = null
-              }
-            }
-            autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollLeft)
-            return
-          }
-          
-          // 左にドラッグしている場合、右にスクロール（逆方向）
-          if (isDraggingLeft && dragDistance < -dragThreshold) {
-            const scrollRight = () => {
-              if (desktopScrollContainerRef.current && activeId) {
-                const currentCard = document.querySelector(`[data-sortable-id="${activeId}"]`)
-                if (currentCard) {
-                  const currentCardRect = currentCard.getBoundingClientRect()
-                  const currentCardCenterX = currentCardRect.left + currentCardRect.width / 2
-                  const currentDragDistance = currentCardCenterX - dragStartX
-                  
-                  // 左にドラッグしている間は右にスクロール継続
-                  if (currentDragDistance < -dragThreshold) {
-                    const currentScrollLeft = desktopScrollContainerRef.current.scrollLeft
-                    const maxScrollLeft = desktopScrollContainerRef.current.scrollWidth - desktopScrollContainerRef.current.clientWidth
-                    if (currentScrollLeft < maxScrollLeft) {
-                      const remainingDistance = maxScrollLeft - currentScrollLeft
-                      const speedFactor = remainingDistance < 100 ? Math.max(0.3, remainingDistance / 100) : 1
-                      const speed = Math.min(scrollSpeed * speedFactor, remainingDistance)
-                      desktopScrollContainerRef.current.scrollLeft += speed
-                      autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
-                    } else {
-                      autoScrollAnimationFrameRef.current = null
-                    }
-                  } else {
-                    autoScrollAnimationFrameRef.current = null
-                  }
-                } else {
-                  autoScrollAnimationFrameRef.current = null
-                }
-              } else {
-                autoScrollAnimationFrameRef.current = null
-              }
-            }
-            autoScrollAnimationFrameRef.current = requestAnimationFrame(scrollRight)
-            return
-          }
-        }
         
         // PC用（既存ロジック）：画面端に近づいたときにスクロール
         const distanceFromCenter = cardCenterX - containerCenter

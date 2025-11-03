@@ -52,8 +52,16 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error fetching default card settings:", error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    })
     return NextResponse.json(
-      { error: "デフォルトカード設定の取得に失敗しました" },
+      { 
+        error: "デフォルトカード設定の取得に失敗しました",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
@@ -122,8 +130,16 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("Error saving default card settings:", error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
+    })
     return NextResponse.json(
-      { error: "デフォルトカード設定の保存に失敗しました" },
+      { 
+        error: "デフォルトカード設定の保存に失敗しました",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }

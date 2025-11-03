@@ -449,12 +449,19 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
         if (response.ok) {
           const data = await response.json()
+          console.log('[TaskDetailDialog] Loaded default settings from API:', data)
           
-          // 優先度オプションを設定
-          if (data.priorities && data.priorities.length > 0) {
+          // 優先度オプションを設定（APIからのデータを優先）
+          if (data.priorities && Array.isArray(data.priorities) && data.priorities.length > 0) {
+            console.log('[TaskDetailDialog] Setting priority options from API:', data.priorities)
             setPriorityOptions(data.priorities)
+            // APIから取得できた場合はlocalStorageも更新（同期）
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('task-priority-options', JSON.stringify(data.priorities))
+            }
           } else {
-            // フォールバック: localStorageから取得
+            // APIからデータがない場合のみフォールバック
+            console.log('[TaskDetailDialog] No priority options from API, using fallback')
             if (typeof window !== 'undefined') {
               const stored = localStorage.getItem('task-priority-options')
               if (stored) {
@@ -467,16 +474,23 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             }
           }
           
-          // 状態オプションを設定
-          if (data.statuses && data.statuses.length > 0) {
+          // 状態オプションを設定（APIからのデータを優先）
+          if (data.statuses && Array.isArray(data.statuses) && data.statuses.length > 0) {
             // デフォルトオプションとマージ
             const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
             const filteredCustomStatuses = data.statuses.filter((option: any) => 
               !defaultValues.includes(option.value)
             )
-            setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomStatuses])
+            const mergedStatusOptions = [...DEFAULT_STATUS_OPTIONS, ...filteredCustomStatuses]
+            console.log('[TaskDetailDialog] Setting status options from API:', mergedStatusOptions)
+            setStatusOptions(mergedStatusOptions)
+            // APIから取得できた場合はlocalStorageも更新（同期）
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('task-status-options', JSON.stringify(filteredCustomStatuses))
+            }
           } else {
-            // フォールバック: localStorageから取得
+            // APIからデータがない場合のみフォールバック
+            console.log('[TaskDetailDialog] No status options from API, using fallback')
             if (typeof window !== 'undefined') {
               const stored = localStorage.getItem('task-status-options')
               if (stored) {
@@ -493,11 +507,37 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
             }
           }
+        } else {
+          console.error('[TaskDetailDialog] Failed to fetch default settings:', response.status)
+          // エラーの場合のみフォールバック
+          if (typeof window !== 'undefined') {
+            const priorityStored = localStorage.getItem('task-priority-options')
+            if (priorityStored) {
+              setPriorityOptions(JSON.parse(priorityStored))
+            } else {
+              setPriorityOptions(PRIORITY_OPTIONS)
+            }
+            
+            const statusStored = localStorage.getItem('task-status-options')
+            if (statusStored) {
+              const customOptions = JSON.parse(statusStored)
+              const defaultValues = DEFAULT_STATUS_OPTIONS.map(opt => opt.value)
+              const filteredCustomOptions = customOptions.filter((option: any) => 
+                !defaultValues.includes(option.value)
+              )
+              setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...filteredCustomOptions])
+            } else {
+              setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
+            }
+          } else {
+            setPriorityOptions(PRIORITY_OPTIONS)
+            setStatusOptions([...DEFAULT_STATUS_OPTIONS, ...CUSTOM_STATUS_OPTIONS])
+          }
         }
       }
     } catch (error) {
-      console.error('Failed to load default settings:', error)
-      // フォールバック: localStorageから取得
+      console.error('[TaskDetailDialog] Failed to load default settings:', error)
+      // エラーの場合のみフォールバック
       if (typeof window !== 'undefined') {
         const priorityStored = localStorage.getItem('task-priority-options')
         if (priorityStored) {
@@ -533,6 +573,20 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       loadDefaultSettings()
     }
   }, [open, currentUser])
+  
+  // APIから取得した設定がlocalStorageより優先されるようにする
+  // default-card-settingsが変更されたときに再読み込み
+  useEffect(() => {
+    const handleDefaultSettingsChange = async () => {
+      await loadDefaultSettings()
+    }
+    
+    window.addEventListener('defaultCardSettingsChanged', handleDefaultSettingsChange)
+    
+    return () => {
+      window.removeEventListener('defaultCardSettingsChanged', handleDefaultSettingsChange)
+    }
+  }, [currentUser])
   const [newPriorityLabel, setNewPriorityLabel] = useState("")
   const [newStatusLabel, setNewStatusLabel] = useState("")
 
@@ -989,38 +1043,113 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     }
   }
 
-  const handleAddPriority = () => {
-    if (newPriorityLabel.trim()) {
+  const handleAddPriority = async () => {
+    if (!currentUser || !newPriorityLabel.trim()) return
+    
+    // 管理者・総務のみ追加可能
+    if (currentUser.role !== 'admin' && currentUser.role !== 'hr') {
+      alert("重要度の追加は管理者・総務のみ可能です。")
+      return
+    }
+    
+    try {
       // 値は自動生成（ラベルの最初の文字を小文字にしたもの）
       const autoValue = newPriorityLabel.toLowerCase().replace(/\s+/g, '-')
       const newOptions = [...priorityOptions, { value: autoValue, label: newPriorityLabel.trim() }]
       
+      // PostgreSQLに保存（デフォルトカード設定として）
+      const response = await fetch('/api/default-card-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          labels: customLabels,
+          priorities: newOptions,
+          statuses: statusOptions.filter(s => !s.isDefault),
+          defaultCardColor: "",
+          defaultListColor: "",
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '保存に失敗しました')
+      }
+      
       setPriorityOptions(newOptions)
       setNewPriorityLabel("")
       
-      // localStorageに保存
+      // localStorageにも保存（フォールバック用）
       if (typeof window !== 'undefined') {
         localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
-        // カスタムイベントを発火してS3に自動保存
-        window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
+        // カスタムイベントを発火
+        window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
       }
+    } catch (error) {
+      console.error('Failed to save priority:', error)
+      alert(`保存に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  const handleDeletePriority = (value: string) => {
-    const newOptions = priorityOptions.filter((p) => p.value !== value)
-    setPriorityOptions(newOptions)
+  const handleDeletePriority = async (value: string) => {
+    if (!currentUser) return
     
-    // localStorageに保存
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
-      // カスタムイベントを発火してS3に自動保存
-      window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
+    // 管理者・総務のみ削除可能
+    if (currentUser.role !== 'admin' && currentUser.role !== 'hr') {
+      alert("重要度の削除は管理者・総務のみ可能です。")
+      return
+    }
+    
+    try {
+      const newOptions = priorityOptions.filter((p) => p.value !== value)
+      
+      // PostgreSQLに保存（デフォルトカード設定として）
+      const response = await fetch('/api/default-card-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          labels: customLabels,
+          priorities: newOptions,
+          statuses: statusOptions.filter(s => !s.isDefault),
+          defaultCardColor: "",
+          defaultListColor: "",
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '保存に失敗しました')
+      }
+      
+      setPriorityOptions(newOptions)
+      
+      // localStorageにも保存（フォールバック用）
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('task-priority-options', JSON.stringify(newOptions))
+        // カスタムイベントを発火
+        window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
+      }
+    } catch (error) {
+      console.error('Failed to delete priority:', error)
+      alert(`削除に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  const handleAddStatus = () => {
-    if (newStatusLabel.trim()) {
+  const handleAddStatus = async () => {
+    if (!currentUser || !newStatusLabel.trim()) return
+    
+    // 管理者・総務のみ追加可能
+    if (currentUser.role !== 'admin' && currentUser.role !== 'hr') {
+      alert("状態の追加は管理者・総務のみ可能です。")
+      return
+    }
+    
+    try {
       // 値は自動生成（ラベルの最初の文字を小文字にしたもの）
       const autoValue = newStatusLabel.toLowerCase().replace(/\s+/g, '-')
       
@@ -1041,20 +1170,46 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       const newCustomOption = { value: autoValue, label: newStatusLabel.trim(), isDefault: false }
       const newOptions = [...statusOptions, newCustomOption]
       
+      // PostgreSQLに保存（デフォルトカード設定として）
+      const response = await fetch('/api/default-card-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          labels: customLabels,
+          priorities: priorityOptions,
+          statuses: newOptions.filter(s => !s.isDefault),
+          defaultCardColor: "",
+          defaultListColor: "",
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '保存に失敗しました')
+      }
+      
       setStatusOptions(newOptions)
       setNewStatusLabel("")
       
-      // カスタムオプションのみlocalStorageに保存
+      // カスタムオプションのみlocalStorageに保存（フォールバック用）
       const customOptions = newOptions.filter(s => !s.isDefault)
       if (typeof window !== 'undefined') {
         localStorage.setItem('task-status-options', JSON.stringify(customOptions))
-        // カスタムイベントを発火してS3に自動保存
-        window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
+        // カスタムイベントを発火
+        window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
       }
+    } catch (error) {
+      console.error('Failed to save status:', error)
+      alert(`保存に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
-  const handleDeleteStatus = (value: string) => {
+  const handleDeleteStatus = async (value: string) => {
+    if (!currentUser) return
+    
     // デフォルトオプションは削除できない
     const option = statusOptions.find(s => s.value === value)
     if (option?.isDefault) {
@@ -1062,15 +1217,48 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       return
     }
     
-    const newOptions = statusOptions.filter((s) => s.value !== value)
-    setStatusOptions(newOptions)
+    // 管理者・総務のみ削除可能
+    if (currentUser.role !== 'admin' && currentUser.role !== 'hr') {
+      alert("状態の削除は管理者・総務のみ可能です。")
+      return
+    }
     
-    // カスタムオプションのみlocalStorageに保存
-    const customOptions = newOptions.filter(s => !s.isDefault)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('task-status-options', JSON.stringify(customOptions))
-      // カスタムイベントを発火してS3に自動保存
-      window.dispatchEvent(new CustomEvent('taskSettingsChanged'))
+    try {
+      const newOptions = statusOptions.filter((s) => s.value !== value)
+      
+      // PostgreSQLに保存（デフォルトカード設定として）
+      const response = await fetch('/api/default-card-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser.id,
+        },
+        body: JSON.stringify({
+          labels: customLabels,
+          priorities: priorityOptions,
+          statuses: newOptions.filter(s => !s.isDefault),
+          defaultCardColor: "",
+          defaultListColor: "",
+        }),
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '保存に失敗しました')
+      }
+      
+      setStatusOptions(newOptions)
+      
+      // カスタムオプションのみlocalStorageに保存（フォールバック用）
+      const customOptions = newOptions.filter(s => !s.isDefault)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('task-status-options', JSON.stringify(customOptions))
+        // カスタムイベントを発火
+        window.dispatchEvent(new CustomEvent('defaultCardSettingsChanged'))
+      }
+    } catch (error) {
+      console.error('Failed to delete status:', error)
+      alert(`削除に失敗しました: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 

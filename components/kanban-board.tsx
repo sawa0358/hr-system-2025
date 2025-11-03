@@ -123,7 +123,8 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     disabled: !canDrag // 権限がない場合はドラッグを無効化
   })
   
-  // モバイル用：クリックとドラッグを区別するためのフラグ
+  // クリックとドラッグを区別するためのフラグ
+  const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
@@ -153,6 +154,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current)
       }
+      clickStartRef.current = null
     }
   }, [])
 
@@ -211,20 +213,19 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
         }}
         {...attributes}
-        {...listeners}
-        onClick={(e) => {
-          // ドラッグ中でない場合のみクリックイベントを実行
-          if (!isDragging && e.detail === 1) {
-            // シングルクリックのみ処理（ダブルクリックは無視）
-            setTimeout(() => {
-              if (!isDragging && activeId !== task.id) {
-                onClick()
-              }
-            }, 100)
-          }
-        }}
+        {...(canDrag ? listeners : {})}
       >
-        <CardContent className="p-2">
+        <CardContent 
+          className="p-2"
+          onClick={(e) => {
+            // ドラッグ中でない場合のみクリックイベントを実行
+            if (!isDragging && activeId !== task.id) {
+              e.stopPropagation()
+              console.log('Task card clicked:', task.id, task.title)
+              onClick()
+            }
+          }}
+        >
           <div className="flex items-center gap-2">
             <div className="flex-1 min-w-0">
               <span className="font-medium text-slate-900 text-xs truncate block">{task.title}</span>
@@ -301,7 +302,8 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     disabled: !canDrag // 権限がない場合はドラッグを無効化
   })
   
-  // モバイル用：クリックとドラッグを区別するためのフラグ
+  // クリックとドラッグを区別するためのフラグ
+  const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
@@ -331,6 +333,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
       if (clickTimeoutRef.current) {
         clearTimeout(clickTimeoutRef.current)
       }
+      clickStartRef.current = null
     }
   }, [])
 
@@ -389,20 +392,19 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
         }}
         {...attributes}
-        {...listeners}
-        onClick={(e) => {
-          // ドラッグ中でない場合のみクリックイベントを実行
-          if (!isDragging && e.detail === 1) {
-            // シングルクリックのみ処理（ダブルクリックは無視）
-            setTimeout(() => {
-              if (!isDragging && activeId !== task.id) {
-                onClick()
-              }
-            }, 100)
-          }
-        }}
+        {...(canDrag ? listeners : {})}
       >
-        <CardContent className="p-2">
+        <CardContent 
+          className="p-2"
+          onClick={(e) => {
+            // ドラッグ中でない場合のみクリックイベントを実行
+            if (!isDragging && activeId !== task.id) {
+              e.stopPropagation()
+              console.log('TaskCard clicked:', task.id, task.title)
+              onClick()
+            }
+          }}
+        >
           <div className="flex items-start gap-2">
             <div className="flex-1 cursor-pointer">
               <div className="flex items-start justify-between mb-2">
@@ -768,9 +770,15 @@ function KanbanColumn({
           <div className="space-y-3">
             {tasks.map((task) =>
               viewMode === "list" ? (
-                <CompactTaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
+                <CompactTaskCard key={task.id} task={task} onClick={() => {
+                  console.log('CompactTaskCard onClick callback:', task.id)
+                  onTaskClick(task)
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
               ) : (
-                <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
+                <TaskCard key={task.id} task={task} onClick={() => {
+                  console.log('TaskCard onClick callback:', task.id)
+                  onTaskClick(task)
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} />
               ),
             )}
 
@@ -861,6 +869,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+
+  // デバッグ用：dialogOpenとselectedTaskの変更を監視
+  useEffect(() => {
+    console.log('Dialog state changed:', { dialogOpen, selectedTask: selectedTask?.id, selectedTaskTitle: selectedTask?.title })
+  }, [dialogOpen, selectedTask])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [addCardDialogOpen, setAddCardDialogOpen] = useState(false)
   const [listColorModalOpen, setListColorModalOpen] = useState(false)
@@ -1571,10 +1584,14 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }
 
   const handleTaskClick = (task: Task) => {
+    console.log('handleTaskClick called:', task.id, task.title)
+    console.log('Current user:', currentUserId, currentUserRole)
+    
     // カード閲覧権限をチェック（簡略化版）
     if (currentUserRole && currentUserId) {
       // 管理者・総務は全てのカードを開ける
       if (currentUserRole === 'admin' || currentUserRole === 'hr') {
+        console.log('Admin/HR user, opening dialog')
         setSelectedTask(task)
         setDialogOpen(true)
         return
@@ -1584,14 +1601,19 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       const isMember = task.members?.some(m => m.id === currentUserId)
       const isCreator = task.assignee === currentUserId // assigneeを作成者として扱う
       
+      console.log('Permission check:', { isMember, isCreator, members: task.members, assignee: task.assignee })
+      
       if (!isMember && !isCreator) {
+        console.log('Permission denied')
         alert("このカードを開く権限がありません")
         return
       }
     }
     
+    console.log('Opening dialog with task:', task)
     setSelectedTask(task)
     setDialogOpen(true)
+    console.log('Dialog state updated:', { task, dialogOpen: true })
   }
 
   // refを通じて外部からhandleTaskClickを呼び出せるようにする
@@ -2346,13 +2368,18 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         </DragOverlay>
       </DndContext>
 
-               <TaskDetailDialog 
-                 task={selectedTask} 
-                 open={dialogOpen} 
-                 onOpenChange={setDialogOpen}
-                 onRefresh={onRefresh}
-                 onTaskUpdate={handleTaskUpdate}
-               />
+               {selectedTask && (
+                 <TaskDetailDialog 
+                   task={selectedTask} 
+                   open={dialogOpen} 
+                   onOpenChange={(open) => {
+                     console.log('TaskDetailDialog onOpenChange:', open, 'task:', selectedTask?.id)
+                     setDialogOpen(open)
+                   }}
+                   onRefresh={onRefresh}
+                   onTaskUpdate={handleTaskUpdate}
+                 />
+               )}
       
       {/* カード追加ダイアログ */}
       <AddCardDialog 

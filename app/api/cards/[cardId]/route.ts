@@ -191,19 +191,19 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
       return await tx.card.update({
         where: { id: params.cardId },
         data: {
-          title: title || undefined,
-          description: description || undefined,
+          title: title !== undefined ? title : undefined,
+          description: description !== undefined ? description : undefined,
           dueDate: dueDate ? new Date(dueDate) : undefined,
-          priority: priority || undefined,
+          priority: priority !== undefined ? priority : undefined,
           list: newListId ? { connect: { id: newListId } } : undefined, // リストIDも更新
           position: position !== undefined ? position : undefined,
           labels: labels !== undefined ? labels : undefined,
           attachments: attachments !== undefined ? attachments : undefined,
           checklists: checklists !== undefined ? checklists : undefined,
           // 追加フィールド（存在する場合のみ更新）
-          ...(status !== undefined && { status }),
-          ...(cardColor !== undefined && { cardColor }),
-          ...(isArchived !== undefined && { isArchived }),
+          status: status !== undefined ? status : undefined,
+          cardColor: cardColor !== undefined ? cardColor : undefined,
+          isArchived: isArchived !== undefined ? isArchived : undefined,
         },
         include: {
           creator: {

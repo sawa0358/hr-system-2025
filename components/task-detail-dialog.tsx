@@ -285,6 +285,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     }
   }, [open, task?.boardId, task?.id, currentUser?.id])
   const [title, setTitle] = useState("")
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [description, setDescription] = useState("")
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
   
@@ -450,15 +451,24 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       if (task.attachments && Array.isArray(task.attachments)) {
         console.log("Restoring files from task:", task.attachments)
         
-        // ファイルをアップロード済みファイルリストに設定
-        const fileList = task.attachments.map((file: any) => ({
-          id: file.id,
-          name: file.name,
-          type: file.type,
-          uploadDate: file.uploadDate,
-          size: file.size,
-          folderName: file.folderName || '資料'
-        }))
+        // フォルダ情報とファイル情報を分離
+        const foldersMetadata = task.attachments.find((item: any) => item.id === '_folders_metadata' && item.isMetadata)
+        if (foldersMetadata && foldersMetadata.folders && Array.isArray(foldersMetadata.folders)) {
+          setFolders(foldersMetadata.folders)
+          setCurrentFolder(foldersMetadata.folders[0] || "資料")
+        }
+        
+        // ファイルをアップロード済みファイルリストに設定（メタデータを除く）
+        const fileList = task.attachments
+          .filter((file: any) => !file.isMetadata && file.id !== '_folders_metadata')
+          .map((file: any) => ({
+            id: file.id,
+            name: file.name,
+            type: file.type,
+            uploadDate: file.uploadDate,
+            size: file.size,
+            folderName: file.folderName || '資料'
+          }))
         
         setUploadedFiles(fileList)
       }
@@ -656,6 +666,19 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
   const handleDeleteChecklist = (checklistId: string) => {
     setChecklists(checklists.filter((c) => c.id !== checklistId))
+  }
+
+  const handleEditChecklistTitle = (checklistId: string, currentTitle: string) => {
+    const newTitle = prompt("チェックリスト名を入力してください", currentTitle)
+    if (newTitle && newTitle.trim() !== "") {
+      setChecklists(
+        checklists.map((checklist) =>
+          checklist.id === checklistId
+            ? { ...checklist, title: newTitle.trim() }
+            : checklist,
+        ),
+      )
+    }
   }
 
   const handleAddMember = () => {
@@ -1065,6 +1088,18 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
 
     setIsSaving(true)
     try {
+      // フォルダ情報をattachmentsに含める（メタデータとして）
+      const attachmentsWithFolders = [
+        ...uploadedFiles,
+        // フォルダ情報をメタデータとして追加（先頭に特殊オブジェクトとして保存）
+        ...(folders.length > 0 ? [{ 
+          id: '_folders_metadata',
+          type: '_metadata',
+          folders: folders,
+          isMetadata: true
+        }] : [])
+      ]
+
       const requestBody = {
         title: title || "",
         description: description || "",
@@ -1076,7 +1111,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         cardColor: cardColor || null,
         isArchived: isArchived || false,
         members: members || [],
-        attachments: uploadedFiles || [], // ファイル情報を追加
+        attachments: attachmentsWithFolders, // ファイル情報とフォルダ情報を含める
       }
       
       console.log("Sending card update request:", {
@@ -1125,14 +1160,24 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           
           // ファイル情報も更新
           if (result.card.attachments && Array.isArray(result.card.attachments)) {
-            const fileList = result.card.attachments.map((file: any) => ({
-              id: file.id,
-              name: file.name,
-              type: file.type,
-              uploadDate: file.uploadDate,
-              size: file.size,
-              folderName: file.folderName || '資料'
-            }))
+            // フォルダ情報を復元
+            const foldersMetadata = result.card.attachments.find((item: any) => item.id === '_folders_metadata' && item.isMetadata)
+            if (foldersMetadata && foldersMetadata.folders && Array.isArray(foldersMetadata.folders)) {
+              setFolders(foldersMetadata.folders)
+              setCurrentFolder(foldersMetadata.folders[0] || "資料")
+            }
+            
+            // ファイル情報を復元（メタデータを除く）
+            const fileList = result.card.attachments
+              .filter((file: any) => !file.isMetadata && file.id !== '_folders_metadata')
+              .map((file: any) => ({
+                id: file.id,
+                name: file.name,
+                type: file.type,
+                uploadDate: file.uploadDate,
+                size: file.size,
+                folderName: file.folderName || '資料'
+              }))
             setUploadedFiles(fileList)
           }
           
@@ -1220,27 +1265,74 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     }
   }
 
-  if (!task) return null
+  // デバッグ用：openとtaskの状態をログ出力
+  useEffect(() => {
+    console.log('TaskDetailDialog render:', { open, task: task?.id, taskTitle: task?.title })
+  }, [open, task])
+
+  if (!task) {
+    console.log('TaskDetailDialog: task is null, returning null')
+    return null
+  }
 
   // currentFileFolderは不要になったので削除
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-5xl max-h-[90vh] overflow-y-auto"
+        className="max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%]"
+        showCloseButton={false}
         style={{ 
-          backgroundColor: cardColor && cardColor !== "" ? cardColor : "white"
+          backgroundColor: cardColor && cardColor !== "" ? cardColor : "white",
+          zIndex: 100
         }}
       >
+        {/* カスタム閉じるボタン（わかりやすく大きく表示） */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onOpenChange(false)}
+          className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-slate-100 hover:bg-slate-200 shadow-md"
+          aria-label="閉じる"
+        >
+          <X className="w-5 h-5 text-slate-700" />
+        </Button>
         <DialogHeader>
-          <DialogTitle>
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-semibold border-none shadow-none px-0 focus-visible:ring-0 bg-white"
-              placeholder="タスク名"
-            />
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-4 pr-8">
+            {isEditingTitle ? (
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onBlur={() => setIsEditingTitle(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setIsEditingTitle(false)
+                  } else if (e.key === 'Escape') {
+                    setIsEditingTitle(false)
+                    // 元のタイトルに戻す（必要に応じて）
+                  }
+                }}
+                className="text-2xl font-bold border-2 border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 px-3 py-2"
+                placeholder="タスク名"
+                autoFocus
+              />
+            ) : (
+              <DialogTitle className="text-2xl font-bold text-slate-900 flex-1 pr-4">
+                {title || "タスク名なし"}
+              </DialogTitle>
+            )}
+            {!isEditingTitle && (currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEditingTitle(true)}
+                className="mt-1"
+              >
+                <Edit2 className="w-4 h-4 mr-1" />
+                編集
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -1609,7 +1701,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 return (
                   <div key={checklist.id} className="border rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{checklist.title}</h4>
+                      <div className="flex items-center gap-2 flex-1">
+                        <h4 className="font-medium">{checklist.title}</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditChecklistTitle(checklist.id, checklist.title)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </Button>
+                      </div>
                       <Button variant="ghost" size="sm" onClick={() => handleDeleteChecklist(checklist.id)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>

@@ -45,12 +45,16 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
+      </div>
 
-
-        <div className="bg-emerald-50/30 p-6 rounded-xl border border-emerald-100">
+      {/* お知らせセクションを外側の枠まで広げる */}
+      <div className="bg-emerald-50/30 -mx-6 px-6 py-6 border-y border-emerald-100">
+        <div className="max-w-7xl mx-auto">
           <BulletinBoard isAdmin={permissions.manageAnnouncements} />
         </div>
+      </div>
 
+      <div className="max-w-7xl mx-auto">
         <PermissionMatrix open={showPermissionMatrix} onOpenChange={setShowPermissionMatrix} />
       </div>
     </main>

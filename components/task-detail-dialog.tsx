@@ -144,12 +144,14 @@ const COLOR_PALETTE = [
 ]
 
 const PRESET_LABELS: Label[] = [
-  { id: "label-1", name: "緊急", color: "#ef4444" },
-  { id: "label-2", name: "重要", color: "#f59e0b" },
-  { id: "label-3", name: "バグ", color: "#dc2626" },
-  { id: "label-4", name: "機能追加", color: "#3b82f6" },
-  { id: "label-5", name: "改善", color: "#10b981" },
-  { id: "label-6", name: "ドキュメント", color: "#8b5cf6" },
+  { id: "label-1", name: "販促関係", color: "#3b82f6" },     // blue
+  { id: "label-2", name: "求人関係", color: "#06b6d4" },     // cyan
+  { id: "label-3", name: "契約関係", color: "#8b5cf6" },     // purple
+  { id: "label-4", name: "会社全体", color: "#10b981" },     // emerald
+  { id: "label-5", name: "その他",   color: "#64748b" },     // slate
+  { id: "label-6", name: "緊急",     color: "#ef4444" },     // red
+  { id: "label-7", name: "重要",     color: "#f59e0b" },     // amber
+  { id: "label-8", name: "個人",     color: "#ec4899" },     // pink
 ]
 
 // カード色用（不透明な色調）
@@ -173,9 +175,18 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 const PRIORITY_OPTIONS = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
+  { value: "A", label: "A" },
+  { value: "B", label: "B" },
+  { value: "C", label: "C" },
+  { value: "A1", label: "A1" },
+  { value: "A2", label: "A2" },
+  { value: "A3", label: "A3" },
+  { value: "B1", label: "B1" },
+  { value: "B2", label: "B2" },
+  { value: "B3", label: "B3" },
+  { value: "C1", label: "C1" },
+  { value: "C2", label: "C2" },
+  { value: "C3", label: "C3" },
 ]
 
 // デフォルトの状態オプション（削除不可）
@@ -603,7 +614,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       setTitle(task.title || "")
       setDescription(task.description || "")
       setDueDate(task.dueDate ? new Date(task.dueDate) : undefined)
-      setPriority(task.priority || "medium")
+      setPriority(task.priority || "A")
       setStatus(task.status || "todo")
       setSelectedLabels(task.labels || [])
       setChecklists(task.checklists || [])
@@ -1411,7 +1422,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         title: title || "",
         description: description || "",
         dueDate: dueDate ? dueDate.toISOString() : null,
-        priority: priority || "medium",
+        priority: priority || "A",
         status: status || "todo",
         labels: selectedLabels || [],
         checklists: checklists || [],
@@ -1458,7 +1469,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
           setTitle(result.card.title || "")
           setDescription(result.card.description || "")
           setDueDate(result.card.dueDate ? new Date(result.card.dueDate) : undefined)
-          setPriority(result.card.priority || "medium")
+          setPriority(result.card.priority || "A")
           setStatus(result.card.status || "todo")
           setSelectedLabels(result.card.labels || [])
           setChecklists(result.card.checklists || [])
@@ -1496,7 +1507,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               description: result.card.description || "",
               assignee: processedMembers[0]?.name || task.assignee,
               dueDate: result.card.dueDate || "",
-              priority: result.card.priority || "medium",
+              priority: result.card.priority || "A",
               comments: task.comments,
               attachments: result.card.attachments || task.attachments,
               status: result.card.status || "todo",

@@ -25,18 +25,29 @@ interface DefaultStatus {
 }
 
 const INITIAL_LABELS: DefaultLabel[] = [
-  { id: "label-1", name: "緊急", color: "#ef4444" },
-  { id: "label-2", name: "重要", color: "#f59e0b" },
-  { id: "label-3", name: "バグ", color: "#dc2626" },
-  { id: "label-4", name: "機能追加", color: "#3b82f6" },
-  { id: "label-5", name: "改善", color: "#10b981" },
-  { id: "label-6", name: "ドキュメント", color: "#8b5cf6" },
+  { id: "label-1", name: "販促関係", color: "#3b82f6" },   // blue
+  { id: "label-2", name: "求人関係", color: "#06b6d4" },   // cyan
+  { id: "label-3", name: "契約関係", color: "#8b5cf6" },   // purple
+  { id: "label-4", name: "会社全体", color: "#10b981" },   // emerald
+  { id: "label-5", name: "その他",   color: "#64748b" },   // slate
+  { id: "label-6", name: "緊急",     color: "#ef4444" },   // red
+  { id: "label-7", name: "重要",     color: "#f59e0b" },   // amber
+  { id: "label-8", name: "個人",     color: "#ec4899" },   // pink
 ]
 
 const INITIAL_PRIORITIES: DefaultPriority[] = [
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
+  { value: "A", label: "A" },
+  { value: "B", label: "B" },
+  { value: "C", label: "C" },
+  { value: "A1", label: "A1" },
+  { value: "A2", label: "A2" },
+  { value: "A3", label: "A3" },
+  { value: "B1", label: "B1" },
+  { value: "B2", label: "B2" },
+  { value: "B3", label: "B3" },
+  { value: "C1", label: "C1" },
+  { value: "C2", label: "C2" },
+  { value: "C3", label: "C3" },
 ]
 
 const INITIAL_STATUSES: DefaultStatus[] = [

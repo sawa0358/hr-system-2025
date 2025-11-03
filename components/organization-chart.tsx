@@ -114,7 +114,11 @@ function DisplayOrgChartWithoutTop({
   canEdit,
   isCompactMode,
   onHorizontalMove,
-}: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
+  onRefresh,
+}: OrgNodeCardProps & { 
+  onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void
+  onRefresh?: () => void
+}) {
   // 見えないTOPの社員を除外する判定
   const isInvisibleTop = node.employee?.isInvisibleTop || node.employee?.employeeNumber === '000'
   
@@ -163,6 +167,7 @@ function DisplayOrgChartWithoutTop({
               canEdit={canEdit}
               isCompactMode={isCompactMode}
               onHorizontalMove={onHorizontalMove}
+              onRefresh={onRefresh}
             />
             {/* 各社員の左側に「左へ移動」ドロップゾーンを配置（最初の要素以外） */}
             {canEdit && index > 0 && (
@@ -209,6 +214,7 @@ function DisplayOrgChartWithoutTop({
       canEdit={canEdit}
       isCompactMode={isCompactMode}
       onHorizontalMove={onHorizontalMove}
+      onRefresh={onRefresh}
     />
   )
 }
@@ -391,7 +397,11 @@ function DraggableOrgNodeCard({
   canEdit = false,
   isCompactMode = false,
   onHorizontalMove,
-}: OrgNodeCardProps & { onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void }) {
+  onRefresh,
+}: OrgNodeCardProps & { 
+  onHorizontalMove?: (draggedNode: OrgNode, targetIndex: number, parentId: string) => void
+  onRefresh?: () => void
+}) {
   const { currentUser } = useAuth()
   const hasChildren = node.children && node.children.length > 0
   
@@ -409,6 +419,20 @@ function DraggableOrgNodeCard({
   const [isEditingLabel, setIsEditingLabel] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  
+  // node.employee?.orgChartLabelが変更されたときにdepartmentLabelを更新（編集中でない場合のみ）
+  useEffect(() => {
+    if (!isEditingLabel) {
+      const newLabel = getInitialLabel()
+      setDepartmentLabel((prevLabel) => {
+        // 値が変更された場合のみ更新（無限ループを防ぐ）
+        if (newLabel !== prevLabel) {
+          return newLabel
+        }
+        return prevLabel
+      })
+    }
+  }, [node.employee?.orgChartLabel, node.position, isEditingLabel])
   
   // 部門ラベル編集権限のチェック（総務・管理者のみ）
   const canEditDepartmentLabel = canEdit && (
@@ -434,6 +458,12 @@ function DraggableOrgNodeCard({
 
         if (response.ok) {
           console.log(`ラベルを保存: ${node.id} -> ${departmentLabel}`)
+          // 保存成功後に親コンポーネントにデータ再取得を依頼
+          if (onRefresh) {
+            setTimeout(() => {
+              onRefresh()
+            }, 300)
+          }
         } else {
           const errorData = await response.text()
           console.error('ラベルの保存に失敗:', response.status, errorData)
@@ -680,6 +710,7 @@ function DraggableOrgNodeCard({
                   canEdit={canEdit}
                   isCompactMode={isCompactMode}
                   onHorizontalMove={onHorizontalMove}
+                  onRefresh={onRefresh}
                 />
                 {/* 各社員の左側に「左へ移動」ドロップゾーンを配置（最初の要素以外） */}
                 {canEdit && index > 0 && (
@@ -2032,6 +2063,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           selectedNodeId={null}
                           canEdit={canEdit}
                           isCompactMode={isCompactMode}
+                          onRefresh={fetchEmployees}
                         />
                         {index < superiorsToDisplay.length - 1 && <div className="w-0.5 h-8 mx-auto my-2" style={{ backgroundColor: '#bbbfc1' }} />}
                       </div>
@@ -2060,6 +2092,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           canEdit={canEdit}
                           isCompactMode={isCompactMode}
                           onHorizontalMove={handleHorizontalMove}
+                          onRefresh={fetchEmployees}
                         />
                         <div className="w-0.5 h-8 my-2" style={{ backgroundColor: '#bbbfc1' }} />
                       </div>
@@ -2083,6 +2116,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                         canEdit={canEdit}
                         isCompactMode={isCompactMode}
                         onHorizontalMove={handleHorizontalMove}
+                        onRefresh={fetchEmployees}
                       />
                     </>
                   )}

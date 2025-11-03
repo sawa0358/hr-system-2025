@@ -195,7 +195,7 @@ export async function PUT(
       isOrganizationsArray: Array.isArray(body.organizations)
     })
 
-    // コピー社員の場合は管理者が一部項目を更新可能
+    // コピー社員の場合は管理者が一部項目を更新可能（テキストフィールドを含む）
     const updateData = isCopyEmployee ? {
       name: body.name,
       furigana: (() => {
@@ -205,6 +205,86 @@ export async function PUT(
         const trimmed = String(body.furigana).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      email: (() => {
+        if (!body.email || body.email === '' || body.email === null || body.email === undefined) {
+          return null;
+        }
+        const trimmed = String(body.email).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      phone: (() => {
+        if (!body.phone || body.phone === '' || body.phone === null || body.phone === undefined) {
+          return null;
+        }
+        const trimmed = String(body.phone).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      department: Array.isArray(body.departments) ? JSON.stringify(body.departments) : body.department,
+      position: Array.isArray(body.positions) ? JSON.stringify(body.positions) : body.position,
+      organization: Array.isArray(body.organizations) ? JSON.stringify(body.organizations) : body.organization,
+      team: (() => {
+        if (!body.team || body.team === '' || body.team === null || body.team === undefined) {
+          return null;
+        }
+        const trimmed = String(body.team).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      address: (() => {
+        if (!body.address || body.address === '' || body.address === null || body.address === undefined) {
+          return null;
+        }
+        const trimmed = String(body.address).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      selfIntroduction: (() => {
+        if (!body.selfIntroduction || body.selfIntroduction === '' || body.selfIntroduction === null || body.selfIntroduction === undefined) {
+          return null;
+        }
+        const trimmed = String(body.selfIntroduction).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      phoneInternal: (() => {
+        if (!body.phoneInternal || body.phoneInternal === '' || body.phoneInternal === null || body.phoneInternal === undefined) {
+          return null;
+        }
+        const trimmed = String(body.phoneInternal).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      phoneMobile: (() => {
+        if (!body.phoneMobile || body.phoneMobile === '' || body.phoneMobile === null || body.phoneMobile === undefined) {
+          return null;
+        }
+        const trimmed = String(body.phoneMobile).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      userId: (() => {
+        if (!body.userId || body.userId === '' || body.userId === null || body.userId === undefined) {
+          return null;
+        }
+        const trimmed = String(body.userId).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      url: (() => {
+        if (!body.url || body.url === '' || body.url === null || body.url === undefined) {
+          return null;
+        }
+        const trimmed = String(body.url).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      birthDate: (() => {
+        if (!body.birthDate || body.birthDate === '' || body.birthDate === null || body.birthDate === undefined) {
+          return null;
+        }
+        try {
+          const date = new Date(body.birthDate);
+          return isNaN(date.getTime()) ? null : date;
+        } catch (error) {
+          console.error('birthDate parsing error:', error);
+          return null;
+        }
+      })(),
+      joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
+      showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
       parentEmployeeId: body.parentEmployeeId || null,
       // 管理者がコピー社員の社員番号を調整できるように許可
       employeeNumber: body.employeeNumber,
@@ -213,6 +293,16 @@ export async function PUT(
           return null;
         }
         const trimmed = String(body.description).trim();
+        return trimmed !== '' ? trimmed : null;
+      })(),
+      orgChartLabel: (() => {
+        if (body.orgChartLabel === undefined) {
+          return undefined;
+        }
+        if (!body.orgChartLabel || body.orgChartLabel === '' || body.orgChartLabel === null) {
+          return null;
+        }
+        const trimmed = String(body.orgChartLabel).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
     } : {

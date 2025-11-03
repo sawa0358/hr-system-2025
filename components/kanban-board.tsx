@@ -155,8 +155,9 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
+      // スクロール直後はクリックを無効化（カードを展開しないように）
       // 長押しでなく短いタッチの場合はクリックとして処理（300ms未満）
-      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id && !isScrollingRecently) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -176,10 +177,11 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
-    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current) {
+    // スクロール直後はクリックを無効化（カードを展開しないように）
+    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
+        if (!isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
           onClick()
         }
       }, 300)
@@ -458,8 +460,9 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
       
+      // スクロール直後はクリックを無効化（カードを展開しないように）
       // 長押しでなく短いタッチの場合はクリックとして処理（300ms未満）
-      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id && !isScrollingRecently) {
         if (clickTimeoutRef.current) {
           clearTimeout(clickTimeoutRef.current)
         }
@@ -479,10 +482,11 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
-    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current) {
+    // スクロール直後はクリックを無効化（カードを展開しないように）
+    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
+        if (!isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
           onClick()
         }
       }, 300)

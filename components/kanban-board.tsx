@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, MoreHorizontal, Edit, Trash2, Palette } from "lucide-react"
+import { Calendar, Plus, ChevronLeft, ChevronRight, FileText, LayoutGrid, List, MoreHorizontal, Edit, Trash2, Palette, GripVertical } from "lucide-react"
 import { format, parseISO } from "date-fns"
 import { taskTemplates } from "@/lib/mock-data"
 import { checkListPermissions, checkCardPermissions, getPermissionErrorMessage } from "@/lib/permissions"
@@ -206,7 +206,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'pan-y') : 'auto', // モバイルでは縦スクロールを許可、ドラッグ中は無効化
+          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'manipulation') : 'auto', // モバイルではドラッグを優先（manipulationでパンとズームを許可）
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
@@ -227,6 +227,16 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           }}
         >
           <div className="flex items-center gap-2">
+            {/* ドラッグハンドル（モバイルでドラッグ可能な場合のみ表示・視覚的なヒント） */}
+            {isMobile && canDrag && (
+              <div 
+                className="flex-shrink-0 text-slate-400"
+                style={{ touchAction: 'none', pointerEvents: 'none' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-4 h-4" />
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <span className="font-medium text-slate-900 text-xs truncate block">{task.title}</span>
             </div>
@@ -385,7 +395,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'pan-y') : 'auto', // モバイルでは縦スクロールを許可、ドラッグ中は無効化
+          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'manipulation') : 'auto', // モバイルではドラッグを優先（manipulationでパンとズームを許可）
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
@@ -406,6 +416,16 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           }}
         >
           <div className="flex items-start gap-2">
+            {/* ドラッグハンドル（モバイルでドラッグ可能な場合のみ表示・視覚的なヒント） */}
+            {isMobile && canDrag && (
+              <div 
+                className="flex-shrink-0 text-slate-400 mt-1"
+                style={{ touchAction: 'none', pointerEvents: 'none' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-4 h-4" />
+              </div>
+            )}
             <div className="flex-1 cursor-pointer">
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-slate-900 text-sm leading-relaxed">{task.title}</h3>
@@ -1018,13 +1038,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   }, [boardData, showArchived, dateFrom, dateTo])
 
   // モバイル・PC共通：距離ベースのアクティベーション（スクロールとドラッグを区別）
-  // モバイル用：TouchSensor（タッチイベントベース、10px以上の移動でドラッグ開始）
+  // モバイル用：TouchSensor（タッチイベントベース、5px以上の移動でドラッグ開始）
   // PC用：PointerSensor（マウスイベントベース、8px以上の移動でドラッグ開始）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、10px以上の移動でドラッグ開始）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、5px以上の移動でドラッグ開始）
     useSensor(TouchSensor, {
       activationConstraint: {
-        distance: 10, // 10px以上の移動でドラッグ開始（小さな移動はスクロールとして認識）
+        distance: 5, // 5px以上の移動でドラッグ開始（小さな移動はスクロールとして認識）
       },
     }),
     // PC用：PointerSensor（マウス・タッチ両対応、8px以上の移動でドラッグ開始）

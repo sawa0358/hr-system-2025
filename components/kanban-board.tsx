@@ -206,7 +206,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile ? 'none' : 'auto', // モバイルではタッチアクションを無効化（ドラッグ優先）
+          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'pan-y') : 'auto', // モバイルでは縦スクロールを許可、ドラッグ中は無効化
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
@@ -385,7 +385,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile ? 'none' : 'auto', // モバイルではタッチアクションを無効化（ドラッグ優先）
+          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'pan-y') : 'auto', // モバイルでは縦スクロールを許可、ドラッグ中は無効化
           willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
@@ -1017,22 +1017,20 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [boardData, showArchived, dateFrom, dateTo])
 
-  // モバイル・PC共通：長押し（300ms）でドラッグを開始（スクロールとドラッグを区別）
-  // モバイル用：TouchSensor（タッチイベントベース、0.3秒の遅延でスクロール誤動作を防止）
-  // PC用：PointerSensor（マウスイベントベース、0.3秒の遅延で意図しないドラッグを防止）
+  // モバイル・PC共通：距離ベースのアクティベーション（スクロールとドラッグを区別）
+  // モバイル用：TouchSensor（タッチイベントベース、10px以上の移動でドラッグ開始）
+  // PC用：PointerSensor（マウスイベントベース、8px以上の移動でドラッグ開始）
   const sensors = useSensors(
-    // モバイル用：TouchSensor（タッチイベントを直接処理、0.3秒の遅延でスクロール誤動作を防止）
+    // モバイル用：TouchSensor（タッチイベントを直接処理、10px以上の移動でドラッグ開始）
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（スクロールとドラッグを区別）
-        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
+        distance: 10, // 10px以上の移動でドラッグ開始（小さな移動はスクロールとして認識）
       },
     }),
-    // PC用：PointerSensor（マウス・タッチ両対応、0.3秒の遅延で意図しないドラッグを防止）
+    // PC用：PointerSensor（マウス・タッチ両対応、8px以上の移動でドラッグ開始）
     useSensor(PointerSensor, {
       activationConstraint: {
-        delay: 300, // 300ms（0.3秒）長押しでドラッグ開始（PCでも意図しないドラッグを防止）
-        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（マウスの小さな動きは無視）
+        distance: 8, // 8px以上の移動でドラッグ開始（小さな移動は無視）
       },
     }),
     useSensor(KeyboardSensor, {
@@ -1065,21 +1063,8 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         return
       }
 
-      // モバイルの場合、ドラッグ開始時に背景のスクロールを無効化
+      // モバイルの場合、ドラッグ開始時のカード中心位置を記録
       if (isMobile) {
-        // 背景のスクロールを無効化（タッチイベントのデフォルト動作を防ぐ）
-        document.body.style.overflow = 'hidden'
-        document.body.style.touchAction = 'none'
-        
-        // 親要素（リストセクション）の縦スクロールは維持し、横スクロールコンテナだけ無効化
-        // リストセクションの縦スクロールは許可（touchActionは変更しない）
-        
-        // 横スクロールコンテナのスクロール動作を調整
-        if (desktopScrollContainerRef.current) {
-          // 横スクロールコンテナのtouchActionを調整して、ドラッグを優先
-          desktopScrollContainerRef.current.style.touchAction = 'pan-x pinch-zoom'
-        }
-        
         // ドラッグ開始時のカード中心位置を記録
         const allCards = document.querySelectorAll('[data-sortable-id]')
         for (const card of allCards) {
@@ -1220,15 +1205,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     const { active, over } = event
     setActiveId(null)
     
-    // モバイルの場合、背景のスクロールを再有効化
+    // モバイルの場合のクリーンアップ（現在は不要だが、将来の拡張用に残す）
     if (isMobile) {
-      document.body.style.overflow = ''
-      document.body.style.touchAction = ''
-      
-      // 横スクロールコンテナのtouchActionを元に戻す
-      if (desktopScrollContainerRef.current) {
-        desktopScrollContainerRef.current.style.touchAction = ''
-      }
+      // 距離ベースのアクティベーションにより、bodyのtouchAction変更は不要
     }
     
     // ドラッグ終了後、少し遅延させてフラグをリセット（クリックイベントと競合しないように）
@@ -2243,15 +2222,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         onDragEnd={handleDragEnd}
         onDragCancel={() => {
           setActiveId(null)
-          // モバイルの場合、背景のスクロールを再有効化
+          // モバイルの場合のクリーンアップ（現在は不要だが、将来の拡張用に残す）
           if (isMobile) {
-            document.body.style.overflow = ''
-            document.body.style.touchAction = ''
-            
-            // 横スクロールコンテナのtouchActionを元に戻す
-            if (desktopScrollContainerRef.current) {
-              desktopScrollContainerRef.current.style.touchAction = ''
-            }
+            // 距離ベースのアクティベーションにより、bodyのtouchAction変更は不要
           }
         }}
       >
@@ -2262,7 +2235,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           className={`flex gap-4 md:gap-6 overflow-x-auto pb-4 scroll-smooth ${!isMobile ? 'flex-1 min-h-0' : ''}`}
           style={{
             scrollBehavior: 'smooth',
-            touchAction: isMobile ? 'pan-x pinch-zoom' : 'auto', // モバイルでは横スクロールのみ許可（縦スクロールは親要素）
+            touchAction: isMobile ? 'pan-x pan-y pinch-zoom' : 'auto', // モバイルでは横スクロールと縦スクロールの両方を許可（親要素の縦スクロールも有効化）
             WebkitOverflowScrolling: 'touch', // iOSでのスムーズスクロール
             overscrollBehaviorX: 'contain', // 横スクロールのオーバースクロールを抑制
           }}

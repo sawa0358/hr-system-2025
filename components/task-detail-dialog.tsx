@@ -1325,7 +1325,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%] pointer-events-auto"
+        className="w-[calc(100vw-2rem)] !max-w-full max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%] pointer-events-auto sm:w-auto sm:!max-w-5xl"
         showCloseButton={false}
         style={{ 
           backgroundColor: cardColor && cardColor !== "" ? cardColor : "white",

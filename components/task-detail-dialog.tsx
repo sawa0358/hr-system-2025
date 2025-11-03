@@ -1278,13 +1278,15 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   // currentFileFolderは不要になったので削除
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%]"
+        className="max-w-5xl max-h-[90vh] overflow-y-auto z-[100] !top-[5%] !translate-y-0 !translate-x-[-50%] pointer-events-auto"
         showCloseButton={false}
         style={{ 
           backgroundColor: cardColor && cardColor !== "" ? cardColor : "white",
-          zIndex: 100
+          zIndex: 100,
+          pointerEvents: 'auto'
         }}
       >
         {/* カスタム閉じるボタン（わかりやすく大きく表示） */}
@@ -1365,7 +1367,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
               variant="outline" 
               size="sm"
               type="button"
-              onClick={() => setShowLabelSelector(true)}
+              onClick={(e) => {
+                e.stopPropagation()
+                console.log('ラベル追加ボタンクリック')
+                setShowLabelSelector(true)
+              }}
               className="pointer-events-auto"
             >
               <Plus className="w-3 h-3 mr-1" />
@@ -1429,7 +1435,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 variant="outline" 
                 className="flex-1 justify-start bg-transparent pointer-events-auto"
                 type="button"
-                onClick={() => setShowCalendarSelector(true)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  console.log('締切日ボタンクリック')
+                  setShowCalendarSelector(true)
+                }}
               >
                 {dueDate ? format(dueDate, "PPP", { locale: ja }) : "日付を選択"}
               </Button>
@@ -2047,81 +2057,83 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         </div>
       </DialogContent>
 
-      {/* ラベル選択ダイアログ */}
-      <Dialog open={showLabelSelector} onOpenChange={setShowLabelSelector}>
-        <DialogContent className="max-w-md" data-panel="label-selector">
-          <DialogHeader>
-            <DialogTitle>ラベルを選択</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {customLabels.map((label) => (
-              <button
-                key={label.id}
-                type="button"
-                onClick={() => {
-                  console.log("Label selected:", label)
-                  handleAddLabel(label)
-                  setShowLabelSelector(false)
-                }}
-                className="w-full text-left px-3 py-2 rounded hover:bg-slate-100 flex items-center justify-between transition-colors border border-slate-200"
-              >
-                <Badge style={{ backgroundColor: label.color }} className="text-white text-sm">
-                  {label.name}
-                </Badge>
-                {selectedLabels.find(l => l.id === label.id) && (
-                  <span className="text-sm text-green-600">✓ 選択済み</span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => setShowLabelSelector(false)}>
+    </Dialog>
+
+    {/* ラベル選択ダイアログ - 親Dialogの外に配置 */}
+    <Dialog open={showLabelSelector} onOpenChange={setShowLabelSelector}>
+      <DialogContent className="max-w-md z-[110]" data-panel="label-selector" style={{ zIndex: 110 }}>
+        <DialogHeader>
+          <DialogTitle>ラベルを選択</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {customLabels.map((label) => (
+            <button
+              key={label.id}
+              type="button"
+              onClick={() => {
+                console.log("Label selected:", label)
+                handleAddLabel(label)
+                setShowLabelSelector(false)
+              }}
+              className="w-full text-left px-3 py-2 rounded hover:bg-slate-100 flex items-center justify-between transition-colors border border-slate-200"
+            >
+              <Badge style={{ backgroundColor: label.color }} className="text-white text-sm">
+                {label.name}
+              </Badge>
+              {selectedLabels.find(l => l.id === label.id) && (
+                <span className="text-sm text-green-600">✓ 選択済み</span>
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setShowLabelSelector(false)}>
+            キャンセル
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    {/* カレンダー選択ダイアログ - 親Dialogの外に配置 */}
+    <Dialog open={showCalendarSelector} onOpenChange={setShowCalendarSelector}>
+      <DialogContent className="max-w-sm z-[110]" data-panel="calendar-selector" style={{ zIndex: 110 }}>
+        <DialogHeader>
+          <DialogTitle>締切日を選択</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center space-y-4">
+          <Calendar 
+            mode="single" 
+            selected={dueDate} 
+            onSelect={(date) => {
+              console.log("Calendar date selected:", date)
+              handleSetDueDate(date)
+              setShowCalendarSelector(false)
+            }} 
+            locale={ja}
+            className="rounded-md border"
+          />
+          <div className="flex gap-2 w-full">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                handleSetDueDate(undefined)
+                setShowCalendarSelector(false)
+              }}
+              className="flex-1"
+            >
+              クリア
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowCalendarSelector(false)}
+              className="flex-1"
+            >
               キャンセル
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* カレンダー選択ダイアログ */}
-      <Dialog open={showCalendarSelector} onOpenChange={setShowCalendarSelector}>
-        <DialogContent className="max-w-sm" data-panel="calendar-selector">
-          <DialogHeader>
-            <DialogTitle>締切日を選択</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center space-y-4">
-            <Calendar 
-              mode="single" 
-              selected={dueDate} 
-              onSelect={(date) => {
-                console.log("Calendar date selected:", date)
-                handleSetDueDate(date)
-                setShowCalendarSelector(false)
-              }} 
-              locale={ja}
-              className="rounded-md border"
-            />
-            <div className="flex gap-2 w-full">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  handleSetDueDate(undefined)
-                  setShowCalendarSelector(false)
-                }}
-                className="flex-1"
-              >
-                クリア
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCalendarSelector(false)}
-                className="flex-1"
-              >
-                キャンセル
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </DialogContent>
     </Dialog>
+    </>
   )
 }

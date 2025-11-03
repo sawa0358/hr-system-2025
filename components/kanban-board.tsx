@@ -126,14 +126,58 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   // クリックとドラッグを区別するためのフラグ
   const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
+  const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
+  
+  // タッチ開始ハンドラー（長押し判定用）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isMobile && canDrag) {
+      touchStartTimeRef.current = Date.now()
+      isLongPressingRef.current = false
+      
+      // 200ms後に長押し開始とみなしてスクロールをブロック
+      clickTimeoutRef.current = setTimeout(() => {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 200) {
+          isLongPressingRef.current = true
+          // カード要素にスクロールブロッククラスを追加
+          if (e.currentTarget) {
+            (e.currentTarget as HTMLElement).style.touchAction = 'none'
+          }
+        }
+      }, 200)
+    }
+  }
+  
+  // タッチ終了ハンドラー
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (isMobile && canDrag) {
+      const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
+      
+      // 長押しでなく短いタッチの場合はクリックとして処理
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+        if (clickTimeoutRef.current) {
+          clearTimeout(clickTimeoutRef.current)
+        }
+        onClick()
+      }
+      
+      touchStartTimeRef.current = null
+      isLongPressingRef.current = false
+      
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+        clickTimeoutRef.current = null
+      }
+    }
+  }
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
-    if (isMobile && !isDragging && activeId !== task.id) {
+    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id) {
+        if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
           onClick()
         }
       }, 200)
@@ -166,6 +210,8 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         clearTimeout(clickTimeoutRef.current)
       }
       clickStartRef.current = null
+      touchStartTimeRef.current = null
+      isLongPressingRef.current = false
     }
   }, [])
 
@@ -217,23 +263,78 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'manipulation') : 'auto', // モバイルではドラッグを優先（manipulationでパンとズームを許可）
-          willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
+          touchAction: isMobile && canDrag ? 'none' : 'auto', // モバイルでドラッグ可能な場合は完全にスクロールをブロック（長押し中もブロック）
+          willChange: isDragging || isActivated ? 'transform' : 'auto', // GPU加速でスムーズに（アクティベート時も）
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
           cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
+        }}
+        onTouchStart={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ開始時にイベントを処理
+          if (isMobile && canDrag) {
+            handleTouchStart(e)
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
+          }
+        }}
+        onTouchEnd={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ終了時にイベントを処理
+          if (isMobile && canDrag) {
+            handleTouchEnd(e)
+            // 親要素への伝播を防ぐ
+            e.stopPropagation()
+          }
+        }}
+        onTouchMove={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
+          if (isMobile && canDrag) {
+            // 長押し中の場合はスクロールを完全にブロック
+            if (isLongPressingRef.current) {
+              e.preventDefault()
+            }
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
+          }
+        }}
+        onTouchCancel={(e) => {
+          // タッチがキャンセルされた場合のクリーンアップ
+          if (isMobile && canDrag) {
+            touchStartTimeRef.current = null
+            isLongPressingRef.current = false
+            if (clickTimeoutRef.current) {
+              clearTimeout(clickTimeoutRef.current)
+              clickTimeoutRef.current = null
+            }
+          }
         }}
         {...attributes}
         {...(canDrag ? listeners : {})}
       >
         <CardContent 
           className="p-2"
+          style={{
+            touchAction: isMobile && canDrag ? 'none' : 'auto', // カード内要素もスクロールをブロック
+            pointerEvents: isActivated ? 'none' : 'auto', // アクティベート中はクリックを無効化
+          }}
           onClick={(e) => {
-            // ドラッグ中でない場合のみクリックイベントを実行
-            if (!isDragging && activeId !== task.id) {
+            // ドラッグ中またはアクティベート中でない場合のみクリックイベントを実行
+            if (!isDragging && !isActivated && activeId !== task.id) {
               e.stopPropagation()
+              e.preventDefault()
               console.log('Task card clicked:', task.id, task.title)
               onClick()
+            }
+          }}
+          onTouchStart={(e) => {
+            // モバイルでドラッグ可能な場合、タッチ開始時にイベントを処理
+            if (isMobile && canDrag) {
+              e.stopPropagation()
+            }
+          }}
+          onTouchMove={(e) => {
+            // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
+            if (isMobile && canDrag) {
+              e.stopPropagation()
             }
           }}
         >
@@ -326,14 +427,58 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   // クリックとドラッグを区別するためのフラグ
   const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
+  const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
+  
+  // タッチ開始ハンドラー（長押し判定用）
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (isMobile && canDrag) {
+      touchStartTimeRef.current = Date.now()
+      isLongPressingRef.current = false
+      
+      // 200ms後に長押し開始とみなしてスクロールをブロック
+      clickTimeoutRef.current = setTimeout(() => {
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 200) {
+          isLongPressingRef.current = true
+          // カード要素にスクロールブロッククラスを追加
+          if (e.currentTarget) {
+            (e.currentTarget as HTMLElement).style.touchAction = 'none'
+          }
+        }
+      }, 200)
+    }
+  }
+  
+  // タッチ終了ハンドラー
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (isMobile && canDrag) {
+      const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
+      
+      // 長押しでなく短いタッチの場合はクリックとして処理
+      if (touchDuration < 300 && !isLongPressingRef.current && !isDragging && activeId !== task.id) {
+        if (clickTimeoutRef.current) {
+          clearTimeout(clickTimeoutRef.current)
+        }
+        onClick()
+      }
+      
+      touchStartTimeRef.current = null
+      isLongPressingRef.current = false
+      
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+        clickTimeoutRef.current = null
+      }
+    }
+  }
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
-    if (isMobile && !isDragging && activeId !== task.id) {
+    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id) {
+        if (!isDragging && activeId !== task.id && !isLongPressingRef.current) {
           onClick()
         }
       }, 200)
@@ -366,6 +511,8 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         clearTimeout(clickTimeoutRef.current)
       }
       clickStartRef.current = null
+      touchStartTimeRef.current = null
+      isLongPressingRef.current = false
     }
   }, [])
 
@@ -417,11 +564,49 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? (isDragging ? 'none' : 'manipulation') : 'auto', // モバイルではドラッグを優先（manipulationでパンとズームを許可）
-          willChange: isDragging ? 'transform' : 'auto', // GPU加速でスムーズに
+          touchAction: isMobile && canDrag ? 'none' : 'auto', // モバイルでドラッグ可能な場合は完全にスクロールをブロック（長押し中もブロック）
+          willChange: isDragging || isActivated ? 'transform' : 'auto', // GPU加速でスムーズに（アクティベート時も）
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
           cursor: isDragging ? 'grabbing' : canDrag ? 'grab' : 'pointer', // ドラッグ中はgrabbingカーソル
+        }}
+        onTouchStart={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ開始時にイベントを処理
+          if (isMobile && canDrag) {
+            handleTouchStart(e)
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
+          }
+        }}
+        onTouchEnd={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ終了時にイベントを処理
+          if (isMobile && canDrag) {
+            handleTouchEnd(e)
+            // 親要素への伝播を防ぐ
+            e.stopPropagation()
+          }
+        }}
+        onTouchMove={(e) => {
+          // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
+          if (isMobile && canDrag) {
+            // 長押し中の場合はスクロールを完全にブロック
+            if (isLongPressingRef.current) {
+              e.preventDefault()
+            }
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
+          }
+        }}
+        onTouchCancel={(e) => {
+          // タッチがキャンセルされた場合のクリーンアップ
+          if (isMobile && canDrag) {
+            touchStartTimeRef.current = null
+            isLongPressingRef.current = false
+            if (clickTimeoutRef.current) {
+              clearTimeout(clickTimeoutRef.current)
+              clickTimeoutRef.current = null
+            }
+          }
         }}
         {...attributes}
         {...(canDrag ? listeners : {})}

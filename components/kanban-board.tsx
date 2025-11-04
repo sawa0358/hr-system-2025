@@ -111,7 +111,7 @@ interface KanbanList {
   color?: string
 }
 
-function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false, onLongPress }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean; onLongPress: () => void }) {
+function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -426,7 +426,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   )
 }
 
-function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false, onLongPress }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean; onLongPress: () => void }) {
+function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -858,6 +858,7 @@ function KanbanColumn({
   activeId,
   isMobile = false,
   isScrollingRecently = false,
+  onLongPress,
 }: {
   list: KanbanList
   tasks: Task[]
@@ -874,6 +875,7 @@ function KanbanColumn({
   activeId?: string | null
   isMobile?: boolean
   isScrollingRecently?: boolean
+  onLongPress?: (taskId: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: list.id })
   const [showTemplateDialog, setShowTemplateDialog] = useState(false)
@@ -1027,19 +1029,55 @@ function KanbanColumn({
           <div className="space-y-3">
             {tasks.map((task) =>
               viewMode === "list" ? (
-                <CompactTaskCard key={task.id} task={task} onClick={() => {
-                  console.log('CompactTaskCard onClick callback:', task.id)
-                  onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
-                  handleLongPress(task.id)
-                }} />
+                <div key={task.id} className="relative">
+                  {/* モバイルでのみ「移動編集」ボタンを表示 */}
+                  {isMobile && onLongPress && (() => {
+                    const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+                    const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+                    const isCardMember = cardMemberIds.includes(currentUserId || '') || (task as any).createdBy === currentUserId
+                    const canEdit = isAdminOrHr || isCardMember
+                    
+                    return canEdit ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mb-1 text-xs"
+                        onClick={() => onLongPress(task.id)}
+                      >
+                        移動編集
+                      </Button>
+                    ) : null
+                  })()}
+                  <CompactTaskCard task={task} onClick={() => {
+                    console.log('CompactTaskCard onClick callback:', task.id)
+                    onTaskClick(task)
+                  }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
+                </div>
               ) : (
-                <TaskCard key={task.id} task={task} onClick={() => {
-                  console.log('TaskCard onClick callback:', task.id)
-                  onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
-                  handleLongPress(task.id)
-                }} />
+                <div key={task.id} className="relative">
+                  {/* モバイルでのみ「移動編集」ボタンを表示 */}
+                  {isMobile && onLongPress && (() => {
+                    const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
+                    const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
+                    const isCardMember = cardMemberIds.includes(currentUserId || '') || (task as any).createdBy === currentUserId
+                    const canEdit = isAdminOrHr || isCardMember
+                    
+                    return canEdit ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mb-1 text-xs"
+                        onClick={() => onLongPress(task.id)}
+                      >
+                        移動編集
+                      </Button>
+                    ) : null
+                  })()}
+                  <TaskCard task={task} onClick={() => {
+                    console.log('TaskCard onClick callback:', task.id)
+                    onTaskClick(task)
+                  }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
+                </div>
               ),
             )}
 
@@ -2818,6 +2856,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
                       activeId={activeId}
                       isMobile={isMobile}
                       isScrollingRecently={isScrollingRecently}
+                      onLongPress={handleLongPress}
                     />
                   </div>
                 )
@@ -2879,13 +2918,9 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               }}
             >
               {viewMode === "list" ? (
-                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
-                  handleLongPress(activeTask.id)
-                }} />
+                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
               ) : (
-                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
-                  handleLongPress(activeTask.id)
-                }} />
+                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
               )}
             </div>
           ) : null}

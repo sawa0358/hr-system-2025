@@ -117,39 +117,49 @@ export default function LeaveSettingsPage() {
           }
           
           // 正社員用テーブルを読み込み
+          let years: number[] = []
           if (config.fullTime?.table && config.fullTime.table.length > 0) {
-            const years = config.fullTime.table.map(t => t.years)
+            years = config.fullTime.table.map(t => t.years)
             const days = config.fullTime.table.map(t => t.days)
             setYearsTable(years)
             setGrantDaysTable(days)
-            
-            // パートタイム用テーブルを読み込み（yearsTableが更新された後）
-            if (config.partTime?.tables && config.partTime.tables.length > 0) {
-              const partTimeRows = config.partTime.tables.map(table => ({
-                weeklyDays: table.weeklyPattern,
-                minDays: table.minAnnualWorkdays || 0,
-                maxDays: table.maxAnnualWorkdays || 0,
-                grants: years.map((y, idx) => {
-                  const grant = table.grants.find(g => g.years === y)
-                  return grant?.days || 0
-                }),
-              }))
-              setRows(partTimeRows)
-            }
           } else {
-            // パートタイム用テーブルを読み込み（yearsTableが未更新の場合）
-            if (config.partTime?.tables && config.partTime.tables.length > 0) {
-              const partTimeRows = config.partTime.tables.map(table => ({
-                weeklyDays: table.weeklyPattern,
-                minDays: table.minAnnualWorkdays || 0,
-                maxDays: table.maxAnnualWorkdays || 0,
-                grants: yearsTable.map((y, idx) => {
-                  const grant = table.grants.find(g => g.years === y)
-                  return grant?.days || 0
-                }),
-              }))
-              setRows(partTimeRows)
-            }
+            // 正社員用テーブルが存在しない場合はデフォルト値を使用
+            years = DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
+            const days = DEFAULT_APP_CONFIG.fullTime.table.map(t => t.days)
+            setYearsTable(years)
+            setGrantDaysTable(days)
+          }
+          
+          // パートタイム用テーブルを読み込み
+          if (config.partTime?.tables && config.partTime.tables.length > 0) {
+            const partTimeRows = config.partTime.tables.map(table => ({
+              weeklyDays: table.weeklyPattern,
+              minDays: table.minAnnualWorkdays || 0,
+              maxDays: table.maxAnnualWorkdays || 0,
+              grants: years.length > 0 ? years.map((y) => {
+                const grant = table.grants.find(g => g.years === y)
+                return grant?.days || 0
+              }) : yearsTable.map((y) => {
+                const grant = table.grants.find(g => g.years === y)
+                return grant?.days || 0
+              }),
+            }))
+            setRows(partTimeRows)
+          } else {
+            // パートタイム用テーブルが存在しない場合はデフォルト値を使用
+            console.log('パートタイム用テーブルが存在しないため、デフォルト値を使用します')
+            const defaultYears = years.length > 0 ? years : DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
+            const defaultPartTimeRows = DEFAULT_APP_CONFIG.partTime.tables.map(table => ({
+              weeklyDays: table.weeklyPattern,
+              minDays: table.minAnnualWorkdays || 0,
+              maxDays: table.maxAnnualWorkdays || 0,
+              grants: defaultYears.map((y) => {
+                const grant = table.grants.find(g => g.years === y)
+                return grant?.days || 0
+              }),
+            }))
+            setRows(defaultPartTimeRows)
           }
         } else {
           // 設定が存在しない場合はデフォルト値を使用

@@ -176,15 +176,42 @@ export async function GET(request: NextRequest) {
 
         // 申請を取得（表示用）
         // 「承認待ち」画面では全ての申請、「全社員」画面では最新の申請のみ
+        // 社員の有効性を確認（削除された社員やコピー社員の申請は除外）
         let requests: any[] = []
         try {
-          const allPendingRequests = await prisma.timeOffRequest.findMany({
-            where: { employeeId: e.id, status: "PENDING" },
-            orderBy: { createdAt: "desc" },
+          // 社員が存在し、有効であることを確認
+          const employeeExists = await prisma.employee.findUnique({
+            where: { 
+              id: e.id,
+              isInvisibleTop: false,
+              status: { not: 'copy' },
+            },
+            select: { id: true },
           })
-          // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
-          requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
-        } catch {}
+          
+          // 有効な社員のみ承認待ち申請を取得
+          if (employeeExists) {
+            const allPendingRequests = await prisma.timeOffRequest.findMany({
+              where: { 
+                employeeId: e.id, 
+                status: "PENDING",
+                // 社員のリレーションも確認（削除された社員の申請は除外）
+                employee: {
+                  isInvisibleTop: false,
+                  status: { not: 'copy' },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            })
+            // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
+            requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
+          }
+        } catch (error: any) {
+          // エラーは無視（データなしとして扱う）
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`承認待ち申請取得エラー (employeeId: ${e.id}):`, error?.message || error)
+          }
+        }
 
         // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
         // 総付与数が0の場合は、残日数 + 取得済み + 申請中で逆算（フォールバック）

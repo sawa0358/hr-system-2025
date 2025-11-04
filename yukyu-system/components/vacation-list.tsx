@@ -457,6 +457,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
 
   // 管理者画面でのフィルタリング
   const filteredAdminEmployees = userRole === "admin" && filters ? adminEmployees.filter((emp: any) => {
+    // 停止中の社員とコピー社員を除外（employeeStatusが存在する場合はそれを使用、なければstatusを使用）
+    const employeeStatus = emp.employeeStatus || emp.status
+    if (employeeStatus === 'suspended' || employeeStatus === 'copy') {
+      return false
+    }
+    
     // 検索クエリフィルター
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
@@ -545,7 +551,11 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
     
     return true
-  }) : adminEmployees
+  }) : adminEmployees.filter((emp: any) => {
+    // 停止中の社員とコピー社員を除外（フィルターがない場合でも適用）
+    const employeeStatus = emp.employeeStatus || emp.status
+    return employeeStatus !== 'suspended' && employeeStatus !== 'copy'
+  })
 
   const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter(e => (e.pending ?? 0) > 0) : filteredAdminEmployees) : []
   

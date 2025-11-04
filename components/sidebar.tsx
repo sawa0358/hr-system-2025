@@ -84,17 +84,33 @@ export function Sidebar() {
     // 承認待ちの件数を取得
     const fetchPendingCount = async () => {
       try {
-        const res = await fetch('/api/vacation/admin/applicants?view=pending')
+        // タイムアウト制御（10秒）
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000)
+        
+        const res = await fetch('/api/vacation/admin/applicants?view=pending', {
+          signal: controller.signal,
+          // ネットワークエラーを適切に処理するための設定
+          cache: 'no-store', // 常に最新のデータを取得
+        })
+        
+        clearTimeout(timeoutId)
+        
         if (res.ok) {
           const json = await res.json()
           // 承認待ち画面では各申請ごとにカードが生成されるため、レスポンスのカード数が承認待ちの申請カード数
           const count = json.employees?.length || 0
           setPendingCount(count)
         } else {
+          // エラーレスポンスの場合は0件として扱う（サイレントに処理）
           setPendingCount(0)
         }
-      } catch (error) {
-        console.error('[Sidebar] 承認待ち件数取得エラー:', error)
+      } catch (error: any) {
+        // ネットワークエラーやタイムアウトの場合は、開発環境のみログを出力
+        // 本番環境ではサイレントに0件として扱う（エラーをユーザーに表示しない）
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[Sidebar] 承認待ち件数取得エラー:', error)
+        }
         setPendingCount(0)
       }
     }

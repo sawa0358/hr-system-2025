@@ -67,10 +67,12 @@ export default function LeaveSettingsPage() {
   const [password, setPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
 
-  // デフォルト値から初期化
-  const getDefaultRows = () => {
-    const defaultYears = DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
-    return DEFAULT_APP_CONFIG.partTime.tables.map(table => ({
+  // デフォルト値から初期化する共通関数
+  const applyDefaultConfigValues = () => {
+    const config = DEFAULT_APP_CONFIG
+    const defaultYears = config.fullTime.table.map(t => t.years)
+    const defaultDays = config.fullTime.table.map(t => t.days)
+    const defaultPartTimeRows = config.partTime.tables.map(table => ({
       weeklyDays: table.weeklyPattern,
       minDays: table.minAnnualWorkdays || 0,
       maxDays: table.maxAnnualWorkdays || 0,
@@ -79,16 +81,18 @@ export default function LeaveSettingsPage() {
         return grant?.days || 0
       }),
     }))
+    
+    return {
+      years: defaultYears,
+      days: defaultDays,
+      partTimeRows: defaultPartTimeRows,
+    }
   }
 
-  const [yearsTable, setYearsTable] = useState<number[]>(
-    DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
-  )
-  const [grantDaysTable, setGrantDaysTable] = useState<number[]>(
-    DEFAULT_APP_CONFIG.fullTime.table.map(t => t.days)
-  )
-
-  const [rows, setRows] = useState(getDefaultRows())
+  const defaultValues = applyDefaultConfigValues()
+  const [yearsTable, setYearsTable] = useState<number[]>(defaultValues.years)
+  const [grantDaysTable, setGrantDaysTable] = useState<number[]>(defaultValues.days)
+  const [rows, setRows] = useState(defaultValues.partTimeRows)
 
   // 既存の設定を読み込む
   useEffect(() => {
@@ -132,34 +136,39 @@ export default function LeaveSettingsPage() {
           }
           
           // パートタイム用テーブルを読み込み
+          const targetYears = years.length > 0 ? years : DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
+          
           if (config.partTime?.tables && config.partTime.tables.length > 0) {
-            const partTimeRows = config.partTime.tables.map(table => ({
-              weeklyDays: table.weeklyPattern,
-              minDays: table.minAnnualWorkdays || 0,
-              maxDays: table.maxAnnualWorkdays || 0,
-              grants: years.length > 0 ? years.map((y) => {
-                const grant = table.grants.find(g => g.years === y)
-                return grant?.days || 0
-              }) : yearsTable.map((y) => {
-                const grant = table.grants.find(g => g.years === y)
-                return grant?.days || 0
-              }),
-            }))
-            setRows(partTimeRows)
+            // データの完全性をチェック（中途半端な値がないか確認）
+            const hasIncompleteData = config.partTime.tables.some(table => {
+              // 年間勤務日数が0の場合は不完全
+              if (!table.minAnnualWorkdays || !table.maxAnnualWorkdays) return true
+              // 3.5年以降の付与日数が全て0の場合は不完全
+              const hasZeroGrants = table.grants.filter(g => g.years >= 3.5).every(g => g.days === 0)
+              return hasZeroGrants
+            })
+            
+            if (hasIncompleteData) {
+              console.log('パートタイム用テーブルに不完全なデータがあるため、デフォルト値を使用します')
+              const defaultValues = applyDefaultConfigValues()
+              setRows(defaultValues.partTimeRows)
+            } else {
+              const partTimeRows = config.partTime.tables.map(table => ({
+                weeklyDays: table.weeklyPattern,
+                minDays: table.minAnnualWorkdays || 0,
+                maxDays: table.maxAnnualWorkdays || 0,
+                grants: targetYears.map((y) => {
+                  const grant = table.grants.find(g => g.years === y)
+                  return grant?.days || 0
+                }),
+              }))
+              setRows(partTimeRows)
+            }
           } else {
             // パートタイム用テーブルが存在しない場合はデフォルト値を使用
             console.log('パートタイム用テーブルが存在しないため、デフォルト値を使用します')
-            const defaultYears = years.length > 0 ? years : DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
-            const defaultPartTimeRows = DEFAULT_APP_CONFIG.partTime.tables.map(table => ({
-              weeklyDays: table.weeklyPattern,
-              minDays: table.minAnnualWorkdays || 0,
-              maxDays: table.maxAnnualWorkdays || 0,
-              grants: defaultYears.map((y) => {
-                const grant = table.grants.find(g => g.years === y)
-                return grant?.days || 0
-              }),
-            }))
-            setRows(defaultPartTimeRows)
+            const defaultValues = applyDefaultConfigValues()
+            setRows(defaultValues.partTimeRows)
           }
         } else {
           // 設定が存在しない場合はデフォルト値を使用
@@ -175,7 +184,7 @@ export default function LeaveSettingsPage() {
       }
     }
 
-    // デフォルト設定を適用する関数
+    // デフォルト設定を適用する関数（重複コードを削除）
     const applyDefaultConfig = () => {
       const config = DEFAULT_APP_CONFIG
       
@@ -196,27 +205,11 @@ export default function LeaveSettingsPage() {
         setMinGrantDaysForAlert(config.alert.minGrantDaysForAlert)
       }
       
-      // 正社員用テーブルを適用
-      if (config.fullTime?.table && config.fullTime.table.length > 0) {
-        const years = config.fullTime.table.map(t => t.years)
-        const days = config.fullTime.table.map(t => t.days)
-        setYearsTable(years)
-        setGrantDaysTable(days)
-        
-        // パートタイム用テーブルを適用
-        if (config.partTime?.tables && config.partTime.tables.length > 0) {
-          const partTimeRows = config.partTime.tables.map(table => ({
-            weeklyDays: table.weeklyPattern,
-            minDays: table.minAnnualWorkdays || 0,
-            maxDays: table.maxAnnualWorkdays || 0,
-            grants: years.map((y) => {
-              const grant = table.grants.find(g => g.years === y)
-              return grant?.days || 0
-            }),
-          }))
-          setRows(partTimeRows)
-        }
-      }
+      // デフォルト値を適用（共通関数を使用）
+      const defaultValues = applyDefaultConfigValues()
+      setYearsTable(defaultValues.years)
+      setGrantDaysTable(defaultValues.days)
+      setRows(defaultValues.partTimeRows)
     }
     
     loadConfig()

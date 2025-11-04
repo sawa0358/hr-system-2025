@@ -173,15 +173,22 @@ export async function saveAppConfig(config: AppConfig): Promise<void> {
       throw new Error('設定データが空です');
     }
 
+    // 既存のアクティブ設定を無効化
+    await prisma.vacationAppConfig.updateMany({
+      where: { isActive: true },
+      data: { isActive: false },
+    });
+
     await prisma.vacationAppConfig.upsert({
       where: { version: config.version },
       create: {
         version: config.version,
         configJson: configJson,
-        isActive: false, // 手動で有効化
+        isActive: true, // 保存時に自動的に有効化
       },
       update: {
         configJson: configJson,
+        isActive: true, // 更新時も自動的に有効化
       },
     });
   } catch (error: any) {

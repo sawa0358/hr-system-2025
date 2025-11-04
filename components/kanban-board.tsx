@@ -111,7 +111,7 @@ interface KanbanList {
   color?: string
 }
 
-function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
+function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false, onLongPress }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean; onLongPress: () => void }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -137,16 +137,10 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     if (isMobile && canDrag && !isScrollingRecently) {
       const startTime = Date.now()
       touchStartTimeRef.current = startTime
-      const touch = e.touches[0]
-      touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
       isLongPressingRef.current = false
       setIsLongPressing(false) // リセット
       
-      // タッチ開始時に即座にスクロールをブロックする準備（背景スクロールを防止）
-      // ただし、長押しが完了するまでは完全にはブロックしない（誤検知を防ぐため）
-      e.stopPropagation() // 親要素への伝播を防ぐ
-      
-      // 500ms後に長押し開始とみなしてスクロールを完全にブロック（確実に掴むまでドラッグを始めない）
+      // 500ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       // タイムアウト実行時点でのisScrollingRecentlyの値に関係なく、500ms経過していれば長押しとみなす
       clickTimeoutRef.current = setTimeout(() => {
         // touchStartTimeRefがnullでなく、500ms以上経過していることを確認
@@ -170,21 +164,16 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         clickTimeoutRef.current = null
       }
       
-      // 【明確な定義】0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
-      // 条件：
-      // 1. touchDuration >= 500ms（タッチ開始から終了まで500ms以上経過）
-      // 2. isLongPressingRef.current === true（長押しフラグが設定されている）
-      // 3. isActivated === true（アクティベート済み）
-      // 上記のいずれかが満たされた場合、カードの展開（onClick）を実行しない
+      // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
+      // touchDuration >= 500 または isLongPressingRef.current または isActivated の場合は展開しない
+      // スクロール直後はクリックを無効化（カードを展開しないように）
+      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満、かつアクティベートされていない場合のみ）
       const isLongPressCompleted = touchDuration >= 500 || isLongPressingRef.current || isActivated
-      
-      // 長押しが完了していない、かつドラッグ中でない、かつスクロール直後でない場合のみカードを展開
       if (!isLongPressCompleted && !isDragging && !isScrollingRecently) {
         onClick()
       }
       
       touchStartTimeRef.current = null
-      touchStartPositionRef.current = null
       isLongPressingRef.current = false
       setIsLongPressing(false) // 視覚的フィードバック用の状態もリセット
     }
@@ -313,51 +302,12 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         onTouchMove={(e) => {
           // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
           if (isMobile && canDrag) {
-            const touch = e.touches[0]
-            const currentPosition = { x: touch.clientX, y: touch.clientY }
-            const elapsedTime = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
-            
-            // 500ms経過したら即座にスクロールをブロック（長押し完了後は背景スクロールを完全に防止）
-            if (elapsedTime >= 500 || isLongPressingRef.current) {
-              if (touchStartPositionRef.current) {
-                const deltaY = currentPosition.y - touchStartPositionRef.current.y
-                // 下方向に5px以上移動した場合は、スクロールを完全にブロックしてドラッグを開始
-                if (deltaY > 5) {
-                  e.preventDefault() // デフォルトのスクロール動作を完全に防止
-                  e.stopPropagation() // 親要素への伝播を完全に防止
-                  // 長押しフラグを設定（まだ設定されていない場合）
-                  if (!isLongPressingRef.current) {
-                    isLongPressingRef.current = true
-                    setIsLongPressing(true)
-                  }
-                } else {
-                  // 下方向に移動していない場合でも、長押しが完了しているならスクロールをブロック
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              } else {
-                // 長押し中の場合は常にスクロールをブロック
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            } else {
-              // 500ms経過する前でも、下方向への移動を検知したらスクロールをブロック
-              if (touchStartPositionRef.current) {
-                const deltaY = currentPosition.y - touchStartPositionRef.current.y
-                if (deltaY > 5) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  // 長押しフラグを設定（まだ設定されていない場合）
-                  if (!isLongPressingRef.current) {
-                    isLongPressingRef.current = true
-                    setIsLongPressing(true)
-                  }
-                } else {
-                  // 下方向に移動していない場合は、親要素への伝播を防ぐ（背景スクロールを抑制）
-                  e.stopPropagation()
-                }
-              }
+            // 長押し中の場合はスクロールを完全にブロック
+            if (isLongPressingRef.current) {
+              e.preventDefault()
             }
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
           }
         }}
         onTouchCancel={(e) => {
@@ -476,7 +426,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   )
 }
 
-function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean }) {
+function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, isMobile = false, activeId, isScrollingRecently = false, onLongPress }: { task: Task; onClick: () => void; isDragging?: boolean; currentUserId?: string; currentUserRole?: string; isMobile?: boolean; activeId?: string | null; isScrollingRecently?: boolean; onLongPress: () => void }) {
   // 権限チェック
   const isAdminOrHr = currentUserRole === 'admin' || currentUserRole === 'hr'
   const cardMemberIds = (task.members || []).map((m: any) => m.id || m.employeeId || m.employee?.id).filter(Boolean)
@@ -502,16 +452,10 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     if (isMobile && canDrag && !isScrollingRecently) {
       const startTime = Date.now()
       touchStartTimeRef.current = startTime
-      const touch = e.touches[0]
-      touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
       isLongPressingRef.current = false
       setIsLongPressing(false) // リセット
       
-      // タッチ開始時に即座にスクロールをブロックする準備（背景スクロールを防止）
-      // ただし、長押しが完了するまでは完全にはブロックしない（誤検知を防ぐため）
-      e.stopPropagation() // 親要素への伝播を防ぐ
-      
-      // 500ms後に長押し開始とみなしてスクロールを完全にブロック（確実に掴むまでドラッグを始めない）
+      // 500ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
       // タイムアウト実行時点でのisScrollingRecentlyの値に関係なく、500ms経過していれば長押しとみなす
       clickTimeoutRef.current = setTimeout(() => {
         // touchStartTimeRefがnullでなく、500ms以上経過していることを確認
@@ -535,21 +479,16 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         clickTimeoutRef.current = null
       }
       
-      // 【明確な定義】0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
-      // 条件：
-      // 1. touchDuration >= 500ms（タッチ開始から終了まで500ms以上経過）
-      // 2. isLongPressingRef.current === true（長押しフラグが設定されている）
-      // 3. isActivated === true（アクティベート済み）
-      // 上記のいずれかが満たされた場合、カードの展開（onClick）を実行しない
+      // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
+      // touchDuration >= 500 または isLongPressingRef.current または isActivated の場合は展開しない
+      // スクロール直後はクリックを無効化（カードを展開しないように）
+      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満、かつアクティベートされていない場合のみ）
       const isLongPressCompleted = touchDuration >= 500 || isLongPressingRef.current || isActivated
-      
-      // 長押しが完了していない、かつドラッグ中でない、かつスクロール直後でない場合のみカードを展開
       if (!isLongPressCompleted && !isDragging && !isScrollingRecently) {
         onClick()
       }
       
       touchStartTimeRef.current = null
-      touchStartPositionRef.current = null
       isLongPressingRef.current = false
       setIsLongPressing(false) // 視覚的フィードバック用の状態もリセット
     }
@@ -678,51 +617,12 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         onTouchMove={(e) => {
           // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
           if (isMobile && canDrag) {
-            const touch = e.touches[0]
-            const currentPosition = { x: touch.clientX, y: touch.clientY }
-            const elapsedTime = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
-            
-            // 500ms経過したら即座にスクロールをブロック（長押し完了後は背景スクロールを完全に防止）
-            if (elapsedTime >= 500 || isLongPressingRef.current) {
-              if (touchStartPositionRef.current) {
-                const deltaY = currentPosition.y - touchStartPositionRef.current.y
-                // 下方向に5px以上移動した場合は、スクロールを完全にブロックしてドラッグを開始
-                if (deltaY > 5) {
-                  e.preventDefault() // デフォルトのスクロール動作を完全に防止
-                  e.stopPropagation() // 親要素への伝播を完全に防止
-                  // 長押しフラグを設定（まだ設定されていない場合）
-                  if (!isLongPressingRef.current) {
-                    isLongPressingRef.current = true
-                    setIsLongPressing(true)
-                  }
-                } else {
-                  // 下方向に移動していない場合でも、長押しが完了しているならスクロールをブロック
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              } else {
-                // 長押し中の場合は常にスクロールをブロック
-                e.preventDefault()
-                e.stopPropagation()
-              }
-            } else {
-              // 500ms経過する前でも、下方向への移動を検知したらスクロールをブロック
-              if (touchStartPositionRef.current) {
-                const deltaY = currentPosition.y - touchStartPositionRef.current.y
-                if (deltaY > 5) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  // 長押しフラグを設定（まだ設定されていない場合）
-                  if (!isLongPressingRef.current) {
-                    isLongPressingRef.current = true
-                    setIsLongPressing(true)
-                  }
-                } else {
-                  // 下方向に移動していない場合は、親要素への伝播を防ぐ（背景スクロールを抑制）
-                  e.stopPropagation()
-                }
-              }
+            // 長押し中の場合はスクロールを完全にブロック
+            if (isLongPressingRef.current) {
+              e.preventDefault()
             }
+            // 親要素への伝播を防ぐ（スクロールをブロック）
+            e.stopPropagation()
           }
         }}
         onTouchCancel={(e) => {
@@ -1130,12 +1030,16 @@ function KanbanColumn({
                 <CompactTaskCard key={task.id} task={task} onClick={() => {
                   console.log('CompactTaskCard onClick callback:', task.id)
                   onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
+                  handleLongPress(task.id)
+                }} />
               ) : (
                 <TaskCard key={task.id} task={task} onClick={() => {
                   console.log('TaskCard onClick callback:', task.id)
                   onTaskClick(task)
-                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} />
+                }} isDragging={activeId === task.id} currentUserId={currentUserId} currentUserRole={currentUserRole} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
+                  handleLongPress(task.id)
+                }} />
               ),
             )}
 
@@ -1238,6 +1142,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   const [colorChangeListId, setColorChangeListId] = useState<string | null>(null)
   const [collapseUpdateTrigger, setCollapseUpdateTrigger] = useState(0) // 折りたたみ状態更新用のトリガー
   const [isScrollingRecently, setIsScrollingRecently] = useState(false) // スクロール直後かどうか
+
+  // 長押しモーダルの状態管理
+  const [longPressModalOpen, setLongPressModalOpen] = useState(false)
+  const [longPressTaskId, setLongPressTaskId] = useState<string | null>(null)
 
   // 折りたたみ状態変更イベントをリッスン
   useEffect(() => {
@@ -1383,7 +1291,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 500, // 500ms（0.5秒）長押しでドラッグ開始（スクロールとドラッグを確実に区別）
-        tolerance: 8, // 8px以内の移動は長押しの遅延に影響しない（下方向への移動をより敏感に検知）
+        tolerance: 15, // 15px以内の移動は長押しの遅延に影響しない（スクロール中の動きを無視）
       },
     }),
     // PC用：PointerSensor（マウス・タッチ両対応、8px以上の移動でドラッグ開始）
@@ -2759,6 +2667,58 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [activeId])
 
+  // タスクを移動する関数
+  const moveTaskToList = async (taskId: string, targetListId: string, position: number = 0) => {
+    if (!currentUserId) {
+      console.error('No current user ID available for authentication')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/cards/${taskId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUserId,
+        },
+        body: JSON.stringify({
+          listId: targetListId,
+          position: position
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Failed to update card position:', response.status, errorText)
+        alert('タスクの移動に失敗しました')
+        return
+      }
+
+      console.log('Card position updated successfully')
+      
+      // カード変更イベントを発火（S3自動保存用）
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cardChanged'))
+      }
+
+      // リフレッシュ
+      onRefresh?.()
+      
+      // モーダルを閉じる
+      setLongPressModalOpen(false)
+      setLongPressTaskId(null)
+    } catch (error) {
+      console.error('Error updating card position:', error)
+      alert('タスクの移動中にエラーが発生しました')
+    }
+  }
+
+  // 長押しハンドラー
+  const handleLongPress = (taskId: string) => {
+    setLongPressTaskId(taskId)
+    setLongPressModalOpen(true)
+  }
+
   return (
     <div className={isMobile ? '' : 'h-full flex flex-col'}>
       <div className={`flex items-center ${isMobile ? 'justify-center' : 'justify-end'} mb-4 flex-shrink-0`}>
@@ -2919,9 +2879,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               }}
             >
               {viewMode === "list" ? (
-                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
+                <CompactTaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
+                  handleLongPress(activeTask.id)
+                }} />
               ) : (
-                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} />
+                <TaskCard task={activeTask} onClick={() => {}} isDragging={false} isMobile={isMobile} activeId={activeId} isScrollingRecently={isScrollingRecently} onLongPress={() => {
+                  handleLongPress(activeTask.id)
+                }} />
               )}
             </div>
           ) : null}
@@ -3004,6 +2968,101 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 長押しモーダル */}
+      <Dialog open={longPressModalOpen} onOpenChange={setLongPressModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>タスクを移動・並び替え</DialogTitle>
+          </DialogHeader>
+          {longPressTaskId && (() => {
+            const task = tasksById[longPressTaskId]
+            const currentList = lists.find(list => list.taskIds.includes(longPressTaskId))
+            const currentIndex = currentList?.taskIds.indexOf(longPressTaskId) ?? -1
+            const currentPosition = currentIndex >= 0 ? currentIndex + 1 : 0
+            const totalTasks = currentList?.taskIds.length ?? 0
+
+            return (
+              <div className="space-y-4">
+                {/* 現在の位置表示 */}
+                {currentList && (
+                  <div className="p-3 bg-slate-50 rounded-lg">
+                    <p className="text-sm text-slate-600">
+                      <span className="font-semibold">{task?.title}</span>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      現在: {currentList.title} の {currentPosition}番目 / {totalTasks}個
+                    </p>
+                  </div>
+                )}
+
+                {/* リスト内での順序入れ替え */}
+                {currentList && totalTasks > 1 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-slate-700">リスト内での順序変更</h3>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          if (currentIndex > 0) {
+                            moveTaskToList(longPressTaskId, currentList.id, currentIndex - 1)
+                          }
+                        }}
+                        disabled={currentIndex <= 0}
+                      >
+                        ↑ 上に移動
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          if (currentIndex < totalTasks - 1) {
+                            moveTaskToList(longPressTaskId, currentList.id, currentIndex + 1)
+                          }
+                        }}
+                        disabled={currentIndex >= totalTasks - 1}
+                      >
+                        ↓ 下に移動
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* リスト選択 */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-slate-700">別のリストに移動</h3>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {lists
+                      .filter(list => list.id !== currentList?.id)
+                      .map(list => (
+                        <Button
+                          key={list.id}
+                          variant="outline"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            moveTaskToList(longPressTaskId, list.id, 0)
+                          }}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            {list.color && (
+                              <div
+                                className="w-4 h-4 rounded"
+                                style={{ backgroundColor: list.color }}
+                              />
+                            )}
+                            <span className="flex-1 text-left">{list.title}</span>
+                            <span className="text-xs text-slate-500">({list.taskIds.length})</span>
+                          </div>
+                        </Button>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </div>

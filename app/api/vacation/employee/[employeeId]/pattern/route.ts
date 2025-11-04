@@ -96,7 +96,7 @@ export async function PUT(
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
 
-    // 更新（vacationPatternカラムが存在しない場合のエラーを回避）
+    // 更新（vacationPatternカラムが存在しない場合はエラーを返す）
     try {
       await prisma.employee.update({
         where: { id: params.employeeId },
@@ -105,11 +105,19 @@ export async function PUT(
           weeklyPattern: weeklyPattern !== undefined ? weeklyPattern : employee.weeklyPattern,
         },
       })
+      console.log(`[有給管理] 社員 ${params.employeeId} のパターン値を更新しました: ${pattern}`)
     } catch (updateError: any) {
-      // vacationPatternやweeklyPatternカラムが存在しない場合は、それらを除外して更新
+      // vacationPatternやweeklyPatternカラムが存在しない場合はエラーを返す
       if (updateError?.code === 'P2022' || updateError?.message?.includes('does not exist')) {
-        console.warn(`[有給管理] vacationPattern/weeklyPatternカラムが存在しないため、更新をスキップします: ${params.employeeId}`)
-        // カラムが存在しない場合は、更新をスキップ（パターン値のみ保存できない）
+        console.error(`[有給管理] vacationPattern/weeklyPatternカラムが存在しません: ${params.employeeId}`)
+        return NextResponse.json({ 
+          error: "vacationPatternカラムがデータベースに存在しません。マイグレーションを実行してください。",
+          details: {
+            code: updateError?.code,
+            message: updateError?.message,
+            suggestion: "Prismaマイグレーションを実行してvacationPatternカラムを追加してください。"
+          }
+        }, { status: 500 })
       } else {
         throw updateError
       }

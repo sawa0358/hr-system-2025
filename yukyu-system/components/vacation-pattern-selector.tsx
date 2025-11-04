@@ -133,6 +133,7 @@ export function VacationPatternSelector({
 
       if (response.ok) {
         const result = await response.json()
+        console.log('[VacationPatternSelector] パターン更新成功:', result)
         setPattern(pendingPattern)
         onPatternChange?.(pendingPattern)
         // ロット自動生成はAPI側で実行される（result.grantLotsに結果が含まれる）
@@ -143,9 +144,28 @@ export function VacationPatternSelector({
         }
         // データ更新イベントを発火（画面遷移を防ぐため、現在のviewを維持）
         window.dispatchEvent(new Event('vacation-pattern-updated'))
+        
+        // 保存後に再度パターン値を取得して確認
+        try {
+          const verifyResponse = await fetch(`/api/vacation/employee/${employeeId}/pattern`)
+          if (verifyResponse.ok) {
+            const verifyData = await verifyResponse.json()
+            console.log('[VacationPatternSelector] 保存後の確認:', verifyData)
+            if (verifyData.vacationPattern !== pendingPattern) {
+              console.error('[VacationPatternSelector] 保存後の確認で不一致:', {
+                saved: pendingPattern,
+                retrieved: verifyData.vacationPattern
+              })
+              alert('パターン値の保存を確認できませんでした。ページをリロードしてください。')
+            }
+          }
+        } catch (verifyError) {
+          console.error('[VacationPatternSelector] 保存後の確認エラー:', verifyError)
+        }
       } else {
-        const error = await response.json()
-        alert(error.error || 'パターン値の更新に失敗しました')
+        const error = await response.json().catch(() => ({ error: 'パターン値の更新に失敗しました' }))
+        console.error('[VacationPatternSelector] パターン更新エラー:', error)
+        alert(error.error || error.details?.suggestion || 'パターン値の更新に失敗しました')
         // エラー時は元のパターンに戻す
         setPattern(currentPattern || null)
       }

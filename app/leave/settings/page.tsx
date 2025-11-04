@@ -9,6 +9,7 @@ import { Plus, Trash2, Loader2, Lock, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import type { AppConfig } from "@/lib/vacation-config"
+import { DEFAULT_APP_CONFIG } from "@/lib/vacation-config"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 
@@ -66,15 +67,28 @@ export default function LeaveSettingsPage() {
   const [password, setPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
 
-  const [yearsTable, setYearsTable] = useState<number[]>([0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5])
-  const [grantDaysTable, setGrantDaysTable] = useState<number[]>([10, 11, 12, 14, 16, 18, 20])
+  // デフォルト値から初期化
+  const getDefaultRows = () => {
+    const defaultYears = DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
+    return DEFAULT_APP_CONFIG.partTime.tables.map(table => ({
+      weeklyDays: table.weeklyPattern,
+      minDays: table.minAnnualWorkdays || 0,
+      maxDays: table.maxAnnualWorkdays || 0,
+      grants: defaultYears.map((y) => {
+        const grant = table.grants.find(g => g.years === y)
+        return grant?.days || 0
+      }),
+    }))
+  }
 
-  const [rows, setRows] = useState([
-    { weeklyDays: 4, minDays: 169, maxDays: 216, grants: [7, 8, 9, 10, 12, 13, 15] },
-    { weeklyDays: 3, minDays: 121, maxDays: 168, grants: [5, 6, 6, 8, 9, 10, 11] },
-    { weeklyDays: 2, minDays: 73, maxDays: 120, grants: [3, 4, 4, 5, 6, 6, 7] },
-    { weeklyDays: 1, minDays: 48, maxDays: 72, grants: [1, 2, 2, 3, 3, 3, 3] },
-  ])
+  const [yearsTable, setYearsTable] = useState<number[]>(
+    DEFAULT_APP_CONFIG.fullTime.table.map(t => t.years)
+  )
+  const [grantDaysTable, setGrantDaysTable] = useState<number[]>(
+    DEFAULT_APP_CONFIG.fullTime.table.map(t => t.days)
+  )
+
+  const [rows, setRows] = useState(getDefaultRows())
 
   // 既存の設定を読み込む
   useEffect(() => {
@@ -137,12 +151,61 @@ export default function LeaveSettingsPage() {
               setRows(partTimeRows)
             }
           }
+        } else {
+          // 設定が存在しない場合はデフォルト値を使用
+          console.log('設定が存在しないため、デフォルト値を使用します')
+          applyDefaultConfig()
         }
       } catch (error) {
         console.error('設定の読み込みエラー:', error)
         // エラー時はデフォルト値を使用
+        applyDefaultConfig()
       } finally {
         setIsLoading(false)
+      }
+    }
+
+    // デフォルト設定を適用する関数
+    const applyDefaultConfig = () => {
+      const config = DEFAULT_APP_CONFIG
+      
+      // 基本設定を適用
+      if (config.baselineRule.kind === 'RELATIVE_FROM_JOIN') {
+        setFirstGrantMonths(config.baselineRule.initialGrantAfterMonths)
+        setCycleMonths(config.baselineRule.cycleMonths)
+      }
+      
+      if (config.expiry.kind === 'YEARS') {
+        setExpireYears(config.expiry.years)
+      }
+      
+      setMinDays(config.minLegalUseDaysPerYear)
+      
+      // アラート設定を適用
+      if (config.alert?.minGrantDaysForAlert !== undefined) {
+        setMinGrantDaysForAlert(config.alert.minGrantDaysForAlert)
+      }
+      
+      // 正社員用テーブルを適用
+      if (config.fullTime?.table && config.fullTime.table.length > 0) {
+        const years = config.fullTime.table.map(t => t.years)
+        const days = config.fullTime.table.map(t => t.days)
+        setYearsTable(years)
+        setGrantDaysTable(days)
+        
+        // パートタイム用テーブルを適用
+        if (config.partTime?.tables && config.partTime.tables.length > 0) {
+          const partTimeRows = config.partTime.tables.map(table => ({
+            weeklyDays: table.weeklyPattern,
+            minDays: table.minAnnualWorkdays || 0,
+            maxDays: table.maxAnnualWorkdays || 0,
+            grants: years.map((y) => {
+              const grant = table.grants.find(g => g.years === y)
+              return grant?.days || 0
+            }),
+          }))
+          setRows(partTimeRows)
+        }
       }
     }
     

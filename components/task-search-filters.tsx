@@ -11,7 +11,7 @@ import { Search, X } from "lucide-react"
 interface Employee {
   id: string
   name: string
-  employmentType?: string | null
+  employeeType?: string | null
   status: string
 }
 
@@ -43,7 +43,7 @@ export function TaskSearchFilters({ onFilterChange, employees = [] }: TaskSearch
 
     // 雇用形態でフィルタリング
     if (employmentType !== "all") {
-      filtered = filtered.filter(emp => emp.employmentType === employmentType)
+      filtered = filtered.filter(emp => emp.employeeType === employmentType)
     }
 
     // ステータスでフィルタリング
@@ -182,20 +182,20 @@ export function TaskSearchFilters({ onFilterChange, employees = [] }: TaskSearch
           <Label className="text-sm mb-2 block">日付範囲</Label>
           <div className="flex items-center gap-2">
             <Input
-              placeholder="yyyymmdd"
+              placeholder="yyyy/mm/dd または yyyymmdd"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               className="flex-1 text-sm"
-              maxLength={8}
+              maxLength={10}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
             <span className="text-slate-500">〜</span>
             <Input
-              placeholder="yyyymmdd"
+              placeholder="yyyy/mm/dd または yyyymmdd"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               className="flex-1 text-sm"
-              maxLength={8}
+              maxLength={10}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             />
           </div>

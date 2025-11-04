@@ -1161,10 +1161,12 @@ interface KanbanBoardProps {
   showArchived?: boolean
   dateFrom?: string
   dateTo?: string
+  freeWord?: string
+  member?: string
   isMobile?: boolean
 }
 
-export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo, isMobile = false }, ref) => {
+export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, currentUserId, currentUserRole, onRefresh, showArchived = false, dateFrom, dateTo, freeWord = "", member = "all", isMobile = false }, ref) => {
   const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -1199,6 +1201,62 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     }
   }, [])
 
+  // 日付文字列をDateオブジェクトに変換するヘルパー関数
+  const parseDateString = (dateStr: string): Date | null => {
+    if (!dateStr || !dateStr.trim()) return null
+    
+    const trimmed = dateStr.trim()
+    
+    // yyyy/mm/dd または yy/mm/dd 形式
+    if (trimmed.includes('/')) {
+      const parts = trimmed.split('/')
+      if (parts.length === 3) {
+        let year = parseInt(parts[0], 10)
+        const month = parseInt(parts[1], 10) - 1 // 月は0ベース
+        const day = parseInt(parts[2], 10)
+        
+        // 2桁の年の場合、2000年を超える場合は2000年を加算、そうでなければ1900年を加算
+        if (year < 100) {
+          year = year >= 50 ? 1900 + year : 2000 + year
+        }
+        
+        const date = new Date(year, month, day)
+        if (!isNaN(date.getTime())) {
+          return date
+        }
+      }
+    }
+    
+    // yyyymmdd または yymmdd 形式
+    if (/^\d{6,8}$/.test(trimmed)) {
+      let year: number
+      let month: number
+      let day: number
+      
+      if (trimmed.length === 8) {
+        // yyyymmdd
+        year = parseInt(trimmed.substring(0, 4), 10)
+        month = parseInt(trimmed.substring(4, 6), 10) - 1
+        day = parseInt(trimmed.substring(6, 8), 10)
+      } else if (trimmed.length === 6) {
+        // yymmdd
+        const yearPart = parseInt(trimmed.substring(0, 2), 10)
+        year = yearPart >= 50 ? 1900 + yearPart : 2000 + yearPart
+        month = parseInt(trimmed.substring(2, 4), 10) - 1
+        day = parseInt(trimmed.substring(4, 6), 10)
+      } else {
+        return null
+      }
+      
+      const date = new Date(year, month, day)
+      if (!isNaN(date.getTime())) {
+        return date
+      }
+    }
+    
+    return null
+  }
+
   // ボードデータからリストとカードを生成
   const generateListsFromBoardData = (boardData: any) => {
     if (!boardData?.lists) {
@@ -1223,13 +1281,27 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
               return false // アーカイブされていないカードをスキップ
             }
 
+            // フリーワードフィルターを適用
+            if (freeWord && freeWord.trim() !== "") {
+              const query = freeWord.toLowerCase().trim()
+              const titleMatch = card.title?.toLowerCase().includes(query) || false
+              const descriptionMatch = card.description?.toLowerCase().includes(query) || false
+              if (!titleMatch && !descriptionMatch) return false
+            }
+
+            // メンバーフィルターを適用
+            if (member && member !== "all") {
+              const cardMemberIds = (card.members || []).map((m: any) => m.employee?.id || m.employeeId || m.id).filter(Boolean)
+              if (!cardMemberIds.includes(member)) return false
+            }
+
             // 日付フィルターを適用
             if (dateFrom || dateTo) {
               if (!card.dueDate) return false // 締切日がないカードをスキップ
               
               const cardDate = new Date(card.dueDate)
-              const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
-              const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+              const fromDate = dateFrom ? parseDateString(dateFrom) : null
+              const toDate = dateTo ? parseDateString(dateTo) : null
               
               if (fromDate && cardDate < fromDate) return false
               if (toDate && cardDate > toDate) return false
@@ -1262,13 +1334,27 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
             return // アーカイブされていないカードをスキップ
           }
 
+          // フリーワードフィルターを適用
+          if (freeWord && freeWord.trim() !== "") {
+            const query = freeWord.toLowerCase().trim()
+            const titleMatch = card.title?.toLowerCase().includes(query) || false
+            const descriptionMatch = card.description?.toLowerCase().includes(query) || false
+            if (!titleMatch && !descriptionMatch) return
+          }
+
+          // メンバーフィルターを適用
+          if (member && member !== "all") {
+            const cardMemberIds = (card.members || []).map((m: any) => m.employee?.id || m.employeeId || m.id).filter(Boolean)
+            if (!cardMemberIds.includes(member)) return
+          }
+
           // 日付フィルターを適用
           if (dateFrom || dateTo) {
             if (!card.dueDate) return // 締切日がないカードをスキップ
             
             const cardDate = new Date(card.dueDate)
-            const fromDate = dateFrom ? new Date(dateFrom.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
-            const toDate = dateTo ? new Date(dateTo.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : null
+            const fromDate = dateFrom ? parseDateString(dateFrom) : null
+            const toDate = dateTo ? parseDateString(dateTo) : null
             
             if (fromDate && cardDate < fromDate) return
             if (toDate && cardDate > toDate) return
@@ -1316,10 +1402,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       console.log("KanbanBoard - Updating with board data:", boardData)
       console.log("KanbanBoard - showArchived:", showArchived)
       console.log("KanbanBoard - dateFrom:", dateFrom, "dateTo:", dateTo)
+      console.log("KanbanBoard - freeWord:", freeWord, "member:", member)
       setLists(generateListsFromBoardData(boardData))
       setTasksById(generateTasksFromBoardData(boardData))
     }
-  }, [boardData, showArchived, dateFrom, dateTo])
+  }, [boardData, showArchived, dateFrom, dateTo, freeWord, member])
 
   // モバイル・PC共通：長押しベースのアクティベーション（スクロールとドラッグを区別）
   // モバイル用：TouchSensor（タッチイベントベース、0.5秒長押しでドラッグ開始）

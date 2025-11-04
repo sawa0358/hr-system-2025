@@ -128,6 +128,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
+  const touchStartPositionRef = useRef<{ x: number; y: number } | null>(null) // タッチ開始位置
   const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
   const [isLongPressing, setIsLongPressing] = useState<boolean>(false) // 長押し中かどうか（視覚的フィードバック用）
   
@@ -137,6 +138,8 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
     if (isMobile && canDrag && !isScrollingRecently) {
       const startTime = Date.now()
       touchStartTimeRef.current = startTime
+      const touch = e.touches[0]
+      touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
       isLongPressingRef.current = false
       setIsLongPressing(false) // リセット
       
@@ -302,19 +305,38 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
         onTouchMove={(e) => {
           // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
           if (isMobile && canDrag) {
-            // 長押し中の場合はスクロールを完全にブロック
-            if (isLongPressingRef.current) {
-              e.preventDefault()
+            const touch = e.touches[0]
+            const currentPosition = { x: touch.clientX, y: touch.clientY }
+            
+            // 長押しが完了している場合、または長押し中で下方向に移動した場合
+            if (isLongPressingRef.current || (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500)) {
+              if (touchStartPositionRef.current) {
+                const deltaY = currentPosition.y - touchStartPositionRef.current.y
+                // 下方向に5px以上移動した場合は、スクロールをブロックしてドラッグを開始
+                if (deltaY > 5) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  // 長押しフラグを設定（まだ設定されていない場合）
+                  if (!isLongPressingRef.current) {
+                    isLongPressingRef.current = true
+                    setIsLongPressing(true)
+                  }
+                }
+              } else {
+                // 長押し中の場合は常にスクロールをブロック
+                e.preventDefault()
+                e.stopPropagation()
+              }
             }
-            // 親要素への伝播を防ぐ（スクロールをブロック）
-            e.stopPropagation()
           }
         }}
         onTouchCancel={(e) => {
           // タッチがキャンセルされた場合のクリーンアップ
           if (isMobile && canDrag) {
             touchStartTimeRef.current = null
+            touchStartPositionRef.current = null
             isLongPressingRef.current = false
+            setIsLongPressing(false)
             if (clickTimeoutRef.current) {
               clearTimeout(clickTimeoutRef.current)
               clickTimeoutRef.current = null
@@ -443,6 +465,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   const clickStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
+  const touchStartPositionRef = useRef<{ x: number; y: number } | null>(null) // タッチ開始位置
   const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
   const [isLongPressing, setIsLongPressing] = useState<boolean>(false) // 長押し中かどうか（視覚的フィードバック用）
   
@@ -452,6 +475,8 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
     if (isMobile && canDrag && !isScrollingRecently) {
       const startTime = Date.now()
       touchStartTimeRef.current = startTime
+      const touch = e.touches[0]
+      touchStartPositionRef.current = { x: touch.clientX, y: touch.clientY }
       isLongPressingRef.current = false
       setIsLongPressing(false) // リセット
       
@@ -617,19 +642,38 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
         onTouchMove={(e) => {
           // モバイルでドラッグ可能な場合、タッチ移動時にイベントを処理
           if (isMobile && canDrag) {
-            // 長押し中の場合はスクロールを完全にブロック
-            if (isLongPressingRef.current) {
-              e.preventDefault()
+            const touch = e.touches[0]
+            const currentPosition = { x: touch.clientX, y: touch.clientY }
+            
+            // 長押しが完了している場合、または長押し中で下方向に移動した場合
+            if (isLongPressingRef.current || (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500)) {
+              if (touchStartPositionRef.current) {
+                const deltaY = currentPosition.y - touchStartPositionRef.current.y
+                // 下方向に5px以上移動した場合は、スクロールをブロックしてドラッグを開始
+                if (deltaY > 5) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  // 長押しフラグを設定（まだ設定されていない場合）
+                  if (!isLongPressingRef.current) {
+                    isLongPressingRef.current = true
+                    setIsLongPressing(true)
+                  }
+                }
+              } else {
+                // 長押し中の場合は常にスクロールをブロック
+                e.preventDefault()
+                e.stopPropagation()
+              }
             }
-            // 親要素への伝播を防ぐ（スクロールをブロック）
-            e.stopPropagation()
           }
         }}
         onTouchCancel={(e) => {
           // タッチがキャンセルされた場合のクリーンアップ
           if (isMobile && canDrag) {
             touchStartTimeRef.current = null
+            touchStartPositionRef.current = null
             isLongPressingRef.current = false
+            setIsLongPressing(false)
             if (clickTimeoutRef.current) {
               clearTimeout(clickTimeoutRef.current)
               clickTimeoutRef.current = null

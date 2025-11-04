@@ -129,22 +129,24 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
   const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
+  const [isLongPressing, setIsLongPressing] = useState<boolean>(false) // 長押し中かどうか（視覚的フィードバック用）
   
   // タッチ開始ハンドラー（長押し判定用）
   const handleTouchStart = (e: React.TouchEvent) => {
     // スクロール直後はドラッグを開始しない（指が当たるだけで即座に掴まないように）
     if (isMobile && canDrag && !isScrollingRecently) {
-      touchStartTimeRef.current = Date.now()
+      const startTime = Date.now()
+      touchStartTimeRef.current = startTime
       isLongPressingRef.current = false
+      setIsLongPressing(false) // リセット
       
       // 500ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
+      // タイムアウト実行時点でのisScrollingRecentlyの値に関係なく、500ms経過していれば長押しとみなす
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500 && !isScrollingRecently) {
+        // touchStartTimeRefがnullでなく、500ms以上経過していることを確認
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500) {
           isLongPressingRef.current = true
-          // カード要素にスクロールブロッククラスを追加
-          if (e.currentTarget) {
-            (e.currentTarget as HTMLElement).style.touchAction = 'none'
-          }
+          setIsLongPressing(true) // 視覚的フィードバック用に状態を更新
         }
       }, 500)
     }
@@ -154,34 +156,40 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
+      const isActivated = activeId === task.id // 0.5秒長押し完了でアクティベート済みかどうか
       
+      // タイムアウトをクリア（まだ実行されていない場合は実行されないようにする）
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+        clickTimeoutRef.current = null
+      }
+      
+      // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
+      // touchDuration >= 500 または isLongPressingRef.current または isActivated の場合は展開しない
       // スクロール直後はクリックを無効化（カードを展開しないように）
-      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満）
-      if (touchDuration < 500 && !isLongPressingRef.current && !isDragging && activeId !== task.id && !isScrollingRecently) {
-        if (clickTimeoutRef.current) {
-          clearTimeout(clickTimeoutRef.current)
-        }
+      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満、かつアクティベートされていない場合のみ）
+      const isLongPressCompleted = touchDuration >= 500 || isLongPressingRef.current || isActivated
+      if (!isLongPressCompleted && !isDragging && !isScrollingRecently) {
         onClick()
       }
       
       touchStartTimeRef.current = null
       isLongPressingRef.current = false
-      
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-        clickTimeoutRef.current = null
-      }
+      setIsLongPressing(false) // 視覚的フィードバック用の状態もリセット
     }
   }
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
+    // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
     // スクロール直後はクリックを無効化（カードを展開しないように）
-    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
+    const isActivated = activeId === task.id // 0.5秒長押し完了でアクティベート済みかどうか
+    if (isMobile && !isDragging && !isActivated && !isLongPressing && !isScrollingRecently) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
+        const stillActivated = activeId === task.id // 再チェック
+        if (!isDragging && !stillActivated && !isLongPressing && !isScrollingRecently) {
           onClick()
         }
       }, 300)
@@ -192,15 +200,16 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
 
   // アクティベートされた時点（0.5秒長押し完了、activeId設定）でカードを浮かせる（ドラッグ開始前でも）
   const isActivated = activeId === task.id // activeIdが設定された時点でアクティベート（長押し完了）
-  const shouldFloat = isActivated || isDragging // アクティベート時またはドラッグ中に浮かせる
+  // 0.5秒長押し完了時点（isLongPressing）でも浮かせる（handleDragStartが呼ばれる前でも視覚的フィードバックを提供）
+  const shouldFloat = isActivated || isDragging || isLongPressing // アクティベート時、ドラッグ中、または長押し完了時に浮かせる
   
   const dragStyle = shouldFloat ? {
     transform: `${CSS.Transform.toString(transform)} translateY(-12px) scale(1.05)`,
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
     boxShadow: '0 12px 24px rgba(0, 0, 0, 0.15), 0 6px 12px rgba(0, 0, 0, 0.1)',
   } : {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
   }
 
   const style = {
@@ -268,7 +277,7 @@ function CompactTaskCard({ task, onClick, isDragging, currentUserId, currentUser
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? 'none' : 'auto', // モバイルでドラッグ可能な場合は完全にスクロールをブロック（長押し中もブロック）
+          touchAction: isMobile && canDrag && (isLongPressing || isActivated || isDragging) ? 'none' : 'auto', // 長押し開始時のみスクロールをブロック（タッチイベントをDnd-kitに渡すため初期値はauto）
           willChange: isDragging || isActivated ? 'transform' : 'auto', // GPU加速でスムーズに（アクティベート時も）
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',
@@ -435,22 +444,24 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const touchStartTimeRef = useRef<number | null>(null) // タッチ開始時刻
   const isLongPressingRef = useRef<boolean>(false) // 長押し中かどうか
+  const [isLongPressing, setIsLongPressing] = useState<boolean>(false) // 長押し中かどうか（視覚的フィードバック用）
   
   // タッチ開始ハンドラー（長押し判定用）
   const handleTouchStart = (e: React.TouchEvent) => {
     // スクロール直後はドラッグを開始しない（指が当たるだけで即座に掴まないように）
     if (isMobile && canDrag && !isScrollingRecently) {
-      touchStartTimeRef.current = Date.now()
+      const startTime = Date.now()
+      touchStartTimeRef.current = startTime
       isLongPressingRef.current = false
+      setIsLongPressing(false) // リセット
       
       // 500ms後に長押し開始とみなしてスクロールをブロック（確実に掴むまでドラッグを始めない）
+      // タイムアウト実行時点でのisScrollingRecentlyの値に関係なく、500ms経過していれば長押しとみなす
       clickTimeoutRef.current = setTimeout(() => {
-        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500 && !isScrollingRecently) {
+        // touchStartTimeRefがnullでなく、500ms以上経過していることを確認
+        if (touchStartTimeRef.current && Date.now() - touchStartTimeRef.current >= 500) {
           isLongPressingRef.current = true
-          // カード要素にスクロールブロッククラスを追加
-          if (e.currentTarget) {
-            (e.currentTarget as HTMLElement).style.touchAction = 'none'
-          }
+          setIsLongPressing(true) // 視覚的フィードバック用に状態を更新
         }
       }, 500)
     }
@@ -460,34 +471,40 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (isMobile && canDrag) {
       const touchDuration = touchStartTimeRef.current ? Date.now() - touchStartTimeRef.current : 0
+      const isActivated = activeId === task.id // 0.5秒長押し完了でアクティベート済みかどうか
       
+      // タイムアウトをクリア（まだ実行されていない場合は実行されないようにする）
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current)
+        clickTimeoutRef.current = null
+      }
+      
+      // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
+      // touchDuration >= 500 または isLongPressingRef.current または isActivated の場合は展開しない
       // スクロール直後はクリックを無効化（カードを展開しないように）
-      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満）
-      if (touchDuration < 500 && !isLongPressingRef.current && !isDragging && activeId !== task.id && !isScrollingRecently) {
-        if (clickTimeoutRef.current) {
-          clearTimeout(clickTimeoutRef.current)
-        }
+      // 長押しでなく短いタッチの場合はクリックとして処理（500ms未満、かつアクティベートされていない場合のみ）
+      const isLongPressCompleted = touchDuration >= 500 || isLongPressingRef.current || isActivated
+      if (!isLongPressCompleted && !isDragging && !isScrollingRecently) {
         onClick()
       }
       
       touchStartTimeRef.current = null
       isLongPressingRef.current = false
-      
-      if (clickTimeoutRef.current) {
-        clearTimeout(clickTimeoutRef.current)
-        clickTimeoutRef.current = null
-      }
+      setIsLongPressing(false) // 視覚的フィードバック用の状態もリセット
     }
   }
   
   // カード全体のクリックハンドラー（ドラッグ開始していない場合のみ）
   const handleCardClick = (e: React.MouseEvent | React.TouchEvent) => {
     // モバイルでドラッグが開始されていない場合のみクリックを実行
+    // 0.5秒以上長押しした場合（カードを掴んだ場合）は展開しない
     // スクロール直後はクリックを無効化（カードを展開しないように）
-    if (isMobile && !isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
+    const isActivated = activeId === task.id // 0.5秒長押し完了でアクティベート済みかどうか
+    if (isMobile && !isDragging && !isActivated && !isLongPressing && !isScrollingRecently) {
       // 少し遅延させて、ドラッグイベントと競合しないようにする
       clickTimeoutRef.current = setTimeout(() => {
-        if (!isDragging && activeId !== task.id && !isLongPressingRef.current && !isScrollingRecently) {
+        const stillActivated = activeId === task.id // 再チェック
+        if (!isDragging && !stillActivated && !isLongPressing && !isScrollingRecently) {
           onClick()
         }
       }, 300)
@@ -498,15 +515,16 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
 
   // アクティベートされた時点（0.5秒長押し完了、activeId設定）でカードを浮かせる（ドラッグ開始前でも）
   const isActivated = activeId === task.id // activeIdが設定された時点でアクティベート（長押し完了）
-  const shouldFloat = isActivated || isDragging // アクティベート時またはドラッグ中に浮かせる
+  // 0.5秒長押し完了時点（isLongPressing）でも浮かせる（handleDragStartが呼ばれる前でも視覚的フィードバックを提供）
+  const shouldFloat = isActivated || isDragging || isLongPressing // アクティベート時、ドラッグ中、または長押し完了時に浮かせる
   
   const dragStyle = shouldFloat ? {
     transform: `${CSS.Transform.toString(transform)} translateY(-12px) scale(1.05)`,
-    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
     boxShadow: '0 12px 24px rgba(0, 0, 0, 0.15), 0 6px 12px rgba(0, 0, 0, 0.1)',
   } : {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
   }
 
   const style = {
@@ -574,7 +592,7 @@ function TaskCard({ task, onClick, isDragging, currentUserId, currentUserRole, i
           backgroundColor: task.isArchived 
             ? "#f3f4f6" 
             : (task.cardColor && task.cardColor !== "" ? task.cardColor : "white"),
-          touchAction: isMobile && canDrag ? 'none' : 'auto', // モバイルでドラッグ可能な場合は完全にスクロールをブロック（長押し中もブロック）
+          touchAction: isMobile && canDrag && (isLongPressing || isActivated || isDragging) ? 'none' : 'auto', // 長押し開始時のみスクロールをブロック（タッチイベントをDnd-kitに渡すため初期値はauto）
           willChange: isDragging || isActivated ? 'transform' : 'auto', // GPU加速でスムーズに（アクティベート時も）
           WebkitUserSelect: 'none', // iOSでテキスト選択を防ぐ
           userSelect: 'none',

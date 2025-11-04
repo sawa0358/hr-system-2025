@@ -27,6 +27,7 @@ import {
   CalendarIcon,
   Tag,
   CheckSquare,
+  Check,
   Users,
   Palette,
   Plus,
@@ -421,6 +422,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [isAddingFileFolder, setIsAddingFileFolder] = useState(false)
   const [newFileFolderName, setNewFileFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
+  // チェックリスト入力用の状態変数
+  const [isAddingChecklist, setIsAddingChecklist] = useState(false)
+  const [newChecklistTitle, setNewChecklistTitle] = useState("")
+  const [editingChecklistId, setEditingChecklistId] = useState<string | null>(null)
+  const [editingChecklistTitle, setEditingChecklistTitle] = useState("")
+  const [addingItemToChecklistId, setAddingItemToChecklistId] = useState<string | null>(null)
+  const [newChecklistItemText, setNewChecklistItemText] = useState("")
   
   // タスクが開かれた時にフォルダ情報を読み込み、ファイルを取得
   useEffect(() => {
@@ -641,6 +649,13 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       setIsAddingFileFolder(false)
       setNewFileFolderName("")
       setIsDragging(false)
+      // チェックリスト入力用の状態変数もリセット
+      setIsAddingChecklist(false)
+      setNewChecklistTitle("")
+      setEditingChecklistId(null)
+      setEditingChecklistTitle("")
+      setAddingItemToChecklistId(null)
+      setNewChecklistItemText("")
     }
   }, [open])
 
@@ -751,30 +766,42 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const handleAddChecklist = () => {
-    const title = prompt("チェックリスト名を入力してください")
-    if (title) {
+    setIsAddingChecklist(true)
+    setNewChecklistTitle("")
+  }
+
+  const handleConfirmAddChecklist = () => {
+    if (newChecklistTitle.trim()) {
       const newChecklist: Checklist = {
         id: `checklist-${Date.now()}`,
-        title,
+        title: newChecklistTitle.trim(),
         items: [],
       }
       setChecklists([...checklists, newChecklist])
+      setIsAddingChecklist(false)
+      setNewChecklistTitle("")
     }
   }
 
   const handleAddChecklistItem = (checklistId: string) => {
-    const text = prompt("チェック項目を入力してください")
-    if (text) {
+    setAddingItemToChecklistId(checklistId)
+    setNewChecklistItemText("")
+  }
+
+  const handleConfirmAddChecklistItem = () => {
+    if (addingItemToChecklistId && newChecklistItemText.trim()) {
       setChecklists(
         checklists.map((checklist) =>
-          checklist.id === checklistId
+          checklist.id === addingItemToChecklistId
             ? {
                 ...checklist,
-                items: [...checklist.items, { id: `item-${Date.now()}`, text, completed: false }],
+                items: [...checklist.items, { id: `item-${Date.now()}`, text: newChecklistItemText.trim(), completed: false }],
               }
             : checklist,
         ),
       )
+      setAddingItemToChecklistId(null)
+      setNewChecklistItemText("")
     }
   }
 
@@ -811,15 +838,21 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const handleEditChecklistTitle = (checklistId: string, currentTitle: string) => {
-    const newTitle = prompt("チェックリスト名を入力してください", currentTitle)
-    if (newTitle && newTitle.trim() !== "") {
+    setEditingChecklistId(checklistId)
+    setEditingChecklistTitle(currentTitle)
+  }
+
+  const handleConfirmEditChecklistTitle = () => {
+    if (editingChecklistId && editingChecklistTitle.trim() !== "") {
       setChecklists(
         checklists.map((checklist) =>
-          checklist.id === checklistId
-            ? { ...checklist, title: newTitle.trim() }
+          checklist.id === editingChecklistId
+            ? { ...checklist, title: editingChecklistTitle.trim() }
             : checklist,
         ),
       )
+      setEditingChecklistId(null)
+      setEditingChecklistTitle("")
     }
   }
 
@@ -1973,10 +2006,37 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 <CheckSquare className="w-4 h-4" />
                 チェックリスト
               </label>
-              <Button variant="outline" size="sm" onClick={handleAddChecklist}>
-                <Plus className="w-3 h-3 mr-1" />
-                チェックリストを追加
-              </Button>
+              {!isAddingChecklist ? (
+                <Button variant="outline" size="sm" onClick={handleAddChecklist}>
+                  <Plus className="w-3 h-3 mr-1" />
+                  チェックリストを追加
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="チェックリスト名を入力"
+                    value={newChecklistTitle}
+                    onChange={(e) => setNewChecklistTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleConfirmAddChecklist()}
+                    className="bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
+                    autoFocus
+                  />
+                  <Button size="sm" onClick={handleConfirmAddChecklist} className="flex-shrink-0">
+                    追加
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsAddingChecklist(false)
+                      setNewChecklistTitle("")
+                    }}
+                    className="flex-shrink-0"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-4">
               {checklists.map((checklist) => {
@@ -1988,15 +2048,55 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                   <div key={checklist.id} className="border rounded-lg p-4 bg-white">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <h4 className="font-medium break-words flex-1 min-w-0">{checklist.title}</h4>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditChecklistTitle(checklist.id, checklist.title)}
-                          className="h-6 w-6 p-0 flex-shrink-0"
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </Button>
+                        {editingChecklistId === checklist.id ? (
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Input
+                              value={editingChecklistTitle}
+                              onChange={(e) => setEditingChecklistTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  handleConfirmEditChecklistTitle()
+                                } else if (e.key === "Escape") {
+                                  setEditingChecklistId(null)
+                                  setEditingChecklistTitle("")
+                                }
+                              }}
+                              className="flex-1 min-w-0 bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleConfirmEditChecklistTitle}
+                              className="h-6 w-6 p-0 flex-shrink-0"
+                            >
+                              <Check className="w-3 h-3 text-green-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingChecklistId(null)
+                                setEditingChecklistTitle("")
+                              }}
+                              className="h-6 w-6 p-0 flex-shrink-0"
+                            >
+                              <X className="w-3 h-3 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <h4 className="font-medium break-words flex-1 min-w-0">{checklist.title}</h4>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditChecklistTitle(checklist.id, checklist.title)}
+                              className="h-6 w-6 p-0 flex-shrink-0"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                       <Button variant="ghost" size="sm" onClick={() => handleDeleteChecklist(checklist.id)}>
                         <Trash2 className="w-3 h-3" />
@@ -2037,15 +2137,49 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                         </div>
                       ))}
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleAddChecklistItem(checklist.id)}
-                      className="mt-2"
-                    >
-                      <Plus className="w-3 h-3 mr-1" />
-                      項目を追加
-                    </Button>
+                    {addingItemToChecklistId === checklist.id ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          placeholder="チェック項目を入力"
+                          value={newChecklistItemText}
+                          onChange={(e) => setNewChecklistItemText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleConfirmAddChecklistItem()
+                            } else if (e.key === "Escape") {
+                              setAddingItemToChecklistId(null)
+                              setNewChecklistItemText("")
+                            }
+                          }}
+                          className="flex-1 bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
+                          autoFocus
+                        />
+                        <Button size="sm" onClick={handleConfirmAddChecklistItem} className="flex-shrink-0">
+                          追加
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setAddingItemToChecklistId(null)
+                            setNewChecklistItemText("")
+                          }}
+                          className="flex-shrink-0"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleAddChecklistItem(checklist.id)}
+                        className="mt-2"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        項目を追加
+                      </Button>
+                    )}
                   </div>
                 )
               })}

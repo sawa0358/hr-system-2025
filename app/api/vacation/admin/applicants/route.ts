@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       employees = await prisma.employee.findMany({
         where: { 
           isInvisibleTop: false,
-          status: { not: 'copy' }, // コピー社員を除外
+          status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
           role: { not: 'admin' }, // 管理者を除外
         },
         select: {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         employees = await prisma.employee.findMany({
           where: { 
             isInvisibleTop: false,
-            status: { not: 'copy' }, // コピー社員を除外
+            status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
             role: { not: 'admin' }, // 管理者を除外
           },
           select: {
@@ -179,12 +179,12 @@ export async function GET(request: NextRequest) {
         // 社員の有効性を確認（削除された社員やコピー社員の申請は除外）
         let requests: any[] = []
         try {
-          // 社員が存在し、有効であることを確認
+          // 社員が存在し、有効であることを確認（コピー社員と停止中の社員を除外）
           const employeeExists = await prisma.employee.findUnique({
             where: { 
               id: e.id,
               isInvisibleTop: false,
-              status: { not: 'copy' },
+              status: { notIn: ['copy', 'suspended'] },
             },
             select: { id: true },
           })
@@ -195,10 +195,10 @@ export async function GET(request: NextRequest) {
               where: { 
                 employeeId: e.id, 
                 status: "PENDING",
-                // 社員のリレーションも確認（削除された社員の申請は除外）
+                // 社員のリレーションも確認（削除された社員、コピー社員、停止中の社員の申請は除外）
                 employee: {
                   isInvisibleTop: false,
-                  status: { not: 'copy' },
+                  status: { notIn: ['copy', 'suspended'] },
                 },
               },
               orderBy: { createdAt: "desc" },
@@ -313,7 +313,7 @@ export async function GET(request: NextRequest) {
         employees = await prisma.employee.findMany({
           where: { 
             isInvisibleTop: false,
-            status: { not: 'copy' }, // コピー社員を除外
+            status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
           },
           select: {
             id: true,

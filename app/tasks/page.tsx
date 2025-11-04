@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { getPermissions, checkWorkspacePermissions, checkBoardPermissions, checkListPermissions } from "@/lib/permissions"
 import { WorkspaceSelector } from "@/components/workspace-selector"
@@ -29,6 +29,7 @@ export default function TasksPage() {
   // デバッグ用ログ
   console.log("TasksPage - currentUser:", currentUser)
   console.log("TasksPage - permissions:", permissions)
+  console.log("TasksPage - isMobile:", isMobile, "window.innerWidth:", typeof window !== 'undefined' ? window.innerWidth : 'N/A')
 
   const [workspaces, setWorkspaces] = useState<any[]>([])
   const [currentWorkspace, setCurrentWorkspace] = useState<string | null>(null)
@@ -45,6 +46,12 @@ export default function TasksPage() {
     dateFrom: "",
     dateTo: "",
   })
+
+  // フィルター変更ハンドラーをメモ化して無限ループを防ぐ
+  const handleFilterChange = useCallback((filters: TaskFilters) => {
+    console.log("Task filters changed:", filters)
+    setTaskFilters(filters)
+  }, [])
   
   // モバイル用の状態
   const [topSectionOpen, setTopSectionOpen] = useState(false)
@@ -1143,10 +1150,10 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
           <>
             {showFilters && (
               <div className="mb-3 min-w-full">
-                <TaskSearchFilters onFilterChange={(filters) => {
-                  console.log("Task filters changed:", filters)
-                  setTaskFilters(filters)
-                }} />
+                <TaskSearchFilters 
+                  employees={employees}
+                  onFilterChange={handleFilterChange} 
+                />
               </div>
             )}
 
@@ -1212,6 +1219,8 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
               dateFrom={taskFilters.dateFrom}
               dateTo={taskFilters.dateTo}
               isMobile={isMobile}
+              freeWord={taskFilters.freeWord}
+              member={taskFilters.member}
             />
           </div>
         ) : (

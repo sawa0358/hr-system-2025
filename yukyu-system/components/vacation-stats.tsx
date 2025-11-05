@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 interface VacationStatsProps {
   userRole: "employee" | "admin"
@@ -13,6 +14,8 @@ interface VacationStatsProps {
 
 export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
   const router = useRouter()
+  const { currentUser } = useAuth()
+  const canViewCalculationDetails = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const [statsData, setStatsData] = useState<{
     totalRemaining: number
     used: number
@@ -224,7 +227,8 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
 
   // 社員用: 総付与数クリック時の処理
   const handleTotalGrantedClick = async () => {
-    if (userRole !== "employee" || !employeeId) return
+    // 総務・管理者のみクリック可能
+    if (!canViewCalculationDetails || userRole !== "employee" || !employeeId) return
     
     setShowTotalGrantedDialog(true)
     setLoadingGrantDetails(true)
@@ -270,7 +274,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
               <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </CardHeader>
             <CardContent>
-              {userRole === "employee" && stat.title === "総付与数" ? (
+              {userRole === "employee" && stat.title === "総付与数" && canViewCalculationDetails ? (
                 <div 
                   className="text-3xl font-bold text-foreground cursor-pointer hover:text-blue-600 transition-colors"
                   onClick={(e) => {
@@ -399,12 +403,12 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
                       <div><strong>期間:</strong> {grantCalculationDetails.currentYear.startDate} ~ {grantCalculationDetails.currentYear.endDate}</div>
                       <div>使用日数: {grantCalculationDetails.currentYear.usedDays}日 / {grantCalculationDetails.currentYear.totalGranted}日（総付与）</div>
                       {grantCalculationDetails.currentYear.carryOverToDate && (
-                        <div>{grantCalculationDetails.currentYear.carryOverToDate}への繰越し: {grantCalculationDetails.currentYear.carryOverDays}日</div>
+                        <div>- {grantCalculationDetails.currentYear.carryOverToDate}への繰越し: {grantCalculationDetails.currentYear.carryOverDays}日</div>
                       )}
                       {grantCalculationDetails.currentYear.newGrantDate && (
                         <>
-                          <div>{grantCalculationDetails.currentYear.newGrantDate} 新付与日数: {grantCalculationDetails.currentYear.newGrantDays}日</div>
-                          <div>{grantCalculationDetails.currentYear.newGrantDate} 時点総付与日数: {grantCalculationDetails.currentYear.totalAtGrantDate}日（繰越し+新付与）</div>
+                          <div>- {grantCalculationDetails.currentYear.newGrantDate} 新付与日数: {grantCalculationDetails.currentYear.newGrantDays}日</div>
+                          <div>- {grantCalculationDetails.currentYear.newGrantDate} 時点総付与日数: {grantCalculationDetails.currentYear.totalAtGrantDate}日（繰越し+新付与）</div>
                         </>
                       )}
                       {grantCalculationDetails.currentYear.carryOverToNextPeriod && (
@@ -420,12 +424,12 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
                       <div><strong>期間:</strong> {grantCalculationDetails.lastYear.startDate} ~ {grantCalculationDetails.lastYear.endDate}</div>
                       <div>使用日数: {grantCalculationDetails.lastYear.usedDays}日 / {grantCalculationDetails.lastYear.totalGranted}日（総付与）</div>
                       {grantCalculationDetails.lastYear.carryOverToDate && (
-                        <div>{grantCalculationDetails.lastYear.carryOverToDate}への繰越し: {grantCalculationDetails.lastYear.carryOverDays}日</div>
+                        <div>- {grantCalculationDetails.lastYear.carryOverToDate}への繰越し: {grantCalculationDetails.lastYear.carryOverDays}日</div>
                       )}
                       {grantCalculationDetails.lastYear.newGrantDate && (
                         <>
-                          <div>{grantCalculationDetails.lastYear.newGrantDate} 新付与日数: {grantCalculationDetails.lastYear.newGrantDays}日</div>
-                          <div>{grantCalculationDetails.lastYear.newGrantDate} 時点総付与日数: {grantCalculationDetails.lastYear.totalAtGrantDate}日（繰越し+新付与）</div>
+                          <div>- {grantCalculationDetails.lastYear.newGrantDate} 新付与日数: {grantCalculationDetails.lastYear.newGrantDays}日</div>
+                          <div>- {grantCalculationDetails.lastYear.newGrantDate} 時点総付与日数: {grantCalculationDetails.lastYear.totalAtGrantDate}日（繰越し+新付与）</div>
                         </>
                       )}
                       {grantCalculationDetails.lastYear.carryOverToNextPeriod && (
@@ -441,12 +445,12 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
                       <div><strong>期間:</strong> {grantCalculationDetails.twoYearsAgo.startDate} ~ {grantCalculationDetails.twoYearsAgo.endDate}</div>
                       <div>使用日数: {grantCalculationDetails.twoYearsAgo.usedDays}日 / {grantCalculationDetails.twoYearsAgo.totalGranted}日（総付与）</div>
                       {grantCalculationDetails.twoYearsAgo.carryOverToDate && (
-                        <div>{grantCalculationDetails.twoYearsAgo.carryOverToDate}への繰越し: {grantCalculationDetails.twoYearsAgo.carryOverDays}日</div>
+                        <div>- {grantCalculationDetails.twoYearsAgo.carryOverToDate}への繰越し: {grantCalculationDetails.twoYearsAgo.carryOverDays}日</div>
                       )}
                       {grantCalculationDetails.twoYearsAgo.newGrantDate && (
                         <>
-                          <div>{grantCalculationDetails.twoYearsAgo.newGrantDate} 新付与日数: {grantCalculationDetails.twoYearsAgo.newGrantDays}日</div>
-                          <div>{grantCalculationDetails.twoYearsAgo.newGrantDate} 時点総付与日数: {grantCalculationDetails.twoYearsAgo.totalAtGrantDate}日（繰越し+新付与）</div>
+                          <div>- {grantCalculationDetails.twoYearsAgo.newGrantDate} 新付与日数: {grantCalculationDetails.twoYearsAgo.newGrantDays}日</div>
+                          <div>- {grantCalculationDetails.twoYearsAgo.newGrantDate} 時点総付与日数: {grantCalculationDetails.twoYearsAgo.totalAtGrantDate}日（繰越し+新付与）</div>
                         </>
                       )}
                       {grantCalculationDetails.twoYearsAgo.carryOverToNextPeriod && (

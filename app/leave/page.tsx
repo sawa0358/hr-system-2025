@@ -9,29 +9,10 @@ import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { Button } from "@/components/ui/button"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 
 export default function LeavePage() {
   const { currentUser } = useAuth()
-  const router = useRouter()
-  const params = useSearchParams()
-  const pathname = usePathname()
-  
-  // 総務・管理者・店長・マネージャー権限者はデフォルトで「管理者画面」の「承認待ち」にリダイレクト
-  useEffect(() => {
-    if (!currentUser) return // currentUserが未設定の場合は何もしない
-    
-    const isAdminOrHR = currentUser.role === 'admin' || currentUser.role === 'hr'
-    const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
-    const canAccessAdminPage = isAdminOrHR || isManagerOrStoreManager
-    if (!canAccessAdminPage) return // 権限がない場合は何もしない
-    
-    // employeeIdパラメータがない場合（管理者が特定社員の画面を見ていない場合）のみリダイレクト
-    const employeeIdParam = params?.get("employeeId")
-    if (!employeeIdParam && pathname === '/leave') {
-      router.replace('/leave/admin?view=pending')
-    }
-  }, [currentUser?.role, params?.get("employeeId"), pathname, router])
 
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
@@ -66,22 +47,14 @@ export default function LeavePage() {
 
   // 社員トップ（/leave）は常に社員用UIを表示する
   const userRole: 'employee' | 'admin' = 'employee'
+
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
   
   // employeeIdパラメータを取得（管理者が特定社員の画面を見る場合）
-  const employeeIdParam = params?.get("employeeId")
-  const employeeNameParam = params?.get("name")
-  
-  // デバッグログ（開発時のみ）
-  useEffect(() => {
-    if (employeeIdParam) {
-      console.log('有給管理ページ - employeeIdパラメータ:', {
-        employeeIdParam,
-        employeeNameParam,
-        currentUserId: currentUser?.id,
-        currentUserName: currentUser?.name
-      })
-    }
-  }, [employeeIdParam, employeeNameParam, currentUser?.id, currentUser?.name])
+  const employeeIdParam = params.get("employeeId")
+  const employeeNameParam = params.get("name")
   
   // 表示する社員IDを決定（パラメータがあればそれを使用、なければ自分のID）
   const displayEmployeeId = employeeIdParam || currentUser?.id
@@ -93,17 +66,29 @@ export default function LeavePage() {
   
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
-  
+
   const tabs = [
-    { name: "社員", href: "/leave", show: true },
-    { name: "管理者", href: "/leave/admin", show: isAdminOrHR },
-    { name: "設定", href: "/leave/settings", show: isAdminOrHR },
+    { 
+      name: "社員", 
+      href: "/leave",
+      show: false // 社員の有給管理画面を開いている時は非表示（全権限者対象）
+    },
+    { 
+      name: "管理者", 
+      href: "/leave/admin",
+      show: isAdminOrHR
+    },
+    { 
+      name: "設定", 
+      href: "/leave/settings",
+      show: isAdminOrHR
+    },
   ].filter(tab => tab.show)
 
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-8">
-        <div className="mb-2 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {isViewingOtherEmployee ? `${displayEmployeeName} の有給管理` : `${displayEmployeeName}さんの有給管理`}
@@ -112,7 +97,7 @@ export default function LeavePage() {
               {isViewingOtherEmployee ? "管理者プレビュー" : "社員の有給休暇を管理"}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
+          <div className="flex items-center gap-2">
             {tabs.map((tab) => (
               <Button
                 key={tab.name}

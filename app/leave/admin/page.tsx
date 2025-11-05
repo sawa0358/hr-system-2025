@@ -79,7 +79,7 @@ export default function LeaveAdminPage() {
     { 
       name: "社員", 
       href: currentUser ? `/leave?employeeId=${currentUser.id}&name=${encodeURIComponent(currentUser.name || '')}` : "/leave", 
-      show: true 
+      show: currentUser?.role === 'hr' && pathname !== '/leave' // 総務のみ表示、管理者は非表示、ただし社員画面を開いている時は非表示
     },
     { name: "管理者", href: "/leave/admin", show: isAdminOrHR },
     { name: "設定", href: "/leave/settings", show: isAdminOrHR },

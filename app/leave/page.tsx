@@ -92,7 +92,7 @@ export default function LeavePage() {
 
   return (
     <main className="overflow-y-auto">
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-8" style={{ backgroundColor: '#f2f6f9' }}>
         <div className="mb-2 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -193,8 +193,8 @@ export default function LeavePage() {
             />
           </div>
         ) : (
-            <Card>
-              <CardContent className="p-6">
+            <Card style={{ backgroundColor: '#b4d5e7' }}>
+              <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
                 <VacationList 
                   userRole={userRole} 
                   filter={"all"}

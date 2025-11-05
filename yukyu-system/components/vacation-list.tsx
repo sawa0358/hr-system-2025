@@ -644,7 +644,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   }
 
   return (
-    <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2`}>
+    <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2`} style={{ backgroundColor: '#b4d5e7' }}>
       {loading && userRole === "admin" && (
         <Card className="col-span-full">
           <CardContent className="py-6 text-center text-muted-foreground">読み込み中...</CardContent>

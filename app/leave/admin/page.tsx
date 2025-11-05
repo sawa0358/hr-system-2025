@@ -90,7 +90,7 @@ export default function LeaveAdminPage() {
 
   return (
     <main className="overflow-y-auto">
-      <div className="p-8 space-y-6">
+      <div className="p-8 space-y-6" style={{ backgroundColor: '#f2f6f9' }}>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
@@ -149,8 +149,8 @@ export default function LeaveAdminPage() {
           </div>
         </div>
 
-        <Card>
-          <CardContent className="p-6">
+        <Card style={{ backgroundColor: '#b4d5e7' }}>
+          <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
             <VacationList
               userRole="admin"
               filter={view === "pending" ? "pending" : "all"}

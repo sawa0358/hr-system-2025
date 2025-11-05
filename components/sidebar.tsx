@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
 import { LoginModal } from "@/components/login-modal"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
@@ -519,14 +520,28 @@ export function Sidebar() {
         {!collapsed && currentUser && (
           <div className="p-4 border-t border-slate-200">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold whitespace-nowrap overflow-hidden">
+              <Avatar className="w-10 h-10 flex-shrink-0">
                 {(() => {
-                  const text = typeof window !== 'undefined'
+                  const avatarText = typeof window !== 'undefined'
                     ? (localStorage.getItem(`employee-avatar-text-${currentUser.id}`) || (currentUser.name || '?').slice(0, 3))
                     : (currentUser.name || '?').slice(0, 3)
-                  return text.slice(0, 3)
+                  return (
+                    <>
+                      {currentUser.avatar && (
+                        <AvatarImage src={currentUser.avatar} alt={currentUser.name || "プロフィール画像"} />
+                      )}
+                      <AvatarFallback 
+                        employeeType={currentUser.employeeType}
+                        className={`font-semibold whitespace-nowrap overflow-hidden ${
+                          /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-sm' : 'text-xs'
+                        }`}
+                      >
+                        {avatarText.slice(0, 3)}
+                      </AvatarFallback>
+                    </>
+                  )
                 })()}
-              </div>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">{currentUser.name}</p>
                 <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>

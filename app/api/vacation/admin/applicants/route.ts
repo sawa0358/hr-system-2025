@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
           vacationPattern: true,
           weeklyPattern: true,
           role: true, // フィルタリング用にroleも取得
+          avatar: true, // アバター画像URL
         },
         orderBy: { joinDate: "asc" },
       })
@@ -69,6 +70,7 @@ export async function GET(request: NextRequest) {
             status: true,
             showInOrgChart: true,
             role: true, // フィルタリング用にroleも取得
+            avatar: true, // アバター画像URL
           },
           orderBy: { joinDate: "asc" },
         })
@@ -297,6 +299,7 @@ export async function GET(request: NextRequest) {
               id: `${e.id}_${req.id}`, // ユニークID
               employeeId: e.id, // 元の社員IDを保持
               name: e.name,
+              employee: e.name, // 表示用
               employeeNumber: e.employeeNumber || null,
               joinDate: e.joinDate?.toISOString(),
               employeeType: e.employeeType || null,
@@ -307,6 +310,7 @@ export async function GET(request: NextRequest) {
               showInOrgChart: e.showInOrgChart || null,
               vacationPattern: e.vacationPattern || null,
               weeklyPattern: e.weeklyPattern || null,
+              avatar: e.avatar || null, // アバター画像URL
               remaining: calculatedRemaining,
               used,
               pending,
@@ -360,6 +364,7 @@ export async function GET(request: NextRequest) {
             id: e.id,
             employeeId: e.id, // 社員IDを明示的に設定（承認済み、却下、アラートの場合）
             name: e.name,
+            employee: e.name, // 表示用
             employeeNumber: e.employeeNumber || null,
             joinDate: e.joinDate?.toISOString(),
             employeeType: e.employeeType || null,
@@ -370,6 +375,7 @@ export async function GET(request: NextRequest) {
             showInOrgChart: e.showInOrgChart || null,
             vacationPattern: e.vacationPattern || null,
             weeklyPattern: e.weeklyPattern || null,
+            avatar: e.avatar || null, // アバター画像URL
             remaining: calculatedRemaining,
             used,
             pending,

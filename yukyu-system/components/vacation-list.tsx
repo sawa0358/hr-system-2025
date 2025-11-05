@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth-context"
 import { getPermissions } from "@/lib/permissions"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -743,7 +744,32 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
             {userRole === "admin" ? (
               <div className="space-y-2 flex-1 flex flex-col">
                 <div className="space-y-0.5">
-                  <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="w-8 h-8 flex-shrink-0">
+                      {(() => {
+                        const targetEmployeeId = String(request.employeeId || request.id)
+                        const avatarText = typeof window !== 'undefined' 
+                          ? localStorage.getItem(`employee-avatar-text-${targetEmployeeId}`) || (request.employee || request.name || '未').slice(0, 3)
+                          : (request.employee || request.name || '未').slice(0, 3)
+                        return (
+                          <>
+                            {request.avatar && (
+                              <AvatarImage src={request.avatar} alt={request.employee || request.name} />
+                            )}
+                            <AvatarFallback 
+                              employeeType={request.employeeType}
+                              className={`font-semibold whitespace-nowrap overflow-hidden ${
+                                /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                              }`}
+                            >
+                              {avatarText.slice(0, 3)}
+                            </AvatarFallback>
+                          </>
+                        )
+                      })()}
+                    </Avatar>
+                    <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
+                  </div>
                   <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
                   {userRole === "admin" && (
                     <VacationPatternSelector

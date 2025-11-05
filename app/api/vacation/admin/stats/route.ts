@@ -226,7 +226,9 @@ export async function GET(request: NextRequest) {
       
       if (activeEmployeeIdList.length > 0) {
         const today = new Date()
-        const minGrantDaysForAlert = 5
+        // 設定ファイルからアラート閾値を読み込む（デフォルトは10日）
+        const defaultConfig = await loadAppConfig()
+        const minGrantDaysForAlert = defaultConfig.alert?.minGrantDaysForAlert ?? 10
         const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
         
         // 各社員のアラート状況をチェック
@@ -263,7 +265,8 @@ export async function GET(request: NextRequest) {
               const diffMs = nextGrantDate.getTime() - today.getTime()
               const isWithinThreeMonths = diffMs < threeMonthsInMs
               
-              // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成
+              // 1回の付与日数がminGrantDaysForAlert以上の社員のみがアラート対象
+              // 次回付与日まで3ヶ月をきっていて、かつ設定された日数消化義務未達成
               return isWithinThreeMonths && latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert
             } catch {
               return false

@@ -3,7 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { CheckCircle, XCircle, Clock, Calendar, AlertTriangle, Loader2, Edit, Trash2 } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -15,7 +14,6 @@ import { useAuth } from "@/lib/auth-context"
 import { getPermissions } from "@/lib/permissions"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
 
 interface VacationListProps {
   userRole: "employee" | "admin"
@@ -23,7 +21,6 @@ interface VacationListProps {
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
   employeeId?: string // 表示する社員ID（社員モードで使用）
   onPendingCountChange?: (count: number) => void // 承認待ちの申請数を通知するコールバック
-  disableCardClick?: boolean // カードクリックを無効化（店長・マネージャー用）
   filters?: {
     searchQuery: string
     department: string
@@ -34,7 +31,7 @@ interface VacationListProps {
   }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange, disableCardClick = false }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
@@ -48,7 +45,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [sortBy, setSortBy] = useState<"date" | "status" | "days">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
-  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo">("current")
+  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo">("current") // デフォルトは今期
   const [periodData, setPeriodData] = useState<{
     current?: { startDate: string; endDate: string }
     last?: { startDate: string; endDate: string }
@@ -87,21 +84,15 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         try {
           // 現在のview（pending or all）を取得
           const currentView = filter === "pending" ? "pending" : "all"
-          console.log(`[有給管理] API呼び出し: /api/vacation/admin/applicants?view=${currentView}`)
           const res = await fetch(`/api/vacation/admin/applicants?view=${currentView}`)
-          console.log(`[有給管理] APIレスポンス: status=${res.status}, ok=${res.ok}`)
           if (res.ok) {
             const json = await res.json()
-            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`, json.employees?.slice(0, 2))
+            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`)
             setAdminEmployees(json.employees || [])
           } else {
-            const errorText = await res.text()
-            console.error(`[有給管理] APIエラー: ${res.status}`, errorText)
+            console.error(`[有給管理] APIエラー: ${res.status}`)
             setAdminEmployees([])
           }
-        } catch (error) {
-          console.error(`[有給管理] API呼び出しエラー:`, error)
-          setAdminEmployees([])
         } finally {
           setLoading(false)
         }
@@ -109,7 +100,6 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 社員モードの場合、特定社員の申請一覧を取得
         setLoading(true)
         try {
-          // 申請一覧を取得
           const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
           if (res.ok) {
             const json = await res.json()
@@ -163,15 +153,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     const handleUpdate = () => {
       load()
     }
-    // パターン更新イベントをリッスン（画面遷移を防ぐため）
-    const handlePatternUpdate = () => {
-      load()
-    }
     window.addEventListener('vacation-request-updated', handleUpdate)
-    window.addEventListener('vacation-pattern-updated', handlePatternUpdate)
     return () => {
       window.removeEventListener('vacation-request-updated', handleUpdate)
-      window.removeEventListener('vacation-pattern-updated', handlePatternUpdate)
     }
   }, [userRole, employeeId, filter])
 
@@ -527,12 +511,6 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
 
   // 管理者画面でのフィルタリング
   const filteredAdminEmployees = userRole === "admin" && filters ? adminEmployees.filter((emp: any) => {
-    // 停止中の社員とコピー社員を除外（employeeStatusが存在する場合はそれを使用、なければstatusを使用）
-    const employeeStatus = emp.employeeStatus || emp.status
-    if (employeeStatus === 'suspended' || employeeStatus === 'copy') {
-      return false
-    }
-    
     // 検索クエリフィルター
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase()
@@ -621,11 +599,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
     
     return true
-  }) : adminEmployees.filter((emp: any) => {
-    // 停止中の社員とコピー社員を除外（フィルターがない場合でも適用）
-    const employeeStatus = emp.employeeStatus || emp.status
-    return employeeStatus !== 'suspended' && employeeStatus !== 'copy'
-  })
+  }) : adminEmployees
 
   const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter(e => (e.pending ?? 0) > 0) : filteredAdminEmployees) : []
   
@@ -676,7 +650,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </Card>
       )}
       {userRole === "employee" && employeeRequests.length > 0 && (
-        <div className="col-span-full flex gap-2 items-center mb-2 flex-wrap">
+        <div className="col-span-full flex gap-2 items-center mb-2">
           {/* 期間フィルターは総務・管理者のみ表示 */}
           {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
             <select
@@ -748,16 +722,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return (
         <Card
           key={request.id}
-          className={cn(
-            "flex flex-col min-h-[92px] p-0",
-            !disableCardClick && onEmployeeClick && userRole === "admin" ? "cursor-pointer" : "cursor-default"
-          )}
+          className="flex flex-col min-h-[92px] p-0 cursor-pointer"
           style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
           onClick={(e) => {
-            // カードクリックが無効化されている場合は何もしない
-            if (disableCardClick) {
-              return
-            }
             // ダイアログやSelect内のクリックは無視
             if ((e.target as HTMLElement).closest('[role="dialog"]') || 
                 (e.target as HTMLElement).closest('[role="listbox"]') ||
@@ -775,30 +742,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
             {userRole === "admin" ? (
               <div className="space-y-2 flex-1 flex flex-col">
-                <div className="flex items-center gap-2 mb-1">
-                  <Avatar className="w-8 h-8 flex-shrink-0">
-                    <AvatarFallback 
-                      employeeType={request.employeeType || undefined}
-                      className="text-blue-700 font-semibold text-xs"
-                    >
-                      {(() => {
-                        // DBから取得したavatarTextを優先、なければlocalStorage、それもなければ名前の最初の3文字
-                        const dbAvatarText = request.avatarText || null
-                        const localStorageText = typeof window !== 'undefined'
-                          ? localStorage.getItem(`employee-avatar-text-${request.employeeId || request.id}`)
-                          : null
-                        const defaultText = (request.employee || request.name || '未').slice(0, 3)
-                        const text = dbAvatarText || localStorageText || defaultText
-                        return text.slice(0, 3)
-                      })()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="space-y-0.5 flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-foreground truncate">{request.employee || request.name}</div>
-                    <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
-                  </div>
-                </div>
                 <div className="space-y-0.5">
+                  <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
+                  <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
                   {userRole === "admin" && (
                     <VacationPatternSelector
                       employeeId={String(request.employeeId || request.id)}
@@ -806,7 +752,6 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                       currentPattern={request.vacationPattern || null}
                       currentWeeklyPattern={request.weeklyPattern || null}
                       employeeName={request.employee || request.name}
-                      readonly={!(currentUser?.role === 'admin' || currentUser?.role === 'hr')}
                     />
                   )}
                 </div>

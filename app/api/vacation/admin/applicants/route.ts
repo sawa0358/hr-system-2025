@@ -144,9 +144,10 @@ export async function GET(request: NextRequest) {
         let nextGrantDays: number = 0
         // 最新の付与日での付与日数（5日消化義務アラート判定用）
         let latestGrantDays: number = 0
+        // 設定ファイルを読み込む（アラート判定でも使用）
+        const cfg = await loadAppConfig(e.configVersion || undefined)
         try {
           const today = new Date()
-          const cfg = await loadAppConfig(e.configVersion || undefined)
           
           // 現在の付与日（今期の開始日）を取得
           currentGrantDate = getPreviousGrantDate(new Date(e.joinDate), cfg, today)
@@ -244,10 +245,11 @@ export async function GET(request: NextRequest) {
         } catch {}
 
         // アラート判定（5日消化義務アラート）
-        // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成の社員
-        const minGrantDaysForAlert = 5
+        // 次回付与日まで3ヶ月をきっていて、かつ設定された日数消化義務未達成の社員
+        const minGrantDaysForAlert = cfg.alert?.minGrantDaysForAlert ?? 10 // 設定ファイルから読み込み、デフォルトは10日
         const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
         let isAlert = false
+        // 1回の付与日数がminGrantDaysForAlert以上の社員のみがアラート対象
         if (latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert && nextGrantDate) {
           const today = new Date()
           const diffMs = nextGrantDate.getTime() - today.getTime()

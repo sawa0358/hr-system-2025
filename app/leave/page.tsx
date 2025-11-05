@@ -71,6 +71,18 @@ export default function LeavePage() {
   const employeeIdParam = params?.get("employeeId")
   const employeeNameParam = params?.get("name")
   
+  // デバッグログ（開発時のみ）
+  useEffect(() => {
+    if (employeeIdParam) {
+      console.log('有給管理ページ - employeeIdパラメータ:', {
+        employeeIdParam,
+        employeeNameParam,
+        currentUserId: currentUser?.id,
+        currentUserName: currentUser?.name
+      })
+    }
+  }, [employeeIdParam, employeeNameParam, currentUser?.id, currentUser?.name])
+  
   // 表示する社員IDを決定（パラメータがあればそれを使用、なければ自分のID）
   const displayEmployeeId = employeeIdParam || currentUser?.id
   const displayEmployeeName = employeeNameParam || currentUser?.name || "従業員"

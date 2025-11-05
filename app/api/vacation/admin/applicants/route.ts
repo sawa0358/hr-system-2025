@@ -10,14 +10,18 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const view = searchParams.get("view") || "all" // "pending" or "all"
+    const statusFilter = searchParams.get("status") // "PENDING", "APPROVED", "REJECTED"
+    const monthFilter = searchParams.get("month") // "YYYY-MM" format
+    const alertsFilter = searchParams.get("alerts") === "true" // boolean
     
     // 社員の基本情報取得（vacationPatternとweeklyPatternはオプショナル）
+    // ステータスが「active」の社員のみを対象にする
     let employees
     try {
       employees = await prisma.employee.findMany({
         where: { 
           isInvisibleTop: false,
-          status: { not: 'copy' }, // コピー社員を除外
+          status: "active", // ステータスが「active」の社員のみ（コピー社員も除外）
         },
         select: {
           id: true,
@@ -154,17 +158,86 @@ export async function GET(request: NextRequest) {
         }
 
         // 申請を取得（表示用）
-        // 「承認待ち」画面では全ての申請、「全社員」画面では最新の申請のみ
+        // フィルタリングに応じて申請を取得
         let requests: any[] = []
         try {
-          const allPendingRequests = await prisma.timeOffRequest.findMany({
-            where: { employeeId: e.id, status: "PENDING" },
-            orderBy: { createdAt: "desc" },
-          })
-          // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
-          requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
+          if (statusFilter === "PENDING") {
+            // 承認待ちの申請を取得
+            const allPendingRequests = await prisma.timeOffRequest.findMany({
+              where: { employeeId: e.id, status: "PENDING" },
+              orderBy: { createdAt: "desc" },
+            })
+            requests = allPendingRequests
+          } else if (statusFilter === "APPROVED" && monthFilter) {
+            // 今月承認済みの申請を取得
+            const [year, month] = monthFilter.split("-").map(Number)
+            const monthStart = new Date(year, month - 1, 1)
+            const monthEnd = new Date(year, month, 0, 23, 59, 59, 999)
+            const approvedRequests = await prisma.timeOffRequest.findMany({
+              where: {
+                employeeId: e.id,
+                status: "APPROVED",
+                approvedAt: {
+                  gte: monthStart,
+                  lte: monthEnd,
+                },
+              },
+              orderBy: { approvedAt: "desc" },
+            })
+            requests = approvedRequests
+          } else if (statusFilter === "REJECTED") {
+            // 却下された申請を取得
+            const rejectedRequests = await prisma.timeOffRequest.findMany({
+              where: { employeeId: e.id, status: "REJECTED" },
+              orderBy: { createdAt: "desc" },
+            })
+            requests = rejectedRequests
+          } else if (view === "pending") {
+            // 承認待ち画面の場合、承認待ちの申請を取得
+            const allPendingRequests = await prisma.timeOffRequest.findMany({
+              where: { employeeId: e.id, status: "PENDING" },
+              orderBy: { createdAt: "desc" },
+            })
+            requests = allPendingRequests
+          } else {
+            // 全社員画面の場合、最新の申請のみ
+            const allPendingRequests = await prisma.timeOffRequest.findMany({
+              where: { employeeId: e.id, status: "PENDING" },
+              orderBy: { createdAt: "desc" },
+            })
+            requests = allPendingRequests.length > 0 ? [allPendingRequests[0]] : []
+          }
         } catch {}
 
+        // アラート判定（5日消化義務アラート）
+        const minGrantDaysForAlert = 5
+        const isAlert = latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert
+        
+        // フィルタリング条件に応じて社員をフィルタリング
+        let shouldInclude = true
+        
+        if (statusFilter === "PENDING") {
+          // 承認待ち: 承認待ちの申請がある社員のみ
+          shouldInclude = requests.length > 0
+        } else if (statusFilter === "APPROVED" && monthFilter) {
+          // 今月承認済み: 今月承認済みの申請がある社員のみ
+          shouldInclude = requests.length > 0
+        } else if (statusFilter === "REJECTED") {
+          // 却下: 却下された申請がある社員のみ
+          shouldInclude = requests.length > 0
+        } else if (alertsFilter) {
+          // アラート: アラート対象の社員のみ
+          shouldInclude = isAlert
+        } else if (view === "pending") {
+          // 承認待ち画面: 承認待ちの申請がある社員のみ
+          shouldInclude = requests.length > 0
+        }
+        
+        // フィルタリング条件に合わない場合は空配列を返す
+        if (!shouldInclude) {
+          return []
+        }
+        
         // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
         // 総付与数が0の場合は、残日数 + 取得済み + 申請中で逆算（フォールバック）
         const calculatedRemaining = granted > 0 
@@ -172,7 +245,7 @@ export async function GET(request: NextRequest) {
           : Math.max(0, remaining - pending)
         
         // 「承認待ち」画面では各申請ごとにカードを返す、「全社員」画面では社員ごとに1カードのみ
-        if (view === "pending") {
+        if (view === "pending" || statusFilter === "PENDING") {
           // 「承認待ち」画面では申請がある場合のみカードを返す
           if (requests.length > 0) {
             // 各申請ごとにカードを生成
@@ -209,10 +282,39 @@ export async function GET(request: NextRequest) {
             return []
           }
         } else {
-          // 「全社員」画面では社員ごとに1カードのみ（最新の申請情報を表示）
+          // 「全社員」画面または承認済み/却下画面では社員ごとに1カードのみ（最新の申請情報を表示）
           const latestRequest = requests.length > 0 ? requests[0] : null
+          
+          // 承認済みや却下の場合、申請情報を追加
+          let requestStatus: string | undefined = undefined
+          let requestStartDate: string | undefined = undefined
+          let requestEndDate: string | undefined = undefined
+          let requestDays: number | undefined = undefined
+          let requestReason: string | undefined = undefined
+          
+          if (statusFilter === "APPROVED" && latestRequest) {
+            requestStatus = "approved"
+            requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
+            requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
+            requestDays = Number(latestRequest.totalDays || 0)
+            requestReason = latestRequest.reason || undefined
+          } else if (statusFilter === "REJECTED" && latestRequest) {
+            requestStatus = "rejected"
+            requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
+            requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
+            requestDays = Number(latestRequest.totalDays || 0)
+            requestReason = latestRequest.reason || undefined
+          } else if (latestRequest) {
+            requestStatus = "pending"
+            requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
+            requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
+            requestDays = Number(latestRequest.totalDays || 0)
+            requestReason = latestRequest.reason || undefined
+          }
+          
           return {
             id: e.id,
+            employeeId: e.id, // 社員IDを明示的に設定（承認済み、却下、アラートの場合）
             name: e.name,
             employeeNumber: e.employeeNumber || null,
             joinDate: e.joinDate?.toISOString(),
@@ -232,11 +334,12 @@ export async function GET(request: NextRequest) {
             nextGrantDays: nextGrantDays,
             latestGrantDays: latestGrantDays, // 最新の付与日での付与日数（5日消化義務アラート判定用）
             requestId: latestRequest?.id || undefined,
-            status: latestRequest ? "pending" : undefined,
-            startDate: latestRequest?.startDate?.toISOString()?.slice(0, 10),
-            endDate: latestRequest?.endDate?.toISOString()?.slice(0, 10),
-            days: latestRequest ? Number(latestRequest.totalDays || 0) : undefined,
-            reason: latestRequest?.reason || undefined,
+            status: requestStatus,
+            startDate: requestStartDate,
+            endDate: requestEndDate,
+            days: requestDays,
+            reason: requestReason,
+            pendingDays: statusFilter === "PENDING" ? pending : undefined,
           }
         }
       })

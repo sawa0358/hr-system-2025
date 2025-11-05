@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useRouter } from "next/navigation"
 
 interface VacationStatsProps {
   userRole: "employee" | "admin"
@@ -11,6 +12,7 @@ interface VacationStatsProps {
 }
 
 export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
+  const router = useRouter()
   const [statsData, setStatsData] = useState<{
     totalRemaining: number
     used: number
@@ -314,7 +316,37 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             ) : (
               <div className="space-y-2">
                 {employeeList.map((employee: any) => (
-                  <Card key={employee.id} className="p-4">
+                  <Card 
+                    key={employee.id} 
+                    className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => {
+                      // 社員の有給管理画面に移動
+                      // employeeIdが存在する場合はそれを使用（承認待ちの場合）
+                      // それ以外の場合はidを使用（承認済み、却下、アラートの場合）
+                      const targetEmployeeId = employee.employeeId || employee.id
+                      
+                      if (targetEmployeeId) {
+                        console.log('社員クリック:', {
+                          name: employee.name,
+                          employeeId: employee.employeeId,
+                          id: employee.id,
+                          targetEmployeeId: targetEmployeeId
+                        })
+                        
+                        // 社員名もパラメータに含める
+                        const params = new URLSearchParams()
+                        params.set('employeeId', targetEmployeeId)
+                        if (employee.name) {
+                          params.set('name', employee.name)
+                        }
+                        
+                        router.push(`/leave?${params.toString()}`)
+                        setShowEmployeeListDialog(false)
+                      } else {
+                        console.error('社員IDが取得できませんでした:', employee)
+                      }
+                    }}
+                  >
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="font-semibold">{employee.name}</div>

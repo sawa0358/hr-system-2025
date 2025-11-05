@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getNextGrantDate } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
-import { chooseGrantDaysForEmployee, diffInYearsHalfStep } from "@/lib/vacation-grant-lot"
+import { chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
 import { calculateRemainingDays, calculateUsedDays, calculatePendingDays, calculateTotalGranted, getNextGrantDateForEmployee } from "@/lib/vacation-stats"
 
 // 管理者向け: 全社員の有給カード表示用データ
@@ -17,8 +17,7 @@ export async function GET(request: NextRequest) {
       employees = await prisma.employee.findMany({
         where: { 
           isInvisibleTop: false,
-          status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
-          role: { not: 'admin' }, // 管理者を除外
+          status: { not: 'copy' }, // コピー社員を除外
         },
         select: {
           id: true,
@@ -42,8 +41,7 @@ export async function GET(request: NextRequest) {
         employees = await prisma.employee.findMany({
           where: { 
             isInvisibleTop: false,
-            status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
-            role: { not: 'admin' }, // 管理者を除外
+            status: { not: 'copy' }, // コピー社員を除外
           },
           select: {
             id: true,
@@ -73,24 +71,6 @@ export async function GET(request: NextRequest) {
     if (employees.length === 0) {
       return NextResponse.json({ employees: [] })
     }
-
-    // 全社員のUserSettingsを一括取得（avatar-text用）
-    const employeeIds = employees.map(e => e.id)
-    const userSettings = await prisma.userSettings.findMany({
-      where: {
-        employeeId: { in: employeeIds },
-        key: 'avatar-text'
-      },
-      select: {
-        employeeId: true,
-        value: true
-      }
-    })
-    // employeeIdをキーとするマップに変換
-    const avatarTextMap = new Map<string, string>()
-    userSettings.forEach(setting => {
-      avatarTextMap.set(setting.employeeId, setting.value)
-    })
 
     // 社員ごとの統計を集計
     const today = new Date()
@@ -152,9 +132,8 @@ export async function GET(request: NextRequest) {
           nextGrantDate = await getNextGrantDateForEmployee(e.id)
           if (nextGrantDate && e.vacationPattern) {
             const cfg = await loadAppConfig(e.configVersion || undefined)
-            // 次回付与日の勤続年数を計算（半年刻み）
-            const { diffInYearsHalfStep } = await import('@/lib/vacation-grant-lot')
-            const yearsSinceJoin = diffInYearsHalfStep(new Date(e.joinDate), nextGrantDate)
+            // 次回付与日の勤続年数を計算
+            const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
             nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
           }
           
@@ -176,42 +155,15 @@ export async function GET(request: NextRequest) {
 
         // 申請を取得（表示用）
         // 「承認待ち」画面では全ての申請、「全社員」画面では最新の申請のみ
-        // 社員の有効性を確認（削除された社員やコピー社員の申請は除外）
         let requests: any[] = []
         try {
-          // 社員が存在し、有効であることを確認（コピー社員と停止中の社員を除外）
-          const employeeExists = await prisma.employee.findUnique({
-            where: { 
-              id: e.id,
-              isInvisibleTop: false,
-              status: { notIn: ['copy', 'suspended'] },
-            },
-            select: { id: true },
+          const allPendingRequests = await prisma.timeOffRequest.findMany({
+            where: { employeeId: e.id, status: "PENDING" },
+            orderBy: { createdAt: "desc" },
           })
-          
-          // 有効な社員のみ承認待ち申請を取得
-          if (employeeExists) {
-            const allPendingRequests = await prisma.timeOffRequest.findMany({
-              where: { 
-                employeeId: e.id, 
-                status: "PENDING",
-                // 社員のリレーションも確認（削除された社員、コピー社員、停止中の社員の申請は除外）
-                employee: {
-                  isInvisibleTop: false,
-                  status: { notIn: ['copy', 'suspended'] },
-                },
-              },
-              orderBy: { createdAt: "desc" },
-            })
-            // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
-            requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
-          }
-        } catch (error: any) {
-          // エラーは無視（データなしとして扱う）
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(`承認待ち申請取得エラー (employeeId: ${e.id}):`, error?.message || error)
-          }
-        }
+          // 「承認待ち」画面では全て、「全社員」画面では最新1件のみ
+          requests = view === "pending" ? allPendingRequests : (allPendingRequests.length > 0 ? [allPendingRequests[0]] : [])
+        } catch {}
 
         // 計算式: 総付与数 - 取得済み - 申請中 = 残り有給日数
         // 総付与数が0の場合は、残日数 + 取得済み + 申請中で逆算（フォールバック）
@@ -224,7 +176,6 @@ export async function GET(request: NextRequest) {
           // 「承認待ち」画面では申請がある場合のみカードを返す
           if (requests.length > 0) {
             // 各申請ごとにカードを生成
-            const avatarText = avatarTextMap.get(e.id) || null
             return requests.map((req) => ({
               id: `${e.id}_${req.id}`, // ユニークID
               employeeId: e.id, // 元の社員IDを保持
@@ -239,7 +190,6 @@ export async function GET(request: NextRequest) {
               showInOrgChart: e.showInOrgChart || null,
               vacationPattern: e.vacationPattern || null,
               weeklyPattern: e.weeklyPattern || null,
-              avatarText: avatarText, // 画像テキスト（DBから取得）
               remaining: calculatedRemaining,
               used,
               pending,
@@ -261,7 +211,6 @@ export async function GET(request: NextRequest) {
         } else {
           // 「全社員」画面では社員ごとに1カードのみ（最新の申請情報を表示）
           const latestRequest = requests.length > 0 ? requests[0] : null
-          const avatarText = avatarTextMap.get(e.id) || null
           return {
             id: e.id,
             name: e.name,
@@ -275,7 +224,6 @@ export async function GET(request: NextRequest) {
             showInOrgChart: e.showInOrgChart || null,
             vacationPattern: e.vacationPattern || null,
             weeklyPattern: e.weeklyPattern || null,
-            avatarText: avatarText, // 画像テキスト（DBから取得）
             remaining: calculatedRemaining,
             used,
             pending,
@@ -313,7 +261,7 @@ export async function GET(request: NextRequest) {
         employees = await prisma.employee.findMany({
           where: { 
             isInvisibleTop: false,
-            status: { notIn: ['copy', 'suspended'] }, // コピー社員と停止中の社員を除外
+            status: { not: 'copy' }, // コピー社員を除外
           },
           select: {
             id: true,
@@ -358,23 +306,6 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      // フォールバック時もUserSettingsからavatar-textを取得
-      const employeeIds = employees.map(e => e.id)
-      const fallbackUserSettings = await prisma.userSettings.findMany({
-        where: {
-          employeeId: { in: employeeIds },
-          key: 'avatar-text'
-        },
-        select: {
-          employeeId: true,
-          value: true
-        }
-      }).catch(() => [])
-      const fallbackAvatarTextMap = new Map<string, string>()
-      fallbackUserSettings.forEach(setting => {
-        fallbackAvatarTextMap.set(setting.employeeId, setting.value)
-      })
-      
       const fallbackResults = employees.map(e => ({
         id: e.id,
         name: e.name,
@@ -388,7 +319,6 @@ export async function GET(request: NextRequest) {
         showInOrgChart: e.showInOrgChart || null,
         vacationPattern: e.vacationPattern || null,
         weeklyPattern: e.weeklyPattern || null,
-        avatarText: fallbackAvatarTextMap.get(e.id) || null, // 画像テキスト（DBから取得）
         remaining: 0,
         used: 0,
         pending: 0,

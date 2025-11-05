@@ -1,0 +1,325 @@
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { getNextGrantDate, getPreviousGrantDate } from "@/lib/vacation-grant-lot"
+import { loadAppConfig } from "@/lib/vacation-config"
+
+/**
+ * 特定時点での有効ロットの残日数を計算（失効していないもの）
+ * @param employeeId 社員ID
+ * @param grantDate 付与日時点
+ * @returns 残日数
+ */
+async function calculateCarryOverDaysAtGrantDate(
+  employeeId: string,
+  grantDate: Date
+): Promise<number> {
+  // 付与日時点で有効なロットを取得（失効していないもの）
+  const validLots = await prisma.grantLot.findMany({
+    where: {
+      employeeId,
+      grantDate: { lt: grantDate }, // 付与日より前のロット
+      expiryDate: { gte: grantDate }, // 付与日時点でまだ有効（2年有効期限を考慮）
+      daysRemaining: { gt: 0 }, // 残日数が0より大きい
+    },
+    orderBy: { grantDate: 'desc' },
+  })
+
+  // 残日数の合計
+  const carryOverDays = validLots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0)
+  return Math.round(carryOverDays * 2) / 2
+}
+
+/**
+ * 総付与数の計算詳細を取得するAPI
+ * GET /api/vacation/grant-calculation/[employeeId]
+ * 
+ * 一昨年前までのデータを取得して、繰越し日数、新付与日数、時点総付与日数などを計算
+ * 期間は付与日ベースで計算（例: 2023/09/01 ~ 2024/09/01）
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { employeeId: string } }
+) {
+  try {
+    const { employeeId } = params
+    if (!employeeId) {
+      return NextResponse.json({ error: "employeeId が必要です" }, { status: 400 })
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        id: true,
+        name: true,
+        joinDate: true,
+        configVersion: true,
+        vacationPattern: true,
+      },
+    })
+
+    if (!employee) {
+      return NextResponse.json({ error: "社員が見つかりません" }, { status: 404 })
+    }
+
+    const today = new Date()
+    const joinDate = new Date(employee.joinDate)
+    const cfg = await loadAppConfig(employee.configVersion || undefined)
+
+    // 現在から過去3回の付与日を取得
+    // 今期の開始付与日（直近の付与日）
+    const currentGrantDate = getPreviousGrantDate(joinDate, cfg, today)
+    if (!currentGrantDate) {
+      // まだ初回付与前の場合はデータなし
+      return NextResponse.json({
+        twoYearsAgo: null,
+        lastYear: null,
+        currentYear: null,
+      })
+    }
+
+    // 昨年の開始付与日（1年前の付与日）
+    const lastYearGrantDate = getPreviousGrantDate(joinDate, cfg, new Date(currentGrantDate.getTime() - 1))
+    // 一昨年の開始付与日（2年前の付与日）
+    const twoYearsAgoGrantDate = lastYearGrantDate ? getPreviousGrantDate(joinDate, cfg, new Date(lastYearGrantDate.getTime() - 1)) : null
+
+    // 各期間の終了日（次の付与日）
+    const currentGrantDateNext = getNextGrantDate(joinDate, cfg, currentGrantDate)
+    const lastYearGrantDateNext = lastYearGrantDate ? getNextGrantDate(joinDate, cfg, lastYearGrantDate) : null
+    const twoYearsAgoGrantDateNext = twoYearsAgoGrantDate ? getNextGrantDate(joinDate, cfg, twoYearsAgoGrantDate) : null
+
+    // 一昨年1年間のデータを取得
+    let twoYearsAgoData: any = null
+    if (twoYearsAgoGrantDate && twoYearsAgoGrantDateNext) {
+      // 一昨年1年間の使用日数を先に計算
+      const twoYearsAgoRequests = await prisma.timeOffRequest.findMany({
+        where: {
+          employeeId,
+          status: "APPROVED",
+        },
+      })
+      const twoYearsAgoUsedDays = twoYearsAgoRequests
+        .filter(req => {
+          const reqStartDate = new Date(req.startDate)
+          const reqEndDate = new Date(req.endDate)
+          return (reqStartDate >= twoYearsAgoGrantDate && reqStartDate < twoYearsAgoGrantDateNext) ||
+                 (reqEndDate >= twoYearsAgoGrantDate && reqEndDate < twoYearsAgoGrantDateNext) ||
+                 (reqStartDate < twoYearsAgoGrantDate && reqEndDate >= twoYearsAgoGrantDateNext)
+        })
+        .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
+
+      // 一昨年の開始時点の繰越し日数（失効していないもの）
+      const carryOverDays = await calculateCarryOverDaysAtGrantDate(
+        employeeId,
+        twoYearsAgoGrantDate
+      )
+
+      // 一昨年の付与ロットを取得（一昨年の新付与日に作成されたロット）
+      const twoYearsAgoLots = await prisma.grantLot.findMany({
+        where: {
+          employeeId,
+          grantDate: {
+            gte: new Date(twoYearsAgoGrantDate.getTime() - 24 * 60 * 60 * 1000), // 新付与日の前日以降
+            lte: new Date(twoYearsAgoGrantDate.getTime() + 24 * 60 * 60 * 1000), // 新付与日の翌日まで
+          },
+        },
+        orderBy: { grantDate: 'asc' },
+      })
+
+      // 一昨年の新付与日数
+      const newGrantLot = twoYearsAgoLots.find(lot => {
+        const lotDate = new Date(lot.grantDate)
+        const grantDate = new Date(twoYearsAgoGrantDate)
+        return lotDate.getFullYear() === grantDate.getFullYear() && 
+               lotDate.getMonth() === grantDate.getMonth() &&
+               lotDate.getDate() === grantDate.getDate()
+      })
+      const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
+
+      // 一昨年の時点総付与日数（繰越し+新付与）
+      const totalAtGrantDate = carryOverDays + newGrantDays
+
+      // 一昨年の総付与数（繰越し+新付与）
+      const twoYearsAgoTotalGranted = carryOverDays + newGrantDays
+
+      // 一昨年期間終了時点での繰越し日数（昨年への繰越し）
+      // LIFO方式：新付与日数から使用日数を引いた残りが繰越し
+      const carryOverToLastYear = Math.max(0, newGrantDays - twoYearsAgoUsedDays)
+
+      twoYearsAgoData = {
+        startDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
+        endDate: twoYearsAgoGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        usedDays: Math.round(twoYearsAgoUsedDays * 2) / 2,
+        totalGranted: Math.round(twoYearsAgoTotalGranted * 2) / 2,
+        carryOverDays: Math.round(carryOverDays * 2) / 2,
+        carryOverToDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDays: Math.round(newGrantDays * 2) / 2,
+        totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
+        carryOverToNextPeriod: lastYearGrantDate ? lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriodDays: lastYearGrantDate ? carryOverToLastYear : 0,
+      }
+    }
+
+    // 昨年1年間のデータを取得
+    let lastYearData: any = null
+    if (lastYearGrantDate && lastYearGrantDateNext) {
+      // 昨年1年間の使用日数を先に計算
+      const lastYearRequests = await prisma.timeOffRequest.findMany({
+        where: {
+          employeeId,
+          status: "APPROVED",
+        },
+      })
+      const lastYearUsedDays = lastYearRequests
+        .filter(req => {
+          const reqStartDate = new Date(req.startDate)
+          const reqEndDate = new Date(req.endDate)
+          return (reqStartDate >= lastYearGrantDate && reqStartDate < lastYearGrantDateNext) ||
+                 (reqEndDate >= lastYearGrantDate && reqEndDate < lastYearGrantDateNext) ||
+                 (reqStartDate < lastYearGrantDate && reqEndDate >= lastYearGrantDateNext)
+        })
+        .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
+
+      // 昨年の開始時点の繰越し日数（失効していないもの）
+      const carryOverDays = await calculateCarryOverDaysAtGrantDate(
+        employeeId,
+        lastYearGrantDate
+      )
+
+      // 昨年の付与ロットを取得（昨年の新付与日に作成されたロット）
+      const lastYearLots = await prisma.grantLot.findMany({
+        where: {
+          employeeId,
+          grantDate: {
+            gte: new Date(lastYearGrantDate.getTime() - 24 * 60 * 60 * 1000), // 新付与日の前日以降
+            lte: new Date(lastYearGrantDate.getTime() + 24 * 60 * 60 * 1000), // 新付与日の翌日まで
+          },
+        },
+        orderBy: { grantDate: 'asc' },
+      })
+
+      // 昨年の新付与日数
+      const newGrantLot = lastYearLots.find(lot => {
+        const lotDate = new Date(lot.grantDate)
+        const grantDate = new Date(lastYearGrantDate)
+        return lotDate.getFullYear() === grantDate.getFullYear() && 
+               lotDate.getMonth() === grantDate.getMonth() &&
+               lotDate.getDate() === grantDate.getDate()
+      })
+      const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
+
+      // 昨年の時点総付与日数（繰越し+新付与）
+      const totalAtGrantDate = carryOverDays + newGrantDays
+
+      // 昨年の総付与数（繰越し+新付与）
+      const lastYearTotalGranted = carryOverDays + newGrantDays
+
+      // 昨年期間終了時点での繰越し日数（今期への繰越し）
+      // LIFO方式：新付与日数から使用日数を引いた残りが繰越し
+      const carryOverToCurrent = Math.max(0, newGrantDays - lastYearUsedDays)
+
+      lastYearData = {
+        startDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
+        endDate: lastYearGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        usedDays: Math.round(lastYearUsedDays * 2) / 2,
+        totalGranted: Math.round(lastYearTotalGranted * 2) / 2,
+        carryOverDays: Math.round(carryOverDays * 2) / 2,
+        carryOverToDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDays: Math.round(newGrantDays * 2) / 2,
+        totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
+        carryOverToNextPeriod: currentGrantDate ? currentGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriodDays: currentGrantDate ? carryOverToCurrent : 0,
+      }
+    }
+
+    // 今期1年間のデータを取得
+    let currentYearData: any = null
+    if (currentGrantDate && currentGrantDateNext) {
+      // 今期1年間の使用日数を先に計算
+      const currentYearRequests = await prisma.timeOffRequest.findMany({
+        where: {
+          employeeId,
+          status: "APPROVED",
+        },
+      })
+      const currentYearUsedDays = currentYearRequests
+        .filter(req => {
+          const reqStartDate = new Date(req.startDate)
+          const reqEndDate = new Date(req.endDate)
+          return (reqStartDate >= currentGrantDate && reqStartDate < currentGrantDateNext) ||
+                 (reqEndDate >= currentGrantDate && reqEndDate < currentGrantDateNext) ||
+                 (reqStartDate < currentGrantDate && reqEndDate >= currentGrantDateNext)
+        })
+        .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
+
+      // 今期の開始時点の繰越し日数（昨年期間終了時点での繰越し日数）
+      // 昨年期間終了時点での繰越し日数を使う
+      const carryOverDays = lastYearData?.carryOverToNextPeriodDays || 0
+
+      // 今期の付与ロットを取得（今期の新付与日に作成されたロット）
+      const currentYearLots = await prisma.grantLot.findMany({
+        where: {
+          employeeId,
+          grantDate: {
+            gte: new Date(currentGrantDate.getTime() - 24 * 60 * 60 * 1000), // 新付与日の前日以降
+            lte: new Date(currentGrantDate.getTime() + 24 * 60 * 60 * 1000), // 新付与日の翌日まで
+          },
+        },
+        orderBy: { grantDate: 'asc' },
+      })
+
+      // 今期の新付与日数
+      const newGrantLot = currentYearLots.find(lot => {
+        const lotDate = new Date(lot.grantDate)
+        const grantDate = new Date(currentGrantDate)
+        return lotDate.getFullYear() === grantDate.getFullYear() && 
+               lotDate.getMonth() === grantDate.getMonth() &&
+               lotDate.getDate() === grantDate.getDate()
+      })
+      const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
+
+      // 今期の時点総付与日数（繰越し+新付与）
+      const totalAtGrantDate = carryOverDays + newGrantDays
+
+      // 今期の総付与数（繰越し+新付与）
+      const currentYearTotalGranted = carryOverDays + newGrantDays
+
+      // 今期期間終了時点での繰越し日数（来期への繰越し）
+      // LIFO方式：新付与日数から使用日数を引いた残りが繰越し
+      const nextGrantDate = currentGrantDateNext
+      const carryOverToNext = nextGrantDate ? Math.max(0, newGrantDays - currentYearUsedDays) : 0
+
+      currentYearData = {
+        startDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
+        endDate: currentGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        usedDays: Math.round(currentYearUsedDays * 2) / 2,
+        totalGranted: Math.round(currentYearTotalGranted * 2) / 2,
+        carryOverDays: Math.round(carryOverDays * 2) / 2,
+        carryOverToDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDays: Math.round(newGrantDays * 2) / 2,
+        totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
+        carryOverToNextPeriod: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriodDays: nextGrantDate ? carryOverToNext : 0,
+      }
+    }
+
+    return NextResponse.json({
+      twoYearsAgo: twoYearsAgoData,
+      lastYear: lastYearData,
+      currentYear: currentYearData,
+    })
+  } catch (error: any) {
+    console.error("GET /api/vacation/grant-calculation/[employeeId] error", error)
+    console.error("Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      code: error?.code,
+    })
+    return NextResponse.json({ 
+      error: "計算詳細取得に失敗しました",
+      details: error?.message || "Unknown error"
+    }, { status: 500 })
+  }
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getNextGrantDate } from "@/lib/vacation-grant-lot"
+import { getNextGrantDate, getPreviousGrantDate } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
 import { chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
 import { calculateRemainingDays, calculateUsedDays, calculatePendingDays, calculateTotalGranted, getNextGrantDateForEmployee } from "@/lib/vacation-stats"
@@ -16,12 +16,17 @@ export async function GET(request: NextRequest) {
     
     // 社員の基本情報取得（vacationPatternとweeklyPatternはオプショナル）
     // ステータスが「active」の社員のみを対象にする
+    // 有給管理の対象社員: 正社員・契約社員・パートタイム・派遣社員のみ、管理者権限は除外
     let employees
     try {
       employees = await prisma.employee.findMany({
         where: { 
           isInvisibleTop: false,
           status: "active", // ステータスが「active」の社員のみ（コピー社員も除外）
+          role: { not: 'admin' }, // 管理者権限は除外
+          employeeType: {
+            in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+          },
         },
         select: {
           id: true,
@@ -36,6 +41,7 @@ export async function GET(request: NextRequest) {
           showInOrgChart: true,
           vacationPattern: true,
           weeklyPattern: true,
+          role: true, // フィルタリング用にroleも取得
         },
         orderBy: { joinDate: "asc" },
       })
@@ -46,6 +52,10 @@ export async function GET(request: NextRequest) {
           where: { 
             isInvisibleTop: false,
             status: { not: 'copy' }, // コピー社員を除外
+            role: { not: 'admin' }, // 管理者権限は除外
+            employeeType: {
+              in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+            },
           },
           select: {
             id: true,
@@ -58,6 +68,7 @@ export async function GET(request: NextRequest) {
             organization: true,
             status: true,
             showInOrgChart: true,
+            role: true, // フィルタリング用にroleも取得
           },
           orderBy: { joinDate: "asc" },
         })
@@ -129,20 +140,26 @@ export async function GET(request: NextRequest) {
 
         // 次回付与日と付与予定日数を計算
         let nextGrantDate: Date | null = null
+        let currentGrantDate: Date | null = null // 現在の付与日（今期の開始日）
         let nextGrantDays: number = 0
         // 最新の付与日での付与日数（5日消化義務アラート判定用）
         let latestGrantDays: number = 0
         try {
+          const today = new Date()
+          const cfg = await loadAppConfig(e.configVersion || undefined)
+          
+          // 現在の付与日（今期の開始日）を取得
+          currentGrantDate = getPreviousGrantDate(new Date(e.joinDate), cfg, today)
+          
+          // 次回付与日を取得
           nextGrantDate = await getNextGrantDateForEmployee(e.id)
           if (nextGrantDate && e.vacationPattern) {
-            const cfg = await loadAppConfig(e.configVersion || undefined)
             // 次回付与日の勤続年数を計算
             const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
             nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
           }
           
           // 最新の付与日での付与日数を取得（5日消化義務アラート判定用）
-          const today = new Date()
           const latestLot = await prisma.grantLot.findFirst({
             where: {
               employeeId: e.id,
@@ -168,30 +185,47 @@ export async function GET(request: NextRequest) {
               orderBy: { createdAt: "desc" },
             })
             requests = allPendingRequests
-          } else if (statusFilter === "APPROVED" && monthFilter) {
-            // 今月承認済みの申請を取得
-            const [year, month] = monthFilter.split("-").map(Number)
-            const monthStart = new Date(year, month - 1, 1)
-            const monthEnd = new Date(year, month, 0, 23, 59, 59, 999)
-            const approvedRequests = await prisma.timeOffRequest.findMany({
+          } else if (statusFilter === "APPROVED") {
+            // 今期承認済みの申請を取得（代理申請で今期でないものは除外）
+            const allApprovedRequests = await prisma.timeOffRequest.findMany({
               where: {
                 employeeId: e.id,
                 status: "APPROVED",
-                approvedAt: {
-                  gte: monthStart,
-                  lte: monthEnd,
-                },
               },
               orderBy: { approvedAt: "desc" },
             })
-            requests = approvedRequests
+            // 今期の期間内の申請のみをフィルタリング
+            if (currentGrantDate && nextGrantDate) {
+              requests = allApprovedRequests.filter((req) => {
+                const reqStartDate = new Date(req.startDate)
+                const reqEndDate = new Date(req.endDate)
+                // 申請の開始日または終了日が今期の期間内にあるかチェック
+                return (reqStartDate >= currentGrantDate! && reqStartDate < nextGrantDate!) ||
+                       (reqEndDate >= currentGrantDate! && reqEndDate < nextGrantDate!) ||
+                       (reqStartDate <= currentGrantDate! && reqEndDate >= nextGrantDate!) // 期間をまたぐ申請も含む
+              })
+            } else {
+              requests = []
+            }
           } else if (statusFilter === "REJECTED") {
-            // 却下された申請を取得
-            const rejectedRequests = await prisma.timeOffRequest.findMany({
+            // 今期却下された申請を取得
+            const allRejectedRequests = await prisma.timeOffRequest.findMany({
               where: { employeeId: e.id, status: "REJECTED" },
               orderBy: { createdAt: "desc" },
             })
-            requests = rejectedRequests
+            // 今期の期間内の申請のみをフィルタリング
+            if (currentGrantDate && nextGrantDate) {
+              requests = allRejectedRequests.filter((req) => {
+                const reqStartDate = new Date(req.startDate)
+                const reqEndDate = new Date(req.endDate)
+                // 申請の開始日または終了日が今期の期間内にあるかチェック
+                return (reqStartDate >= currentGrantDate! && reqStartDate < nextGrantDate!) ||
+                       (reqEndDate >= currentGrantDate! && reqEndDate < nextGrantDate!) ||
+                       (reqStartDate <= currentGrantDate! && reqEndDate >= nextGrantDate!) // 期間をまたぐ申請も含む
+              })
+            } else {
+              requests = []
+            }
           } else if (view === "pending") {
             // 承認待ち画面の場合、承認待ちの申請を取得
             const allPendingRequests = await prisma.timeOffRequest.findMany({
@@ -210,8 +244,16 @@ export async function GET(request: NextRequest) {
         } catch {}
 
         // アラート判定（5日消化義務アラート）
+        // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成の社員
         const minGrantDaysForAlert = 5
-        const isAlert = latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert
+        const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
+        let isAlert = false
+        if (latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert && nextGrantDate) {
+          const today = new Date()
+          const diffMs = nextGrantDate.getTime() - today.getTime()
+          const isWithinThreeMonths = diffMs < threeMonthsInMs
+          isAlert = isWithinThreeMonths
+        }
         
         // フィルタリング条件に応じて社員をフィルタリング
         let shouldInclude = true
@@ -365,6 +407,10 @@ export async function GET(request: NextRequest) {
           where: { 
             isInvisibleTop: false,
             status: { not: 'copy' }, // コピー社員を除外
+            role: { not: 'admin' }, // 管理者権限は除外
+            employeeType: {
+              in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+            },
           },
           select: {
             id: true,
@@ -379,6 +425,7 @@ export async function GET(request: NextRequest) {
             showInOrgChart: true,
             vacationPattern: true,
             weeklyPattern: true,
+            role: true, // フィルタリング用にroleも取得
           },
           orderBy: { joinDate: "asc" },
         })
@@ -389,6 +436,10 @@ export async function GET(request: NextRequest) {
             where: { 
               isInvisibleTop: false,
               status: { not: 'copy' }, // コピー社員を除外
+              role: { not: 'admin' }, // 管理者権限は除外
+              employeeType: {
+                in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+              },
             },
             select: {
               id: true,

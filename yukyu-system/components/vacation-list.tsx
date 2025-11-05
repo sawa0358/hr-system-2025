@@ -48,6 +48,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [sortBy, setSortBy] = useState<"date" | "status" | "days">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
+  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo">("current")
+  const [periodData, setPeriodData] = useState<{
+    current?: { startDate: string; endDate: string }
+    last?: { startDate: string; endDate: string }
+    twoYearsAgo?: { startDate: string; endDate: string }
+  } | null>(null)
   const [editingRequest, setEditingRequest] = useState<any | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null)
@@ -103,12 +109,45 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 社員モードの場合、特定社員の申請一覧を取得
         setLoading(true)
         try {
+          // 申請一覧を取得
           const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
           if (res.ok) {
             const json = await res.json()
             setEmployeeRequests(json.requests || [])
           } else {
             setEmployeeRequests([])
+          }
+          
+          // 期間データを取得（期間フィルター用）
+          const periodRes = await fetch(`/api/vacation/grant-calculation/${employeeId}`)
+          if (periodRes.ok) {
+            const periodJson = await periodRes.json()
+            const periods: {
+              current?: { startDate: string; endDate: string }
+              last?: { startDate: string; endDate: string }
+              twoYearsAgo?: { startDate: string; endDate: string }
+            } = {}
+            
+            if (periodJson.currentYear) {
+              periods.current = {
+                startDate: periodJson.currentYear.startDate,
+                endDate: periodJson.currentYear.endDate || new Date().toISOString().slice(0, 10),
+              }
+            }
+            if (periodJson.lastYear) {
+              periods.last = {
+                startDate: periodJson.lastYear.startDate,
+                endDate: periodJson.lastYear.endDate,
+              }
+            }
+            if (periodJson.twoYearsAgo) {
+              periods.twoYearsAgo = {
+                startDate: periodJson.twoYearsAgo.startDate,
+                endDate: periodJson.twoYearsAgo.endDate,
+              }
+            }
+            
+            setPeriodData(periods)
           }
         } catch (error) {
           console.error("申請一覧取得エラー:", error)
@@ -429,11 +468,42 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
   }
 
+  // 期間フィルター判定関数
+  const isRequestInPeriod = (request: any, period: "all" | "current" | "last" | "twoYearsAgo"): boolean => {
+    if (period === "all") return true
+    if (!periodData) return true // 期間データが取得できない場合はすべて表示
+    
+    const periodInfo = period === "current" ? periodData.current : 
+                      period === "last" ? periodData.last : 
+                      period === "twoYearsAgo" ? periodData.twoYearsAgo : null
+    
+    if (!periodInfo) return false
+    
+    const requestStart = new Date(request.startDate)
+    const requestEnd = new Date(request.endDate)
+    const periodStart = new Date(periodInfo.startDate)
+    const periodEnd = periodInfo.endDate ? new Date(periodInfo.endDate) : new Date() // 今期の場合は現在日まで
+    
+    // 申請の開始日または終了日が期間内にあるかを判定
+    return (requestStart >= periodStart && requestStart <= periodEnd) ||
+           (requestEnd >= periodStart && requestEnd <= periodEnd) ||
+           (requestStart <= periodStart && requestEnd >= periodEnd) // 期間をまたぐ申請も含む
+  }
+
   // 社員用申請一覧のフィルタリングとソート
   const filteredAndSortedEmployeeRequests = employeeRequests
     .filter((req: any) => {
-      if (statusFilter === "all") return true
-      return req.status?.toLowerCase() === statusFilter
+      // ステータスフィルター
+      if (statusFilter !== "all" && req.status?.toLowerCase() !== statusFilter) {
+        return false
+      }
+      
+      // 期間フィルター
+      if (!isRequestInPeriod(req, periodFilter)) {
+        return false
+      }
+      
+      return true
     })
     .sort((a: any, b: any) => {
       let comparison = 0
@@ -606,7 +676,20 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </Card>
       )}
       {userRole === "employee" && employeeRequests.length > 0 && (
-        <div className="col-span-full flex gap-2 items-center mb-2">
+        <div className="col-span-full flex gap-2 items-center mb-2 flex-wrap">
+          {/* 期間フィルターは総務・管理者のみ表示 */}
+          {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
+            <select
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value as any)}
+              className="text-sm border rounded px-2 py-1"
+            >
+              <option value="all">全期間</option>
+              <option value="current">今期</option>
+              <option value="last">昨年</option>
+              <option value="twoYearsAgo">一昨年</option>
+            </select>
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}

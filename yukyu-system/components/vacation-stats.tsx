@@ -265,7 +265,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
         
         return (
           <Card 
-            key={index}
+            key={stat.title}
             className={isClickable ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
             onClick={userRole === "admin" && statType ? () => handleStatCardClick(statType) : undefined}
           >

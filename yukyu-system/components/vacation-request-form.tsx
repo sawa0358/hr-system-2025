@@ -285,7 +285,15 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
                 id="startDate"
                 type="date"
                 value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                onChange={(e) => {
+                  const newStartDate = e.target.value
+                  // 開始日が変更された時、終了日が未設定または開始日より前の場合は終了日を開始日に設定
+                  if (!formData.endDate || new Date(formData.endDate) < new Date(newStartDate)) {
+                    setFormData({ ...formData, startDate: newStartDate, endDate: newStartDate })
+                  } else {
+                    setFormData({ ...formData, startDate: newStartDate })
+                  }
+                }}
                 required
               />
             </div>
@@ -294,6 +302,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
               <Input
                 id="endDate"
                 type="date"
+                min={formData.startDate || undefined}
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                 required

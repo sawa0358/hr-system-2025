@@ -38,6 +38,9 @@ export default function LeaveAdminPage() {
   
   // 店長・マネージャーの場合は「承認待ち」のみ表示し、「全社員」ボタンは非表示
   const canViewAllEmployees = isAdminOrHR && !isManagerOrStoreManager
+  
+  // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
+  const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
   // 全社員の付与ロット生成
   const handleGenerateLots = async () => {
@@ -107,7 +110,7 @@ export default function LeaveAdminPage() {
                 {tab.name}
               </Button>
             ))}
-            <AIAskButton context="有給管理（管理者）画面に関する質問" />
+            {canUseAI && <AIAskButton context="有給管理（管理者）画面に関する質問" />}
           </div>
         </div>
 

@@ -164,6 +164,9 @@ export default function PayrollPage() {
 
   // 現在のユーザーの権限を取得
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
+  // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
+  const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
@@ -214,7 +217,7 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
             <h1 className="text-3xl font-bold text-slate-900 mb-2">給与管理</h1>
             <p className="text-slate-600">社員をクリックして給与明細を管理</p>
           </div>
-          <AIAskButton context={buildAIContext()} />
+          {canUseAI && <AIAskButton context={buildAIContext()} />}
         </div>
 
         {isAdminOrHR && (

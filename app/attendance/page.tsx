@@ -315,6 +315,9 @@ export default function AttendancePage() {
 
   // 現在のユーザーの権限を取得
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
+  // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
+  const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
@@ -365,7 +368,7 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
             <h1 className="text-3xl font-bold text-slate-900 mb-2">勤怠管理</h1>
             <p className="text-slate-600">社員をクリックして勤怠データを管理</p>
           </div>
-          <AIAskButton context={buildAIContext()} />
+          {canUseAI && <AIAskButton context={buildAIContext()} />}
         </div>
 
         {isAdminOrHR && (

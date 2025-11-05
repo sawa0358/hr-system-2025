@@ -28,6 +28,9 @@ export default function EmployeesPage() {
 
   // 管理者・総務権限のチェック
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
+  // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
+  const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
   const handleAddEmployee = () => {
     setSelectedEmployee(null)
@@ -125,15 +128,15 @@ ${isAdminOrHR ? `- 新規社員登録
             <p className="text-slate-600">デフォルト: 正社員・在籍中のみ表示</p>
           </div>
           {/* 3段目: ボタン（AIに聞く・新規登録） */}
-          {isAdminOrHR && (
-            <div className="flex gap-3">
-              <AIAskButton context={buildAIContext()} />
+          <div className="flex gap-3">
+            {canUseAI && <AIAskButton context={buildAIContext()} />}
+            {isAdminOrHR && (
               <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleAddEmployee}>
                 <Plus className="w-4 h-4 mr-2" />
                 新規登録
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <EmployeeFilters onFiltersChange={handleFiltersChange} />

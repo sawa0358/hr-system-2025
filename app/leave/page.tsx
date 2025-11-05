@@ -9,7 +9,7 @@ import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { Button } from "@/components/ui/button"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 
 export default function LeavePage() {
   const { currentUser } = useAuth()
@@ -19,7 +19,7 @@ export default function LeavePage() {
     const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
     
     return `【現在のページ】有給管理（休暇管理）
-【ページの説明】社員の有給休暇を管理するページです（現在開発中）
+【ページの説明】社員の有給休暇を管理するページです
 
 【現在のユーザー】
 - 名前: ${currentUser?.name || '不明'}
@@ -27,19 +27,14 @@ export default function LeavePage() {
 - 部署: ${currentUser?.department || '不明'}
 - 権限: ${isAdminOrHR ? '管理者/総務（全機能利用可）' : '一般ユーザー'}
 
-【実装予定の機能】
+【利用可能な機能】
 - 社員ごとの有給残日数管理
 - 有給申請・承認フロー
 - 有給取得履歴の表示
 - 有給消化率の分析
-- カレンダー表示での有給管理
-
-【現在の状態】
-このページは現在開発中です。将来的に上記の機能が実装される予定です。
 
 【このページで質問できること】
 - 有給管理システムの概要
-- 実装予定の機能について
 - 有給休暇の制度について
 - 有給申請の一般的な流れ
 - その他、人事管理システム全般に関する質問`
@@ -63,6 +58,16 @@ export default function LeavePage() {
   // 管理者が他の社員の画面を見ているかどうか
   const isViewingOtherEmployee = employeeIdParam && employeeIdParam !== currentUser?.id
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  
+  // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
+  const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
+  
+  // 総務・管理者権限の場合は、employeeIdパラメータがない場合に自動的に管理者画面にリダイレクト
+  useEffect(() => {
+    if (isAdminOrHR && !employeeIdParam) {
+      router.replace('/leave/admin')
+    }
+  }, [isAdminOrHR, employeeIdParam, router])
   
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form">(initialTab)
@@ -107,7 +112,7 @@ export default function LeavePage() {
                 {tab.name}
               </Button>
             ))}
-            <AIAskButton context={buildAIContext()} />
+            {canUseAI && <AIAskButton context={buildAIContext()} />}
           </div>
         </div>
 

@@ -180,11 +180,9 @@ export async function GET(
         })
         .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
 
-      // 昨年の開始時点の繰越し日数（失効していないもの）
-      const carryOverDays = await calculateCarryOverDaysAtGrantDate(
-        employeeId,
-        lastYearGrantDate
-      )
+      // 昨年の開始時点の繰越し日数（一昨年期間終了時点での繰越し日数）
+      // 一昨年期間終了時点での繰越し日数を使う（今期と同様のロジック）
+      const carryOverDays = twoYearsAgoData?.carryOverToNextPeriodDays || 0
 
       // 昨年の付与ロットを取得（昨年の新付与日に作成されたロット）
       const lastYearLots = await prisma.grantLot.findMany({

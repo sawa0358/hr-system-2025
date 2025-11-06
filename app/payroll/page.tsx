@@ -217,7 +217,7 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">給与管理</h1>
-            <p className="text-slate-600">社員をクリックして給与明細を管理</p>
+            <p className="text-slate-600">カードをクリックして給与明細を管理</p>
           </div>
           {canUseAI && <AIAskButton context={buildAIContext()} />}
         </div>

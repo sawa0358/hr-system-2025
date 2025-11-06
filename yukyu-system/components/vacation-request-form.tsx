@@ -72,13 +72,14 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         const res = await fetch('/api/employees')
         if (res.ok) {
           const data = await res.json()
-          // 店長・マネージャー以上をフィルタリング
+          // 店長・マネージャー以上をフィルタリング（見えないTOPは除外）
           const supervisorRoles = ['manager', 'store_manager', 'hr', 'admin']
           const filtered = data
             .filter((emp: any) => 
               emp.status === 'active' && 
               emp.role && 
-              supervisorRoles.includes(emp.role)
+              supervisorRoles.includes(emp.role) &&
+              !emp.isInvisibleTop // 見えないTOPは除外
             )
             .map((emp: any) => ({
               id: emp.id,

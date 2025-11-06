@@ -154,9 +154,9 @@ export default function LeavePage() {
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {isViewingOtherEmployee ? `${displayEmployeeName} の有給管理` : `${displayEmployeeName}さんの有給管理`}
             </h1>
-            <p className="text-slate-600">
-              {isViewingOtherEmployee ? "管理者プレビュー" : "社員の有給休暇を管理"}
-            </p>
+            {isViewingOtherEmployee && (
+              <p className="text-slate-600">管理者プレビュー</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {tabs.map((tab) => (

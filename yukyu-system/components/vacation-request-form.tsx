@@ -53,6 +53,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
   const [pendingSubmit, setPendingSubmit] = useState(false)
   const [supervisors, setSupervisors] = useState<{id: string, name: string, role: string}[]>([])
   const [loadingSupervisors, setLoadingSupervisors] = useState(false)
+  const [stats, setStats] = useState<{totalGranted: number, used: number, pending: number} | null>(null)
 
   // 日数自動計算
   const calculateDays = () => {
@@ -62,6 +63,21 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     const diffTime = end.getTime() - start.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
     return Math.max(1, diffDays)
+  }
+
+  // 申請日数を計算（総付与数チェック用）
+  const calculateRequestDays = () => {
+    if (formData.unit === "HOUR") {
+      return formData.hours / formData.hoursPerDay
+    }
+    return formData.usedDays || calculateDays()
+  }
+
+  // 総付与数を超えているかチェック（新規申請のみ）
+  const exceedsTotalGranted = () => {
+    if (!stats || requestId) return false // 修正申請の場合はチェックしない
+    const requestDays = calculateRequestDays()
+    return requestDays + stats.used + stats.pending > stats.totalGranted
   }
 
   // 全店の店長・マネージャー以上を取得
@@ -97,6 +113,28 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     }
     loadSupervisors()
   }, [])
+
+  // 統計情報を取得（総付与数チェック用）
+  useEffect(() => {
+    if (!targetEmployeeId) return
+    
+    const loadStats = async () => {
+      try {
+        const res = await fetch(`/api/vacation/stats/${targetEmployeeId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setStats({
+            totalGranted: data.totalGranted || 0,
+            used: data.used || 0,
+            pending: data.pending || 0,
+          })
+        }
+      } catch (error) {
+        console.error('統計情報の取得エラー:', error)
+      }
+    }
+    loadStats()
+  }, [targetEmployeeId])
 
   // 開始日・終了日変更時に自動計算
   useEffect(() => {
@@ -262,6 +300,24 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         variant: "destructive",
       })
       return
+    }
+
+    // 総付与数チェック（フロントエンド側の簡易チェック）
+    if (stats && !requestId) {
+      // 申請日数を計算
+      const requestDays = formData.unit === "HOUR" 
+        ? formData.hours / formData.hoursPerDay 
+        : formData.usedDays || calculateDays()
+      
+      // 新規申請日数 + 取得済み + 申請中 > 総付与数の場合、エラー
+      if (requestDays + stats.used + stats.pending > stats.totalGranted) {
+        toast({
+          title: "エラー",
+          description: "今期の総付与数を超えて申請できません",
+          variant: "destructive",
+        })
+        return
+      }
     }
 
     // 日付の妥当性チェック
@@ -582,7 +638,16 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting || pendingSubmit}>
+          {exceedsTotalGranted() && (
+            <p className="text-red-600 text-sm text-center">
+              今期の総付与数を超えて申請できません
+            </p>
+          )}
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isSubmitting || pendingSubmit || exceedsTotalGranted()}
+          >
             {isSubmitting 
               ? (requestId ? "更新中..." : "送信中...") 
               : (requestId ? "申請を更新" : "申請を送信")}

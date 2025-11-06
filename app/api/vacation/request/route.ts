@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { calculateRequestTotalDays, consumeLIFO } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
-import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-stats"
+import { calculateRemainingDays, calculatePendingDays, getVacationStats } from "@/lib/vacation-stats"
 
 /**
  * 有給申請API（TimeOffRequest対応）
@@ -153,18 +153,37 @@ export async function POST(request: NextRequest) {
       totalDays = Math.min(totalDays, maxDays)
     }
 
-    // 残日数チェック
-    const remainingDays = await calculateRemainingDays(employeeId)
-    const pendingDays = await calculatePendingDays(employeeId)
-    const availableDays = remainingDays - pendingDays
+    // 総付与数チェック（今期の総付与数を超えないようにする）
+    try {
+      const stats = await getVacationStats(employeeId)
+      const totalGranted = stats.totalGranted || 0
+      const used = stats.used || 0
+      const pending = stats.pending || 0
 
-    if (totalDays > availableDays) {
-      return NextResponse.json(
-        { 
-          error: `残日数が不足しています。利用可能日数: ${availableDays}日（残日数: ${remainingDays}日、申請中: ${pendingDays}日）` 
-        }, 
-        { status: 400 }
-      )
+      // 新規申請日数 + 取得済み + 申請中 > 総付与数の場合、エラー
+      if (totalDays + used + pending > totalGranted) {
+        return NextResponse.json(
+          { 
+            error: "今期の総付与数を超えて申請できません" 
+          }, 
+          { status: 400 }
+        )
+      }
+    } catch (statsError: any) {
+      // 統計情報の取得に失敗した場合は、既存の残日数チェックにフォールバック
+      console.warn('[POST /api/vacation/request] 統計情報の取得に失敗、残日数チェックにフォールバック:', statsError)
+      const remainingDays = await calculateRemainingDays(employeeId)
+      const pendingDays = await calculatePendingDays(employeeId)
+      const availableDays = remainingDays - pendingDays
+
+      if (totalDays > availableDays) {
+        return NextResponse.json(
+          { 
+            error: `残日数が不足しています。利用可能日数: ${availableDays}日（残日数: ${remainingDays}日、申請中: ${pendingDays}日）` 
+          }, 
+          { status: 400 }
+        )
+      }
     }
 
     // TimeOffRequestを作成（totalDaysを保存）

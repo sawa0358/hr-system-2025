@@ -615,6 +615,10 @@ model TimeOffRequest {
   hoursPerDay    Int?        // 時間休計算用（会社の1日=8h等）
   status         RequestStatus @default(PENDING)
   approvedAt     DateTime?
+  // 承認フロー用フィールド
+  supervisorId   String?      // 選択した上司ID（必須）
+  approvedBy     String?      // 上司承認者ID
+  finalizedBy    String?      // 総務・管理者決済者ID
   // 計算スナップショット
   totalDays      Decimal?     // 承認時に確定
   breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
@@ -625,6 +629,7 @@ model TimeOffRequest {
   consumptions   Consumption[]
   
   @@index([employeeId])
+  @@index([supervisorId])
   @@map("time_off_requests")
 }
 

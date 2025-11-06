@@ -11,7 +11,7 @@ import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-sta
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId, requestedBy, requestedByName } = body || {}
+    const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId, requestedBy, requestedByName, supervisorId } = body || {}
 
     // requestIdが指定されている場合は修正処理（PUT）を呼び出すべき
     if (requestId) {
@@ -23,6 +23,11 @@ export async function POST(request: NextRequest) {
 
     if (!employeeId || !startDate || !endDate) {
       return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
+    }
+
+    // 上司選択のバリデーション
+    if (!supervisorId) {
+      return NextResponse.json({ error: "上司を選択してください" }, { status: 400 })
     }
 
     // 日付の妥当性チェック
@@ -172,6 +177,7 @@ export async function POST(request: NextRequest) {
           reason: finalReason,
           status: "PENDING" as const,
           totalDays: totalDays, // 申請時に計算された日数を保存
+          supervisorId: supervisorId, // 選択した上司ID
         }
 
         const created = await tx.timeOffRequest.create({
@@ -281,6 +287,7 @@ export async function POST(request: NextRequest) {
         reason: finalReason,
         status: "PENDING" as const,
         totalDays: totalDays, // 申請時に計算された日数を保存
+        supervisorId: supervisorId, // 選択した上司ID
       }
 
       const created = await prisma.timeOffRequest.create({

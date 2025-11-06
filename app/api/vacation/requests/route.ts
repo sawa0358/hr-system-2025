@@ -47,6 +47,9 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         updatedAt: true,
         approvedAt: true,
+        supervisorId: true,
+        approvedBy: true,
+        finalizedBy: true,
       },
     })
 
@@ -63,11 +66,18 @@ export async function GET(request: NextRequest) {
         createdAt: req.createdAt.toISOString(),
         updatedAt: req.updatedAt.toISOString(),
         approvedAt: req.approvedAt?.toISOString(),
+        supervisorId: req.supervisorId,
+        approvedBy: req.approvedBy,
+        finalizedBy: req.finalizedBy,
       })),
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("GET /api/vacation/requests error", error)
-    return NextResponse.json({ error: "申請一覧の取得に失敗しました" }, { status: 500 })
+    console.error("Error details:", error?.message, error?.stack)
+    return NextResponse.json({ 
+      error: "申請一覧の取得に失敗しました",
+      details: error?.message || "Unknown error"
+    }, { status: 500 })
   }
 }
 

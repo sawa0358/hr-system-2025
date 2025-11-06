@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Calendar } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface VacationRequestFormProps {
   onSuccess?: () => void
@@ -43,11 +44,14 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     usedDays: initialData?.usedDays || 1,
     hoursPerDay: initialData?.hoursPerDay || 8,
     hours: initialData?.hours || 8,
+    supervisorId: "", // 上司ID
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPastDateConfirmDialogOpen, setIsPastDateConfirmDialogOpen] = useState(false)
   const [pendingSubmit, setPendingSubmit] = useState(false)
+  const [supervisors, setSupervisors] = useState<{id: string, name: string, role: string}[]>([])
+  const [loadingSupervisors, setLoadingSupervisors] = useState(false)
 
   // 日数自動計算
   const calculateDays = () => {
@@ -58,6 +62,39 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
     return Math.max(1, diffDays)
   }
+
+  // 全店の店長・マネージャー以上を取得
+  useEffect(() => {
+    const loadSupervisors = async () => {
+      setLoadingSupervisors(true)
+      try {
+        const res = await fetch('/api/employees')
+        if (res.ok) {
+          const data = await res.json()
+          // 店長・マネージャー以上をフィルタリング
+          const supervisorRoles = ['manager', 'store_manager', 'hr', 'admin']
+          const filtered = data
+            .filter((emp: any) => 
+              emp.status === 'active' && 
+              emp.role && 
+              supervisorRoles.includes(emp.role)
+            )
+            .map((emp: any) => ({
+              id: emp.id,
+              name: emp.name,
+              role: emp.role
+            }))
+            .sort((a: any, b: any) => a.name.localeCompare(b.name, 'ja'))
+          setSupervisors(filtered)
+        }
+      } catch (error) {
+        console.error('上司一覧の取得エラー:', error)
+      } finally {
+        setLoadingSupervisors(false)
+      }
+    }
+    loadSupervisors()
+  }, [])
 
   // 開始日・終了日変更時に自動計算
   useEffect(() => {
@@ -84,6 +121,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         endDate: formData.endDate,
         unit: formData.unit,
         reason: formData.reason || undefined,
+        supervisorId: formData.supervisorId, // 選択した上司ID
       }
 
       // 管理者が代理申請している場合は、申請者情報を追加
@@ -155,7 +193,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
 
       // フォームリセット（新規申請の場合のみ）
       if (!requestId) {
-        setFormData({ startDate: "", endDate: "", reason: "", unit: "DAY", usedDays: 1, hoursPerDay: 8, hours: 8 })
+        setFormData({ startDate: "", endDate: "", reason: "", unit: "DAY", usedDays: 1, hoursPerDay: 8, hours: 8, supervisorId: "" })
       }
 
       // 親コンポーネントに成功を通知
@@ -200,6 +238,16 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
       toast({
         title: "エラー",
         description: "開始日と終了日を入力してください。",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 上司選択のバリデーション
+    if (!formData.supervisorId) {
+      toast({
+        title: "エラー",
+        description: "上司を選択してください。",
         variant: "destructive",
       })
       return
@@ -480,6 +528,35 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
                 </div>
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="supervisorId">直属上司選択 <span className="text-red-500">*</span></Label>
+            <Select
+              value={formData.supervisorId}
+              onValueChange={(value) => setFormData({ ...formData, supervisorId: value })}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="上司を選択してください" />
+              </SelectTrigger>
+              <SelectContent>
+                {loadingSupervisors ? (
+                  <SelectItem value="_loading_" disabled>読み込み中...</SelectItem>
+                ) : supervisors.length > 0 ? (
+                  supervisors.map((supervisor) => (
+                    <SelectItem key={supervisor.id} value={supervisor.id}>
+                      {supervisor.name} ({supervisor.role === 'manager' ? 'マネージャー' : supervisor.role === 'store_manager' ? '店長' : supervisor.role === 'hr' ? '総務' : '管理者'})
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="_no_supervisors_" disabled>上司が見つかりません</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              全店の店長・マネージャー以上から選択してください
+            </p>
           </div>
 
           <div className="space-y-2">

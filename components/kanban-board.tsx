@@ -55,12 +55,67 @@ function hexToRgba(hex: string, alpha: number): string {
 }
 
 // カードの色から移動編集ボタンの色を計算する関数
-// カードの色より15%濃くする（RとGのみ、Bはそのまま）
+// カードの色系統を保ちながら、明度を下げて濃くする
 function getMoveEditButtonColor(cardColor: string | undefined, listColor: string | undefined): string {
   // カードの色が未設定（白）の場合
   if (!cardColor || cardColor === "" || cardColor.toLowerCase() === "#ffffff" || cardColor.toLowerCase() === "white") {
     // リストのグレー色（#e5e7eb）より濃いグレーを返す
     return "#cbd5e1" // slate-300（#e5e7ebより濃い）
+  }
+  
+  // RGBをHSLに変換して明度を下げる関数
+  const rgbToHsl = (r: number, g: number, b: number) => {
+    r /= 255
+    g /= 255
+    b /= 255
+    
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    let h = 0, s = 0, l = (max + min) / 2
+    
+    if (max !== min) {
+      const d = max - min
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+      
+      switch (max) {
+        case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
+        case g: h = ((b - r) / d + 2) / 6; break
+        case b: h = ((r - g) / d + 4) / 6; break
+      }
+    }
+    
+    return [h * 360, s, l]
+  }
+  
+  // HSLをRGBに変換する関数
+  const hslToRgb = (h: number, s: number, l: number) => {
+    h /= 360
+    let r, g, b
+    
+    if (s === 0) {
+      r = g = b = l
+    } else {
+      const hue2rgb = (p: number, q: number, t: number) => {
+        if (t < 0) t += 1
+        if (t > 1) t -= 1
+        if (t < 1/6) return p + (q - p) * 6 * t
+        if (t < 1/2) return q
+        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6
+        return p
+      }
+      
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+      const p = 2 * l - q
+      r = hue2rgb(p, q, h + 1/3)
+      g = hue2rgb(p, q, h)
+      b = hue2rgb(p, q, h - 1/3)
+    }
+    
+    return [
+      Math.round(r * 255),
+      Math.round(g * 255),
+      Math.round(b * 255)
+    ]
   }
   
   // カードの色が設定されている場合
@@ -70,15 +125,18 @@ function getMoveEditButtonColor(cardColor: string | undefined, listColor: string
     const g = parseInt(cardColor.slice(3, 5), 16)
     const b = parseInt(cardColor.slice(5, 7), 16)
     
-    // RとGを15%濃くする（0.85を掛けて、255から引く）
-    // つまり、明度を下げる（より濃くする）
-    const darkerR = Math.max(0, Math.min(255, r - Math.round(r * 0.15)))
-    const darkerG = Math.max(0, Math.min(255, g - Math.round(g * 0.15)))
-    const darkerB = b // Bはそのまま
+    // RGBをHSLに変換
+    const [h, s, l] = rgbToHsl(r, g, b)
+    
+    // 明度を20-30%下げて濃くする（色系統を保つ）
+    const darkerL = Math.max(0.1, l * 0.7) // 明度を30%減らす（最小0.1）
+    
+    // HSLをRGBに戻す
+    const [darkerR, darkerG, darkerB] = hslToRgb(h, s, darkerL)
     
     // 16進数に変換
     const toHex = (n: number) => {
-      const hex = n.toString(16)
+      const hex = Math.round(n).toString(16)
       return hex.length === 1 ? "0" + hex : hex
     }
     
@@ -86,17 +144,21 @@ function getMoveEditButtonColor(cardColor: string | undefined, listColor: string
   }
   
   // rgba形式の場合
-  if (cardColor.startsWith("rgba")) {
+  if (cardColor.startsWith("rgba") || cardColor.startsWith("rgb")) {
     const match = cardColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
     if (match) {
       const r = parseInt(match[1])
       const g = parseInt(match[2])
       const b = parseInt(match[3])
       
-      // RとGを15%濃くする
-      const darkerR = Math.max(0, Math.min(255, r - Math.round(r * 0.15)))
-      const darkerG = Math.max(0, Math.min(255, g - Math.round(g * 0.15)))
-      const darkerB = b // Bはそのまま
+      // RGBをHSLに変換
+      const [h, s, l] = rgbToHsl(r, g, b)
+      
+      // 明度を30%下げて濃くする
+      const darkerL = Math.max(0.1, l * 0.7)
+      
+      // HSLをRGBに戻す
+      const [darkerR, darkerG, darkerB] = hslToRgb(h, s, darkerL)
       
       return `rgba(${darkerR}, ${darkerG}, ${darkerB}, 1)`
     }

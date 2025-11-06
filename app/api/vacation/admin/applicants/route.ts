@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("status") // "PENDING", "APPROVED", "REJECTED"
     const monthFilter = searchParams.get("month") // "YYYY-MM" format
     const alertsFilter = searchParams.get("alerts") === "true" // boolean
+    const supervisorId = searchParams.get("supervisorId") // 上司ID（「ほか一覧」画面で使用）
     
     // 社員の基本情報取得（vacationPatternとweeklyPatternはオプショナル）
     // ステータスが「active」の社員のみを対象にする
@@ -42,7 +43,6 @@ export async function GET(request: NextRequest) {
           vacationPattern: true,
           weeklyPattern: true,
           role: true, // フィルタリング用にroleも取得
-          avatar: true, // アバター画像URL
         },
         orderBy: { joinDate: "asc" },
       })
@@ -70,7 +70,6 @@ export async function GET(request: NextRequest) {
             status: true,
             showInOrgChart: true,
             role: true, // フィルタリング用にroleも取得
-            avatar: true, // アバター画像URL
           },
           orderBy: { joinDate: "asc" },
         })
@@ -146,10 +145,9 @@ export async function GET(request: NextRequest) {
         let nextGrantDays: number = 0
         // 最新の付与日での付与日数（5日消化義務アラート判定用）
         let latestGrantDays: number = 0
-        // 設定ファイルを読み込む（アラート判定でも使用）
-        const cfg = await loadAppConfig(e.configVersion || undefined)
         try {
           const today = new Date()
+          const cfg = await loadAppConfig(e.configVersion || undefined)
           
           // 現在の付与日（今期の開始日）を取得
           currentGrantDate = getPreviousGrantDate(new Date(e.joinDate), cfg, today)
@@ -182,11 +180,28 @@ export async function GET(request: NextRequest) {
         let requests: any[] = []
         try {
           if (statusFilter === "PENDING") {
-            // 承認待ちの申請を取得
+            // 承認待ち（PENDING）または決済待ち（APPROVED + approvedBy != null + finalizedBy == null）の申請を取得
+            const whereClause: any = {
+              employeeId: e.id,
+              OR: [
+                { status: "PENDING" }, // 承認待ち
+                {
+                  status: "APPROVED",
+                  approvedBy: { not: null },
+                  finalizedBy: null, // 決済待ち
+                },
+              ],
+            }
+            // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+            if (supervisorId) {
+              whereClause.supervisorId = supervisorId
+            }
             const allPendingRequests = await prisma.timeOffRequest.findMany({
-              where: { employeeId: e.id, status: "PENDING" },
+              where: whereClause,
               orderBy: { createdAt: "desc" },
             })
+            console.log(`[admin/applicants] 社員 ${e.name} (${e.id}) の申請取得: ${allPendingRequests.length}件 (supervisorId: ${supervisorId || 'なし'})`)
+            console.log(`[admin/applicants] 申請ステータス:`, allPendingRequests.map(r => ({ id: r.id, status: r.status, approvedBy: r.approvedBy, finalizedBy: r.finalizedBy, supervisorId: r.supervisorId })))
             requests = allPendingRequests
           } else if (statusFilter === "APPROVED") {
             // 今期承認済みの申請を取得（代理申請で今期でないものは除外）
@@ -230,28 +245,61 @@ export async function GET(request: NextRequest) {
               requests = []
             }
           } else if (view === "pending") {
-            // 承認待ち画面の場合、承認待ちの申請を取得
+            // 承認待ち画面の場合、承認待ち（PENDING）または決済待ち（APPROVED + approvedBy != null + finalizedBy == null）の申請を取得
+            const whereClause: any = {
+              employeeId: e.id,
+              OR: [
+                { status: "PENDING" }, // 承認待ち
+                {
+                  status: "APPROVED",
+                  approvedBy: { not: null },
+                  finalizedBy: null, // 決済待ち
+                },
+              ],
+            }
+            // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+            if (supervisorId) {
+              whereClause.supervisorId = supervisorId
+            }
             const allPendingRequests = await prisma.timeOffRequest.findMany({
-              where: { employeeId: e.id, status: "PENDING" },
+              where: whereClause,
               orderBy: { createdAt: "desc" },
             })
+            console.log(`[admin/applicants] 社員 ${e.name} (${e.id}) の申請取得: ${allPendingRequests.length}件 (supervisorId: ${supervisorId || 'なし'})`)
+            console.log(`[admin/applicants] 申請ステータス:`, allPendingRequests.map(r => ({ id: r.id, status: r.status, approvedBy: r.approvedBy, finalizedBy: r.finalizedBy, supervisorId: r.supervisorId })))
             requests = allPendingRequests
           } else {
-            // 全社員画面の場合、最新の申請のみ
+            // 全社員画面の場合、最新の申請のみ（承認待ちまたは決済待ち）
+            const whereClause: any = {
+              employeeId: e.id,
+              OR: [
+                { status: "PENDING" }, // 承認待ち
+                {
+                  status: "APPROVED",
+                  approvedBy: { not: null },
+                  finalizedBy: null, // 決済待ち
+                },
+              ],
+            }
+            // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+            if (supervisorId) {
+              whereClause.supervisorId = supervisorId
+            }
             const allPendingRequests = await prisma.timeOffRequest.findMany({
-              where: { employeeId: e.id, status: "PENDING" },
+              where: whereClause,
               orderBy: { createdAt: "desc" },
             })
+            console.log(`[admin/applicants] 社員 ${e.name} (${e.id}) の申請取得: ${allPendingRequests.length}件 (supervisorId: ${supervisorId || 'なし'})`)
+            console.log(`[admin/applicants] 申請ステータス:`, allPendingRequests.map(r => ({ id: r.id, status: r.status, approvedBy: r.approvedBy, finalizedBy: r.finalizedBy, supervisorId: r.supervisorId })))
             requests = allPendingRequests.length > 0 ? [allPendingRequests[0]] : []
           }
         } catch {}
 
         // アラート判定（5日消化義務アラート）
-        // 次回付与日まで3ヶ月をきっていて、かつ設定された日数消化義務未達成の社員
-        const minGrantDaysForAlert = cfg.alert?.minGrantDaysForAlert ?? 10 // 設定ファイルから読み込み、デフォルトは10日
+        // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成の社員
+        const minGrantDaysForAlert = 5
         const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
         let isAlert = false
-        // 1回の付与日数がminGrantDaysForAlert以上の社員のみがアラート対象
         if (latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert && nextGrantDate) {
           const today = new Date()
           const diffMs = nextGrantDate.getTime() - today.getTime()
@@ -299,7 +347,6 @@ export async function GET(request: NextRequest) {
               id: `${e.id}_${req.id}`, // ユニークID
               employeeId: e.id, // 元の社員IDを保持
               name: e.name,
-              employee: e.name, // 表示用
               employeeNumber: e.employeeNumber || null,
               joinDate: e.joinDate?.toISOString(),
               employeeType: e.employeeType || null,
@@ -310,7 +357,6 @@ export async function GET(request: NextRequest) {
               showInOrgChart: e.showInOrgChart || null,
               vacationPattern: e.vacationPattern || null,
               weeklyPattern: e.weeklyPattern || null,
-              avatar: e.avatar || null, // アバター画像URL
               remaining: calculatedRemaining,
               used,
               pending,
@@ -319,11 +365,14 @@ export async function GET(request: NextRequest) {
               nextGrantDays: nextGrantDays,
               latestGrantDays: latestGrantDays, // 最新の付与日での付与日数（5日消化義務アラート判定用）
               requestId: req.id,
-              status: "pending",
+              status: req.status?.toLowerCase() || "pending", // 実際のステータスを使用
               startDate: req.startDate?.toISOString()?.slice(0, 10),
               endDate: req.endDate?.toISOString()?.slice(0, 10),
               days: Number(req.totalDays || 0),
               reason: req.reason || undefined,
+              supervisorId: req.supervisorId || undefined,
+              approvedBy: req.approvedBy || undefined,
+              finalizedBy: req.finalizedBy || undefined,
             }))
           } else {
             // 申請がない場合は空配列を返す
@@ -340,20 +389,9 @@ export async function GET(request: NextRequest) {
           let requestDays: number | undefined = undefined
           let requestReason: string | undefined = undefined
           
-          if (statusFilter === "APPROVED" && latestRequest) {
-            requestStatus = "approved"
-            requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
-            requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
-            requestDays = Number(latestRequest.totalDays || 0)
-            requestReason = latestRequest.reason || undefined
-          } else if (statusFilter === "REJECTED" && latestRequest) {
-            requestStatus = "rejected"
-            requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
-            requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
-            requestDays = Number(latestRequest.totalDays || 0)
-            requestReason = latestRequest.reason || undefined
-          } else if (latestRequest) {
-            requestStatus = "pending"
+          if (latestRequest) {
+            // 実際のステータスを使用
+            requestStatus = latestRequest.status?.toLowerCase() || "pending"
             requestStartDate = latestRequest.startDate?.toISOString()?.slice(0, 10)
             requestEndDate = latestRequest.endDate?.toISOString()?.slice(0, 10)
             requestDays = Number(latestRequest.totalDays || 0)
@@ -364,7 +402,6 @@ export async function GET(request: NextRequest) {
             id: e.id,
             employeeId: e.id, // 社員IDを明示的に設定（承認済み、却下、アラートの場合）
             name: e.name,
-            employee: e.name, // 表示用
             employeeNumber: e.employeeNumber || null,
             joinDate: e.joinDate?.toISOString(),
             employeeType: e.employeeType || null,
@@ -375,7 +412,6 @@ export async function GET(request: NextRequest) {
             showInOrgChart: e.showInOrgChart || null,
             vacationPattern: e.vacationPattern || null,
             weeklyPattern: e.weeklyPattern || null,
-            avatar: e.avatar || null, // アバター画像URL
             remaining: calculatedRemaining,
             used,
             pending,
@@ -390,6 +426,9 @@ export async function GET(request: NextRequest) {
             days: requestDays,
             reason: requestReason,
             pendingDays: statusFilter === "PENDING" ? pending : undefined,
+            supervisorId: latestRequest?.supervisorId || undefined,
+            approvedBy: latestRequest?.approvedBy || undefined,
+            finalizedBy: latestRequest?.finalizedBy || undefined,
           }
         }
       })

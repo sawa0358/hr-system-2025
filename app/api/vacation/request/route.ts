@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { calculateRequestTotalDays, consumeLIFO } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
 import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-stats"
@@ -9,8 +10,10 @@ import { calculateRemainingDays, calculatePendingDays } from "@/lib/vacation-sta
  * POST /api/vacation/request
  */
 export async function POST(request: NextRequest) {
+  console.log('[POST /api/vacation/request] リクエスト受信')
   try {
     const body = await request.json()
+    console.log('[POST /api/vacation/request] リクエストボディ:', JSON.stringify(body, null, 2))
     const { employeeId, startDate, endDate, unit = "DAY", hoursPerDay, usedDays, reason, requestId, requestedBy, requestedByName, supervisorId } = body || {}
 
     // requestIdが指定されている場合は修正処理（PUT）を呼び出すべき
@@ -22,13 +25,25 @@ export async function POST(request: NextRequest) {
     }
 
     if (!employeeId || !startDate || !endDate) {
+      console.error('[POST /api/vacation/request] 必須項目が不足:', { employeeId, startDate, endDate })
       return NextResponse.json({ error: "必須項目が不足しています" }, { status: 400 })
     }
 
     // 上司選択のバリデーション
-    if (!supervisorId) {
-      return NextResponse.json({ error: "上司を選択してください" }, { status: 400 })
+    console.log('[POST /api/vacation/request] supervisorId:', supervisorId, 'type:', typeof supervisorId)
+    
+    // supervisorIdが有効なIDであることを確認
+    if (!supervisorId || 
+        typeof supervisorId !== 'string' || 
+        supervisorId.trim() === '' || 
+        supervisorId === "_loading_" || 
+        supervisorId === "_no_supervisors_") {
+      console.error('[POST /api/vacation/request] 上司選択が無効:', supervisorId)
+      return NextResponse.json({ error: "直属上司を選択してください" }, { status: 400 })
     }
+    
+    // 有効なsupervisorIdを取得（空白を削除）
+    const validSupervisorId = supervisorId.trim()
 
     // 日付の妥当性チェック
     const start = new Date(startDate)
@@ -168,7 +183,7 @@ export async function POST(request: NextRequest) {
       // トランザクション内で申請を作成してから承認処理を実行
       return await prisma.$transaction(async (tx) => {
         // 申請を作成
-        const createData = {
+        const createData: any = {
           employeeId,
           startDate: new Date(startDate),
           endDate: new Date(endDate),
@@ -176,13 +191,21 @@ export async function POST(request: NextRequest) {
           hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
           reason: finalReason,
           status: "PENDING" as const,
-          totalDays: totalDays, // 申請時に計算された日数を保存
-          supervisorId: supervisorId, // 選択した上司ID
+          totalDays: new Prisma.Decimal(totalDays), // 申請時に計算された日数を保存
+          supervisorId: validSupervisorId, // 選択した上司ID
+        }
+        
+        // supervisorIdがnullやundefinedでないことを再確認
+        if (!createData.supervisorId) {
+          console.error('[POST /api/vacation/request] 代理申請: supervisorIdが空です')
+          return NextResponse.json({ error: "直属上司を選択してください" }, { status: 400 })
         }
 
+        console.log('[POST /api/vacation/request] 代理申請データ作成:', JSON.stringify({ ...createData, totalDays: totalDays.toString() }, null, 2))
         const created = await tx.timeOffRequest.create({
           data: createData,
         })
+        console.log('[POST /api/vacation/request] 代理申請作成成功:', created.id)
 
         // 自動承認処理を実行
         const daysToUse = totalDays
@@ -278,7 +301,7 @@ export async function POST(request: NextRequest) {
       })
     } else {
       // 通常の申請（承認待ち）
-      const createData = {
+      const createData: any = {
         employeeId,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
@@ -286,19 +309,37 @@ export async function POST(request: NextRequest) {
         hoursPerDay: unit === "HOUR" ? (hoursPerDay || 8) : null,
         reason: finalReason,
         status: "PENDING" as const,
-        totalDays: totalDays, // 申請時に計算された日数を保存
-        supervisorId: supervisorId, // 選択した上司ID
+        totalDays: new Prisma.Decimal(totalDays), // 申請時に計算された日数を保存
+        supervisorId: validSupervisorId, // 選択した上司ID
+      }
+      
+      // supervisorIdがnullやundefinedでないことを再確認
+      if (!createData.supervisorId) {
+        console.error('[POST /api/vacation/request] supervisorIdが空です')
+        return NextResponse.json({ error: "直属上司を選択してください" }, { status: 400 })
       }
 
+      console.log('[POST /api/vacation/request] 申請データ作成:', JSON.stringify({ ...createData, totalDays: totalDays.toString() }, null, 2))
       const created = await prisma.timeOffRequest.create({
         data: createData,
       })
+      console.log('[POST /api/vacation/request] 申請作成成功:', created.id)
 
       return NextResponse.json({ request: created, calculatedDays: totalDays }, { status: 201 })
     }
-  } catch (error) {
-    console.error("POST /api/vacation/request error", error)
-    return NextResponse.json({ error: "申請の作成に失敗しました" }, { status: 500 })
+  } catch (error: any) {
+    console.error("=== POST /api/vacation/request ERROR ===")
+    console.error("Error:", error)
+    console.error("Error message:", error?.message)
+    console.error("Error stack:", error?.stack)
+    console.error("Error name:", error?.name)
+    console.error("Error code:", error?.code)
+    console.error("================================")
+    return NextResponse.json({ 
+      error: "申請の作成に失敗しました",
+      details: error?.message || "Unknown error",
+      code: error?.code || "NO_CODE"
+    }, { status: 500 })
   }
 }
 

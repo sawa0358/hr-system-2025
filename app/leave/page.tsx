@@ -8,6 +8,7 @@ import { VacationRequestForm } from "@yukyu-system/components/vacation-request-f
 import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState, useEffect } from "react"
 
@@ -63,6 +64,59 @@ export default function LeavePage() {
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
   // 店長・マネージャー以上が「ほか一覧」を表示可能
   const canViewOthersList = currentUser?.role === 'manager' || currentUser?.role === 'store_manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
+  
+  // 「ほか一覧」ボタンのバッジ用カウント（店長・マネージャーの場合、自分が見れるカード数のみ）
+  const [othersListBadgeCount, setOthersListBadgeCount] = useState(0)
+  
+  // 店長・マネージャーの場合、自分が見れるカード数を取得
+  useEffect(() => {
+    if (!canViewOthersList || !currentUser?.id) {
+      setOthersListBadgeCount(0)
+      return
+    }
+    
+    // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
+    // 総務・管理者の場合は、全申請をカウント
+    const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
+    const fetchOthersListCount = async () => {
+      try {
+        const url = isManagerOrStoreManager 
+          ? `/api/vacation/admin/applicants?view=pending&supervisorId=${currentUser.id}`
+          : '/api/vacation/admin/applicants?view=pending'
+        
+        const res = await fetch(url, {
+          cache: 'no-store',
+        })
+        
+        if (res.ok) {
+          const json = await res.json()
+          const count = json.employees?.length || 0
+          setOthersListBadgeCount(count)
+        } else {
+          setOthersListBadgeCount(0)
+        }
+      } catch (error) {
+        console.error('[LeavePage] ほか一覧バッジカウント取得エラー:', error)
+        setOthersListBadgeCount(0)
+      }
+    }
+    
+    fetchOthersListCount()
+    
+    // カスタムイベントで承認状態が変わった時に更新
+    const handleVacationUpdate = () => {
+      fetchOthersListCount()
+    }
+    window.addEventListener('vacation-request-updated', handleVacationUpdate)
+    
+    // 定期的に更新（30秒ごと）
+    const interval = setInterval(fetchOthersListCount, 30000)
+    
+    return () => {
+      window.removeEventListener('vacation-request-updated', handleVacationUpdate)
+      clearInterval(interval)
+    }
+  }, [canViewOthersList, currentUser?.id, currentUser?.role])
   
   // 総務・管理者権限の場合は、employeeIdパラメータがない場合に自動的に管理者画面にリダイレクト
   useEffect(() => {
@@ -156,8 +210,17 @@ export default function LeavePage() {
                   params.set("tab", "others")
                   router.replace(`/leave?${params.toString()}`)
                 }}
+                className="relative"
               >
                 ほか一覧
+                {othersListBadgeCount > 0 && (
+                  <Badge 
+                    variant="destructive" 
+                    className="absolute -top-2 -right-2 h-5 min-w-[20px] flex items-center justify-center px-1.5 text-xs font-bold"
+                  >
+                    {othersListBadgeCount > 99 ? '99+' : othersListBadgeCount}
+                  </Badge>
+                )}
               </Button>
             )}
             {/* 新規申請ボタン（管理者でも表示） */}
@@ -174,11 +237,6 @@ export default function LeavePage() {
             >
               {isViewingOtherEmployee ? "代理申請" : "新規申請"}
             </Button>
-          </div>
-          <div>
-            {tab === "form" && (
-              <Button form="vacation-request-form" type="submit">申請を送信</Button>
-            )}
           </div>
         </div>
 
@@ -211,12 +269,13 @@ export default function LeavePage() {
             />
           </div>
         ) : tab === "others" ? (
-            // ほか一覧：管理者モードのカード表示のみ
+            // ほか一覧：管理者モードのカード表示のみ（supervisorIdでフィルタリング）
             <Card style={{ backgroundColor: '#b4d5e7' }}>
               <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
                 <VacationList 
                   userRole="admin" 
                   filter="pending"
+                  supervisorId={currentUser?.id} // 現在のユーザー（上司）のIDでフィルタリング
                   onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
                 />
               </CardContent>

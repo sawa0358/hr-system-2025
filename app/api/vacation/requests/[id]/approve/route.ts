@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { consumeLIFO } from "@/lib/vacation-consumption"
 import { calculateRequestTotalDays, applyRounding } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
@@ -13,10 +14,20 @@ export async function POST(
 ) {
   try {
     const { id: requestId } = params
-    const body = await request.json()
+    const body = await request.json().catch((e) => {
+      console.error("=== POST /api/vacation/requests/[id]/approve JSON parse error ===")
+      console.error("Error:", e)
+      console.error("Request ID:", requestId)
+      console.error("================================")
+      throw new Error("リクエストボディの解析に失敗しました")
+    })
     const { approverId } = body
 
+    console.log(`[POST /api/vacation/requests/${requestId}/approve] リクエスト受信`)
+    console.log(`[POST /api/vacation/requests/${requestId}/approve] Approver ID:`, approverId)
+
     if (!approverId) {
+      console.error(`[POST /api/vacation/requests/${requestId}/approve] 承認者IDがありません`)
       return NextResponse.json({ error: "承認者IDが必要です" }, { status: 400 })
     }
 
@@ -135,7 +146,7 @@ export async function POST(
           where: { id: req.id },
           data: {
             finalizedBy: approverId,
-            totalDays: daysToUse,
+            // totalDaysは既に上司承認時に設定されているので、そのまま使用
             breakdownJson: JSON.stringify(breakdown),
           },
         })
@@ -159,8 +170,9 @@ export async function POST(
         return NextResponse.json({ error: "この申請は既に処理済みです" }, { status: 400 })
       }
 
-      // 上司が選択された上司と一致するか確認
-      if (req.supervisorId !== approverId) {
+      // 上司が選択された上司と一致するか確認（総務・管理者はスキップ）
+      // approverは既にトランザクション外で取得済み
+      if (!isHrOrAdmin && req.supervisorId !== approverId) {
         return NextResponse.json({ error: "選択された上司のみ承認できます" }, { status: 403 })
       }
 
@@ -189,7 +201,7 @@ export async function POST(
           status: "APPROVED",
           approvedAt: new Date(),
           approvedBy: approverId,
-          totalDays: daysToUse,
+          totalDays: new Prisma.Decimal(daysToUse), // Prisma.Decimalに変換
           // finalizedByはnullのまま（決済待ち）
         },
       })
@@ -207,15 +219,27 @@ export async function POST(
 
       return NextResponse.json({ success: true, approved: true, pendingFinalization: true })
     })
-  } catch (error) {
-    console.error("POST /api/vacation/requests/[id]/approve error", error)
+  } catch (error: any) {
+    console.error("=== POST /api/vacation/requests/[id]/approve ERROR ===")
+    console.error("Error:", error)
+    console.error("Error message:", error?.message)
+    console.error("Error stack:", error?.stack)
+    console.error("Error name:", error?.name)
+    console.error("Error code:", error?.code)
+    console.error("Request ID:", params?.id)
+    console.error("================================")
+    
     if (error instanceof Error && error.message.includes("INSUFFICIENT_BALANCE")) {
       return NextResponse.json(
         { error: "残高不足のため承認できません", details: error.message },
         { status: 400 }
       )
     }
-    return NextResponse.json({ error: "承認処理に失敗しました" }, { status: 500 })
+    return NextResponse.json({ 
+      error: "承認処理に失敗しました",
+      details: error?.message || "Unknown error",
+      code: error?.code || "NO_CODE"
+    }, { status: 500 })
   }
 }
 

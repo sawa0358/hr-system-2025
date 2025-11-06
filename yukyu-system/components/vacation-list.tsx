@@ -22,6 +22,7 @@ interface VacationListProps {
   onEmployeeClick?: (employeeId: string, employeeName: string) => void
   employeeId?: string // 表示する社員ID（社員モードで使用）
   onPendingCountChange?: (count: number) => void // 承認待ちの申請数を通知するコールバック
+  supervisorId?: string // 上司ID（「ほか一覧」画面で使用）
   filters?: {
     searchQuery: string
     department: string
@@ -32,7 +33,7 @@ interface VacationListProps {
   }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange, supervisorId }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
@@ -63,6 +64,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [passwordDialogEditingRequest, setPasswordDialogEditingRequest] = useState<any | null>(null)
   const [password, setPassword] = useState("")
   const [passwordError, setPasswordError] = useState("")
+  const [finalizingRequestId, setFinalizingRequestId] = useState<string | null>(null)
+  const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false)
+  const [isFinalizing, setIsFinalizing] = useState(false) // 決済処理中フラグ
 
   useEffect(() => {
     const load = async () => {
@@ -85,10 +89,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         try {
           // 現在のview（pending or all）を取得
           const currentView = filter === "pending" ? "pending" : "all"
-          const res = await fetch(`/api/vacation/admin/applicants?view=${currentView}`)
+          // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+          const url = supervisorId 
+            ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+            : `/api/vacation/admin/applicants?view=${currentView}`
+          const res = await fetch(url)
           if (res.ok) {
             const json = await res.json()
-            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件`)
+            console.log(`[有給管理] 社員データ取得: ${json.employees?.length || 0}件${supervisorId ? ` (supervisorId: ${supervisorId})` : ''}`)
             setAdminEmployees(json.employees || [])
           } else {
             console.error(`[有給管理] APIエラー: ${res.status}`)
@@ -101,11 +109,15 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 社員モードの場合、特定社員の申請一覧を取得
         setLoading(true)
         try {
+          console.log(`[VacationList] 申請一覧取得開始: employeeId=${employeeId}`)
           const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
           if (res.ok) {
             const json = await res.json()
+            console.log(`[VacationList] 申請一覧取得成功: requests=${json.requests?.length || 0}`)
             setEmployeeRequests(json.requests || [])
           } else {
+            const errorText = await res.text().catch(() => "Unknown error")
+            console.error(`[VacationList] 申請一覧取得エラー: status=${res.status}, error=${errorText}`)
             setEmployeeRequests([])
           }
           
@@ -158,10 +170,30 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     return () => {
       window.removeEventListener('vacation-request-updated', handleUpdate)
     }
-  }, [userRole, employeeId, filter])
+  }, [userRole, employeeId, filter, supervisorId])
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (status: string, approvedBy?: string | null, finalizedBy?: string | null) => {
+    // 決済済み（approved + finalizedBy != null）
+    if (status?.toLowerCase() === "approved" && finalizedBy != null && finalizedBy !== "") {
+      return (
+        <Badge variant="default" className="gap-1 bg-green-600 text-white">
+          <CheckCircle className="h-3 w-3" />
+          決済済み
+        </Badge>
+      )
+    }
+    
+    // 決済待ち（approved + approvedBy != null + finalizedBy == null）
+    if (status?.toLowerCase() === "approved" && approvedBy != null && approvedBy !== "" && (!finalizedBy || finalizedBy === "")) {
+      return (
+        <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-700 bg-yellow-50">
+          <Clock className="h-3 w-3" />
+          決済待ち
+        </Badge>
+      )
+    }
+    
+    switch (status?.toLowerCase()) {
       case "pending":
         return (
           <Badge variant="outline" className="gap-1">
@@ -205,18 +237,38 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         throw new Error(error?.error || "承認に失敗しました")
       }
 
-      toast({
-        title: "承認完了",
-        description: "有給申請を承認しました。申請中の日数が取得済みに加算され、残り有給日数から減算されました。",
-      })
+      const data = await res.json()
+      if (data.finalized) {
+        toast({
+          title: "決済完了",
+          description: "有給申請を決済しました。申請中の日数が取得済みに加算され、残り有給日数から減算されました。",
+        })
+      } else {
+        toast({
+          title: "承認完了",
+          description: "有給申請を承認しました。決済待ちです。",
+        })
+      }
 
       // データを再読み込み
       window.dispatchEvent(new Event('vacation-request-updated'))
       if (userRole === "admin") {
-        const res = await fetch("/api/vacation/admin/applicants")
+        // 現在のview（pending or all）を取得
+        const currentView = filter === "pending" ? "pending" : "all"
+        // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+        const url = supervisorId 
+          ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+          : `/api/vacation/admin/applicants?view=${currentView}`
+        console.log(`[有給管理] 承認後のデータ取得開始: url=${url}, filter=${filter}, supervisorId=${supervisorId || 'なし'}`)
+        const res = await fetch(url)
         if (res.ok) {
           const json = await res.json()
+          console.log(`[有給管理] 承認後の社員データ取得: ${json.employees?.length || 0}件${supervisorId ? ` (supervisorId: ${supervisorId})` : ''}`)
+          console.log(`[有給管理] 承認後のデータ詳細:`, json.employees?.map((e: any) => ({ name: e.name, requestId: e.requestId, status: e.status, approvedBy: e.approvedBy, finalizedBy: e.finalizedBy, supervisorId: e.supervisorId })))
           setAdminEmployees(json.employees || [])
+        } else {
+          console.error(`[有給管理] 承認後のAPIエラー: ${res.status}`)
+          setAdminEmployees([])
         }
       } else {
         // 社員モードの場合は申請一覧を再読み込み
@@ -237,6 +289,90 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       })
     } finally {
       setProcessingRequestId(null)
+    }
+  }
+
+  // 決済処理
+  const handleFinalize = async (requestId: string) => {
+    // 既に処理中の場合は重複実行を防ぐ
+    if (isFinalizing) {
+      return
+    }
+    
+    try {
+      setIsFinalizing(true) // 決済処理開始
+      const approverId = currentUser?.id
+
+      const res = await fetch(`/api/vacation/requests/${requestId}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approverId }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error?.error || "決済に失敗しました")
+      }
+
+      toast({
+        title: "決済完了",
+        description: "有給申請を決済しました。申請中の日数が取得済みに加算され、残り有給日数から減算されました。",
+      })
+
+      // データを再読み込み
+      window.dispatchEvent(new Event('vacation-request-updated'))
+      if (userRole === "admin") {
+        // 現在のview（pending or all）を取得
+        const currentView = filter === "pending" ? "pending" : "all"
+        // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+        const url = supervisorId 
+          ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+          : `/api/vacation/admin/applicants?view=${currentView}`
+        const res = await fetch(url)
+        if (res.ok) {
+          const json = await res.json()
+          console.log(`[有給管理] 決済後の社員データ取得: ${json.employees?.length || 0}件${supervisorId ? ` (supervisorId: ${supervisorId})` : ''}`)
+          setAdminEmployees(json.employees || [])
+        } else {
+          console.error(`[有給管理] 決済後のAPIエラー: ${res.status}`)
+          setAdminEmployees([])
+        }
+      } else {
+        // 社員モードの場合は申請一覧を再読み込み
+        if (employeeId) {
+          const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
+          if (res.ok) {
+            const json = await res.json()
+            setEmployeeRequests(json.requests || [])
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("決済エラー:", error)
+      toast({
+        title: "決済エラー",
+        description: error?.message || "決済に失敗しました",
+        variant: "destructive",
+      })
+    } finally {
+      setIsFinalizing(false) // 決済処理完了
+      setFinalizingRequestId(null)
+      setIsFinalizeDialogOpen(false)
+    }
+  }
+
+  // 決済確認ダイアログの表示
+  const handleFinalizeClick = (requestId: string) => {
+    setFinalizingRequestId(requestId)
+    setIsFinalizeDialogOpen(true)
+    setIsFinalizing(false) // ダイアログを開いた時点では処理中ではない
+  }
+
+  // 決済確認ダイアログのキャンセル
+  const handleFinalizeCancel = () => {
+    if (!isFinalizing) { // 決済処理中でない場合のみキャンセル可能
+      setFinalizingRequestId(null)
+      setIsFinalizeDialogOpen(false)
     }
   }
 
@@ -274,10 +410,20 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       // データを再読み込み
       window.dispatchEvent(new Event('vacation-request-updated'))
       if (userRole === "admin") {
-        const res = await fetch("/api/vacation/admin/applicants")
+        // 現在のview（pending or all）を取得
+        const currentView = filter === "pending" ? "pending" : "all"
+        // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
+        const url = supervisorId 
+          ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+          : `/api/vacation/admin/applicants?view=${currentView}`
+        const res = await fetch(url)
         if (res.ok) {
           const json = await res.json()
+          console.log(`[有給管理] 却下後の社員データ取得: ${json.employees?.length || 0}件${supervisorId ? ` (supervisorId: ${supervisorId})` : ''}`)
           setAdminEmployees(json.employees || [])
+        } else {
+          console.error(`[有給管理] 却下後のAPIエラー: ${res.status}`)
+          setAdminEmployees([])
         }
       } else {
         // 社員モードの場合は申請一覧を再読み込み
@@ -602,7 +748,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     return true
   }) : adminEmployees
 
-  const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter(e => (e.pending ?? 0) > 0) : filteredAdminEmployees) : []
+  const adminVisible = userRole === "admin" ? (filter === "pending" ? filteredAdminEmployees.filter((e: any) => {
+    // 承認待ち画面では、各申請ごとにカードが生成されるので、requestIdが存在するか、またはpending > 0で判断
+    // 承認後はpendingが0になるが、決済待ち（approved + approvedBy != null + finalizedBy == null）の場合はカードを表示
+    const hasRequest = e.requestId != null && e.requestId !== ""
+    const isPending = (e.pending ?? 0) > 0
+    const isPendingFinalization = e.status === 'approved' && e.approvedBy != null && e.approvedBy !== "" && (!e.finalizedBy || e.finalizedBy === "")
+    return hasRequest && (isPending || isPendingFinalization)
+  }) : filteredAdminEmployees) : []
   
   // 承認待ちの申請カード数を計算（管理者画面のみ）
   // 承認待ち画面に実際に表示されているカード数を計算
@@ -705,9 +858,18 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           const today = new Date()
           today.setHours(0, 0, 0, 0)
           
+          // 決済待ち（approved + approvedBy != null + finalizedBy == null）
+          const isPendingFinalization = status === "approved" && 
+            request.approvedBy != null && 
+            request.approvedBy !== "" && 
+            (!request.finalizedBy || request.finalizedBy === "")
+          
           if (status === "pending") {
             // 申請中の場合
             employeeCardBackground = "#dbeafe"
+          } else if (isPendingFinalization) {
+            // 決済待ちの場合
+            employeeCardBackground = "#fef3c7" // 黄色系の背景
           } else if (status === "approved" && endDate && endDate < today) {
             // 消化(日付が過ぎる)された場合
             employeeCardBackground = "#f1f5f9"
@@ -720,10 +882,13 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         
         const cardBackgroundColor = adminPendingBackground || employeeCardBackground
         
+        // カードクリックでナビゲーション可能なのは「総務・管理者」のみ
+        const canClickCard = (currentUser?.role === 'hr' || currentUser?.role === 'admin') && onEmployeeClick
+        
         return (
         <Card
           key={request.id}
-          className="flex flex-col min-h-[92px] p-0 cursor-pointer"
+          className={`flex flex-col min-h-[92px] p-0 ${canClickCard ? 'cursor-pointer' : ''}`}
           style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
           onClick={(e) => {
             // ダイアログやSelect内のクリックは無視
@@ -733,7 +898,8 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 (e.target as HTMLElement).closest('input')) {
               return
             }
-            if (userRole === "admin" && onEmployeeClick) {
+            // 「総務・管理者」のみカードクリックでナビゲーション可能
+            if (canClickCard) {
               // 「承認待ち」画面では employeeId が存在するのでそれを使用、「全社員」画面では id を使用
               const targetEmployeeId = request.employeeId || request.id
               onEmployeeClick(String(targetEmployeeId), request.employee || request.name)
@@ -843,43 +1009,92 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 })()}
 
                 <div className="flex flex-col gap-1.5 mt-auto">
-                  {request.status && getStatusBadge(request.status)}
-                  {request.status === "pending" && request.requestId && (
-                    <div className="flex gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        className="flex-1 h-7 text-[11px]"
-                        disabled={processingRequestId === request.requestId}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleApprove(request.requestId)
-                        }}
-                      >
-                        {processingRequestId === request.requestId ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "承認"
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 h-7 text-[11px] bg-transparent"
-                        disabled={processingRequestId === request.requestId}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleReject(request.requestId)
-                        }}
-                      >
-                        {processingRequestId === request.requestId ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "却下"
-                        )}
-                      </Button>
-                    </div>
-                  )}
+                  {request.status && getStatusBadge(request.status, request.approvedBy, request.finalizedBy)}
+                  {(() => {
+                    // 承認待ち（pending）の場合
+                    const isPending = request.status?.toLowerCase() === "pending"
+                    const isSelectedSupervisor = request.supervisorId === currentUser?.id
+                    const isHrOrAdmin = currentUser?.role === 'hr' || currentUser?.role === 'admin'
+                    // 選択された上司 または 総務・管理者の場合は承認できる
+                    const canApprove = isPending && (isSelectedSupervisor || isHrOrAdmin) && request.requestId
+
+                    // 決済待ち（approved + approvedBy != null + finalizedBy == null）かつ総務・管理者の場合
+                    const isApproved = request.status?.toLowerCase() === "approved"
+                    const hasApprovedBy = request.approvedBy != null && request.approvedBy !== ""
+                    const hasNoFinalizedBy = !request.finalizedBy || request.finalizedBy === ""
+                    const isPendingFinalization = isApproved && hasApprovedBy && hasNoFinalizedBy
+                    const canFinalize = isPendingFinalization && isHrOrAdmin && request.requestId
+
+                    if (canApprove) {
+                      // 上司または総務・管理者が承認する場合
+                      return (
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="flex-1 h-7 text-[11px]"
+                            disabled={processingRequestId === request.requestId}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleApprove(request.requestId)
+                            }}
+                          >
+                            {processingRequestId === request.requestId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "承認"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-7 text-[11px] bg-transparent"
+                            disabled={processingRequestId === request.requestId}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleReject(request.requestId)
+                            }}
+                          >
+                            {processingRequestId === request.requestId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "却下"
+                            )}
+                          </Button>
+                        </div>
+                      )
+                    } else if (canFinalize) {
+                      // 総務・管理者が決済する場合
+                      return (
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="flex-1 h-7 text-[11px]"
+                            disabled={finalizingRequestId === request.requestId}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleFinalizeClick(request.requestId)
+                            }}
+                          >
+                            {finalizingRequestId === request.requestId ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              "決済"
+                            )}
+                          </Button>
+                        </div>
+                      )
+                    } else if (isPendingFinalization) {
+                      // 決済待ち状態（決済権限がない場合）
+                      return (
+                        <div className="text-[10px] text-muted-foreground">
+                          決済待ち
+                        </div>
+                      )
+                    }
+                    return null
+                  })()}
                 </div>
               </div>
             ) : (
@@ -913,7 +1128,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                   理由: {request.reason || "-"}
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  {getStatusBadge(request.status || "pending")}
+                  {getStatusBadge(request.status || "pending", request.approvedBy, request.finalizedBy)}
                   {request.status?.toLowerCase() === "pending" && (
                     <div className="flex gap-1">
                       <Button
@@ -1031,7 +1246,8 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 usedDays: editingRequest.days || editingRequest.totalDays || 1,
                 hoursPerDay: editingRequest.hoursPerDay || 8,
                 hours: editingRequest.unit === "HOUR" ? (editingRequest.days || editingRequest.totalDays || 8) : 8,
-              }}
+                supervisorId: editingRequest.supervisorId || "", // 上司IDを初期データに含める
+              } as any}
               requestId={editingRequest.id}
               force={editingRequest.status?.toLowerCase() === "approved" || editingRequest.status?.toLowerCase() === "rejected"}
               onSuccess={() => {
@@ -1189,6 +1405,51 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               }}
             >
               確認
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 決済確認ダイアログ */}
+      <Dialog open={isFinalizeDialogOpen} onOpenChange={(open) => {
+        // 決済処理中はダイアログを閉じられないようにする
+        if (!open && !isFinalizing) {
+          setIsFinalizeDialogOpen(false)
+          setFinalizingRequestId(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>決済確認</DialogTitle>
+            <DialogDescription>
+              このまま決済しますか？
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleFinalizeCancel}
+              disabled={isFinalizing}
+            >
+              いいえ
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => {
+                if (finalizingRequestId && !isFinalizing) {
+                  handleFinalize(finalizingRequestId)
+                }
+              }}
+              disabled={finalizingRequestId === null || isFinalizing}
+            >
+              {isFinalizing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  決済中...
+                </>
+              ) : (
+                "はい"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

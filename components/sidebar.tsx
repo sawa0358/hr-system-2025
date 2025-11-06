@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
 import { LoginModal } from "@/components/login-modal"
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
@@ -84,18 +83,32 @@ export function Sidebar() {
 
     // 承認待ちの件数を取得
     const fetchPendingCount = async () => {
+      // タイムアウト制御（10秒）
+      const controller = new AbortController()
+      let timeoutId: NodeJS.Timeout | null = null
+      
       try {
-        // タイムアウト制御（10秒）
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 10000)
+        timeoutId = setTimeout(() => {
+          controller.abort()
+        }, 10000)
         
-        const res = await fetch('/api/vacation/admin/applicants?view=pending', {
+        // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
+        // 総務・管理者の場合は、全申請をカウント
+        const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
+        const url = isManagerOrStoreManager 
+          ? `/api/vacation/admin/applicants?view=pending&supervisorId=${currentUser.id}`
+          : '/api/vacation/admin/applicants?view=pending'
+        
+        const res = await fetch(url, {
           signal: controller.signal,
           // ネットワークエラーを適切に処理するための設定
           cache: 'no-store', // 常に最新のデータを取得
         })
         
-        clearTimeout(timeoutId)
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
         
         if (res.ok) {
           const json = await res.json()
@@ -107,7 +120,19 @@ export function Sidebar() {
           setPendingCount(0)
         }
       } catch (error: any) {
-        // ネットワークエラーやタイムアウトの場合は、開発環境のみログを出力
+        // タイムアウトをクリーンアップ
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+        
+        // AbortErrorは予期された中断（タイムアウトやコンポーネントのアンマウント）なので無視
+        if (error?.name === 'AbortError') {
+          // サイレントに処理（ログを出力しない）
+          return
+        }
+        
+        // その他のネットワークエラーは、開発環境のみログを出力
         // 本番環境ではサイレントに0件として扱う（エラーをユーザーに表示しない）
         if (process.env.NODE_ENV === 'development') {
           console.error('[Sidebar] 承認待ち件数取得エラー:', error)
@@ -140,13 +165,21 @@ export function Sidebar() {
       return
     }
 
+    // ページ遷移直後は自動閉じを無効化（300ms待機）
+    let isPageTransition = true
+    const transitionTimeout = setTimeout(() => {
+      isPageTransition = false
+    }, 300)
+
     // スクロールイベントで閉じる（縦・横両方のスクロールを検知）
     const handleScroll = () => {
+      if (isPageTransition) return
       setCollapsed(true)
     }
 
     // ホイールイベントで横スクロールを明示的に検知
     const handleWheel = (event: WheelEvent) => {
+      if (isPageTransition) return
       // 横スクロール（deltaXが0でない）の場合に閉じる
       if (Math.abs(event.deltaX) > 0) {
         // サイドバー内の横スクロールは無視
@@ -169,6 +202,7 @@ export function Sidebar() {
 
     // クリックイベントで閉じる（サイドバー内のクリックは除外）
     const handleClick = (event: MouseEvent) => {
+      if (isPageTransition) return
       const target = event.target as Node
       if (sidebarRef.current && sidebarRef.current.contains(target)) {
         // サイドバー内のクリックは無視
@@ -211,6 +245,7 @@ export function Sidebar() {
     }, 100)
 
     return () => {
+      clearTimeout(transitionTimeout)
       window.removeEventListener('scroll', handleScroll)
       document.removeEventListener('scroll', handleScroll)
       document.documentElement.removeEventListener('scroll', handleScroll)
@@ -232,7 +267,7 @@ export function Sidebar() {
       clearTimeout(timeoutId)
       document.removeEventListener('click', handleClick)
     }
-  }, [collapsed])
+  }, [collapsed, pathname])
 
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => 
@@ -520,28 +555,14 @@ export function Sidebar() {
         {!collapsed && currentUser && (
           <div className="p-4 border-t border-slate-200">
             <div className="flex items-center gap-3 mb-3">
-              <Avatar className="w-10 h-10 flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold whitespace-nowrap overflow-hidden">
                 {(() => {
-                  const avatarText = typeof window !== 'undefined'
+                  const text = typeof window !== 'undefined'
                     ? (localStorage.getItem(`employee-avatar-text-${currentUser.id}`) || (currentUser.name || '?').slice(0, 3))
                     : (currentUser.name || '?').slice(0, 3)
-                  return (
-                    <>
-                      {currentUser.avatar && (
-                        <AvatarImage src={currentUser.avatar} alt={currentUser.name || "プロフィール画像"} />
-                      )}
-                      <AvatarFallback 
-                        employeeType={currentUser.employeeType}
-                        className={`font-semibold whitespace-nowrap overflow-hidden ${
-                          /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-sm' : 'text-xs'
-                        }`}
-                      >
-                        {avatarText.slice(0, 3)}
-                      </AvatarFallback>
-                    </>
-                  )
+                  return text.slice(0, 3)
                 })()}
-              </Avatar>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">{currentUser.name}</p>
                 <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>

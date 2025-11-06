@@ -24,6 +24,7 @@ interface VacationRequestFormProps {
     usedDays: number
     hoursPerDay: number
     hours: number
+    supervisorId?: string // 上司ID
   }
   requestId?: string // 修正時は既存の申請ID
   proxyEmployeeId?: string // 代理申請する社員ID（管理者が他の社員に代わって申請する場合）
@@ -44,7 +45,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     usedDays: initialData?.usedDays || 1,
     hoursPerDay: initialData?.hoursPerDay || 8,
     hours: initialData?.hours || 8,
-    supervisorId: "", // 上司ID
+    supervisorId: initialData?.supervisorId || "", // 上司ID（編集時は初期データから取得）
   })
   
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -164,10 +165,19 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         body: JSON.stringify(requestData),
       })
 
-      const data = await res.json()
+      let data
+      try {
+        data = await res.json()
+      } catch (jsonError) {
+        console.error('[VacationRequestForm] JSON解析エラー:', jsonError)
+        const text = await res.text()
+        console.error('[VacationRequestForm] レスポンステキスト:', text)
+        throw new Error(`サーバーエラー: ${res.status} ${res.statusText}`)
+      }
 
       if (!res.ok) {
-        throw new Error(data?.error || (requestId ? "申請の修正に失敗しました" : "申請に失敗しました"))
+        console.error('[VacationRequestForm] エラーレスポンス:', data)
+        throw new Error(data?.error || data?.details || (requestId ? "申請の修正に失敗しました" : "申請に失敗しました"))
       }
 
       // 自動承認された場合
@@ -244,10 +254,10 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
     }
 
     // 上司選択のバリデーション
-    if (!formData.supervisorId) {
+    if (!formData.supervisorId || formData.supervisorId === "_loading_" || formData.supervisorId === "_no_supervisors_") {
       toast({
         title: "エラー",
-        description: "上司を選択してください。",
+        description: "直属上司を選択してください。",
         variant: "destructive",
       })
       return
@@ -325,7 +335,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
         <CardDescription>休暇の開始日と終了日を選択し、理由を入力してください</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form id="vacation-request-form" onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="startDate">開始日</Label>

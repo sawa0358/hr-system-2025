@@ -61,6 +61,8 @@ export default function LeavePage() {
   
   // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
+  // 店長・マネージャー以上が「ほか一覧」を表示可能
+  const canViewOthersList = currentUser?.role === 'manager' || currentUser?.role === 'store_manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
   
   // 総務・管理者権限の場合は、employeeIdパラメータがない場合に自動的に管理者画面にリダイレクト
   useEffect(() => {
@@ -69,8 +71,8 @@ export default function LeavePage() {
     }
   }, [isAdminOrHR, employeeIdParam, router])
   
-  const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : "list"), [params])
-  const [tab, setTab] = useState<"list" | "form">(initialTab)
+  const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : params.get("tab") === "others" ? "others" : "list"), [params])
+  const [tab, setTab] = useState<"list" | "form" | "others">(initialTab)
 
   const tabs = [
     { 
@@ -142,6 +144,22 @@ export default function LeavePage() {
             >
               申請一覧
             </Button>
+            {/* ほか一覧ボタン（店長・マネージャー以上が表示可能） */}
+            {canViewOthersList && (
+              <Button 
+                variant={tab === "others" ? "default" : "outline"} 
+                onClick={() => { 
+                  setTab("others"); 
+                  const params = new URLSearchParams()
+                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                  if (employeeNameParam) params.set("name", employeeNameParam)
+                  params.set("tab", "others")
+                  router.replace(`/leave?${params.toString()}`)
+                }}
+              >
+                ほか一覧
+              </Button>
+            )}
             {/* 新規申請ボタン（管理者でも表示） */}
             <Button 
               variant={tab === "form" ? "default" : "outline"} 
@@ -192,6 +210,17 @@ export default function LeavePage() {
               }}
             />
           </div>
+        ) : tab === "others" ? (
+            // ほか一覧：管理者モードのカード表示のみ
+            <Card style={{ backgroundColor: '#b4d5e7' }}>
+              <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
+                <VacationList 
+                  userRole="admin" 
+                  filter="pending"
+                  onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
+                />
+              </CardContent>
+            </Card>
         ) : (
             <Card style={{ backgroundColor: '#b4d5e7' }}>
               <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>

@@ -54,6 +54,58 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+// カードの色から移動編集ボタンの色を計算する関数
+// カードの色より15%濃くする（RとGのみ、Bはそのまま）
+function getMoveEditButtonColor(cardColor: string | undefined, listColor: string | undefined): string {
+  // カードの色が未設定（白）の場合
+  if (!cardColor || cardColor === "" || cardColor.toLowerCase() === "#ffffff" || cardColor.toLowerCase() === "white") {
+    // リストのグレー色（#e5e7eb）より濃いグレーを返す
+    return "#cbd5e1" // slate-300（#e5e7ebより濃い）
+  }
+  
+  // カードの色が設定されている場合
+  // hex形式の場合（#rrggbb）
+  if (cardColor.startsWith("#")) {
+    const r = parseInt(cardColor.slice(1, 3), 16)
+    const g = parseInt(cardColor.slice(3, 5), 16)
+    const b = parseInt(cardColor.slice(5, 7), 16)
+    
+    // RとGを15%濃くする（0.85を掛けて、255から引く）
+    // つまり、明度を下げる（より濃くする）
+    const darkerR = Math.max(0, Math.min(255, r - Math.round(r * 0.15)))
+    const darkerG = Math.max(0, Math.min(255, g - Math.round(g * 0.15)))
+    const darkerB = b // Bはそのまま
+    
+    // 16進数に変換
+    const toHex = (n: number) => {
+      const hex = n.toString(16)
+      return hex.length === 1 ? "0" + hex : hex
+    }
+    
+    return `#${toHex(darkerR)}${toHex(darkerG)}${toHex(darkerB)}`
+  }
+  
+  // rgba形式の場合
+  if (cardColor.startsWith("rgba")) {
+    const match = cardColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+    if (match) {
+      const r = parseInt(match[1])
+      const g = parseInt(match[2])
+      const b = parseInt(match[3])
+      
+      // RとGを15%濃くする
+      const darkerR = Math.max(0, Math.min(255, r - Math.round(r * 0.15)))
+      const darkerG = Math.max(0, Math.min(255, g - Math.round(g * 0.15)))
+      const darkerB = b // Bはそのまま
+      
+      return `rgba(${darkerR}, ${darkerG}, ${darkerB}, 1)`
+    }
+  }
+  
+  // その他の形式の場合はデフォルトのグレーを返す
+  return "#cbd5e1"
+}
+
 // リスト色用（薄い色調）
 const LIST_COLORS = COLOR_PALETTE.map(color => ({
   name: color.name,
@@ -1042,6 +1094,13 @@ function KanbanColumn({
                         variant="outline"
                         size="sm"
                         className="w-full mb-1 text-xs"
+                        style={{
+                          backgroundColor: getMoveEditButtonColor(task.cardColor, list.color),
+                          borderColor: getMoveEditButtonColor(task.cardColor, list.color),
+                          color: task.cardColor && task.cardColor !== "" && task.cardColor.toLowerCase() !== "#ffffff" && task.cardColor.toLowerCase() !== "white" 
+                            ? "#ffffff" 
+                            : "#475569" // 白の場合はslate-600のテキスト
+                        }}
                         onClick={() => onLongPress(task.id)}
                       >
                         移動編集
@@ -1067,6 +1126,13 @@ function KanbanColumn({
                         variant="outline"
                         size="sm"
                         className="w-full mb-1 text-xs"
+                        style={{
+                          backgroundColor: getMoveEditButtonColor(task.cardColor, list.color),
+                          borderColor: getMoveEditButtonColor(task.cardColor, list.color),
+                          color: task.cardColor && task.cardColor !== "" && task.cardColor.toLowerCase() !== "#ffffff" && task.cardColor.toLowerCase() !== "white" 
+                            ? "#ffffff" 
+                            : "#475569" // 白の場合はslate-600のテキスト
+                        }}
                         onClick={() => onLongPress(task.id)}
                       >
                         移動編集

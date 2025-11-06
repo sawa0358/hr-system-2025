@@ -18,7 +18,7 @@ export default function AttendancePage() {
     department: "all",
     position: "all",
     status: "active",
-    employeeType: "all",
+    employeeType: "employee",
     showInOrgChart: "1"
   })
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null)
@@ -118,7 +118,9 @@ export default function AttendancePage() {
     }
 
     // 雇用形態フィルター
-    const matchesType = filters.employeeType === "all" || emp.employeeType === filters.employeeType
+    const matchesType = filters.employeeType === "all" || 
+      (filters.employeeType === "employee" && (emp.employeeType === "employee" || emp.employeeType === "正社員")) ||
+      emp.employeeType === filters.employeeType
 
     // 部署フィルター（複数の部署も含む）
     const matchesDepartment = filters.department === "all" || (() => {

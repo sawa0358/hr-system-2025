@@ -37,7 +37,7 @@ export function SharedEmployeeFilters({
   const [searchQuery, setSearchQuery] = useState("")
   const [department, setDepartment] = useState("all")
   const [status, setStatus] = useState("active")
-  const [employeeType, setEmployeeType] = useState("all")
+  const [employeeType, setEmployeeType] = useState("employee")
   const [position, setPosition] = useState("all")
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
@@ -84,7 +84,13 @@ export function SharedEmployeeFilters({
           .map((item: any) => 
             typeof item === 'string' ? { value: item, label: item } : item
           )
-          .filter((item: any) => item.value !== 'employee') // employeeを除外
+          .filter((item: any) => {
+            // employeeを除外
+            if (item.value === 'employee') return false
+            // 正社員を除外（value="employee"の正社員を表示するため）
+            if (item.value === '正社員' || item.label === '正社員') return false
+            return item.value && item.label
+          })
         setAvailableEmploymentTypes(types)
         if (typeof window !== 'undefined') {
           localStorage.setItem('employment-types', JSON.stringify(types))
@@ -116,7 +122,13 @@ export function SharedEmployeeFilters({
         if (savedEmploymentTypes) {
           try {
             const types = JSON.parse(savedEmploymentTypes)
-              .filter((item: any) => item.value !== 'employee') // employeeを除外
+              .filter((item: any) => {
+                // employeeを除外
+                if (item.value === 'employee') return false
+                // 正社員を除外（value="employee"の正社員を表示するため）
+                if (item.value === '正社員' || item.label === '正社員') return false
+                return item.value && item.label
+              })
             setAvailableEmploymentTypes(types)
           } catch (e) {
             console.error('雇用形態データのパースエラー:', e)
@@ -215,9 +227,16 @@ export function SharedEmployeeFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全雇用形態</SelectItem>
+            <SelectItem value="employee">正社員</SelectItem>
             {availableEmploymentTypes.length > 0 ? (
               availableEmploymentTypes
-                .filter((type) => type.value && type.value !== 'employee')
+                .filter((type) => {
+                  // employeeを除外
+                  if (type.value === 'employee') return false
+                  // 正社員を除外（value="employee"の正社員を表示するため）
+                  if (type.value === '正社員' || type.label === '正社員') return false
+                  return type.value && type.label
+                })
                 .map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
@@ -225,7 +244,6 @@ export function SharedEmployeeFilters({
                 ))
             ) : (
               <>
-                <SelectItem value="正社員">正社員</SelectItem>
                 <SelectItem value="契約社員">契約社員</SelectItem>
                 <SelectItem value="パートタイム">パートタイム</SelectItem>
                 <SelectItem value="業務委託">業務委託</SelectItem>

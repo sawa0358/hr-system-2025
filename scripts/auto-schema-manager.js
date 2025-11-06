@@ -107,6 +107,18 @@ ${datasource}`
     fs.writeFileSync(targetPath, schema);
   }
 
+  // データベーススキーマを適用
+  pushSchema() {
+    try {
+      console.log('🔄 データベーススキーマを適用中...');
+      execSync('npx prisma db push --accept-data-loss', { stdio: 'inherit' });
+      return true;
+    } catch (error) {
+      console.error('❌ データベーススキーマの適用に失敗:', error.message);
+      return false;
+    }
+  }
+
   // Prismaクライアントを再生成
   regenerateClient() {
     try {
@@ -159,6 +171,15 @@ ${datasource}`
         this.updateSchema(targetSchema, this.currentSchemaPath);
         console.log(`✅ スキーマを更新しました: ${provider}`);
 
+        // データベーススキーマを適用（Heroku環境の場合のみ）
+        if (env.isHeroku || env.isProduction) {
+          if (this.pushSchema()) {
+            console.log('✅ データベーススキーマを適用しました');
+          } else {
+            console.log('⚠️ データベーススキーマの適用に失敗しました');
+          }
+        }
+
         // Prismaクライアントを再生成
         console.log('🔄 Prismaクライアントを再生成中...');
         if (this.regenerateClient()) {
@@ -166,6 +187,18 @@ ${datasource}`
         } else {
           console.log('⚠️ スキーマは更新されましたが、クライアント再生成に失敗しました');
         }
+      } else {
+        // スキーマが最新でも、Heroku環境の場合はデータベーススキーマを確認
+        if (env.isHeroku || env.isProduction) {
+          console.log('🔄 データベーススキーマを確認中...');
+          if (this.pushSchema()) {
+            console.log('✅ データベーススキーマを確認しました');
+          }
+        }
+
+        // Prismaクライアントを再生成
+        console.log('🔄 Prismaクライアントを再生成中...');
+        this.regenerateClient();
       }
 
       // 本番環境用スキーマも更新（バックアップ用）

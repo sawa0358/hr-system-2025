@@ -5,7 +5,7 @@ import { getSignedDownloadUrl } from "@/lib/s3-client"
 
 /**
  * 有給管理履歴スナップショットダウンロードAPI
- * GET /api/vacation/history/[snapshotId]/download
+ * GET /api/vacation/history/snapshot/[snapshotId]/download
  * 総務・管理者のみアクセス可能
  */
 export async function GET(

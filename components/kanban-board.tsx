@@ -1841,8 +1841,13 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
       if (!activeList || !overList || activeList === overList) return
 
+      // モバイル時のみプレビューのためにリスト構造を即時更新（デスクトップはFinal drop時に更新）
+      if (!isMobile) {
+        return
+      }
+
       // モバイル用：即座に移動（リストに入る前でも移動）
-      const shouldMove = isMobile || (overList && activeList.id !== overList.id)
+      const shouldMove = true
       
       if (shouldMove) {
         setLists((lists) => {
@@ -1872,7 +1877,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
           })
           
           // 最後に移動したリストを記録
-          if (isMobile && overList.id !== lastMovedListIdRef.current) {
+          if (overList.id !== lastMovedListIdRef.current) {
             lastMovedListIdRef.current = overList.id
           }
           

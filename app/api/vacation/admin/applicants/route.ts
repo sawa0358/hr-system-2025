@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getNextGrantDate, getPreviousGrantDate } from "@/lib/vacation-grant-lot"
+import { getPreviousGrantDate, diffInYearsHalfStep, chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
-import { chooseGrantDaysForEmployee } from "@/lib/vacation-grant-lot"
 import { calculateRemainingDays, calculateUsedDays, calculatePendingDays, calculateTotalGranted, getNextGrantDateForEmployee } from "@/lib/vacation-stats"
 
 // 管理者向け: 全社員の有給カード表示用データ
@@ -155,8 +154,8 @@ export async function GET(request: NextRequest) {
           // 次回付与日を取得
           nextGrantDate = await getNextGrantDateForEmployee(e.id)
           if (nextGrantDate && e.vacationPattern) {
-            // 次回付与日の勤続年数を計算
-            const yearsSinceJoin = (nextGrantDate.getTime() - new Date(e.joinDate).getTime()) / (1000 * 60 * 60 * 24 * 365.25)
+            // 次回付与日の勤続年数を0.5年刻みで算出
+            const yearsSinceJoin = diffInYearsHalfStep(new Date(e.joinDate), nextGrantDate)
             nextGrantDays = chooseGrantDaysForEmployee(e.vacationPattern, yearsSinceJoin, cfg)
           }
           

@@ -37,12 +37,17 @@ export function LeaveHistorySelector({ employeeId, employeeName }: LeaveHistoryS
 
   // 履歴一覧を取得
   useEffect(() => {
-    if (!isAdminOrHR || !employeeId) return
+    if (!isAdminOrHR || !employeeId || !currentUser?.id) return
 
     const fetchHistory = async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/vacation/history/${employeeId}`)
+        const res = await fetch(`/api/vacation/history/${employeeId}`, {
+          headers: {
+            "x-employee-id": currentUser.id,
+          },
+          credentials: "include",
+        })
         if (res.ok) {
           const json = await res.json()
           setYears(json.years || [])
@@ -52,6 +57,8 @@ export function LeaveHistorySelector({ employeeId, employeeName }: LeaveHistoryS
           if (json.years && json.years.length > 0) {
             setSelectedYear(String(json.years[0]))
           }
+        } else if (res.status === 401 || res.status === 403) {
+          console.error("履歴取得エラー: 認証または権限がありません", await res.text())
         }
       } catch (error) {
         console.error("履歴取得エラー:", error)
@@ -61,7 +68,7 @@ export function LeaveHistorySelector({ employeeId, employeeName }: LeaveHistoryS
     }
 
     fetchHistory()
-  }, [isAdminOrHR, employeeId])
+  }, [isAdminOrHR, employeeId, currentUser?.id])
 
   // 選択した年度のスナップショットをフィルタリング
   const filteredSnapshots = selectedYear
@@ -72,7 +79,14 @@ export function LeaveHistorySelector({ employeeId, employeeName }: LeaveHistoryS
   const handleDownload = async (snapshotId: string, format: "png" | "pdf") => {
     setDownloading(`${snapshotId}-${format}`)
     try {
-      const res = await fetch(`/api/vacation/history/${snapshotId}/download?format=${format}`)
+      const res = await fetch(`/api/vacation/history/${snapshotId}/download?format=${format}`, {
+        headers: currentUser?.id
+          ? {
+              "x-employee-id": currentUser.id,
+            }
+          : undefined,
+        credentials: "include",
+      })
       if (res.ok) {
         const json = await res.json()
         if (json.downloadUrl) {
@@ -119,17 +133,23 @@ export function LeaveHistorySelector({ employeeId, employeeName }: LeaveHistoryS
       <Select 
         value={selectedYear} 
         onValueChange={setSelectedYear}
-        disabled={loading || years.length === 0}
+        disabled={loading}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder={loading ? "読み込み中..." : years.length === 0 ? "過去記録なし" : "過去記録"} />
         </SelectTrigger>
         <SelectContent>
-          {years.map((year) => (
-            <SelectItem key={year} value={String(year)}>
-              {year}年 ({getYearLabel(year)})
+          {years.length > 0 ? (
+            years.map((year) => (
+              <SelectItem key={year} value={String(year)}>
+                {year}年 ({getYearLabel(year)})
+              </SelectItem>
+            ))
+          ) : (
+            <SelectItem value="__no-data" disabled>
+              過去記録はありません
             </SelectItem>
-          ))}
+          )}
         </SelectContent>
       </Select>
 

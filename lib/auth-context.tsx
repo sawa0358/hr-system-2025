@@ -176,19 +176,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logAuthAction('logout', userName, true)
   }
 
-  // クライアントサイドでのマウント前は何も表示しない
-  if (!isMounted || isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-600">読み込み中...</p>
-        </div>
-      </div>
-    )
-  }
+  const shouldShowLoading = !isMounted || isLoading
 
-  return <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout }}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout }}>
+      {shouldShowLoading ? (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-600">読み込み中...</p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {

@@ -1304,6 +1304,10 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
     console.log('Dialog state changed:', { dialogOpen, selectedTask: selectedTask?.id, selectedTaskTitle: selectedTask?.title })
   }, [dialogOpen, selectedTask])
   const [activeId, setActiveId] = useState<string | null>(null)
+  
+  // コンポーネントのマウント状態を追跡
+  const isMountedRef = useRef(true)
+  const animationFrameRef = useRef<number | null>(null)
   const [addCardDialogOpen, setAddCardDialogOpen] = useState(false)
   const [listColorModalOpen, setListColorModalOpen] = useState(false)
   const [selectedListId, setSelectedListId] = useState<string | null>(null)
@@ -1526,8 +1530,6 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
   // ボードデータが変更されたときに状態を更新
   useEffect(() => {
-    let isMounted = true
-    
     if (boardData) {
       console.log("KanbanBoard - Updating with board data:", boardData)
       console.log("KanbanBoard - showArchived:", showArchived)
@@ -1535,22 +1537,31 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       console.log("KanbanBoard - freeWord:", freeWord, "member:", member)
       
       // 状態更新を安全に行う
-      if (isMounted) {
+      if (isMountedRef.current) {
         setLists(generateListsFromBoardData(boardData))
         setTasksById(generateTasksFromBoardData(boardData))
       }
     } else {
       // boardDataがnullの場合は状態をクリア
-      if (isMounted) {
+      if (isMountedRef.current) {
         setLists([])
         setTasksById({})
       }
     }
-    
-    return () => {
-      isMounted = false
-    }
   }, [boardData, showArchived, dateFrom, dateTo, freeWord, member])
+  
+  // コンポーネントのマウント/アンマウントを追跡
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+      // アンマウント時に進行中のアニメーションフレームをキャンセル
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [])
 
   // モバイル・PC共通：長押しベースのアクティベーション（スクロールとドラッグを区別）
   // モバイル用：TouchSensor（タッチイベントベース、0.5秒長押しでドラッグ開始）
@@ -1600,77 +1611,102 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       }
 
       // モバイルの場合、ドラッグ開始時のカード中心位置を記録
-      if (isMobile) {
-        // ドラッグ開始時のカード中心位置を記録
-        const allCards = document.querySelectorAll('[data-sortable-id]')
-        for (const card of allCards) {
-          if (card.getAttribute('data-sortable-id') === activeId) {
-            const cardRect = card.getBoundingClientRect()
-            dragStartCardCenterXRef.current = cardRect.left + cardRect.width / 2
-            break
+      if (isMobile && isMountedRef.current) {
+        try {
+          // ドラッグ開始時のカード中心位置を記録
+          const allCards = document.querySelectorAll('[data-sortable-id]')
+          for (const card of allCards) {
+            if (card.getAttribute('data-sortable-id') === activeId) {
+              const cardRect = card.getBoundingClientRect()
+              dragStartCardCenterXRef.current = cardRect.left + cardRect.width / 2
+              break
+            }
           }
+        } catch (error) {
+          console.warn('Error getting card position:', error)
         }
       }
       
       // モバイルのみ：ドラッグ開始時に隣のリストを即座に表示（キビキビ動く）
-      if (isMobile) {
-        const activeList = lists.find((list) => list.taskIds.includes(activeId))
-        if (activeList && desktopScrollContainerRef.current) {
-          const allListElements = document.querySelectorAll('[data-list-id]')
-          const currentListIndex = lists.findIndex((list) => list.id === activeList.id)
-          
-          // 右隣のリストを優先的に表示（なければ左隣）
-          let targetListElement: Element | null = null
-          if (currentListIndex < lists.length - 1) {
-            // 右隣のリスト
-            const rightList = lists[currentListIndex + 1]
-            for (const listEl of allListElements) {
-              if (listEl.getAttribute('data-list-id') === rightList.id) {
-                targetListElement = listEl
-                break
+      if (isMobile && isMountedRef.current) {
+        try {
+          const activeList = lists.find((list) => list.taskIds.includes(activeId))
+          if (activeList && desktopScrollContainerRef.current) {
+            const allListElements = document.querySelectorAll('[data-list-id]')
+            const currentListIndex = lists.findIndex((list) => list.id === activeList.id)
+            
+            // 右隣のリストを優先的に表示（なければ左隣）
+            let targetListElement: Element | null = null
+            if (currentListIndex < lists.length - 1) {
+              // 右隣のリスト
+              const rightList = lists[currentListIndex + 1]
+              for (const listEl of allListElements) {
+                if (listEl.getAttribute('data-list-id') === rightList.id) {
+                  targetListElement = listEl
+                  break
+                }
               }
             }
-          }
-          
-          if (!targetListElement && currentListIndex > 0) {
-            // 左隣のリスト
-            const leftList = lists[currentListIndex - 1]
-            for (const listEl of allListElements) {
-              if (listEl.getAttribute('data-list-id') === leftList.id) {
-                targetListElement = listEl
-                break
+            
+            if (!targetListElement && currentListIndex > 0) {
+              // 左隣のリスト
+              const leftList = lists[currentListIndex - 1]
+              for (const listEl of allListElements) {
+                if (listEl.getAttribute('data-list-id') === leftList.id) {
+                  targetListElement = listEl
+                  break
+                }
               }
             }
-          }
-          
-          // 隣のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
-          if (targetListElement) {
-            const container = desktopScrollContainerRef.current
-            const targetRect = targetListElement.getBoundingClientRect()
-            const containerRect = container.getBoundingClientRect()
-            const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
             
-            // アニメーションで移動方向が分かるようにする（300ms）
-            const startScrollLeft = container.scrollLeft
-            const distance = targetScrollLeft - startScrollLeft
-            const duration = 300 // 300msで移動（方向が分かる）
-            const startTime = performance.now()
-            
-            const animateScroll = (currentTime: number) => {
-              const elapsed = currentTime - startTime
-              const progress = Math.min(elapsed / duration, 1)
-              // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
-              const easeOut = 1 - Math.pow(1 - progress, 3)
-              container.scrollLeft = startScrollLeft + (distance * easeOut)
+            // 隣のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
+            if (targetListElement && isMountedRef.current) {
+              const container = desktopScrollContainerRef.current
+              if (!container) return
               
-              if (progress < 1) {
-                requestAnimationFrame(animateScroll)
+              const targetRect = targetListElement.getBoundingClientRect()
+              const containerRect = container.getBoundingClientRect()
+              const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
+              
+              // アニメーションで移動方向が分かるようにする（300ms）
+              const startScrollLeft = container.scrollLeft
+              const distance = targetScrollLeft - startScrollLeft
+              const duration = 300 // 300msで移動（方向が分かる）
+              const startTime = performance.now()
+              
+              const animateScroll = (currentTime: number) => {
+                if (!isMountedRef.current || !container) {
+                  if (animationFrameRef.current !== null) {
+                    cancelAnimationFrame(animationFrameRef.current)
+                    animationFrameRef.current = null
+                  }
+                  return
+                }
+                
+                const elapsed = currentTime - startTime
+                const progress = Math.min(elapsed / duration, 1)
+                // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
+                const easeOut = 1 - Math.pow(1 - progress, 3)
+                try {
+                  container.scrollLeft = startScrollLeft + (distance * easeOut)
+                } catch (error) {
+                  console.warn('Error setting scrollLeft:', error)
+                  return
+                }
+                
+                if (progress < 1 && isMountedRef.current) {
+                  animationFrameRef.current = requestAnimationFrame(animateScroll)
+                } else {
+                  animationFrameRef.current = null
+                }
               }
+              
+              container.style.scrollBehavior = 'auto'
+              animationFrameRef.current = requestAnimationFrame(animateScroll)
             }
-            
-            container.style.scrollBehavior = 'auto'
-            requestAnimationFrame(animateScroll)
           }
+        } catch (error) {
+          console.warn('Error in drag start scroll animation:', error)
         }
       }
     }
@@ -1687,88 +1723,107 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   
   // カードがリスト範囲内に入っているか判定し、次のリストへ即座に移動
   const checkAndMoveToNextList = (cardCenterX: number, activeId: string) => {
-    if (!desktopScrollContainerRef.current) return
+    if (!desktopScrollContainerRef.current || !isMountedRef.current) return
     
-    const activeList = lists.find((list) => list.taskIds.includes(activeId))
-    if (!activeList) return
-    
-    // すべてのリスト要素を取得
-    const allListElements = document.querySelectorAll('[data-list-id]')
-    
-    // 現在のカード位置を含むリストを見つける
-    let currentListElement: Element | null = null
-    for (const listEl of allListElements) {
-      const listRect = listEl.getBoundingClientRect()
-      if (cardCenterX >= listRect.left && cardCenterX <= listRect.right) {
-        currentListElement = listEl
-        break
-      }
-    }
-    
-    if (!currentListElement) return
-    
-    const currentListId = currentListElement.getAttribute('data-list-id')
-    if (!currentListId || currentListId === activeList.id) return
-    
-    // 現在のリストと異なり、最後に移動したリストとも異なる場合
-    if (currentListId !== activeList.id && currentListId !== lastMovedListIdRef.current) {
-      // カードを新しいリストに移動
-      setLists((currentLists) => {
-        const sourceList = currentLists.find((list) => list.taskIds.includes(activeId))
-        const targetList = currentLists.find((list) => list.id === currentListId)
-        
-        if (!sourceList || !targetList || sourceList.id === targetList.id) {
-          return currentLists
+    try {
+      const activeList = lists.find((list) => list.taskIds.includes(activeId))
+      if (!activeList) return
+      
+      // すべてのリスト要素を取得
+      const allListElements = document.querySelectorAll('[data-list-id]')
+      
+      // 現在のカード位置を含むリストを見つける
+      let currentListElement: Element | null = null
+      for (const listEl of allListElements) {
+        const listRect = listEl.getBoundingClientRect()
+        if (cardCenterX >= listRect.left && cardCenterX <= listRect.right) {
+          currentListElement = listEl
+          break
         }
-        
-        const updatedLists = currentLists.map((list) => {
-          if (list.id === sourceList.id) {
-            return { ...list, taskIds: list.taskIds.filter((id) => id !== activeId) }
+      }
+      
+      if (!currentListElement) return
+      
+      const currentListId = currentListElement.getAttribute('data-list-id')
+      if (!currentListId || currentListId === activeList.id) return
+      
+      // 現在のリストと異なり、最後に移動したリストとも異なる場合
+      if (currentListId !== activeList.id && currentListId !== lastMovedListIdRef.current) {
+        // カードを新しいリストに移動
+        setLists((currentLists) => {
+          const sourceList = currentLists.find((list) => list.taskIds.includes(activeId))
+          const targetList = currentLists.find((list) => list.id === currentListId)
+          
+          if (!sourceList || !targetList || sourceList.id === targetList.id) {
+            return currentLists
           }
-          if (list.id === targetList.id) {
-            return { ...list, taskIds: [...list.taskIds, activeId] }
-          }
-          return list
+          
+          const updatedLists = currentLists.map((list) => {
+            if (list.id === sourceList.id) {
+              return { ...list, taskIds: list.taskIds.filter((id) => id !== activeId) }
+            }
+            if (list.id === targetList.id) {
+              return { ...list, taskIds: [...list.taskIds, activeId] }
+            }
+            return list
+          })
+          
+          lastMovedListIdRef.current = currentListId
+          return updatedLists
         })
         
-        lastMovedListIdRef.current = currentListId
-        return updatedLists
-      })
-      
-      // 次のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
-      const currentListIndex = lists.findIndex((list) => list.id === currentListId)
-      if (currentListIndex >= 0 && currentListIndex < lists.length - 1 && currentListId !== lastScrolledListIdRef.current) {
-        const nextList = lists[currentListIndex + 1]
-        const nextListElement = document.querySelector(`[data-list-id="${nextList.id}"]`)
-        if (nextListElement && desktopScrollContainerRef.current) {
-          const container = desktopScrollContainerRef.current
-          const targetRect = nextListElement.getBoundingClientRect()
-          const containerRect = container.getBoundingClientRect()
-          const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
-          
-          // 短いアニメーションで移動方向が分かるようにする（150ms - 一気に動くが方向が分かる）
-          const startScrollLeft = container.scrollLeft
-          const distance = targetScrollLeft - startScrollLeft
-          const duration = 150 // 150msで一気に移動（方向が分かる程度）
-          const startTime = performance.now()
-          
-          const animateScroll = (currentTime: number) => {
-            const elapsed = currentTime - startTime
-            const progress = Math.min(elapsed / duration, 1)
-            // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
-            const easeOut = 1 - Math.pow(1 - progress, 3)
-            container.scrollLeft = startScrollLeft + (distance * easeOut)
+        // 次のリストを即座に表示（フリック：短いアニメーションで方向が分かるように）
+        const currentListIndex = lists.findIndex((list) => list.id === currentListId)
+        if (currentListIndex >= 0 && currentListIndex < lists.length - 1 && currentListId !== lastScrolledListIdRef.current) {
+          const nextList = lists[currentListIndex + 1]
+          const nextListElement = document.querySelector(`[data-list-id="${nextList.id}"]`)
+          if (nextListElement && desktopScrollContainerRef.current) {
+            const container = desktopScrollContainerRef.current
+            const targetRect = nextListElement.getBoundingClientRect()
+            const containerRect = container.getBoundingClientRect()
+            const targetScrollLeft = container.scrollLeft + (targetRect.left - containerRect.left) - (containerRect.width / 2) + (targetRect.width / 2)
             
-            if (progress < 1) {
-              requestAnimationFrame(animateScroll)
+            // 短いアニメーションで移動方向が分かるようにする（150ms - 一気に動くが方向が分かる）
+            const startScrollLeft = container.scrollLeft
+            const distance = targetScrollLeft - startScrollLeft
+            const duration = 150 // 150msで一気に移動（方向が分かる程度）
+            const startTime = performance.now()
+            
+            const animateScroll = (currentTime: number) => {
+              if (!isMountedRef.current || !container) {
+                if (animationFrameRef.current !== null) {
+                  cancelAnimationFrame(animationFrameRef.current)
+                  animationFrameRef.current = null
+                }
+                return
+              }
+              
+              const elapsed = currentTime - startTime
+              const progress = Math.min(elapsed / duration, 1)
+              // ease-out関数で滑らかに減速（開始は速く、終了は緩やか）
+              const easeOut = 1 - Math.pow(1 - progress, 3)
+              try {
+                container.scrollLeft = startScrollLeft + (distance * easeOut)
+              } catch (error) {
+                console.warn('Error setting scrollLeft:', error)
+                return
+              }
+              
+              if (progress < 1 && isMountedRef.current) {
+                animationFrameRef.current = requestAnimationFrame(animateScroll)
+              } else {
+                animationFrameRef.current = null
+              }
             }
+            
+            container.style.scrollBehavior = 'auto'
+            animationFrameRef.current = requestAnimationFrame(animateScroll)
+            lastScrolledListIdRef.current = currentListId
           }
-          
-          container.style.scrollBehavior = 'auto'
-          requestAnimationFrame(animateScroll)
-          lastScrolledListIdRef.current = currentListId
         }
       }
+    } catch (error) {
+      console.warn('Error in checkAndMoveToNextList:', error)
     }
   }
   
@@ -1829,63 +1884,67 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
   
   // モバイル用：カードの位置に基づいて最も近いリストに自動移動
   const autoMoveToClosestList = (cardCenterX: number, activeId: string) => {
-    if (!isMobile || !desktopScrollContainerRef.current) return
+    if (!isMobile || !desktopScrollContainerRef.current || !isMountedRef.current) return
     
-    const activeList = lists.find((list) => list.taskIds.includes(activeId))
-    if (!activeList) return
-    
-    // すべてのリスト要素を取得
-    const allListElements = document.querySelectorAll('[data-list-id]')
-    let closestList: { id: string; element: Element; distance: number } | null = null
-    
-    allListElements.forEach((listEl) => {
-      const listId = listEl.getAttribute('data-list-id')
-      if (!listId || listId === activeList.id) return
+    try {
+      const activeList = lists.find((list) => list.taskIds.includes(activeId))
+      if (!activeList) return
       
-      const listRect = listEl.getBoundingClientRect()
-      const listCenterX = listRect.left + listRect.width / 2
-      const distance = Math.abs(cardCenterX - listCenterX)
+      // すべてのリスト要素を取得
+      const allListElements = document.querySelectorAll('[data-list-id]')
+      let closestList: { id: string; element: Element; distance: number } | null = null
       
-      // リストの範囲内（±50%マージン）にある場合のみ考慮
-      if (cardCenterX >= listRect.left - listRect.width * 0.5 && 
-          cardCenterX <= listRect.right + listRect.width * 0.5) {
-        if (!closestList || distance < closestList.distance) {
-          closestList = { id: listId, element: listEl, distance }
+      allListElements.forEach((listEl) => {
+        const listId = listEl.getAttribute('data-list-id')
+        if (!listId || listId === activeList.id) return
+        
+        const listRect = listEl.getBoundingClientRect()
+        const listCenterX = listRect.left + listRect.width / 2
+        const distance = Math.abs(cardCenterX - listCenterX)
+        
+        // リストの範囲内（±50%マージン）にある場合のみ考慮
+        if (cardCenterX >= listRect.left - listRect.width * 0.5 && 
+            cardCenterX <= listRect.right + listRect.width * 0.5) {
+          if (!closestList || distance < closestList.distance) {
+            closestList = { id: listId, element: listEl, distance }
+          }
+        }
+      })
+      
+      // 最も近いリストが見つかり、現在のリストと異なる場合
+      if (!closestList) return
+      
+      const closestListId: string = (closestList as { id: string; element: Element; distance: number }).id
+      if (closestListId !== activeList.id) {
+        const targetList = lists.find((list) => list.id === closestListId)
+        if (!targetList) return
+        
+        // 即座に移動（重複防止：最後に移動したリストと異なる場合のみ）
+        if (lastMovedListIdRef.current !== closestListId) {
+          setLists((currentLists) => {
+            const currentActiveList = currentLists.find((list) => list.taskIds.includes(activeId))
+            if (!currentActiveList || currentActiveList.id === targetList.id) return currentLists
+            
+            const activeItems = currentActiveList.taskIds
+            const targetItems = targetList.taskIds
+            
+            const updatedLists = currentLists.map((list) => {
+              if (list.id === currentActiveList.id) {
+                return { ...list, taskIds: activeItems.filter((id) => id !== activeId) }
+              }
+              if (list.id === targetList.id) {
+                return { ...list, taskIds: [...targetItems, activeId] }
+              }
+              return list
+            })
+            
+            lastMovedListIdRef.current = closestListId
+            return updatedLists
+          })
         }
       }
-    })
-    
-    // 最も近いリストが見つかり、現在のリストと異なる場合
-    if (!closestList) return
-    
-    const closestListId: string = (closestList as { id: string; element: Element; distance: number }).id
-    if (closestListId !== activeList.id) {
-      const targetList = lists.find((list) => list.id === closestListId)
-      if (!targetList) return
-      
-      // 即座に移動（重複防止：最後に移動したリストと異なる場合のみ）
-      if (lastMovedListIdRef.current !== closestListId) {
-        setLists((currentLists) => {
-          const currentActiveList = currentLists.find((list) => list.taskIds.includes(activeId))
-          if (!currentActiveList || currentActiveList.id === targetList.id) return currentLists
-          
-          const activeItems = currentActiveList.taskIds
-          const targetItems = targetList.taskIds
-          
-          const updatedLists = currentLists.map((list) => {
-            if (list.id === currentActiveList.id) {
-              return { ...list, taskIds: activeItems.filter((id) => id !== activeId) }
-            }
-            if (list.id === targetList.id) {
-              return { ...list, taskIds: [...targetItems, activeId] }
-            }
-            return list
-          })
-          
-          lastMovedListIdRef.current = closestListId
-          return updatedLists
-        })
-      }
+    } catch (error) {
+      console.warn('Error in autoMoveToClosestList:', error)
     }
   }
 

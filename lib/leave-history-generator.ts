@@ -3,7 +3,7 @@
  * Puppeteerを使用してサーバーサイドで生成
  */
 
-import puppeteer from "puppeteer"
+// import puppeteer from "puppeteer" // 無効化: HerokuではChrome for Testingビルドパックを削除したため使用不可
 import { prisma } from "@/lib/prisma"
 import { getVacationStats } from "@/lib/vacation-stats"
 
@@ -197,9 +197,13 @@ function generateLeavePageHTML(
 export async function generateSnapshotImageAndPDF(
   options: GenerateSnapshotOptions
 ): Promise<{ imageBuffer: Buffer | null; pdfBuffer: Buffer | null; error?: string }> {
-  let browser: puppeteer.Browser | null = null
+  // let browser: puppeteer.Browser | null = null // 無効化: Puppeteerは使用不可
 
   try {
+    // Puppeteer機能は無効化されています（HerokuではChrome for Testingビルドパックを削除したため）
+    return { imageBuffer: null, pdfBuffer: null, error: "Puppeteer機能は現在無効化されています" }
+    
+    /* 無効化されたコード
     // 社員情報を取得
     const employee = await prisma.employee.findUnique({
       where: { id: options.employeeId },
@@ -275,22 +279,9 @@ export async function generateSnapshotImageAndPDF(
     browser = null
 
     return { imageBuffer, pdfBuffer }
+    */ // 無効化されたコードの終了
   } catch (error: any) {
     console.error("スナップショット生成エラー:", error)
-    console.error("エラー詳細:", {
-      message: error?.message,
-      stack: error?.stack,
-      name: error?.name,
-    })
-    
-    if (browser) {
-      try {
-        await browser.close()
-      } catch (closeError) {
-        console.error("ブラウザクローズエラー:", closeError)
-      }
-    }
-    
     return {
       imageBuffer: null,
       pdfBuffer: null,

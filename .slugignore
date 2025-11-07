@@ -51,7 +51,6 @@ node_modules/.cache/
 .next/static/chunks/
 node_modules/@prisma/engines/
 node_modules/.prisma/
-prisma/migrations/
 *.test.*
 *.spec.*
 __tests__/

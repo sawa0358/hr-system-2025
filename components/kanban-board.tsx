@@ -3480,3 +3480,5 @@ function AddCardDialog({
     </Dialog>
   )
 }
+
+KanbanBoard.displayName = "KanbanBoard"

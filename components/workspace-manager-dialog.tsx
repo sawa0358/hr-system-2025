@@ -135,7 +135,13 @@ export function WorkspaceManagerDialog({
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
-            {workspace?.id ? `ワークスペースを編集: "${workspace.name}"` : "新しいワークスペースを作成"}
+            {workspace?.id ? (
+              <>
+                ワークスペースを編集: &quot;{workspace.name}&quot;
+              </>
+            ) : (
+              "新しいワークスペースを作成"
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -157,7 +163,7 @@ export function WorkspaceManagerDialog({
                 {workspace?.id ? "新しいワークスペース名 *" : "ワークスペース名 *"}
                 {workspace?.id && (
                   <span className="text-xs text-slate-500 ml-2">
-                    (現在: "{workspace.name}")
+                    (現在: &quot;{workspace.name}&quot;)
                   </span>
                 )}
               </Label>

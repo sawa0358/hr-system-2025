@@ -36,6 +36,8 @@ uploads/
 # database
 prisma/dev.db
 prisma/*.db.backup*
+latest.dump*
+
 
 # Logs
 logs

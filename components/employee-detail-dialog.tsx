@@ -1549,6 +1549,31 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     setIsVerificationDialogOpen(true)
   }
 
+  const handleJoinDateInputInteraction = (
+    event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>
+  ) => {
+    if (
+      !requiresJoinDateVerification ||
+      isJoinDateEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    ;(event.target as HTMLInputElement).blur()
+    handleRequestJoinDateEdit()
+  }
+
+  const handleJoinDateChange = (value: string) => {
+    if (requiresJoinDateVerification && !isJoinDateEditingEnabled && canEditUserInfo) {
+      return
+    }
+    setFormData({ ...formData, joinDate: value })
+  }
+
   const handleVerificationSuccess = () => {
     if (pendingVerificationAction?.type === "employee-my-number") {
       setShowEmployeeMyNumber(true)
@@ -1780,33 +1805,23 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         isJoinDateEditingEnabled ? (
                           <span className="text-xs text-emerald-600">認証済み</span>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <Lock className="w-4 h-4 text-amber-600" />
-                            <span className="text-xs text-amber-600">総務・管理者のみ変更可</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleRequestJoinDateEdit}
-                              disabled={isAllInputDisabled}
-                            >
-                              認証する
-                            </Button>
-                          </div>
+                          <Lock className="w-4 h-4 text-amber-600" />
                         )
                       )}
                     </div>
                     <Input 
                       type="date" 
                       value={formData.joinDate}
-                      onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
+                      onChange={(e) => handleJoinDateChange(e.target.value)}
                       disabled={
                         isAllInputDisabled ||
-                        (!canEditUserInfo && !isNewEmployee) ||
-                        (requiresJoinDateVerification && !isJoinDateEditingEnabled)
+                        (!canEditUserInfo && !isNewEmployee)
                       }
+                      readOnly={requiresJoinDateVerification && !isJoinDateEditingEnabled && canEditUserInfo}
+                      onFocus={handleJoinDateInputInteraction}
+                      onMouseDown={handleJoinDateInputInteraction}
                       className={
-                        (!canEditUserInfo && !isNewEmployee) || (requiresJoinDateVerification && !isJoinDateEditingEnabled)
+                        (!canEditUserInfo && !isNewEmployee) || (requiresJoinDateVerification && !isJoinDateEditingEnabled && canEditUserInfo)
                           ? "text-[#374151] bg-[#edeaed]"
                           : ""
                       }

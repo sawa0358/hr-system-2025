@@ -12,11 +12,20 @@ interface PasswordVerificationDialogProps {
   onOpenChange: (open: boolean) => void
   onVerified: () => void
   currentUser?: any
+  actionType?: "employee-my-number" | "family-my-number" | "join-date"
 }
 
-export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser }: PasswordVerificationDialogProps) {
+export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser, actionType }: PasswordVerificationDialogProps) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+
+  const isJoinDateContext = actionType === "join-date"
+  const descriptionText = isJoinDateContext
+    ? "入社日を変更するには、ログインパスワードの入力が必要です。"
+    : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
+  const warningText = isJoinDateContext
+    ? "入社日は勤怠管理や年次有給の付与に影響します。変更内容を十分に確認してください。"
+    : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
 
   const handleVerify = () => {
     // 現在のユーザーのパスワードと照合
@@ -38,15 +47,13 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
             <Lock className="w-5 h-5 text-amber-600" />
             パスワード認証
           </DialogTitle>
-          <DialogDescription>マイナンバーを表示するには、ログインパスワードの入力が必要です。</DialogDescription>
+          <DialogDescription>{descriptionText}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-amber-800">
-              マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。
-            </p>
+            <p className="text-xs text-amber-800">{warningText}</p>
           </div>
 
           <div className="space-y-2">

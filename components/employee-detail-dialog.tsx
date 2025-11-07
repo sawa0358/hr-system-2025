@@ -29,6 +29,11 @@ interface FamilyMember {
   description?: string
 }
 
+type PendingVerificationAction =
+  | { type: "employee-my-number" }
+  | { type: "family-my-number"; id: string }
+  | { type: "join-date" }
+
 interface EmployeeDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -635,15 +640,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [showPassword, setShowPassword] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
+  const [isJoinDateEditingEnabled, setIsJoinDateEditingEnabled] = useState(isNewEmployee)
   const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false)
-  const [pendingMyNumberAction, setPendingMyNumberAction] = useState<{
-    type: "employee" | "family"
-    id?: string
-  } | null>(null)
+  const [pendingVerificationAction, setPendingVerificationAction] = useState<PendingVerificationAction | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [avatarText, setAvatarText] = useState('')
   const [currentFolder, setCurrentFolder] = useState('')
+
+  const requiresJoinDateVerification = Boolean(employee?.id || latestEmployee?.id)
+
+  useEffect(() => {
+    if (open) {
+      setIsJoinDateEditingEnabled(!requiresJoinDateVerification)
+    }
+  }, [open, requiresJoinDateVerification])
 
   // 保存処理
   const handleSave = async () => {
@@ -1513,25 +1524,40 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
   const handleToggleMyNumber = (type: "employee" | "family", id?: string) => {
     if (type === "employee" && !showEmployeeMyNumber) {
-      setPendingMyNumberAction({ type: "employee" })
+      setPendingVerificationAction({ type: "employee-my-number" })
       setIsVerificationDialogOpen(true)
     } else if (type === "employee") {
       setShowEmployeeMyNumber(false)
     } else if (type === "family" && id && !showFamilyMyNumber[id]) {
-      setPendingMyNumberAction({ type: "family", id })
+      setPendingVerificationAction({ type: "family-my-number", id })
       setIsVerificationDialogOpen(true)
     } else if (type === "family" && id) {
       setShowFamilyMyNumber({ ...showFamilyMyNumber, [id]: false })
     }
   }
 
-  const handleVerificationSuccess = () => {
-    if (pendingMyNumberAction?.type === "employee") {
-      setShowEmployeeMyNumber(true)
-    } else if (pendingMyNumberAction?.type === "family" && pendingMyNumberAction.id) {
-      setShowFamilyMyNumber({ ...showFamilyMyNumber, [pendingMyNumberAction.id]: true })
+  const handleRequestJoinDateEdit = () => {
+    if (
+      !requiresJoinDateVerification ||
+      isJoinDateEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return
     }
-    setPendingMyNumberAction(null)
+    setPendingVerificationAction({ type: "join-date" })
+    setIsVerificationDialogOpen(true)
+  }
+
+  const handleVerificationSuccess = () => {
+    if (pendingVerificationAction?.type === "employee-my-number") {
+      setShowEmployeeMyNumber(true)
+    } else if (pendingVerificationAction?.type === "family-my-number" && pendingVerificationAction.id) {
+      setShowFamilyMyNumber({ ...showFamilyMyNumber, [pendingVerificationAction.id]: true })
+    } else if (pendingVerificationAction?.type === "join-date") {
+      setIsJoinDateEditingEnabled(true)
+    }
+    setPendingVerificationAction(null)
   }
 
   // パスワード表示のトグル機能（管理者・総務のみ）
@@ -1748,14 +1774,46 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     </>
                   )}
                   <div className="space-y-2">
-                    <Label>入社日</Label>
+                    <div className="flex items-center gap-2">
+                      <Label>入社日</Label>
+                      {requiresJoinDateVerification && canEditUserInfo && (
+                        isJoinDateEditingEnabled ? (
+                          <span className="text-xs text-emerald-600">認証済み</span>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <Lock className="w-4 h-4 text-amber-600" />
+                            <span className="text-xs text-amber-600">総務・管理者のみ変更可</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRequestJoinDateEdit}
+                              disabled={isAllInputDisabled}
+                            >
+                              認証する
+                            </Button>
+                          </div>
+                        )
+                      )}
+                    </div>
                     <Input 
                       type="date" 
                       value={formData.joinDate}
                       onChange={(e) => setFormData({...formData, joinDate: e.target.value})}
-                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
-                      className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}
+                      disabled={
+                        isAllInputDisabled ||
+                        (!canEditUserInfo && !isNewEmployee) ||
+                        (requiresJoinDateVerification && !isJoinDateEditingEnabled)
+                      }
+                      className={
+                        (!canEditUserInfo && !isNewEmployee) || (requiresJoinDateVerification && !isJoinDateEditingEnabled)
+                          ? "text-[#374151] bg-[#edeaed]"
+                          : ""
+                      }
                     />
+                    {requiresJoinDateVerification && canEditUserInfo && !isJoinDateEditingEnabled && (
+                      <p className="text-xs text-slate-500">※ 変更するにはログインパスワードの入力が必要です</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>社員番号</Label>
@@ -2819,9 +2877,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
       <PasswordVerificationDialog
         open={isVerificationDialogOpen}
-        onOpenChange={setIsVerificationDialogOpen}
+        onOpenChange={(openState) => {
+          setIsVerificationDialogOpen(openState)
+          if (!openState) {
+            setPendingVerificationAction(null)
+          }
+        }}
         onVerified={handleVerificationSuccess}
         currentUser={currentUser}
+        actionType={pendingVerificationAction?.type}
       />
 
       <DepartmentManagerDialog

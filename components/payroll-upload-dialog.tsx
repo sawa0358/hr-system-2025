@@ -246,7 +246,10 @@ export function PayrollUploadDialog({
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
-      document.body.removeChild(link)
+      // 安全に削除（親ノードを確認）
+      if (link.parentNode === document.body) {
+        document.body.removeChild(link)
+      }
       
       // URLを解放してメモリリークを防ぐ
       setTimeout(() => {

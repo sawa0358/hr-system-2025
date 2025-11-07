@@ -2359,7 +2359,10 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                                 link.download = file.name
                                 document.body.appendChild(link)
                                 link.click()
-                                document.body.removeChild(link)
+                                // 安全に削除（親ノードを確認）
+                                if (link.parentNode === document.body) {
+                                  document.body.removeChild(link)
+                                }
                                 window.URL.revokeObjectURL(url)
                                 
                                 console.log("File downloaded successfully:", file.name)

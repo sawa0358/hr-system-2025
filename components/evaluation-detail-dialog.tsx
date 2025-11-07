@@ -325,7 +325,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
+        // 安全に削除（親ノードを確認）
+        if (a.parentNode === document.body) {
+          document.body.removeChild(a)
+        }
         console.log('ダウンロード成功')
       } else {
         const errorText = await response.text()

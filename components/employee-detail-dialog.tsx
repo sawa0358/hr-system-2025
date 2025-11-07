@@ -1171,7 +1171,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     a.download = file.name
     document.body.appendChild(a)
     a.click()
-    document.body.removeChild(a)
+    // 安全に削除（親ノードを確認）
+    if (a.parentNode === document.body) {
+      document.body.removeChild(a)
+    }
     URL.revokeObjectURL(url)
   }
 

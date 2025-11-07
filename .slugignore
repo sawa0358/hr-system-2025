@@ -1,0 +1,58 @@
+# Herokuスラッグサイズ削減用
+# 不要なファイルを除外
+
+# 開発用ファイル
+*.md
+!README.md
+*.log
+*.txt
+!Procfile
+
+# バックアップファイル
+backups/
+*.db
+*.sql
+*.dump
+*.backup
+
+# ドキュメント
+docs/
+*.md
+!README.md
+
+# テストファイル
+**/__tests__/
+**/*.test.*
+**/*.spec.*
+
+# 開発ツール
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 一時ファイル
+tmp/
+temp/
+*.tmp
+
+# アップロードファイル（本番ではS3を使用）
+uploads/
+
+# Git関連
+.git/
+.gitignore
+
+# その他
+node_modules/.cache/
+.next/cache/
+.next/server/chunks/
+.next/static/chunks/
+node_modules/@prisma/engines/
+node_modules/.prisma/
+prisma/migrations/
+*.test.*
+*.spec.*
+__tests__/
+__mocks__/

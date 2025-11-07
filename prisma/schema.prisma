@@ -145,6 +145,9 @@ model Employee {
   
   // 家族構成関係
   familyMembers         FamilyMember[]
+  
+  // 有給管理履歴スナップショット関係
+  leaveHistorySnapshots LeaveHistorySnapshot[]
 
   @@map("employees")
 }
@@ -693,4 +696,37 @@ model DefaultCardSettings {
   updatedAt     DateTime @updatedAt
 
   @@map("default_card_settings")
+}
+
+// 有給管理履歴スナップショット（新付与日前の実績保存）
+model LeaveHistorySnapshot {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // スナップショット情報
+  snapshotDate  DateTime // スナップショット取得日（新付与日の前日）
+  grantYear     Int      // 対象年度（例: 2024年度）
+  grantDate     DateTime  // 新付与日
+  
+  // 保存された実績データ
+  totalGranted  Decimal  // 総付与数
+  used          Decimal  // 取得済み
+  pending       Decimal  // 申請中
+  remaining     Decimal  // 残り有給日数
+  joinDate      DateTime // 入社日
+  
+  // 画像/PDFファイル情報
+  imageUrl      String?  // 画像URL（S3キーまたはファイルパス）
+  pdfUrl        String?  // PDF URL（S3キーまたはファイルパス）
+  fileFormat    String   @default("png") // 保存形式（png, pdf）
+  
+  // メタデータ
+  snapshotData  Json?    // 追加のスナップショットデータ（JSON形式）
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([employeeId, grantYear])
+  @@index([employeeId, snapshotDate])
+  @@map("leave_history_snapshots")
 }

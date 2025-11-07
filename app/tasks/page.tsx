@@ -237,6 +237,9 @@ export default function TasksPage() {
 
   // ボード選択時にlocalStorageに保存し、データを取得
   useEffect(() => {
+    let isMounted = true
+    let abortController: AbortController | null = null
+
     if (currentBoard && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.setItem('currentBoard', currentBoard)
@@ -245,7 +248,17 @@ export default function TasksPage() {
       }
       // ボード変更時は現在のボードデータをクリアしてから新しいデータを取得
       setCurrentBoardData(null)
-      fetchBoardData(currentBoard)
+      
+      // AbortControllerを作成してキャンセル可能にする
+      abortController = new AbortController()
+      fetchBoardData(currentBoard, abortController.signal).then(() => {
+        // マウント状態をチェックしてから状態を更新
+        if (!isMounted) return
+      }).catch((error) => {
+        if (error.name !== 'AbortError' && isMounted) {
+          console.error("Failed to fetch board data:", error)
+        }
+      })
     } else if (!currentBoard && currentUser) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentBoard')
@@ -253,6 +266,13 @@ export default function TasksPage() {
         window.dispatchEvent(new CustomEvent('boardChanged'))
       }
       setCurrentBoardData(null)
+    }
+
+    return () => {
+      isMounted = false
+      if (abortController) {
+        abortController.abort()
+      }
     }
   }, [currentBoard, currentUser])
 
@@ -408,20 +428,20 @@ export default function TasksPage() {
           // 保存されたボードが存在し、かつ現在のワークスペースのボードであれば復元
           if (boardExists) {
             setCurrentBoard(savedBoard)
-            fetchBoardData(savedBoard)
+            // useEffectがトリガーされてfetchBoardDataが呼ばれるので、ここでは呼ばない
             console.log("Restored saved board:", savedBoard, "from workspace:", workspaceId)
           } else {
             // マイボードを優先的に選択
             const myBoard = data.workspace.boards.find((b: any) => b.name === `${currentUser.name}のマイボード`)
             if (myBoard) {
               setCurrentBoard(myBoard.id)
-              fetchBoardData(myBoard.id)
+              // useEffectがトリガーされてfetchBoardDataが呼ばれるので、ここでは呼ばない
               console.log("Auto-selected my board:", myBoard.name, "from workspace:", workspaceId)
             } else {
               // なければ最初のボードを選択
               const firstBoard = data.workspace.boards[0]
               setCurrentBoard(firstBoard.id)
-              fetchBoardData(firstBoard.id)
+              // useEffectがトリガーされてfetchBoardDataが呼ばれるので、ここでは呼ばない
               console.log("Auto-selected board:", firstBoard.name, "from workspace:", workspaceId)
             }
           }
@@ -435,16 +455,28 @@ export default function TasksPage() {
     }
   }
 
-  const fetchBoardData = async (boardId: string) => {
+  const fetchBoardData = async (boardId: string, signal?: AbortSignal) => {
     try {
       console.log("Fetching board data for:", boardId)
       const response = await fetch(`/api/boards/${boardId}`, {
         headers: {
           "x-employee-id": currentUser?.id || "",
         },
+        signal, // AbortSignalを渡す
       })
+      
+      // リクエストがキャンセルされた場合は早期リターン
+      if (signal?.aborted) {
+        return
+      }
+      
       const data = await response.json()
       console.log("Board data received:", data)
+      
+      // リクエストがキャンセルされた場合は早期リターン
+      if (signal?.aborted) {
+        return
+      }
       
       if (data.board) {
         setCurrentBoardData(data.board)
@@ -452,19 +484,28 @@ export default function TasksPage() {
       } else if (data.error) {
         console.error("Board not found:", data.error)
         // ボードが見つからない場合、ボード選択をクリア
+        if (!signal?.aborted) {
+          setCurrentBoard(null)
+          setCurrentBoardData(null)
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('currentBoard')
+          }
+        }
+      }
+    } catch (error: any) {
+      // AbortErrorは無視（キャンセルされたリクエスト）
+      if (error.name === 'AbortError') {
+        console.log("Board data fetch cancelled")
+        return
+      }
+      console.error("Failed to fetch board data:", error)
+      // エラーが発生した場合もボード選択をクリア（キャンセルされていない場合のみ）
+      if (!signal?.aborted) {
         setCurrentBoard(null)
         setCurrentBoardData(null)
         if (typeof window !== 'undefined') {
           localStorage.removeItem('currentBoard')
         }
-      }
-    } catch (error) {
-      console.error("Failed to fetch board data:", error)
-      // エラーが発生した場合もボード選択をクリア
-      setCurrentBoard(null)
-      setCurrentBoardData(null)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentBoard')
       }
     }
   }
@@ -519,7 +560,11 @@ export default function TasksPage() {
           
           // 現在選択中のワークスペースの場合、ボードもリフレッシュ
           if (currentWorkspace === editingWorkspace.id && currentBoard) {
-            await fetchBoardData(currentBoard)
+            try {
+              await fetchBoardData(currentBoard)
+            } catch (error) {
+              console.error("Failed to refresh board data:", error)
+            }
           }
           
           setWorkspaceDialogOpen(false)
@@ -1194,7 +1239,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
             boardId={currentBoard}
             currentUserId={currentUser?.id}
             currentUserRole={currentUser?.role}
-            onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+            onRefresh={() => {
+              if (currentBoard) {
+                fetchBoardData(currentBoard).catch((error) => {
+                  console.error("Failed to refresh board data:", error)
+                })
+              }
+            }}
             onBack={() => {
               setTaskFilters(prev => ({ ...prev, showArchived: false }))
             }}
@@ -1214,7 +1265,13 @@ ${permissions?.createWorkspace ? `- ワークスペースの作成・編集・�
               boardData={currentBoardData} 
               currentUserId={currentUser?.id}
               currentUserRole={currentUser?.role}
-              onRefresh={() => currentBoard && fetchBoardData(currentBoard)}
+              onRefresh={() => {
+              if (currentBoard) {
+                fetchBoardData(currentBoard).catch((error) => {
+                  console.error("Failed to refresh board data:", error)
+                })
+              }
+            }}
               showArchived={false}
               dateFrom={taskFilters.dateFrom}
               dateTo={taskFilters.dateTo}

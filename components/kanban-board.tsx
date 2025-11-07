@@ -1526,13 +1526,29 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
 
   // ボードデータが変更されたときに状態を更新
   useEffect(() => {
+    let isMounted = true
+    
     if (boardData) {
       console.log("KanbanBoard - Updating with board data:", boardData)
       console.log("KanbanBoard - showArchived:", showArchived)
       console.log("KanbanBoard - dateFrom:", dateFrom, "dateTo:", dateTo)
       console.log("KanbanBoard - freeWord:", freeWord, "member:", member)
-      setLists(generateListsFromBoardData(boardData))
-      setTasksById(generateTasksFromBoardData(boardData))
+      
+      // 状態更新を安全に行う
+      if (isMounted) {
+        setLists(generateListsFromBoardData(boardData))
+        setTasksById(generateTasksFromBoardData(boardData))
+      }
+    } else {
+      // boardDataがnullの場合は状態をクリア
+      if (isMounted) {
+        setLists([])
+        setTasksById({})
+      }
+    }
+    
+    return () => {
+      isMounted = false
     }
   }, [boardData, showArchived, dateFrom, dateTo, freeWord, member])
 

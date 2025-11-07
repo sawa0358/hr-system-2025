@@ -171,13 +171,16 @@ ${datasource}`
         this.updateSchema(targetSchema, this.currentSchemaPath);
         console.log(`✅ スキーマを更新しました: ${provider}`);
 
-        // データベーススキーマを適用（Heroku環境の場合のみ）
-        if (env.isHeroku || env.isProduction) {
+        // データベーススキーマを適用（ローカル環境のみ、Herokuビルド時はスキップ）
+        // Herokuではビルド時にデータベース接続ができないため、マイグレーションは別途実行
+        if (!env.isHeroku && (env.isProduction || env.isLocal)) {
           if (this.pushSchema()) {
             console.log('✅ データベーススキーマを適用しました');
           } else {
             console.log('⚠️ データベーススキーマの適用に失敗しました');
           }
+        } else if (env.isHeroku) {
+          console.log('⏭️ Herokuビルド時はデータベーススキーマの適用をスキップします（postdeployで実行）');
         }
 
         // Prismaクライアントを再生成
@@ -188,12 +191,15 @@ ${datasource}`
           console.log('⚠️ スキーマは更新されましたが、クライアント再生成に失敗しました');
         }
       } else {
-        // スキーマが最新でも、Heroku環境の場合はデータベーススキーマを確認
-        if (env.isHeroku || env.isProduction) {
+        // スキーマが最新でも、ローカル環境の場合はデータベーススキーマを確認
+        // Herokuビルド時はスキップ（ビルド時にデータベース接続ができないため）
+        if (!env.isHeroku && (env.isProduction || env.isLocal)) {
           console.log('🔄 データベーススキーマを確認中...');
           if (this.pushSchema()) {
             console.log('✅ データベーススキーマを確認しました');
           }
+        } else if (env.isHeroku) {
+          console.log('⏭️ Herokuビルド時はデータベーススキーマの確認をスキップします');
         }
 
         // Prismaクライアントを再生成

@@ -2700,8 +2700,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                           a.download = file.originalName || file.filename || 'download'
                                           document.body.appendChild(a)
                                           a.click()
-                                          window.URL.revokeObjectURL(url)
-                                          document.body.removeChild(a)
+                                          
+                                          // 安全に削除（ブラウザが処理するまで少し待つ）
+                                          setTimeout(() => {
+                                            if (a.parentNode === document.body) {
+                                              document.body.removeChild(a)
+                                            }
+                                            window.URL.revokeObjectURL(url)
+                                          }, 100)
                                         } else {
                                           console.error('ファイルダウンロードエラー:', await response.text())
                                         }

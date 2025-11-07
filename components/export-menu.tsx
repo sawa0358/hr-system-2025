@@ -127,10 +127,12 @@ export function ExportMenu({
       document.body.appendChild(link)
       link.click()
       
-      // 安全に削除
-      if (link.parentNode === document.body) {
-        document.body.removeChild(link)
-      }
+      // 安全に削除（ブラウザが処理するまで少し待つ）
+      setTimeout(() => {
+        if (link.parentNode === document.body) {
+          document.body.removeChild(link)
+        }
+      }, 100)
 
       toast.success("PNG画像のエクスポートが完了しました")
     } catch (error) {

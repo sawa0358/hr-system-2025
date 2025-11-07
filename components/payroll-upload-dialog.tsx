@@ -226,8 +226,14 @@ export function PayrollUploadDialog({
             link.download = fileName
             document.body.appendChild(link)
             link.click()
-            document.body.removeChild(link)
-            window.URL.revokeObjectURL(url)
+            
+            // 安全に削除（ブラウザが処理するまで少し待つ）
+            setTimeout(() => {
+              if (link.parentNode === document.body) {
+                document.body.removeChild(link)
+              }
+              window.URL.revokeObjectURL(url)
+            }, 100)
             return
           } else {
             console.error('ファイルダウンロードレスポンスエラー:', downloadResponse.status, downloadResponse.statusText)
@@ -246,13 +252,13 @@ export function PayrollUploadDialog({
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
-      // 安全に削除（親ノードを確認）
-      if (link.parentNode === document.body) {
-        document.body.removeChild(link)
-      }
       
-      // URLを解放してメモリリークを防ぐ
+      // 安全に削除（ブラウザが処理するまで少し待つ）
       setTimeout(() => {
+        if (link.parentNode === document.body) {
+          document.body.removeChild(link)
+        }
+        // URLを解放してメモリリークを防ぐ
         URL.revokeObjectURL(url)
       }, 100)
     } catch (error) {

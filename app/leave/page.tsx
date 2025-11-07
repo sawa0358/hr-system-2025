@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { VacationRequestForm } from "@yukyu-system/components/vacation-request-form"
 import { VacationList } from "@yukyu-system/components/vacation-list"
 import { VacationStats } from "@yukyu-system/components/vacation-stats"
+import { LeaveHistorySelector } from "@/components/leave-history-selector"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -149,7 +150,7 @@ export default function LeavePage() {
   return (
     <main className="overflow-y-auto">
       <div className="p-8 space-y-8" style={{ backgroundColor: '#f2f6f9' }}>
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">
               {isViewingOtherEmployee ? `${displayEmployeeName} の有給管理` : `${displayEmployeeName}さんの有給管理`}
@@ -158,7 +159,7 @@ export default function LeavePage() {
               <p className="text-slate-600">管理者プレビュー</p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {tabs.map((tab) => (
               <Button
                 key={tab.name}
@@ -172,12 +173,13 @@ export default function LeavePage() {
           </div>
         </div>
 
-        {/* 管理者が他の社員の画面を見ている場合は戻るボタンを表示 */}
-        {isViewingOtherEmployee && (
+        {/* 過去記録セレクター（総務・管理者のみ表示） */}
+        {isViewingOtherEmployee && isAdminOrHR && (
           <div className="flex justify-end">
-            <Button variant="outline" onClick={() => router.push("/leave/admin")}>
-              管理者画面に戻る
-            </Button>
+            <LeaveHistorySelector 
+              employeeId={displayEmployeeId} 
+              employeeName={displayEmployeeName}
+            />
           </div>
         )}
 

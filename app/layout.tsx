@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   generator: "Next.js",
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function RootLayout({
   children,
 }: Readonly<{

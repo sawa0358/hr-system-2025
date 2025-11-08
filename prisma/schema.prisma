@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -89,7 +89,7 @@ model Employee {
   privacyPosition       Boolean           @default(true)
   privacyUrl            Boolean           @default(true)
   privacyAddress        Boolean           @default(true)
-  privacyBio             Boolean           @default(true)
+  privacyBio            Boolean           @default(true)
   privacyEmail          Boolean           @default(true)
   privacyWorkPhone      Boolean           @default(true)
   privacyExtension      Boolean           @default(true)
@@ -145,9 +145,6 @@ model Employee {
   
   // 家族構成関係
   familyMembers         FamilyMember[]
-  
-  // 有給管理履歴スナップショット関係
-  leaveHistorySnapshots LeaveHistorySnapshot[]
 
   @@map("employees")
 }
@@ -632,7 +629,7 @@ model TimeOffRequest {
   breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
   reason         String?
   createdAt      DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  updatedAt      DateTime @updatedAt
   
   consumptions   Consumption[]
   
@@ -682,51 +679,4 @@ model VacationAppConfig {
   updatedAt     DateTime @updatedAt
   
   @@map("vacation_app_configs")
-}
-
-// デフォルトカード設定（全ユーザー共通）
-model DefaultCardSettings {
-  id            String   @id @default(cuid())
-  labels        Json     // ラベル設定
-  priorities    Json     // 重要度設定
-  statuses      Json     // 状態設定
-  defaultCardColor String? // デフォルトカード色
-  defaultListColor String? // デフォルトリスト色
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("default_card_settings")
-}
-
-// 有給管理履歴スナップショット（新付与日前の実績保存）
-model LeaveHistorySnapshot {
-  id            String   @id @default(cuid())
-  employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  // スナップショット情報
-  snapshotDate  DateTime // スナップショット取得日（新付与日の前日）
-  grantYear     Int      // 対象年度（例: 2024年度）
-  grantDate     DateTime  // 新付与日
-  
-  // 保存された実績データ
-  totalGranted  Decimal  // 総付与数
-  used          Decimal  // 取得済み
-  pending       Decimal  // 申請中
-  remaining     Decimal  // 残り有給日数
-  joinDate      DateTime // 入社日
-  
-  // 画像/PDFファイル情報
-  imageUrl      String?  // 画像URL（S3キーまたはファイルパス）
-  pdfUrl        String?  // PDF URL（S3キーまたはファイルパス）
-  fileFormat    String   @default("png") // 保存形式（png, pdf）
-  
-  // メタデータ
-  snapshotData  Json?    // 追加のスナップショットデータ（JSON形式）
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([employeeId, grantYear])
-  @@index([employeeId, snapshotDate])
-  @@map("leave_history_snapshots")
 }

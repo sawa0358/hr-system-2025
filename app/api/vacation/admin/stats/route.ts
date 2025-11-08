@@ -5,6 +5,8 @@ import { calculateUsedDays, getNextGrantDateForEmployee } from "@/lib/vacation-s
 import { getPreviousGrantDate } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 管理者用統計情報を取得するAPI
  * GET /api/vacation/admin/stats

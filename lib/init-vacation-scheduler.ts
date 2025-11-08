@@ -6,9 +6,11 @@
 import { startVacationScheduler } from './vacation-scheduler'
 
 // 本番環境または自動実行が有効な場合のみ開始
+const isNextBuildPhase = process.env.NEXT_PHASE === 'phase-production-build'
 const shouldStart =
-  process.env.NODE_ENV === 'production' ||
-  process.env.AUTO_START_VACATION_SCHEDULER === 'true'
+  !isNextBuildPhase &&
+  (process.env.NODE_ENV === 'production' ||
+    process.env.AUTO_START_VACATION_SCHEDULER === 'true')
 
 if (shouldStart) {
   console.log('[InitVacationScheduler] 有給管理スケジューラーを開始します')

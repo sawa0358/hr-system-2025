@@ -2,6 +2,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 社員の有給申請一覧を取得するAPI
  * GET /api/vacation/requests?employeeId=xxx

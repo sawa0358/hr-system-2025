@@ -620,6 +620,10 @@ model TimeOffRequest {
   hoursPerDay    Int?        // 時間休計算用（会社の1日=8h等）
   status         RequestStatus @default(PENDING)
   approvedAt     DateTime?
+  // 承認フロー用フィールド
+  supervisorId   String?      // 選択した上司ID（必須）
+  approvedBy     String?      // 上司承認者ID
+  finalizedBy    String?      // 総務・管理者決済者ID
   // 計算スナップショット
   totalDays      Decimal?     // 承認時に確定
   breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
@@ -630,6 +634,7 @@ model TimeOffRequest {
   consumptions   Consumption[]
   
   @@index([employeeId])
+  @@index([supervisorId])
   @@map("time_off_requests")
 }
 
@@ -674,4 +679,30 @@ model VacationAppConfig {
   updatedAt     DateTime @updatedAt
   
   @@map("vacation_app_configs")
+}
+
+model BulletinCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  color     String     @default("secondary")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  bulletins Bulletin[]
+
+  @@map("bulletin_categories")
+}
+
+model Bulletin {
+  id          String            @id @default(cuid())
+  title       String
+  content     String
+  pinned      Boolean           @default(false)
+  publishedAt DateTime          @default(now())
+  categoryId  String?
+  category    BulletinCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([publishedAt])
+  @@map("bulletins")
 }

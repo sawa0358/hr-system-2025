@@ -92,8 +92,14 @@ async function ensureInvisibleTopEmployee() {
   }
 }
 
+const isNextBuildPhase = process.env.NEXT_PHASE === 'phase-production-build';
+const shouldEnsureInvisibleTop =
+  typeof window === 'undefined' &&
+  !isNextBuildPhase &&
+  process.env.DISABLE_INVISIBLE_TOP_AUTO_CREATE !== 'true';
+
 // アプリケーション起動時に実行（サーバーサイドのみ）
-if (typeof window === 'undefined') {
+if (shouldEnsureInvisibleTop) {
   // 非同期で実行（アプリケーション起動をブロックしない）
   ensureInvisibleTopEmployee().catch(console.error);
 }

@@ -429,6 +429,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [editingChecklistTitle, setEditingChecklistTitle] = useState("")
   const [addingItemToChecklistId, setAddingItemToChecklistId] = useState<string | null>(null)
   const [newChecklistItemText, setNewChecklistItemText] = useState("")
+  const [isComposingNewChecklistTitle, setIsComposingNewChecklistTitle] = useState(false)
+  const [isIMEActiveNewChecklistTitle, setIsIMEActiveNewChecklistTitle] = useState(false)
+  const [isComposingEditChecklistTitle, setIsComposingEditChecklistTitle] = useState(false)
+  const [isIMEActiveEditChecklistTitle, setIsIMEActiveEditChecklistTitle] = useState(false)
+  const [isComposingChecklistItemInput, setIsComposingChecklistItemInput] = useState(false)
+  const [isIMEActiveChecklistItemInput, setIsIMEActiveChecklistItemInput] = useState(false)
   
   // タスクが開かれた時にフォルダ情報を読み込み、ファイルを取得
   useEffect(() => {
@@ -768,6 +774,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const handleAddChecklist = () => {
     setIsAddingChecklist(true)
     setNewChecklistTitle("")
+    setIsComposingNewChecklistTitle(false)
+    setIsIMEActiveNewChecklistTitle(false)
   }
 
   const handleConfirmAddChecklist = () => {
@@ -780,12 +788,16 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       setChecklists([...checklists, newChecklist])
       setIsAddingChecklist(false)
       setNewChecklistTitle("")
+      setIsComposingNewChecklistTitle(false)
+      setIsIMEActiveNewChecklistTitle(false)
     }
   }
 
   const handleAddChecklistItem = (checklistId: string) => {
     setAddingItemToChecklistId(checklistId)
     setNewChecklistItemText("")
+    setIsComposingChecklistItemInput(false)
+    setIsIMEActiveChecklistItemInput(false)
   }
 
   const handleConfirmAddChecklistItem = () => {
@@ -802,6 +814,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       )
       setAddingItemToChecklistId(null)
       setNewChecklistItemText("")
+      setIsComposingChecklistItemInput(false)
+      setIsIMEActiveChecklistItemInput(false)
     }
   }
 
@@ -840,6 +854,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const handleEditChecklistTitle = (checklistId: string, currentTitle: string) => {
     setEditingChecklistId(checklistId)
     setEditingChecklistTitle(currentTitle)
+    setIsComposingEditChecklistTitle(false)
+    setIsIMEActiveEditChecklistTitle(false)
   }
 
   const handleConfirmEditChecklistTitle = () => {
@@ -853,6 +869,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
       )
       setEditingChecklistId(null)
       setEditingChecklistTitle("")
+      setIsComposingEditChecklistTitle(false)
+      setIsIMEActiveEditChecklistTitle(false)
     }
   }
 
@@ -2017,7 +2035,30 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     placeholder="チェックリスト名を入力"
                     value={newChecklistTitle}
                     onChange={(e) => setNewChecklistTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleConfirmAddChecklist()}
+                    onCompositionStart={() => {
+                      setIsComposingNewChecklistTitle(true)
+                      setIsIMEActiveNewChecklistTitle(true)
+                    }}
+                    onCompositionEnd={() => {
+                      setIsComposingNewChecklistTitle(false)
+                      setTimeout(() => setIsIMEActiveNewChecklistTitle(false), 100)
+                    }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLInputElement
+                      if (target.composing || target.isComposing) {
+                        setIsIMEActiveNewChecklistTitle(true)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (isComposingNewChecklistTitle || isIMEActiveNewChecklistTitle) {
+                          e.preventDefault()
+                          return
+                        }
+                        e.preventDefault()
+                        handleConfirmAddChecklist()
+                      }
+                    }}
                     className="bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
                     autoFocus
                   />
@@ -2030,6 +2071,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                     onClick={() => {
                       setIsAddingChecklist(false)
                       setNewChecklistTitle("")
+                      setIsComposingNewChecklistTitle(false)
+                      setIsIMEActiveNewChecklistTitle(false)
                     }}
                     className="flex-shrink-0"
                   >
@@ -2055,10 +2098,31 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                               onChange={(e) => setEditingChecklistTitle(e.target.value)}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
+                                  if (isComposingEditChecklistTitle || isIMEActiveEditChecklistTitle) {
+                                    e.preventDefault()
+                                    return
+                                  }
+                                  e.preventDefault()
                                   handleConfirmEditChecklistTitle()
                                 } else if (e.key === "Escape") {
                                   setEditingChecklistId(null)
                                   setEditingChecklistTitle("")
+                                  setIsComposingEditChecklistTitle(false)
+                                  setIsIMEActiveEditChecklistTitle(false)
+                                }
+                              }}
+                              onCompositionStart={() => {
+                                setIsComposingEditChecklistTitle(true)
+                                setIsIMEActiveEditChecklistTitle(true)
+                              }}
+                              onCompositionEnd={() => {
+                                setIsComposingEditChecklistTitle(false)
+                                setTimeout(() => setIsIMEActiveEditChecklistTitle(false), 100)
+                              }}
+                              onInput={(e) => {
+                                const target = e.target as HTMLInputElement
+                                if (target.composing || target.isComposing) {
+                                  setIsIMEActiveEditChecklistTitle(true)
                                 }
                               }}
                               className="flex-1 min-w-0 bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
@@ -2078,6 +2142,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                               onClick={() => {
                                 setEditingChecklistId(null)
                                 setEditingChecklistTitle("")
+                                  setIsComposingEditChecklistTitle(false)
+                                  setIsIMEActiveEditChecklistTitle(false)
                               }}
                               className="h-6 w-6 p-0 flex-shrink-0"
                             >
@@ -2145,10 +2211,31 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           onChange={(e) => setNewChecklistItemText(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
+                              if (isComposingChecklistItemInput || isIMEActiveChecklistItemInput) {
+                                e.preventDefault()
+                                return
+                              }
+                              e.preventDefault()
                               handleConfirmAddChecklistItem()
                             } else if (e.key === "Escape") {
                               setAddingItemToChecklistId(null)
                               setNewChecklistItemText("")
+                              setIsComposingChecklistItemInput(false)
+                              setIsIMEActiveChecklistItemInput(false)
+                            }
+                          }}
+                          onCompositionStart={() => {
+                            setIsComposingChecklistItemInput(true)
+                            setIsIMEActiveChecklistItemInput(true)
+                          }}
+                          onCompositionEnd={() => {
+                            setIsComposingChecklistItemInput(false)
+                            setTimeout(() => setIsIMEActiveChecklistItemInput(false), 100)
+                          }}
+                          onInput={(e) => {
+                            const target = e.target as HTMLInputElement
+                            if (target.composing || target.isComposing) {
+                              setIsIMEActiveChecklistItemInput(true)
                             }
                           }}
                           className="flex-1 bg-blue-50 border-blue-300 border-2 focus-visible:ring-blue-400 focus-visible:border-blue-400"
@@ -2163,6 +2250,8 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           onClick={() => {
                             setAddingItemToChecklistId(null)
                             setNewChecklistItemText("")
+                            setIsComposingChecklistItemInput(false)
+                            setIsIMEActiveChecklistItemInput(false)
                           }}
                           className="flex-shrink-0"
                         >

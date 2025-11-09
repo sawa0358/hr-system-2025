@@ -2560,6 +2560,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 {isSaving ? "保存中..." : "保存"}
               </Button>
             </div>
+            <div className="h-4 sm:hidden" />
           </div>
         </div>
       </DialogContent>

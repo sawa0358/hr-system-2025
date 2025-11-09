@@ -33,8 +33,8 @@ const menuItems = [
 const dropdownMenuItems = [
   { icon: Users, label: "社員情報", href: "/employees", permission: "viewOwnProfile" as const },
   { icon: Clock, label: "勤怠管理", href: "/attendance", permission: "viewOwnAttendance" as const },
+  { icon: DollarSign, label: "給与or請求管理", href: "/payroll", permission: "viewOwnPayroll" as const },
   { icon: Calendar, label: "有給管理", href: "/leave", permission: "viewLeaveManagement" as const },
-  { icon: DollarSign, label: "給与管理", href: "/payroll", permission: "viewOwnPayroll" as const },
 ]
 
 const adminMenuItems = [{ icon: FileText, label: "ログを表示", href: "/logs", permission: "viewLogs" as const }]
@@ -362,7 +362,7 @@ export function Sidebar() {
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
                 <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-slate-500 font-medium">v2.4.0</span>
+                <span className="text-xs text-slate-500 font-medium">v2.4.1</span>
               </div>
             </div>
           )}

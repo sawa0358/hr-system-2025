@@ -312,9 +312,9 @@ export function PayrollUploadDialog({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle className="text-2xl">
-              給与明細アップロード - {employee.name} ({employee.employeeNumber})
+              給与or請求明細 - {employee.name}
             </DialogTitle>
-            {isAllEmployeesMode && <AIAskButton context="給与管理（全員分）" />}
+            {isAllEmployeesMode && <AIAskButton context="給与or請求管理（全員分）" />}
           </div>
         </DialogHeader>
 

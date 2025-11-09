@@ -179,8 +179,8 @@ export default function PayrollPage() {
     if (filters.status !== 'active') filterDescriptions.push(`ステータス: ${filters.status}`)
     if (filters.employeeType !== 'all') filterDescriptions.push(`雇用形態: ${filters.employeeType}`)
 
-    return `【現在のページ】給与管理
-【ページの説明】社員の給与明細をアップロード・管理するページです
+    return `【現在のページ】給与or請求管理
+【ページの説明】社員の給与or請求明細をアップロード・管理するページです
 
 【現在のユーザー】
 - 名前: ${currentUser?.name || '不明'}
@@ -196,19 +196,19 @@ ${filterDescriptions.length > 0 ? filterDescriptions.join('\n') : 'フィルタ�
 - フィルター適用後: ${filteredEmployees.length}名
 
 【利用可能な機能】
-${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
-- 給与データの編集・削除
-- 全社員の給与データ閲覧
-- 給与統計の確認` : `- 自分の給与明細の閲覧
-- 給与履歴の確認`}
+${isAdminOrHR ? `- 給与or請求明細のアップロード（個別/一括）
+- 給与or請求データの編集・削除
+- 全社員の給与or請求データ閲覧
+- 給与or請求統計の確認` : `- 自分の給与or請求明細の閲覧
+- 給与or請求履歴の確認`}
 
 【このページで質問できること】
-- 給与明細のアップロード方法
-- 給与データの確認方法
+- 給与or請求明細のアップロード方法
+- 給与or請求データの確認方法
 - フィルター機能の使い方
 - 一括アップロード機能について
-- 給与計算の仕組み
-- その他、給与管理に関する質問`
+- 給与or請求計算の仕組み
+- その他、給与or請求管理に関する質問`
   }
 
   return (
@@ -216,8 +216,8 @@ ${isAdminOrHR ? `- 給与明細のアップロード（個別/一括）
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">給与管理</h1>
-            <p className="text-slate-600">カードをクリックして給与明細を管理</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">給与or請求管理</h1>
+            <p className="text-slate-600">カードをクリックして給与or請求明細を管理</p>
           </div>
           {canUseAI && <AIAskButton context={buildAIContext()} />}
         </div>

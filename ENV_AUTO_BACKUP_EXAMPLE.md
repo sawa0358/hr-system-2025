@@ -56,3 +56,4 @@ AUTO_BACKUP=true
 NEXT_PUBLIC_AUTO_BACKUP=true
 AUTO_BACKUP_CONFIG='{"enabled":true,"backupDir":"backups","retentionDays":30,"maxBackups":50,"compress":true,"triggers":{"onStartup":true,"onEmployeeUpdate":false,"onFileUpload":false,"onDaily":true}}'
 ```
+

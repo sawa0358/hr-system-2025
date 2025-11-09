@@ -188,3 +188,4 @@ your-hr-system-bucket/
    echo $S3_BUCKET_NAME
    echo $AWS_ACCESS_KEY_ID
    ```
+

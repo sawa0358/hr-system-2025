@@ -195,7 +195,7 @@ export async function POST(
 
       // 上司承認時はLIFO消化を行わない（決済時に実行）
       // 申請を承認済み（決済待ち）に更新
-      await tx.timeOffRequest.update({
+      const updated = await tx.timeOffRequest.update({
         where: { id: req.id },
         data: {
           status: "APPROVED",
@@ -203,6 +203,15 @@ export async function POST(
           approvedBy: approverId,
           totalDays: new Prisma.Decimal(daysToUse), // Prisma.Decimalに変換
           // finalizedByはnullのまま（決済待ち）
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       })
 
@@ -216,6 +225,74 @@ export async function POST(
           payload: JSON.stringify({ daysToUse, pendingFinalization: true }),
         },
       })
+
+      // 管理者・総務へメール通知（決済待ち）
+      const hrAndAdmins = await tx.employee.findMany({
+        where: {
+          OR: [
+            { role: 'admin' },
+            { role: 'hr' },
+          ],
+          email: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      })
+
+      if (hrAndAdmins.length > 0) {
+        const { sendMail } = await import('@/lib/mail')
+        const { format } = await import('date-fns')
+        
+        const recipientEmails = hrAndAdmins.map(u => u.email).filter((email): email is string => Boolean(email))
+        
+        if (recipientEmails.length > 0) {
+          const subject = `【決済待ち】${updated.employee.name}さんの有給申請が承認されました`
+          const formattedStart = format(updated.startDate, 'yyyy年MM月dd日')
+          const formattedEnd = format(updated.endDate, 'yyyy年MM月dd日')
+          
+          const textBody = [
+            '管理者・総務各位',
+            '',
+            `${updated.employee.name}さんの有給申請が上司により承認されました。`,
+            `期間：${formattedStart} 〜 ${formattedEnd}`,
+            `日数：${daysToUse}日`,
+            updated.reason ? `理由：${updated.reason}` : undefined,
+            `承認者：${approver.name}`,
+            '',
+            '決済処理をお願いします。',
+            'https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin',
+          ].filter(Boolean).join('\n')
+          
+          const htmlBody = [
+            '<p>管理者・総務各位</p>',
+            `<p><strong>${updated.employee.name}さんの有給申請が上司により承認されました。</strong></p>`,
+            `<p>期間：${formattedStart} 〜 ${formattedEnd}</p>`,
+            `<p>日数：<strong>${daysToUse}日</strong></p>`,
+            updated.reason ? `<p>理由：${updated.reason}</p>` : '',
+            `<p>承認者：${approver.name}</p>`,
+            '<p>決済処理をお願いします。</p>',
+            '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin">https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin</a></p>',
+          ].join('')
+          
+          const mailResult = await sendMail({
+            to: recipientEmails,
+            subject,
+            text: textBody,
+            html: htmlBody,
+          })
+          
+          if (mailResult.success) {
+            console.log('[POST /api/vacation/requests/approve] 管理者・総務へのメール通知送信成功:', recipientEmails.length, '名')
+          } else if (!mailResult.skipped) {
+            console.error('[POST /api/vacation/requests/approve] 管理者・総務へのメール通知送信失敗:', mailResult.error)
+          }
+        }
+      }
 
       return NextResponse.json({ success: true, approved: true, pendingFinalization: true })
     })

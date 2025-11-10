@@ -341,8 +341,71 @@ export async function POST(request: NextRequest) {
       console.log('[POST /api/vacation/request] 申請データ作成:', JSON.stringify({ ...createData, totalDays: totalDays.toString() }, null, 2))
       const created = await prisma.timeOffRequest.create({
         data: createData,
+        include: {
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
       })
       console.log('[POST /api/vacation/request] 申請作成成功:', created.id)
+
+      // 直属上司へメール通知
+      const supervisor = await prisma.employee.findUnique({
+        where: { id: validSupervisorId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      })
+
+      if (supervisor?.email) {
+        const { sendMail } = await import('@/lib/mail')
+        const { format } = await import('date-fns')
+        
+        const subject = `【有給申請】${created.employee.name}さんから有給申請がありました`
+        const formattedStart = format(new Date(startDate), 'yyyy年MM月dd日')
+        const formattedEnd = format(new Date(endDate), 'yyyy年MM月dd日')
+        
+        const textBody = [
+          `${supervisor.name}さん`,
+          '',
+          `${created.employee.name}さんから有給申請がありました。`,
+          `期間：${formattedStart} 〜 ${formattedEnd}`,
+          `日数：${totalDays}日`,
+          reason ? `理由：${reason}` : undefined,
+          '',
+          '承認または却下の処理をお願いします。',
+          'https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin',
+        ].filter(Boolean).join('\n')
+        
+        const htmlBody = [
+          `<p>${supervisor.name}さん</p>`,
+          `<p><strong>${created.employee.name}さんから有給申請がありました。</strong></p>`,
+          `<p>期間：${formattedStart} 〜 ${formattedEnd}</p>`,
+          `<p>日数：<strong>${totalDays}日</strong></p>`,
+          reason ? `<p>理由：${reason}</p>` : '',
+          '<p>承認または却下の処理をお願いします。</p>',
+          '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin">https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin</a></p>',
+        ].join('')
+        
+        const mailResult = await sendMail({
+          to: supervisor.email,
+          subject,
+          text: textBody,
+          html: htmlBody,
+        })
+        
+        if (mailResult.success) {
+          console.log('[POST /api/vacation/request] 上司へのメール通知送信成功:', supervisor.email)
+        } else if (!mailResult.skipped) {
+          console.error('[POST /api/vacation/request] 上司へのメール通知送信失敗:', mailResult.error)
+        }
+      }
 
       return NextResponse.json({ request: created, calculatedDays: totalDays }, { status: 201 })
     }

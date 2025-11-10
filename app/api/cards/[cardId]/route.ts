@@ -291,6 +291,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           previousListTitle ? `移動元リスト：${previousListTitle}` : undefined,
           "",
           "詳細はHRシステムのタスク管理画面で確認してください。",
+          "https://hr-system-2025-33b161f586cd.herokuapp.com/tasks",
         ].filter(Boolean)
 
         const htmlLines = [
@@ -300,6 +301,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           updatedCard.board?.name ? `<p>ボード：${updatedCard.board.name}</p>` : "",
           previousListTitle ? `<p>移動元リスト：${previousListTitle}</p>` : "",
           "<p>詳細はHRシステムのタスク管理画面で確認してください。</p>",
+          '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/tasks">https://hr-system-2025-33b161f586cd.herokuapp.com/tasks</a></p>',
         ]
 
         notifications.push({
@@ -323,6 +325,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           updatedCard.list?.title ? `最終リスト：${updatedCard.list.title}` : undefined,
           "",
           "必要に応じてアーカイブ一覧から詳細を確認してください。",
+          "https://hr-system-2025-33b161f586cd.herokuapp.com/tasks",
         ].filter(Boolean)
 
         const htmlLines = [
@@ -332,6 +335,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           updatedCard.board?.name ? `<p>ボード：${updatedCard.board.name}</p>` : "",
           updatedCard.list?.title ? `<p>最終リスト：${updatedCard.list.title}</p>` : "",
           "<p>必要に応じてアーカイブ一覧から詳細を確認してください。</p>",
+          '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/tasks">https://hr-system-2025-33b161f586cd.herokuapp.com/tasks</a></p>',
         ]
 
         notifications.push({

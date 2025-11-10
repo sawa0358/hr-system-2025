@@ -112,6 +112,7 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
         card.list?.title ? `リスト：${card.list.title}` : undefined,
         "",
         "タスクの詳細はHRシステムのタスク管理から確認できます。",
+        "https://hr-system-2025-33b161f586cd.herokuapp.com/tasks",
       ]
         .filter(Boolean)
         .join("\n")
@@ -123,6 +124,7 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
         card.board?.name ? `<p>ボード：${card.board.name}</p>` : "",
         card.list?.title ? `<p>リスト：${card.list.title}</p>` : "",
         "<p>タスクの詳細はHRシステムのタスク管理から確認できます。</p>",
+        '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/tasks">https://hr-system-2025-33b161f586cd.herokuapp.com/tasks</a></p>',
       ].join("")
 
       const mailResult = await sendMail({

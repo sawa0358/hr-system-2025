@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
         "",
         "進捗状況を確認し、必要に応じて対応をお願いします。",
         "詳細はHRシステムのタスク管理画面で確認してください。",
+        "https://hr-system-2025-33b161f586cd.herokuapp.com/tasks",
       ]
         .filter(Boolean)
         .join("\n")
@@ -118,6 +119,7 @@ export async function POST(request: NextRequest) {
         card.list?.title ? `<p>現在のリスト：${card.list.title}</p>` : "",
         "<p>進捗状況を確認し、必要に応じて対応をお願いします。</p>",
         "<p>詳細はHRシステムのタスク管理画面で確認してください。</p>",
+        '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/tasks">https://hr-system-2025-33b161f586cd.herokuapp.com/tasks</a></p>',
       ].join("")
 
       const mailResult = await sendMail({

@@ -20,7 +20,7 @@ export interface FileUploadData {
 export async function handleFileUpload(
   request: NextRequest,
   employeeId: string
-): Promise<{ success: boolean; fileId?: string; error?: string }> {
+): Promise<{ success: boolean; fileId?: string; error?: string; category?: string; folderName?: string }> {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -151,7 +151,12 @@ export async function handleFileUpload(
       }
     }
 
-    return { success: true, fileId: fileRecord.id };
+    return { 
+      success: true, 
+      fileId: fileRecord.id,
+      category: category || 'general',
+      folderName: folderName || folder || undefined,
+    };
   } catch (error) {
     console.error('ファイルアップロードエラー:', error);
     return {

@@ -46,10 +46,9 @@ export async function POST(request: NextRequest) {
     }
 
     // 勤怠管理または給与管理のフォルダにアップロードされた場合、本人へメール通知
-    const formData = await request.formData();
-    const folderName = formData.get('folderName') as string;
-    const category = formData.get('category') as string;
-    
+    const folderName = result.folderName;
+    const category = result.category;
+
     const isAttendanceOrPayroll = 
       folderName === '勤怠管理' || 
       folderName === '給与管理' ||

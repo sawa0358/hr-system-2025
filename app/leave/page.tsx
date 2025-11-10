@@ -63,23 +63,31 @@ export default function LeavePage() {
   
   // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
-  // 総務・管理者のみが「承認待ち一覧」を表示可能
-  const canViewPendingList = currentUser?.role === 'hr' || currentUser?.role === 'admin'
+  // 店長・マネージャー以上が「ほか一覧」を表示可能
+  const canViewOthersList = currentUser?.role === 'manager' || currentUser?.role === 'store_manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
   
-  // 「承認待ち一覧」ボタンのバッジ用カウント
-  const [pendingListBadgeCount, setPendingListBadgeCount] = useState(0)
+  // 総務・管理者の場合は「承認待ち一覧」、店長・マネージャーの場合は「ほか一覧」
+  const isAdminOrHRRole = currentUser?.role === 'hr' || currentUser?.role === 'admin'
+  const othersListLabel = isAdminOrHRRole ? '承認待ち一覧' : 'ほか一覧'
   
-  // 総務・管理者の場合、承認待ち申請数を取得
+  // 「ほか一覧」ボタンのバッジ用カウント
+  const [othersListBadgeCount, setOthersListBadgeCount] = useState(0)
+  
+  // 店長・マネージャー以上の場合、承認待ち申請数を取得
   useEffect(() => {
-    if (!canViewPendingList || !currentUser?.id) {
-      setPendingListBadgeCount(0)
+    if (!canViewOthersList || !currentUser?.id) {
+      setOthersListBadgeCount(0)
       return
     }
     
+    // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
     // 総務・管理者の場合は、全申請をカウント
-    const fetchPendingListCount = async () => {
+    const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
+    const fetchOthersListCount = async () => {
       try {
-        const url = '/api/vacation/admin/applicants?view=pending'
+        const url = isManagerOrStoreManager 
+          ? `/api/vacation/admin/applicants?view=pending&supervisorId=${currentUser.id}`
+          : '/api/vacation/admin/applicants?view=pending'
         
         const res = await fetch(url, {
           cache: 'no-store',
@@ -88,32 +96,32 @@ export default function LeavePage() {
         if (res.ok) {
           const json = await res.json()
           const count = json.employees?.length || 0
-          setPendingListBadgeCount(count)
+          setOthersListBadgeCount(count)
         } else {
-          setPendingListBadgeCount(0)
+          setOthersListBadgeCount(0)
         }
       } catch (error) {
-        console.error('[LeavePage] 承認待ち一覧バッジカウント取得エラー:', error)
-        setPendingListBadgeCount(0)
+        console.error('[LeavePage] ほか一覧バッジカウント取得エラー:', error)
+        setOthersListBadgeCount(0)
       }
     }
     
-    fetchPendingListCount()
+    fetchOthersListCount()
     
     // カスタムイベントで承認状態が変わった時に更新
     const handleVacationUpdate = () => {
-      fetchPendingListCount()
+      fetchOthersListCount()
     }
     window.addEventListener('vacation-request-updated', handleVacationUpdate)
     
     // 定期的に更新（30秒ごと）
-    const interval = setInterval(fetchPendingListCount, 30000)
+    const interval = setInterval(fetchOthersListCount, 30000)
     
     return () => {
       window.removeEventListener('vacation-request-updated', handleVacationUpdate)
       clearInterval(interval)
     }
-  }, [canViewPendingList, currentUser?.id, currentUser?.role])
+  }, [canViewOthersList, currentUser?.id, currentUser?.role])
   
   // 総務・管理者権限の場合は、employeeIdパラメータがない場合に自動的に管理者画面にリダイレクト
   useEffect(() => {
@@ -196,8 +204,9 @@ export default function LeavePage() {
             >
               申請一覧
             </Button>
-            {/* 承認待ち一覧ボタン（総務・管理者のみ表示） */}
-            {canViewPendingList && (
+            {/* ほか一覧ボタン（店長・マネージャー以上が表示可能） */}
+            {/* 総務・管理者は「承認待ち一覧」、店長・マネージャーは「ほか一覧」 */}
+            {canViewOthersList && (
               <Button 
                 variant="outline"
                 onClick={() => { 
@@ -205,13 +214,13 @@ export default function LeavePage() {
                 }}
                 className="relative"
               >
-                承認待ち一覧
-                {pendingListBadgeCount > 0 && (
+                {othersListLabel}
+                {othersListBadgeCount > 0 && (
                   <Badge 
                     variant="destructive" 
                     className="absolute -top-2 -right-2 h-5 min-w-[20px] flex items-center justify-center px-1.5 text-xs font-bold"
                   >
-                    {pendingListBadgeCount > 99 ? '99+' : pendingListBadgeCount}
+                    {othersListBadgeCount > 99 ? '99+' : othersListBadgeCount}
                   </Badge>
                 )}
               </Button>

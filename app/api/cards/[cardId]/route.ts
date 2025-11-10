@@ -260,6 +260,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
       .map((member) => member.employee?.email)
       .filter((email): email is string => Boolean(email))
 
+    console.log("[v0] カード更新通知チェック:", {
+      cardId: updatedCard.id,
+      cardTitle: updatedCard.title,
+      membersCount: updatedCard.members.length,
+      recipientEmails,
+      previousListId,
+      currentListId: updatedCard.listId,
+      currentListTitle: updatedCard.list?.title,
+      wasArchived,
+      isArchived: updatedCard.isArchived,
+    })
+
     if (recipientEmails.length > 0) {
       const notifications: Array<{ subject: string; text: string; html: string }> = []
 
@@ -268,6 +280,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
         (updatedCard.list?.title?.includes("完了") || updatedCard.list?.title === "done" || updatedCard.list?.title === "Done")
 
       if (movedToDone) {
+        console.log("[v0] 完了リスト移動を検出 - メール送信準備中")
         const subject = `タスク「${updatedCard.title}」が完了リストに移動しました`
         const textLines = [
           "担当者各位",
@@ -299,6 +312,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
       const archivedNow = !wasArchived && updatedCard.isArchived
 
       if (archivedNow) {
+        console.log("[v0] アーカイブを検出 - メール送信準備中")
         const subject = `タスク「${updatedCard.title}」がアーカイブされました`
         const textLines = [
           "担当者各位",
@@ -328,6 +342,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
       }
 
       for (const notification of notifications) {
+        console.log("[v0] メール送信実行:", {
+          to: recipientEmails,
+          subject: notification.subject,
+        })
+        
         const mailResult = await sendMail({
           to: recipientEmails,
           subject: notification.subject,
@@ -335,7 +354,18 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
           html: notification.html,
         })
 
-        if (!mailResult.success && !mailResult.skipped) {
+        if (mailResult.success) {
+          console.log("[v0] カード通知メールの送信に成功しました:", {
+            cardId: updatedCard.id,
+            subject: notification.subject,
+            recipients: recipientEmails.length,
+          })
+        } else if (mailResult.skipped) {
+          console.warn("[v0] カード通知メールをスキップしました (SMTP未設定):", {
+            cardId: updatedCard.id,
+            subject: notification.subject,
+          })
+        } else {
           console.error("[v0] カード通知メールの送信に失敗しました:", {
             cardId: updatedCard.id,
             subject: notification.subject,

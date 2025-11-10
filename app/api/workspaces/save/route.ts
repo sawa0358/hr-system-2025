@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 // S3クライアントの設定
 const s3Client = new S3Client({
@@ -344,6 +342,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    // グローバル共有のPrismaクライアントを使用しているため、ここでの切断は不要
   }
 }

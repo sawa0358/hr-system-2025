@@ -67,6 +67,21 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3007
 CRON_SECRET_TOKEN=your_cron_secret_token_here
 
 # =====================================
+# メール通知設定
+# =====================================
+# SMTPサーバー情報
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+
+# 認証が必要な場合の資格情報
+SMTP_USER=your_smtp_username
+SMTP_PASS=your_smtp_password
+
+# 送信元メールアドレス（未設定の場合はSMTP_USERを使用）
+MAIL_FROM=hr-system@example.com
+
+# =====================================
 # 有給管理自動実行設定
 # =====================================
 # 有給管理の自動実行スケジューラーを有効化（コード内で自動実行）

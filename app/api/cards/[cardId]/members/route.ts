@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { sendMail } from "@/lib/mail"
+import { format } from "date-fns"
 import { checkCardPermissions } from "@/lib/permissions"
 
 // POST /api/cards/[cardId]/members - カードにメンバーを追加
@@ -26,6 +28,16 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
       where: { id: params.cardId },
       include: {
         members: true,
+        list: {
+          select: {
+            title: true,
+          },
+        },
+        board: {
+          select: {
+            name: true,
+          },
+        },
       },
     })
 
@@ -82,6 +94,52 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
         },
       },
     })
+
+    // メール通知（カードに新メンバーが追加された時）
+    const recipientEmail = member.employee?.email
+    if (recipientEmail) {
+      const formattedDueDate = card.dueDate
+        ? format(card.dueDate, "yyyy年MM月dd日")
+        : "未設定"
+
+      const subject = `名称：${card.title}のタスクにメンバー追加されました`
+      const textBody = [
+        `${member.employee.name}さん`,
+        "",
+        `タスク「${card.title}」にメンバーとして追加されました。`,
+        `締切日：${formattedDueDate}`,
+        card.board?.name ? `ボード：${card.board.name}` : undefined,
+        card.list?.title ? `リスト：${card.list.title}` : undefined,
+        "",
+        "タスクの詳細はHRシステムのタスク管理から確認できます。",
+      ]
+        .filter(Boolean)
+        .join("\n")
+
+      const htmlBody = [
+        `<p>${member.employee.name}さん</p>`,
+        `<p>タスク「${card.title}」にメンバーとして追加されました。</p>`,
+        `<p>締切日：<strong>${formattedDueDate}</strong></p>`,
+        card.board?.name ? `<p>ボード：${card.board.name}</p>` : "",
+        card.list?.title ? `<p>リスト：${card.list.title}</p>` : "",
+        "<p>タスクの詳細はHRシステムのタスク管理から確認できます。</p>",
+      ].join("")
+
+      const mailResult = await sendMail({
+        to: recipientEmail,
+        subject,
+        text: textBody,
+        html: htmlBody,
+      })
+
+      if (!mailResult.success && !mailResult.skipped) {
+        console.error("[v0] メール送信に失敗しました:", mailResult.error)
+      }
+    } else {
+      console.warn("[v0] メールアドレスが設定されていないため通知をスキップしました:", {
+        employeeId: member.employee?.id,
+      })
+    }
 
     return NextResponse.json({ member }, { status: 201 })
   } catch (error) {

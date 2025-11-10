@@ -24,6 +24,7 @@ export default function TasksPage() {
   const { currentUser } = useAuth()
   const permissions = currentUser?.role ? getPermissions(currentUser.role) : null
   const kanbanBoardRef = useRef<any>(null)
+  const initialWorkspaceLoadedRef = useRef(false)
   const isMobile = useIsMobile()
   
   // デバッグ用ログ
@@ -109,6 +110,65 @@ export default function TasksPage() {
       setWorkspaces([])
     }
   }, [currentUser])
+
+  // 初期表示時に前回開いていたワークスペースを復元
+  useEffect(() => {
+    if (!currentUser?.id || initialWorkspaceLoadedRef.current) {
+      return
+    }
+
+    let isActive = true
+
+    const resolveWorkspaceSelection = async () => {
+      let storedWorkspace: string | null =
+        typeof window !== "undefined" ? localStorage.getItem("currentWorkspace") : null
+      let storedBoard: string | null =
+        typeof window !== "undefined" ? localStorage.getItem("currentBoard") : null
+
+      if ((!storedWorkspace || !storedBoard) && currentUser?.id) {
+        try {
+          const response = await fetch("/api/user-settings", {
+            headers: {
+              "x-employee-id": currentUser.id,
+            },
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            const settings = result.settings
+            const workspaceFromSettings = settings?.taskManagement?.workspaceSelection
+            const boardFromSettings = settings?.taskManagement?.boardSelection
+
+            if (!storedWorkspace && workspaceFromSettings && typeof window !== "undefined") {
+              localStorage.setItem("currentWorkspace", workspaceFromSettings)
+              window.dispatchEvent(new CustomEvent("workspaceChanged"))
+              storedWorkspace = workspaceFromSettings
+            }
+
+            if (!storedBoard && boardFromSettings && typeof window !== "undefined") {
+              localStorage.setItem("currentBoard", boardFromSettings)
+              window.dispatchEvent(new CustomEvent("boardChanged"))
+              storedBoard = boardFromSettings
+            }
+          }
+        } catch (error) {
+          console.error("前回のワークスペース情報の取得に失敗しました:", error)
+        }
+      }
+
+      if (isActive && !currentWorkspace && storedWorkspace) {
+        setCurrentWorkspace(storedWorkspace)
+      }
+    }
+
+    resolveWorkspaceSelection().finally(() => {
+      initialWorkspaceLoadedRef.current = true
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [currentUser?.id, currentWorkspace])
 
   // ワークスペース変更時にS3に自動保存
   useEffect(() => {

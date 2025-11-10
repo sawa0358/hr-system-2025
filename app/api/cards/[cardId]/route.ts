@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { checkCardPermissions, checkWorkspacePermissions } from "@/lib/permissions"
+import { sendMail } from "@/lib/mail"
+import { format } from "date-fns"
 
 // GET /api/cards/[cardId] - カード詳細を取得
 export async function GET(request: NextRequest, { params }: { params: { cardId: string } }) {
@@ -111,6 +113,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
       where: { id: params.cardId },
       include: {
         members: true,
+        list: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
         board: {
           include: {
             workspace: {
@@ -126,6 +134,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
     if (!card) {
       return NextResponse.json({ error: "カードが見つかりません" }, { status: 404 })
     }
+
+    const previousListId = card.listId
+    const previousListTitle = card.list?.title
+    const wasArchived = card.isArchived
 
     // カードの編集権限チェック
     const cardMemberIds = card.members.map((m) => m.employeeId)
@@ -226,9 +238,122 @@ export async function PATCH(request: NextRequest, { params }: { params: { cardId
               },
             },
           },
+          list: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          board: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       })
     })
+
+    // カードの状態変化に応じたメール通知
+    const dueDateLabel = updatedCard.dueDate ? format(updatedCard.dueDate, "yyyy年MM月dd日") : "未設定"
+    const recipientEmails = updatedCard.members
+      .map((member) => member.employee?.email)
+      .filter((email): email is string => Boolean(email))
+
+    if (recipientEmails.length > 0) {
+      const notifications: Array<{ subject: string; text: string; html: string }> = []
+
+      const movedToDone =
+        previousListId !== updatedCard.listId &&
+        (updatedCard.list?.title?.includes("完了") || updatedCard.list?.title === "done" || updatedCard.list?.title === "Done")
+
+      if (movedToDone) {
+        const subject = `タスク「${updatedCard.title}」が完了リストに移動しました`
+        const textLines = [
+          "担当者各位",
+          "",
+          `タスク「${updatedCard.title}」が「${updatedCard.list?.title ?? "完了"}」リストに移動されました。`,
+          `締切日：${dueDateLabel}`,
+          updatedCard.board?.name ? `ボード：${updatedCard.board.name}` : undefined,
+          previousListTitle ? `移動元リスト：${previousListTitle}` : undefined,
+          "",
+          "詳細はHRシステムのタスク管理画面で確認してください。",
+        ].filter(Boolean)
+
+        const htmlLines = [
+          "<p>担当者各位</p>",
+          `<p>タスク「${updatedCard.title}」が「${updatedCard.list?.title ?? "完了"}」リストに移動されました。</p>`,
+          `<p>締切日：<strong>${dueDateLabel}</strong></p>`,
+          updatedCard.board?.name ? `<p>ボード：${updatedCard.board.name}</p>` : "",
+          previousListTitle ? `<p>移動元リスト：${previousListTitle}</p>` : "",
+          "<p>詳細はHRシステムのタスク管理画面で確認してください。</p>",
+        ]
+
+        notifications.push({
+          subject,
+          text: textLines.join("\n"),
+          html: htmlLines.join(""),
+        })
+      }
+
+      const archivedNow = !wasArchived && updatedCard.isArchived
+
+      if (archivedNow) {
+        const subject = `タスク「${updatedCard.title}」がアーカイブされました`
+        const textLines = [
+          "担当者各位",
+          "",
+          `タスク「${updatedCard.title}」がアーカイブされました。`,
+          `締切日：${dueDateLabel}`,
+          updatedCard.board?.name ? `ボード：${updatedCard.board.name}` : undefined,
+          updatedCard.list?.title ? `最終リスト：${updatedCard.list.title}` : undefined,
+          "",
+          "必要に応じてアーカイブ一覧から詳細を確認してください。",
+        ].filter(Boolean)
+
+        const htmlLines = [
+          "<p>担当者各位</p>",
+          `<p>タスク「${updatedCard.title}」がアーカイブされました。</p>`,
+          `<p>締切日：<strong>${dueDateLabel}</strong></p>`,
+          updatedCard.board?.name ? `<p>ボード：${updatedCard.board.name}</p>` : "",
+          updatedCard.list?.title ? `<p>最終リスト：${updatedCard.list.title}</p>` : "",
+          "<p>必要に応じてアーカイブ一覧から詳細を確認してください。</p>",
+        ]
+
+        notifications.push({
+          subject,
+          text: textLines.join("\n"),
+          html: htmlLines.join(""),
+        })
+      }
+
+      for (const notification of notifications) {
+        const mailResult = await sendMail({
+          to: recipientEmails,
+          subject: notification.subject,
+          text: notification.text,
+          html: notification.html,
+        })
+
+        if (!mailResult.success && !mailResult.skipped) {
+          console.error("[v0] カード通知メールの送信に失敗しました:", {
+            cardId: updatedCard.id,
+            subject: notification.subject,
+            error: mailResult.error,
+          })
+        }
+      }
+    } else if (
+      (previousListId !== updatedCard.listId &&
+        (updatedCard.list?.title?.includes("完了") ||
+          updatedCard.list?.title === "done" ||
+          updatedCard.list?.title === "Done")) ||
+      (!wasArchived && updatedCard.isArchived)
+    ) {
+      console.warn("[v0] 通知対象のメールアドレスが見つからないため通知をスキップしました:", {
+        cardId: updatedCard.id,
+      })
+    }
 
     return NextResponse.json({ card: updatedCard })
   } catch (error) {

@@ -158,6 +158,7 @@ export default function LeaveAdminPage() {
               onEmployeeClick={isManagerOrStoreManager ? undefined : (id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
               onPendingCountChange={setPendingCount}
               disableCardClick={isManagerOrStoreManager}
+              supervisorId={isManagerOrStoreManager ? currentUser?.id : undefined}
             />
           </CardContent>
         </Card>

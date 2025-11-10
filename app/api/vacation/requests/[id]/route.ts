@@ -317,9 +317,17 @@ export async function PUT(
     })
 
     return NextResponse.json({ request: updated, calculatedDays: totalDays }, { status: 200 })
-  } catch (error) {
-    console.error("PUT /api/vacation/requests/[id] error", error)
-    return NextResponse.json({ error: "申請の更新に失敗しました" }, { status: 500 })
+  } catch (error: any) {
+    console.error("=== PUT /api/vacation/requests/[id] ERROR ===")
+    console.error("Error:", error)
+    console.error("Error message:", error?.message)
+    console.error("Error stack:", error?.stack)
+    console.error("Request ID:", params?.id)
+    console.error("================================")
+    return NextResponse.json({ 
+      error: "申請の更新に失敗しました",
+      details: error?.message || "Unknown error"
+    }, { status: 500 })
   }
 }
 

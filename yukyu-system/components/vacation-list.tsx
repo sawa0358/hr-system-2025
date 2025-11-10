@@ -23,6 +23,7 @@ interface VacationListProps {
   employeeId?: string // 表示する社員ID（社員モードで使用）
   onPendingCountChange?: (count: number) => void // 承認待ちの申請数を通知するコールバック
   supervisorId?: string // 上司ID（「ほか一覧」画面で使用）
+  disableCardClick?: boolean // カードクリックを無効化（店長・マネージャー用）
   filters?: {
     searchQuery: string
     department: string
@@ -33,7 +34,7 @@ interface VacationListProps {
   }
 }
 
-export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange, supervisorId }: VacationListProps) {
+export function VacationList({ userRole, filter, onEmployeeClick, employeeId, filters, onPendingCountChange, supervisorId, disableCardClick }: VacationListProps) {
   const { toast } = useToast()
   const { currentUser } = useAuth()
   // 管理者用: APIから全社員の有給統計を取得
@@ -1009,7 +1010,47 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 })()}
 
                 <div className="flex flex-col gap-1.5 mt-auto">
-                  {request.status && getStatusBadge(request.status, request.approvedBy, request.finalizedBy)}
+                  <div className="flex items-center justify-between">
+                    {request.status && getStatusBadge(request.status, request.approvedBy, request.finalizedBy)}
+                    {/* 管理者画面：申請中・決済待ちの編集ボタン */}
+                    {currentUser && (currentUser.role === 'admin' || currentUser.role === 'hr') && (
+                      <div className="flex gap-1">
+                        {(request.status?.toLowerCase() === "pending" || (request.status?.toLowerCase() === "approved" && !request.finalizedBy)) && request.requestId && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              console.log('[VacationList] 編集ボタンクリック:', {
+                                requestId: request.requestId,
+                                employeeId: request.employeeId || request.id,
+                                status: request.status,
+                              })
+                              // 申請データを構築
+                              const editRequest = {
+                                id: request.requestId,
+                                employeeId: request.employeeId || request.id,
+                                startDate: request.startDate,
+                                endDate: request.endDate,
+                                reason: request.reason,
+                                status: request.status,
+                                totalDays: request.days || request.totalDays,
+                                unit: request.unit || 'DAY',
+                                hoursPerDay: request.hoursPerDay || 8,
+                                supervisorId: request.supervisorId || '',
+                              }
+                              console.log('[VacationList] 編集データ:', editRequest)
+                              handleEdit(editRequest)
+                            }}
+                            title="申請の更新"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {(() => {
                     // 承認待ち（pending）の場合
                     const isPending = request.status?.toLowerCase() === "pending"
@@ -1250,29 +1291,52 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               } as any}
               requestId={editingRequest.id}
               force={editingRequest.status?.toLowerCase() === "approved" || editingRequest.status?.toLowerCase() === "rejected"}
-              onSuccess={() => {
-                setIsEditDialogOpen(true) // ダイアログを開いたままにする（修正中）
-                // 修正処理を確認するために少し待機
-                setTimeout(async () => {
-                  setIsEditDialogOpen(false)
-                  setEditingRequest(null)
-                  
-                  // データを再読み込み
-                  window.dispatchEvent(new Event('vacation-request-updated'))
-                  
-                  if (userRole === "employee" && employeeId) {
-                    try {
-                      const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
-                      if (res.ok) {
-                        const json = await res.json()
-                        setEmployeeRequests(json.requests || [])
-                        console.log('[VacationList] 申請一覧を再読み込み:', json.requests.length, '件')
-                      }
-                    } catch (error) {
-                      console.error('[VacationList] 申請一覧再読み込みエラー:', error)
+              onSuccess={async () => {
+                console.log('[VacationList] 申請更新成功 - onSuccessコールバック実行')
+                
+                // ダイアログを閉じる
+                setIsEditDialogOpen(false)
+                setEditingRequest(null)
+                
+                // データを再読み込み
+                window.dispatchEvent(new Event('vacation-request-updated'))
+                
+                if (userRole === "employee" && employeeId) {
+                  // 社員画面の場合
+                  console.log('[VacationList] 社員画面データを再読み込み中...')
+                  try {
+                    const res = await fetch(`/api/vacation/requests?employeeId=${employeeId}`)
+                    if (res.ok) {
+                      const json = await res.json()
+                      setEmployeeRequests(json.requests || [])
+                      console.log('[VacationList] 申請一覧を再読み込み:', json.requests.length, '件')
                     }
+                  } catch (error) {
+                    console.error('[VacationList] 申請一覧再読み込みエラー:', error)
                   }
-                }, 500)
+                } else if (userRole === "admin") {
+                  // 管理者画面の場合
+                  console.log('[VacationList] 管理者画面データを再読み込み中...')
+                  try {
+                    const currentView = filter === "pending" ? "pending" : "all"
+                    const url = supervisorId 
+                      ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+                      : `/api/vacation/admin/applicants?view=${currentView}`
+                    console.log('[VacationList] 再読み込みURL:', url)
+                    const res = await fetch(url)
+                    if (res.ok) {
+                      const json = await res.json()
+                      setAdminEmployees(json.employees || [])
+                      console.log('[VacationList] 管理者画面データを再読み込み完了:', json.employees?.length || 0, '件')
+                    } else {
+                      console.error('[VacationList] 管理者画面データ再読み込み失敗:', res.status)
+                    }
+                  } catch (error) {
+                    console.error('[VacationList] 管理者画面データ再読み込みエラー:', error)
+                  }
+                }
+                
+                console.log('[VacationList] onSuccessコールバック完了')
               }}
             />
           )}

@@ -64,10 +64,11 @@ export default function AttendancePage() {
       }
     }
 
-    // 見えないTOP社員は管理者のみに表示（社員情報ページと同じロジック）
+    // 見えないTOPと管理者権限の社員は非表示
     const isInvisibleTop = emp.isInvisibleTop || emp.employeeNumber === '000'
-    if (isInvisibleTop) {
-      return currentUser?.role === 'admin'
+    const hasAdminRole = emp.role === 'admin'
+    if (isInvisibleTop || hasAdminRole) {
+      return false
     }
 
     // ステータスフィルター（社員情報ページと同じロジック）

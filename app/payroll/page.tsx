@@ -60,10 +60,10 @@ export default function PayrollPage() {
       }
     }
 
-    // 見えないTOP社員は管理者のみに表示（社員情報ページと同じロジック）
+    // 見えないTOPの社員は非表示
     const isInvisibleTop = emp.isInvisibleTop || emp.employeeNumber === '000'
     if (isInvisibleTop) {
-      return currentUser?.role === 'admin'
+      return false
     }
 
     // ステータスフィルター（社員情報ページと同じロジック）

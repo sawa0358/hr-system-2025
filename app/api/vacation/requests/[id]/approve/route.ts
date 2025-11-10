@@ -142,12 +142,21 @@ export async function POST(
         }
 
         // 決済完了を更新
-        await tx.timeOffRequest.update({
+        const finalized = await tx.timeOffRequest.update({
           where: { id: req.id },
           data: {
             finalizedBy: approverId,
             // totalDaysは既に上司承認時に設定されているので、そのまま使用
             breakdownJson: JSON.stringify(breakdown),
+          },
+          include: {
+            employee: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         })
 
@@ -161,6 +170,53 @@ export async function POST(
             payload: JSON.stringify({ breakdown, daysToUse }),
           },
         })
+
+        // 申請者本人へメール通知（決済完了）
+        if (finalized.employee?.email) {
+          const { sendMail } = await import('@/lib/mail')
+          const { format } = await import('date-fns')
+          
+          const subject = `【有給承認】あなたの有給申請が承認・決済されました`
+          const formattedStart = format(finalized.startDate, 'yyyy年MM月dd日')
+          const formattedEnd = format(finalized.endDate, 'yyyy年MM月dd日')
+          
+          const textBody = [
+            `${finalized.employee.name}さん`,
+            '',
+            'あなたの有給申請が承認・決済されました。',
+            `期間：${formattedStart} 〜 ${formattedEnd}`,
+            `日数：${daysToUse}日`,
+            finalized.reason ? `理由：${finalized.reason}` : undefined,
+            `決済者：${approver.name}`,
+            '',
+            '詳細はHRシステムで確認してください。',
+            'https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee',
+          ].filter(Boolean).join('\n')
+          
+          const htmlBody = [
+            `<p>${finalized.employee.name}さん</p>`,
+            '<p><strong>あなたの有給申請が承認・決済されました。</strong></p>',
+            `<p>期間：${formattedStart} 〜 ${formattedEnd}</p>`,
+            `<p>日数：<strong>${daysToUse}日</strong></p>`,
+            finalized.reason ? `<p>理由：${finalized.reason}</p>` : '',
+            `<p>決済者：${approver.name}</p>`,
+            '<p>詳細はHRシステムで確認してください。</p>',
+            '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee">https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee</a></p>',
+          ].join('')
+          
+          const mailResult = await sendMail({
+            to: finalized.employee.email,
+            subject,
+            text: textBody,
+            html: htmlBody,
+          })
+          
+          if (mailResult.success) {
+            console.log('[POST /api/vacation/requests/approve] 申請者へのメール通知送信成功:', finalized.employee.email)
+          } else if (!mailResult.skipped) {
+            console.error('[POST /api/vacation/requests/approve] 申請者へのメール通知送信失敗:', mailResult.error)
+          }
+        }
 
         return NextResponse.json({ success: true, breakdown, finalized: true })
       }

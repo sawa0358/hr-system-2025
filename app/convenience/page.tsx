@@ -457,7 +457,7 @@ export default function ConveniencePage() {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-teal-200 via-teal-100 to-teal-200 py-10 px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-3xl border border-teal-300 bg-teal-200/70 p-6 shadow-xl backdrop-blur">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-3xl border border-teal-300 bg-teal-200/70 p-6 shadow-xl backdrop-blur">
         <header className="flex items-start justify-between gap-4">
           <div>
             <span className="text-sm font-semibold uppercase tracking-widest text-teal-700/80">
@@ -907,8 +907,8 @@ export default function ConveniencePage() {
           })}
             </>
           )}
+        </div>
       </div>
-    </div>
 
       <Dialog
         open={Boolean(selectedLink)}

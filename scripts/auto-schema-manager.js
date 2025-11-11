@@ -74,8 +74,14 @@ class AutoSchemaManager {
 
   // ベーススキーマを読み込み
   readBaseSchema() {
+    // schema-base.prisma が存在しない場合は schema-postgres.prisma を使用
     if (!fs.existsSync(this.baseSchemaPath)) {
-      throw new Error(`ベーススキーマが見つかりません: ${this.baseSchemaPath}`);
+      console.log('⚠️ schema-base.prisma が見つかりません。schema-postgres.prisma を使用します');
+      if (fs.existsSync(this.prodSchemaPath)) {
+        return fs.readFileSync(this.prodSchemaPath, 'utf8');
+      } else {
+        throw new Error(`スキーマファイルが見つかりません: ${this.baseSchemaPath} または ${this.prodSchemaPath}`);
+      }
     }
     return fs.readFileSync(this.baseSchemaPath, 'utf8');
   }

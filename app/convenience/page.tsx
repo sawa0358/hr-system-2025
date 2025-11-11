@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Plus, Pencil, Trash2, LinkIcon, Folder, FolderOpen, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/lib/auth-context"
+import { getPermissions } from "@/lib/permissions"
 import {
   Dialog,
   DialogContent,
@@ -15,17 +17,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+type UtilityUrl = {
+  id: string
+  url: string
+  description: string | null
+  position: number
+}
+
 type UtilityLink = {
   id: string
   title: string
-  urls: string[]
-  note: string
+  urls: UtilityUrl[]
+  note: string | null
+  position: number
 }
 
 type UtilityCategory = {
   id: string
   name: string
   links: UtilityLink[]
+  position: number
+}
+
+type EditorUrlItem = {
+  id?: string
+  value: string
 }
 
 type LinkEditorState =
@@ -33,7 +49,7 @@ type LinkEditorState =
       mode: "create"
       categoryId: string
       title: string
-      urls: string[]
+      urls: EditorUrlItem[]
       note: string
     }
   | {
@@ -41,172 +57,402 @@ type LinkEditorState =
       categoryId: string
       linkId: string
       title: string
-      urls: string[]
+      urls: EditorUrlItem[]
       note: string
     }
   | null
 
-const initialCategories: UtilityCategory[] = [
-  {
-    id: "cat-1",
-    name: "よく使うリンク",
-    links: [
-      {
-        id: "link-1",
-        title: "社内ポータル",
-        urls: ["https://portal.company.com"],
-        note: "",
-      },
-      {
-        id: "link-2",
-        title: "勤怠システム",
-        urls: ["https://attendance.company.com"],
-        note: "毎日の出退勤を記録",
-      },
-    ],
-  },
-  {
-    id: "cat-2",
-    name: "手順メモ",
-    links: [
-      {
-        id: "link-3",
-        title: "新入社員登録手順",
-        urls: ["https://docs.company.com/onboarding"],
-        note: [
-          "1. 基本情報を入力",
-          "2. 所属部署を選択",
-          "3. アクセス権限を設定",
-          "参考: https://docs.company.com/onboarding",
-        ].join("\n"),
-      },
-    ],
-  },
-]
-
-function generateId(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
-}
-
 export default function ConveniencePage() {
   const router = useRouter()
-  const [categories, setCategories] = useState<UtilityCategory[]>(initialCategories)
+  const { currentUser } = useAuth()
+  const [categories, setCategories] = useState<UtilityCategory[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryDraftName, setCategoryDraftName] = useState("")
   const [linkEditor, setLinkEditor] = useState<LinkEditorState>(null)
   const [selectedLink, setSelectedLink] = useState<{ categoryName: string; link: UtilityLink } | null>(null)
+  const permissions = useMemo(() => (currentUser?.role ? getPermissions(currentUser.role) : null), [currentUser?.role])
+  const canManage = !!permissions?.manageConvenience
 
-  const handleCreateCategory = () => {
+  const fetchCategories = useCallback(async () => {
+    if (!currentUser?.id) return
+    setIsLoading(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch("/api/convenience", {
+        headers: {
+          "x-employee-id": currentUser.id,
+        },
+        cache: "no-store",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error("[convenience] fetchCategories error response:", { status: res.status, data })
+        throw new Error(data?.error ?? "便利機能データの取得に失敗しました")
+      }
+      const data = await res.json()
+      console.info("[convenience] fetchCategories success:", { status: res.status, categoryCount: data.categories?.length ?? 0 })
+      const mapped: UtilityCategory[] = (data.categories ?? []).map((category: any) => ({
+        id: category.id,
+        name: category.name,
+        position: category.position ?? 0,
+        links:
+          category.entries?.map((entry: any) => ({
+            id: entry.id,
+            title: entry.title,
+            note: entry.note,
+            position: entry.position ?? 0,
+            urls:
+              entry.urls?.map((url: any) => ({
+                id: url.id,
+                url: url.url,
+                description: url.description ?? null,
+                position: url.position ?? 0,
+              })) ?? [],
+          })) ?? [],
+      }))
+      setCategories(
+        mapped
+          .sort((a, b) => a.position - b.position)
+          .map((cat) => ({
+            ...cat,
+            links: cat.links
+              .sort((a, b) => a.position - b.position)
+              .map((link) => ({
+                ...link,
+                urls: link.urls.sort((a, b) => a.position - b.position),
+              })),
+          })),
+      )
+    } catch (error) {
+      console.error("[convenience] fetchCategories failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "便利機能データの取得に失敗しました")
+    } finally {
+      setIsLoading(false)
+    }
+  }, [currentUser?.id])
+
+  useEffect(() => {
+    if (!currentUser?.id) return
+    fetchCategories()
+  }, [currentUser?.id, fetchCategories])
+
+  useEffect(() => {
+    if (!selectedLink) return
+    const exists = categories.some((category) =>
+      category.links.some((link) => link.id === selectedLink.link.id),
+    )
+    if (!exists) {
+      setSelectedLink(null)
+    }
+  }, [categories, selectedLink])
+
+  const handleCreateCategory = async () => {
+    if (!canManage || !currentUser?.id) return
     if (!newCategoryName.trim()) return
 
-    const next: UtilityCategory = {
-      id: generateId("cat"),
-      name: newCategoryName.trim(),
-      links: [],
-    }
+    setIsSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch("/api/convenience/categories", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser.id,
+        },
+        cache: "no-store",
+        credentials: "include",
+        body: JSON.stringify({
+          name: newCategoryName.trim(),
+          position: categories.length,
+        }),
+      })
 
-    setCategories((prev) => [...prev, next])
-    setNewCategoryName("")
-    setIsAddingCategory(false)
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error("[convenience] create category error:", { status: res.status, data })
+        throw new Error(data?.error ?? "カテゴリの作成に失敗しました")
+      }
+      const data = await res.json().catch(() => null)
+      console.info("[convenience] create category success:", { status: res.status, data })
+
+      await fetchCategories()
+      setNewCategoryName("")
+      setIsAddingCategory(false)
+    } catch (error) {
+      console.error("[convenience] create category failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "カテゴリの作成に失敗しました")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleUpdateCategory = (categoryId: string) => {
+  const handleUpdateCategory = async (categoryId: string) => {
+    if (!canManage || !currentUser?.id) return
     if (!categoryDraftName.trim()) {
       setEditingCategoryId(null)
       return
     }
 
-    setCategories((prev) =>
-      prev.map((category) =>
-        category.id === categoryId ? { ...category, name: categoryDraftName.trim() } : category,
-      ),
-    )
-    setEditingCategoryId(null)
-    setCategoryDraftName("")
-  }
-
-  const handleDeleteCategory = (categoryId: string) => {
-    setCategories((prev) => prev.filter((category) => category.id !== categoryId))
-
-    if (linkEditor && linkEditor.categoryId === categoryId) {
-      setLinkEditor(null)
-    }
-  }
-
-  const handleOpenLinkEditor = (params: LinkEditorState) => {
-    if (params.mode === "create") {
-      setLinkEditor({
-        ...params,
-        urls: params.urls && params.urls.length > 0 ? params.urls : [""],
+    setIsSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch(`/api/convenience/categories/${categoryId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-employee-id": currentUser.id,
+        },
+        cache: "no-store",
+        credentials: "include",
+        body: JSON.stringify({
+          name: categoryDraftName.trim(),
+        }),
       })
-      return
-    }
 
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error("[convenience] update category error:", { status: res.status, data })
+        throw new Error(data?.error ?? "カテゴリの更新に失敗しました")
+      }
+      const data = await res.json().catch(() => null)
+      console.info("[convenience] update category success:", { status: res.status, data })
+
+      await fetchCategories()
+      setEditingCategoryId(null)
+      setCategoryDraftName("")
+    } catch (error) {
+      console.error("[convenience] update category failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "カテゴリの更新に失敗しました")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!canManage || !currentUser?.id) return
+
+    setIsSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch(`/api/convenience/categories/${categoryId}`, {
+        method: "DELETE",
+        headers: {
+          "x-employee-id": currentUser.id,
+        },
+        cache: "no-store",
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error("[convenience] delete category error:", { status: res.status, data })
+        throw new Error(data?.error ?? "カテゴリの削除に失敗しました")
+      }
+      const data = await res.json().catch(() => null)
+      console.info("[convenience] delete category success:", { status: res.status, data })
+
+      await fetchCategories()
+      if (linkEditor && linkEditor.categoryId === categoryId) {
+        setLinkEditor(null)
+      }
+      if (selectedLink?.link && selectedLink.link.id) {
+        setSelectedLink(null)
+      }
+    } catch (error) {
+      console.error("[convenience] delete category failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "カテゴリの削除に失敗しました")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const openLinkEditorForCreate = (categoryId: string) => {
+    if (!canManage) return
     setLinkEditor({
-      ...params,
-      urls: params.urls && params.urls.length > 0 ? params.urls : [""],
+      mode: "create",
+      categoryId,
+      title: "",
+      urls: [{ value: "" }],
+      note: "",
     })
   }
 
-  const handleCommitLink = () => {
-    if (!linkEditor) return
+  const openLinkEditorForEdit = (categoryId: string, link: UtilityLink) => {
+    if (!canManage) return
+    setLinkEditor({
+      mode: "edit",
+      categoryId,
+      linkId: link.id,
+      title: link.title,
+      note: link.note ?? "",
+      urls:
+        link.urls.length > 0
+          ? link.urls.map((item) => ({
+              id: item.id,
+              value: item.url,
+            }))
+          : [{ value: "" }],
+    })
+  }
+
+  const handleCommitLink = async () => {
+    if (!linkEditor || !canManage || !currentUser?.id) return
     if (!linkEditor.title.trim()) return
 
     const sanitizedUrls = linkEditor.urls
-      .map((url) => url.trim())
-      .filter((url, index, arr) => url.length > 0 && arr.indexOf(url) === index)
+      .map((url) => ({
+        id: url.id,
+        value: url.value.trim(),
+      }))
+      .filter((url, index, arr) => url.value.length > 0 && arr.findIndex((item) => item.value === url.value && item.id === url.id) === index)
 
-    setCategories((prev) =>
-      prev.map((category) => {
-        if (category.id !== linkEditor.categoryId) return category
+    setIsSubmitting(true)
+    setErrorMessage(null)
 
-        if (linkEditor.mode === "create") {
-          const newLink: UtilityLink = {
-            id: generateId("link"),
+    try {
+      if (linkEditor.mode === "create") {
+        const res = await fetch("/api/convenience/entries", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser.id,
+          },
+          cache: "no-store",
+          credentials: "include",
+          body: JSON.stringify({
+            categoryId: linkEditor.categoryId,
             title: linkEditor.title.trim(),
-            urls: sanitizedUrls.length > 0 ? sanitizedUrls : [""],
-            note: linkEditor.note,
+            note: linkEditor.note.trim().length > 0 ? linkEditor.note : null,
+            urls:
+              sanitizedUrls.length > 0
+                ? sanitizedUrls.map((item, index) => ({
+                    url: item.value,
+                    position: index,
+                  }))
+                : [],
+          }),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null)
+          console.error("[convenience] create entry error:", { status: res.status, data })
+          throw new Error(data?.error ?? "リンクカードの作成に失敗しました")
+        }
+        const data = await res.json().catch(() => null)
+        console.info("[convenience] create entry success:", { status: res.status, data })
+      } else {
+        const category = categories.find((cat) => cat.id === linkEditor.categoryId)
+        const existingLink = category?.links.find((link) => link.id === linkEditor.linkId)
+        const payloadUrls: any[] =
+          sanitizedUrls.length > 0
+            ? sanitizedUrls.map((item, index) => ({
+                ...(item.id ? { id: item.id } : {}),
+                url: item.value,
+                position: index,
+              }))
+            : []
+
+        if (existingLink) {
+          for (const url of existingLink.urls) {
+            const stillExists = sanitizedUrls.some((item) => item.id === url.id)
+            if (!stillExists) {
+              payloadUrls.push({
+                id: url.id,
+                url: url.url,
+                _delete: true,
+              })
+            }
           }
-          return { ...category, links: [...category.links, newLink] }
         }
 
-        return {
-          ...category,
-          links: category.links.map((link) =>
-            link.id === linkEditor.linkId
-              ? {
-                  ...link,
-                  title: linkEditor.title.trim(),
-                  urls: sanitizedUrls.length > 0 ? sanitizedUrls : [""],
-                  note: linkEditor.note,
-                }
-              : link,
-          ),
-        }
-      }),
-    )
+        const res = await fetch(`/api/convenience/entries/${linkEditor.linkId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "x-employee-id": currentUser.id,
+          },
+          cache: "no-store",
+          credentials: "include",
+          body: JSON.stringify({
+            title: linkEditor.title.trim(),
+            note: linkEditor.note.trim().length > 0 ? linkEditor.note : null,
+            urls: payloadUrls,
+          }),
+        })
 
-    setLinkEditor(null)
+        if (!res.ok) {
+          const data = await res.json().catch(() => null)
+          console.error("[convenience] update entry error:", { status: res.status, data })
+          throw new Error(data?.error ?? "リンクカードの更新に失敗しました")
+        }
+        const data = await res.json().catch(() => null)
+        console.info("[convenience] update entry success:", { status: res.status, data })
+      }
+
+      await fetchCategories()
+      setLinkEditor(null)
+    } catch (error) {
+      console.error("[convenience] commit link failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "リンクカードの保存に失敗しました")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleDeleteLink = (categoryId: string, linkId: string) => {
-    setCategories((prev) =>
-      prev.map((category) =>
-        category.id === categoryId
-          ? { ...category, links: category.links.filter((link) => link.id !== linkId) }
-          : category,
-      ),
-    )
+  const handleDeleteLink = async (categoryId: string, linkId: string) => {
+    if (!canManage || !currentUser?.id) return
 
-    if (linkEditor?.mode === "edit" && linkEditor.linkId === linkId) {
-      setLinkEditor(null)
+    setIsSubmitting(true)
+    setErrorMessage(null)
+    try {
+      const res = await fetch(`/api/convenience/entries/${linkId}`, {
+        method: "DELETE",
+        headers: {
+          "x-employee-id": currentUser.id,
+        },
+        cache: "no-store",
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        console.error("[convenience] delete entry error:", { status: res.status, data })
+        throw new Error(data?.error ?? "リンクカードの削除に失敗しました")
+      }
+      const data = await res.json().catch(() => null)
+      console.info("[convenience] delete entry success:", { status: res.status, data })
+
+      await fetchCategories()
+      if (linkEditor?.mode === "edit" && linkEditor.linkId === linkId) {
+        setLinkEditor(null)
+      }
+      if (selectedLink?.link.id === linkId) {
+        setSelectedLink(null)
+      }
+    } catch (error) {
+      console.error("[convenience] delete link failed:", error)
+      setErrorMessage(error instanceof Error ? error.message : "リンクカードの削除に失敗しました")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const activeCategoryForEditor =
     linkEditor && categories.find((category) => category.id === linkEditor.categoryId)
+
+  if (!currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-teal-100 px-4 py-10 text-slate-600">
+        ログイン情報を取得しています...
+      </div>
+    )
+  }
 
   return (
     <>
@@ -233,56 +479,73 @@ export default function ConveniencePage() {
           </Button>
         </header>
 
-        <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
-          {isAddingCategory ? (
-            <div className="flex flex-col gap-3 rounded-xl border border-teal-300 bg-white/80 p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <FolderOpen className="h-5 w-5 text-teal-600" />
-                <Input
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="カテゴリ名を入力"
-                  className="flex-1"
-                  autoFocus
-                />
+        {canManage && (
+          <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
+            {isAddingCategory ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-teal-300 bg-white/80 p-4 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <FolderOpen className="h-5 w-5 text-teal-600" />
+                  <Input
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="カテゴリ名を入力"
+                    className="flex-1"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setIsAddingCategory(false)
+                      setNewCategoryName("")
+                    }}
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleCreateCategory}
+                    disabled={isSubmitting || !newCategoryName.trim()}
+                  >
+                    追加する
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setIsAddingCategory(false)
-                    setNewCategoryName("")
-                  }}
-                >
-                  キャンセル
-                </Button>
-                <Button type="button" onClick={handleCreateCategory}>
-                  追加する
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-teal-300/70 bg-teal-50/70 text-teal-700 hover:bg-teal-100"
-              onClick={() => setIsAddingCategory(true)}
-            >
-              <Plus className="h-5 w-5" />
-              <span className="text-sm font-medium">カテゴリを追加</span>
-            </Button>
-          )}
-        </section>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-teal-300/70 bg-teal-50/70 text-teal-700 hover:bg-teal-100"
+                onClick={() => setIsAddingCategory(true)}
+                disabled={isSubmitting}
+              >
+                <Plus className="h-5 w-5" />
+                <span className="text-sm font-medium">カテゴリを追加</span>
+              </Button>
+            )}
+          </section>
+        )}
 
         <div className="flex flex-col gap-5">
-          {categories.length === 0 && (
-            <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
-              まだカテゴリがありません。「カテゴリを追加」から作成を始めましょう。
+          {errorMessage && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {errorMessage}
             </div>
           )}
 
-          {categories.map((category) => {
+          {isLoading ? (
+            <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+              読み込み中です...
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+              まだカテゴリがありません。{canManage ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
+            </div>
+          ) : (
+            <>
+            {categories.map((category) => {
             const isEditing = editingCategoryId === category.id
             const hasActiveEditor = linkEditor && linkEditor.categoryId === category.id
 
@@ -306,7 +569,7 @@ export default function ConveniencePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {isEditing ? (
+                    {canManage && (isEditing ? (
                       <>
                         <Button
                           type="button"
@@ -316,10 +579,11 @@ export default function ConveniencePage() {
                             setEditingCategoryId(null)
                             setCategoryDraftName("")
                           }}
+                          disabled={isSubmitting}
                         >
                           キャンセル
                         </Button>
-                        <Button type="button" size="sm" onClick={() => handleUpdateCategory(category.id)}>
+                        <Button type="button" size="sm" onClick={() => handleUpdateCategory(category.id)} disabled={isSubmitting}>
                           保存
                         </Button>
                       </>
@@ -330,15 +594,8 @@ export default function ConveniencePage() {
                           size="icon"
                           variant="ghost"
                           className="h-9 w-9"
-                          onClick={() =>
-                            handleOpenLinkEditor({
-                              mode: "create",
-                              categoryId: category.id,
-                              title: "",
-                              urls: [""],
-                              note: "",
-                            })
-                          }
+                          onClick={() => openLinkEditorForCreate(category.id)}
+                          disabled={isSubmitting}
                         >
                           <Plus className="h-5 w-5" />
                         </Button>
@@ -351,6 +608,7 @@ export default function ConveniencePage() {
                             setEditingCategoryId(category.id)
                             setCategoryDraftName(category.name)
                           }}
+                          disabled={isSubmitting}
                         >
                           <Pencil className="h-5 w-5" />
                         </Button>
@@ -360,11 +618,12 @@ export default function ConveniencePage() {
                           variant="ghost"
                           className="h-9 w-9 text-red-500 hover:text-red-600"
                           onClick={() => handleDeleteCategory(category.id)}
+                          disabled={isSubmitting}
                         >
                           <Trash2 className="h-5 w-5" />
                         </Button>
                       </>
-                    )}
+                    ))}
                   </div>
                 </header>
 
@@ -395,13 +654,13 @@ export default function ConveniencePage() {
                             <div className="space-y-2">
                               {linkEditor.urls.map((url, index) => (
                                 <Input
-                                  key={`${linkEditor.linkId}-${index}`}
-                                  value={url}
+                                  key={`${linkEditor.linkId ?? "create"}-${index}`}
+                                  value={url.value}
                                   onChange={(e) =>
                                     setLinkEditor({
                                       ...linkEditor,
                                       urls: linkEditor.urls.map((prevUrl, idx) =>
-                                        idx === index ? e.target.value : prevUrl,
+                                        idx === index ? { ...prevUrl, value: e.target.value } : prevUrl,
                                       ),
                                     })
                                   }
@@ -416,9 +675,10 @@ export default function ConveniencePage() {
                                 onClick={() =>
                                   setLinkEditor({
                                     ...linkEditor,
-                                    urls: [...linkEditor.urls, ""],
+                                    urls: [...linkEditor.urls, { value: "" }],
                                   })
                                 }
+                                disabled={isSubmitting}
                               >
                                 <Plus className="h-4 w-4" />
                                 URLを追加
@@ -444,7 +704,11 @@ export default function ConveniencePage() {
                             >
                               キャンセル
                             </Button>
-                            <Button type="button" onClick={handleCommitLink}>
+                            <Button
+                              type="button"
+                              onClick={handleCommitLink}
+                              disabled={isSubmitting || !linkEditor.title.trim()}
+                            >
                               保存
                             </Button>
                           </div>
@@ -476,20 +740,20 @@ export default function ConveniencePage() {
                                 }}
                               >
                                 <h3 className="text-base font-semibold text-slate-900">{link.title}</h3>
-                                {link.urls.filter((url) => url.trim().length > 0).length > 0 && (
+                                {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
                                   <div className="mt-1 flex flex-col gap-1">
                                     {link.urls
-                                      .filter((url) => url.trim().length > 0)
+                                      .filter((url) => url.url.trim().length > 0)
                                       .map((url, index) => (
                                         <a
-                                          key={`${link.id}-url-${index}`}
-                                          href={url}
+                                          key={`${link.id}-url-${url.id ?? index}`}
+                                          href={url.url}
                                           target="_blank"
                                           rel="noreferrer"
                                           onClick={(e) => e.stopPropagation()}
                                           className="inline-flex items-center text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700"
                                         >
-                                          {url}
+                                          {url.url}
                                         </a>
                                       ))}
                                   </div>
@@ -506,16 +770,7 @@ export default function ConveniencePage() {
                                   size="icon"
                                   variant="ghost"
                                   className="h-8 w-8"
-                                  onClick={() =>
-                                    handleOpenLinkEditor({
-                                      mode: "edit",
-                                      categoryId: category.id,
-                                      linkId: link.id,
-                                      title: link.title,
-                                      urls: link.urls.length > 0 ? link.urls : [""],
-                                      note: link.note,
-                                    })
-                                  }
+                                  onClick={() => openLinkEditorForEdit(category.id, link)}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
@@ -554,18 +809,18 @@ export default function ConveniencePage() {
                           {linkEditor.urls.map((url, index) => (
                             <Input
                               key={`create-${category.id}-${index}`}
-                              value={url}
+                              value={url.value}
                               onChange={(e) =>
                                 setLinkEditor({
                                   ...(linkEditor ?? {
                                     mode: "create",
                                     categoryId: category.id,
                                     title: "",
-                                    urls: [""],
+                                    urls: [{ value: "" }],
                                     note: "",
                                   }),
-                                  urls: (linkEditor?.urls ?? [""]).map((prevUrl, idx) =>
-                                    idx === index ? e.target.value : prevUrl,
+                                  urls: (linkEditor?.urls ?? [{ value: "" }]).map((prevUrl, idx) =>
+                                    idx === index ? { ...prevUrl, value: e.target.value } : prevUrl,
                                   ),
                                 })
                               }
@@ -583,12 +838,13 @@ export default function ConveniencePage() {
                                   mode: "create",
                                   categoryId: category.id,
                                   title: "",
-                                  urls: [""],
+                                  urls: [{ value: "" }],
                                   note: "",
                                 }),
-                                urls: [...(linkEditor?.urls ?? [""]), ""],
+                                urls: [...(linkEditor?.urls ?? [{ value: "" }]), { value: "" }],
                               })
                             }
+                            disabled={isSubmitting}
                           >
                             <Plus className="h-4 w-4" />
                             URLを追加
@@ -602,7 +858,7 @@ export default function ConveniencePage() {
                                 mode: "create",
                                 categoryId: category.id,
                                 title: "",
-                                urls: [""],
+                                urls: [{ value: "" }],
                                 note: "",
                               }),
                               note: e.target.value,
@@ -620,24 +876,22 @@ export default function ConveniencePage() {
                         >
                           キャンセル
                         </Button>
-                        <Button type="button" onClick={handleCommitLink}>
+                        <Button
+                          type="button"
+                          onClick={handleCommitLink}
+                          disabled={isSubmitting || !linkEditor.title.trim()}
+                        >
                           追加する
                         </Button>
                       </div>
                     </div>
                   )}
 
-                  {category.links.length === 0 && !hasActiveEditor && (
+                  {canManage && category.links.length === 0 && !hasActiveEditor && (
                     <button
                       type="button"
                       onClick={() =>
-                        handleOpenLinkEditor({
-                          mode: "create",
-                          categoryId: category.id,
-                          title: "",
-                          urls: [""],
-                          note: "",
-                        })
+                        openLinkEditorForCreate(category.id)
                       }
                       className={cn(
                         "flex h-16 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/60 text-sm font-medium text-slate-500 transition hover:bg-white",
@@ -651,7 +905,8 @@ export default function ConveniencePage() {
               </section>
             )
           })}
-        </div>
+            </>
+          )}
       </div>
     </div>
 
@@ -675,20 +930,20 @@ export default function ConveniencePage() {
                 )}
               </DialogHeader>
               <div className="space-y-4">
-                {selectedLink.link.urls.filter((url) => url.trim().length > 0).length > 0 && (
+                {selectedLink.link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
                   <div className="flex flex-col gap-2">
                     {selectedLink.link.urls
-                      .filter((url) => url.trim().length > 0)
+                      .filter((url) => url.url.trim().length > 0)
                       .map((url, index) => (
                         <a
-                          key={`${selectedLink.link.id}-modal-url-${index}`}
-                          href={url}
+                          key={`${selectedLink.link.id}-modal-url-${url.id ?? index}`}
+                          href={url.url}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100"
                         >
                           <LinkIcon className="h-4 w-4" />
-                          {url}
+                          {url.url}
                         </a>
                       ))}
                   </div>

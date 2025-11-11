@@ -458,7 +458,7 @@ export default function ConveniencePage() {
     <>
       <div className="min-h-screen bg-gradient-to-br from-teal-200 via-teal-100 to-teal-200 py-10 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-3xl border border-teal-300 bg-teal-200/70 p-6 shadow-xl backdrop-blur">
-        <header className="flex items-start justify-between gap-4">
+          <header className="flex items-start justify-between gap-4">
           <div>
             <span className="text-sm font-semibold uppercase tracking-widest text-teal-700/80">
               Productivity Toolkit
@@ -477,10 +477,10 @@ export default function ConveniencePage() {
           >
             <X className="h-5 w-5" />
           </Button>
-        </header>
+          </header>
 
-        {canManage && (
-          <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
+          {canManage && (
+            <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
             {isAddingCategory ? (
               <div className="flex flex-col gap-3 rounded-xl border border-teal-300 bg-white/80 p-4 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -525,32 +525,32 @@ export default function ConveniencePage() {
                 <span className="text-sm font-medium">カテゴリを追加</span>
               </Button>
             )}
-          </section>
-        )}
-
-        <div className="flex flex-col gap-5">
-          {errorMessage && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {errorMessage}
-            </div>
+            </section>
           )}
 
-          {isLoading ? (
-            <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
-              読み込み中です...
-            </div>
-          ) : categories.length === 0 ? (
-            <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
-              まだカテゴリがありません。{canManage ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
-            </div>
-          ) : (
-            <>
-            {categories.map((category) => {
-            const isEditing = editingCategoryId === category.id
-            const hasActiveEditor = linkEditor && linkEditor.categoryId === category.id
+          <div className="flex flex-col gap-5">
+            {errorMessage && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {errorMessage}
+              </div>
+            )}
 
-            return (
-              <section
+            {isLoading ? (
+              <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+                読み込み中です...
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+                まだカテゴリがありません。{canManage ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
+              </div>
+            ) : (
+              <>
+                {categories.map((category) => {
+                  const isEditing = editingCategoryId === category.id
+                  const hasActiveEditor = linkEditor && linkEditor.categoryId === category.id
+
+                  return (
+                    <section
                 key={category.id}
                 className="rounded-2xl border border-teal-300/80 bg-white/80 p-5 shadow-sm transition-shadow hover:shadow-md"
               >
@@ -902,11 +902,12 @@ export default function ConveniencePage() {
                     </button>
                   )}
                 </div>
-              </section>
-            )
-          })}
-            </>
-          )}
+                    </section>
+                  )
+                })}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

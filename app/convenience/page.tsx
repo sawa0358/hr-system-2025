@@ -549,13 +549,13 @@ export default function ConveniencePage() {
                   const isEditing = editingCategoryId === category.id
                   const hasActiveEditor = linkEditor && linkEditor.categoryId === category.id
 
-                  return (
-                    <section
-                key={category.id}
-                className="rounded-2xl border border-teal-300/80 bg-white/80 p-5 shadow-sm transition-shadow hover:shadow-md"
-              >
-                <header className="mb-4 flex flex-wrap items-center gap-3">
-                  <div className="flex flex-1 items-center gap-3">
+                    return (
+                      <section
+                        key={category.id}
+                        className="rounded-2xl border border-teal-300/80 bg-white/80 p-5 shadow-sm transition-shadow hover:shadow-md"
+                      >
+                        <header className="mb-4 flex flex-wrap items-center gap-3">
+                          <div className="flex flex-1 items-center gap-3">
                     <Folder className="h-5 w-5 text-teal-600" />
                     {isEditing ? (
                       <Input
@@ -719,7 +719,7 @@ export default function ConveniencePage() {
                     return (
                       <article
                         key={link.id}
-                        className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm"
+                        className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm break-words"
                       >
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-700">
@@ -751,7 +751,7 @@ export default function ConveniencePage() {
                                           target="_blank"
                                           rel="noreferrer"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700"
+                                          className="inline-flex items-center text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all"
                                         >
                                           {url.url}
                                         </a>
@@ -759,7 +759,7 @@ export default function ConveniencePage() {
                                   </div>
                                 )}
                                 {link.note && (
-                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3">
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words">
                                     {link.note}
                                   </p>
                                 )}
@@ -941,18 +941,18 @@ export default function ConveniencePage() {
                           href={url.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100"
+                          className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 break-all"
                         >
-                          <LinkIcon className="h-4 w-4" />
+                          <LinkIcon className="h-4 w-4 flex-shrink-0" />
                           {url.url}
                         </a>
                       ))}
                   </div>
                 )}
                 {selectedLink.link.note && (
-                  <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-700 shadow-inner">
+                  <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-700 shadow-inner break-words">
                     {selectedLink.link.note.split("\n").map((line, index) => (
-                      <p key={index} className="whitespace-pre-wrap">
+                      <p key={index} className="whitespace-pre-wrap break-words">
                         {line}
                       </p>
                     ))}

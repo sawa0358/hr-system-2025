@@ -17,6 +17,7 @@ import {
   Clock,
   Calendar,
   LogOut,
+  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -503,6 +504,26 @@ export function Sidebar() {
                 )}
               </li>
             )}
+
+            <li>
+              <Link
+                href="/convenience"
+                onClick={(e) => {
+                  if (!isAuthenticated || !currentUser) {
+                    e.preventDefault()
+                    console.warn("[Sidebar] 認証されていません。便利機能ページへの遷移をキャンセルします。")
+                  }
+                }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                  "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
+                )}
+                title={collapsed ? "便利機能" : undefined}
+              >
+                <Sparkles className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span className="text-sm font-medium flex-1 text-left">便利機能</span>}
+              </Link>
+            </li>
           </ul>
 
           {visibleAdminMenuItems.length > 0 && !collapsed && (

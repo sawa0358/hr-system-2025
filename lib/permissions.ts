@@ -6,6 +6,8 @@ export interface Permission {
   viewDashboard: boolean
   viewDashboardStats: boolean
   manageAnnouncements: boolean
+  viewConvenience: boolean
+  manageConvenience: boolean
 
   // Employee Info
   viewOwnProfile: boolean
@@ -80,6 +82,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: false,
     manageAnnouncements: false,
+    viewConvenience: true,
+    manageConvenience: false,
     viewOwnProfile: true,
     editOwnProfile: false,
     viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
@@ -132,6 +136,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: false,
     manageAnnouncements: false,
+    viewConvenience: true,
+    manageConvenience: false,
     viewOwnProfile: true,
     editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
     viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
@@ -184,6 +190,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: false,
     manageAnnouncements: true,
+    viewConvenience: true,
+    manageConvenience: true,
     viewOwnProfile: true,
     editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
     viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
@@ -236,6 +244,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: true,
     manageAnnouncements: true,
+    viewConvenience: true,
+    manageConvenience: true,
     viewOwnProfile: true,
     editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
     viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
@@ -288,6 +298,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: true,
     manageAnnouncements: true,
+    viewConvenience: true,
+    manageConvenience: true,
     viewOwnProfile: true,
     editOwnProfile: false, // 総務・管理者以外は自分のプロフィール編集不可
     viewSubordinateProfiles: true, // 全権限者が配下のプロフィール閲覧可能
@@ -340,6 +352,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: true,
     manageAnnouncements: true,
+    viewConvenience: true,
+    manageConvenience: true,
     viewOwnProfile: true,
     editOwnProfile: true,
     viewSubordinateProfiles: true,
@@ -392,6 +406,8 @@ export const rolePermissions: Record<UserRole, Permission> = {
     viewDashboard: true,
     viewDashboardStats: true,
     manageAnnouncements: true,
+    viewConvenience: true,
+    manageConvenience: true,
     viewOwnProfile: true,
     editOwnProfile: true,
     viewSubordinateProfiles: true,

@@ -52,7 +52,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ category: serializeConvenienceCategory(category) }, { status: 201 })
   } catch (error) {
     console.error("[convenience] POST /categories failed:", error)
-    return NextResponse.json({ error: "カテゴリの作成に失敗しました" }, { status: 500 })
+    if (error instanceof Error) {
+      console.error("[convenience] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      })
+    }
+    return NextResponse.json(
+      {
+        error: "カテゴリの作成に失敗しました",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

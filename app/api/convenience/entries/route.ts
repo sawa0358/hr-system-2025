@@ -89,7 +89,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
     console.error("[convenience] POST /entries failed:", error)
-    return NextResponse.json({ error: "リンクカードの作成に失敗しました" }, { status: 500 })
+    if (error instanceof Error) {
+      console.error("[convenience] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      })
+    }
+    return NextResponse.json(
+      {
+        error: "リンクカードの作成に失敗しました",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    )
   }
 }
 

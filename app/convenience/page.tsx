@@ -77,6 +77,7 @@ export default function ConveniencePage() {
   const [selectedLink, setSelectedLink] = useState<{ categoryName: string; link: UtilityLink } | null>(null)
   const permissions = useMemo(() => (currentUser?.role ? getPermissions(currentUser.role) : null), [currentUser?.role])
   const canManage = !!permissions?.manageConvenience
+  const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
   const fetchCategories = useCallback(async () => {
     if (!currentUser?.id) return
@@ -153,7 +154,7 @@ export default function ConveniencePage() {
   }, [categories, selectedLink])
 
   const handleCreateCategory = async () => {
-    if (!canManage || !currentUser?.id) return
+    if (!isAdminOrHR || !currentUser?.id) return
     if (!newCategoryName.trim()) return
 
     setIsSubmitting(true)
@@ -193,7 +194,7 @@ export default function ConveniencePage() {
   }
 
   const handleUpdateCategory = async (categoryId: string) => {
-    if (!canManage || !currentUser?.id) return
+    if (!isAdminOrHR || !currentUser?.id) return
     if (!categoryDraftName.trim()) {
       setEditingCategoryId(null)
       return
@@ -235,7 +236,7 @@ export default function ConveniencePage() {
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!canManage || !currentUser?.id) return
+    if (!isAdminOrHR || !currentUser?.id) return
 
     setIsSubmitting(true)
     setErrorMessage(null)
@@ -273,7 +274,7 @@ export default function ConveniencePage() {
   }
 
   const openLinkEditorForCreate = (categoryId: string) => {
-    if (!canManage) return
+    if (!isAdminOrHR) return
     setLinkEditor({
       mode: "create",
       categoryId,
@@ -284,7 +285,7 @@ export default function ConveniencePage() {
   }
 
   const openLinkEditorForEdit = (categoryId: string, link: UtilityLink) => {
-    if (!canManage) return
+    if (!isAdminOrHR) return
     setLinkEditor({
       mode: "edit",
       categoryId,
@@ -302,7 +303,7 @@ export default function ConveniencePage() {
   }
 
   const handleCommitLink = async () => {
-    if (!linkEditor || !canManage || !currentUser?.id) return
+    if (!linkEditor || !isAdminOrHR || !currentUser?.id) return
     if (!linkEditor.title.trim()) return
 
     const sanitizedUrls = linkEditor.urls
@@ -406,7 +407,7 @@ export default function ConveniencePage() {
   }
 
   const handleDeleteLink = async (categoryId: string, linkId: string) => {
-    if (!canManage || !currentUser?.id) return
+    if (!isAdminOrHR || !currentUser?.id) return
 
     setIsSubmitting(true)
     setErrorMessage(null)
@@ -460,13 +461,7 @@ export default function ConveniencePage() {
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-3xl border border-teal-300 bg-teal-200/70 p-6 shadow-xl backdrop-blur">
           <header className="flex items-start justify-between gap-4">
           <div>
-            <span className="text-sm font-semibold uppercase tracking-widest text-teal-700/80">
-              Productivity Toolkit
-            </span>
-            <h1 className="mt-1 text-3xl font-bold text-teal-900">便利機能</h1>
-            <p className="mt-2 text-sm text-slate-600">
-              よく使うリンクや手順メモをまとめておくことで、日々の業務をスムーズに進められます。
-            </p>
+            <h1 className="text-3xl font-bold text-teal-900">便利機能</h1>
           </div>
           <Button
             type="button"
@@ -479,7 +474,7 @@ export default function ConveniencePage() {
           </Button>
           </header>
 
-          {canManage && (
+          {isAdminOrHR && (
             <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
             {isAddingCategory ? (
               <div className="flex flex-col gap-3 rounded-xl border border-teal-300 bg-white/80 p-4 shadow-sm">
@@ -541,7 +536,7 @@ export default function ConveniencePage() {
               </div>
             ) : categories.length === 0 ? (
               <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
-                まだカテゴリがありません。{canManage ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
+                まだカテゴリがありません。{isAdminOrHR ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
               </div>
             ) : (
               <>
@@ -569,7 +564,7 @@ export default function ConveniencePage() {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {canManage && (isEditing ? (
+                    {isAdminOrHR && (isEditing ? (
                       <>
                         <Button
                           type="button"
@@ -759,31 +754,33 @@ export default function ConveniencePage() {
                                   </div>
                                 )}
                                 {link.note && (
-                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words">
+                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-wrap-anywhere">
                                     {link.note}
                                   </p>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8"
-                                  onClick={() => openLinkEditorForEdit(category.id, link)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-8 w-8 text-red-500 hover:text-red-600"
-                                  onClick={() => handleDeleteLink(category.id, link.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
+                              {isAdminOrHR && (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8"
+                                    onClick={() => openLinkEditorForEdit(category.id, link)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 text-red-500 hover:text-red-600"
+                                    onClick={() => handleDeleteLink(category.id, link.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -887,7 +884,7 @@ export default function ConveniencePage() {
                     </div>
                   )}
 
-                  {canManage && category.links.length === 0 && !hasActiveEditor && (
+                  {isAdminOrHR && category.links.length === 0 && !hasActiveEditor && (
                     <button
                       type="button"
                       onClick={() =>

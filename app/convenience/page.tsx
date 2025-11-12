@@ -718,47 +718,7 @@ export default function ConveniencePage() {
                       >
                         <div className="flex flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              className="flex-1 min-w-0 cursor-pointer select-none text-left outline-none"
-                              onClick={() => setSelectedLink({ categoryName: category.name, link })}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault()
-                                  setSelectedLink({ categoryName: category.name, link })
-                                }
-                              }}
-                            >
-                              <h3 className="text-base font-semibold text-slate-900 break-words">{link.title}</h3>
-                              {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
-                                <div className="mt-1 flex flex-col gap-1 overflow-hidden">
-                                  {link.urls
-                                    .filter((url) => url.url.trim().length > 0)
-                                    .map((url, index) => (
-                                      <a
-                                        key={`${link.id}-url-${url.id ?? index}`}
-                                        href={url.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="block text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all overflow-hidden"
-                                        style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
-                                      >
-                                        {url.url}
-                                      </a>
-                                    ))}
-                                </div>
-                              )}
-                              {link.note && (
-                                <p 
-                                  className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-hidden"
-                                  style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                                >
-                                  {link.note}
-                                </p>
-                              )}
-                            </div>
+                            <h3 className="text-base font-semibold text-slate-900 break-words flex-1">{link.title}</h3>
                             {isAdminOrHR && (
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <Button
@@ -780,6 +740,46 @@ export default function ConveniencePage() {
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
+                            )}
+                          </div>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="cursor-pointer select-none text-left outline-none"
+                            onClick={() => setSelectedLink({ categoryName: category.name, link })}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault()
+                                setSelectedLink({ categoryName: category.name, link })
+                              }
+                            }}
+                          >
+                            {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
+                              <div className="flex flex-col gap-1 overflow-hidden">
+                                {link.urls
+                                  .filter((url) => url.url.trim().length > 0)
+                                  .map((url, index) => (
+                                    <a
+                                      key={`${link.id}-url-${url.id ?? index}`}
+                                      href={url.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="block text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all overflow-hidden"
+                                      style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+                                    >
+                                      {url.url}
+                                    </a>
+                                  ))}
+                              </div>
+                            )}
+                            {link.note && (
+                              <p 
+                                className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-hidden"
+                                style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                              >
+                                {link.note}
+                              </p>
                             )}
                           </div>
                         </div>

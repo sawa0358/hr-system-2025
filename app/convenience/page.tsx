@@ -483,7 +483,7 @@ export default function ConveniencePage() {
   return (
     <>
       <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
           <header className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">便利機能</h1>
@@ -572,7 +572,8 @@ export default function ConveniencePage() {
                     return (
                       <section
                         key={category.id}
-                        className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                        className="rounded-lg border border-slate-200 p-5 shadow-sm transition-shadow hover:shadow-md"
+                        style={{ backgroundColor: '#bddcd9' }}
                       >
                         <header className="mb-4 flex flex-wrap items-center gap-3">
                           <div className="flex flex-1 items-center gap-3">

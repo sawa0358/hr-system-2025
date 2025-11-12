@@ -68,6 +68,6 @@
   },
   "release": {
     "image": "web",
-    "command": "node scripts/auto-create-invisible-top.js"
+    "command": "bash scripts/heroku-postdeploy.sh"
   }
 }

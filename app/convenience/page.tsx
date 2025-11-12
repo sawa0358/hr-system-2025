@@ -922,18 +922,18 @@ export default function ConveniencePage() {
       >
         <DialogContent className="max-h-[80vh] max-w-xl overflow-hidden">
           {selectedLink && (
-            <>
+            <div className="overflow-hidden">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-semibold text-slate-900">{selectedLink.link.title}</DialogTitle>
+                <DialogTitle className="text-2xl font-semibold text-slate-900 break-words">{selectedLink.link.title}</DialogTitle>
                 {selectedLink.categoryName && (
                   <DialogDescription className="text-sm font-medium text-teal-700">
                     {selectedLink.categoryName}
                   </DialogDescription>
                 )}
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 overflow-hidden">
                 {selectedLink.link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 overflow-hidden">
                     {selectedLink.link.urls
                       .filter((url) => url.url.trim().length > 0)
                       .map((url, index) => (
@@ -942,25 +942,29 @@ export default function ConveniencePage() {
                           href={url.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 break-all"
+                          className="flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-100 break-all overflow-hidden"
+                          style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
                         >
                           <LinkIcon className="h-4 w-4 flex-shrink-0" />
-                          {url.url}
+                          <span className="break-all overflow-hidden">{url.url}</span>
                         </a>
                       ))}
                   </div>
                 )}
                 {selectedLink.link.note && (
-                  <div className="max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-700 shadow-inner break-words">
+                  <div 
+                    className="max-h-64 overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white/80 p-4 text-sm leading-relaxed text-slate-700 shadow-inner break-words"
+                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                  >
                     {selectedLink.link.note.split("\n").map((line, index) => (
-                      <p key={index} className="whitespace-pre-wrap break-words">
+                      <p key={index} className="whitespace-pre-wrap break-words overflow-hidden" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {line}
                       </p>
                     ))}
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>

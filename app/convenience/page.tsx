@@ -716,76 +716,71 @@ export default function ConveniencePage() {
                         key={link.id}
                         className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm break-words overflow-hidden"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-                            <LinkIcon className="h-5 w-5" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4">
-                              <div
-                                role="button"
-                                tabIndex={0}
-                                className="flex-1 min-w-0 cursor-pointer select-none text-left outline-none"
-                                onClick={() => setSelectedLink({ categoryName: category.name, link })}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.preventDefault()
-                                    setSelectedLink({ categoryName: category.name, link })
-                                  }
-                                }}
-                              >
-                                <h3 className="text-base font-semibold text-slate-900 break-words">{link.title}</h3>
-                                {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
-                                  <div className="mt-1 flex flex-col gap-1 overflow-hidden">
-                                    {link.urls
-                                      .filter((url) => url.url.trim().length > 0)
-                                      .map((url, index) => (
-                                        <a
-                                          key={`${link.id}-url-${url.id ?? index}`}
-                                          href={url.url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="block text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all overflow-hidden"
-                                          style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
-                                        >
-                                          {url.url}
-                                        </a>
-                                      ))}
-                                  </div>
-                                )}
-                                {link.note && (
-                                  <p 
-                                    className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-hidden"
-                                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-                                  >
-                                    {link.note}
-                                  </p>
-                                )}
-                              </div>
-                              {isAdminOrHR && (
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8"
-                                    onClick={() => openLinkEditorForEdit(category.id, link)}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-8 w-8 text-red-500 hover:text-red-600"
-                                    onClick={() => handleDeleteLink(category.id, link.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                        <div className="flex flex-col gap-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              className="flex-1 min-w-0 cursor-pointer select-none text-left outline-none"
+                              onClick={() => setSelectedLink({ categoryName: category.name, link })}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault()
+                                  setSelectedLink({ categoryName: category.name, link })
+                                }
+                              }}
+                            >
+                              <h3 className="text-base font-semibold text-slate-900 break-words">{link.title}</h3>
+                              {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
+                                <div className="mt-1 flex flex-col gap-1 overflow-hidden">
+                                  {link.urls
+                                    .filter((url) => url.url.trim().length > 0)
+                                    .map((url, index) => (
+                                      <a
+                                        key={`${link.id}-url-${url.id ?? index}`}
+                                        href={url.url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="block text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all overflow-hidden"
+                                        style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+                                      >
+                                        {url.url}
+                                      </a>
+                                    ))}
                                 </div>
                               )}
+                              {link.note && (
+                                <p 
+                                  className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-hidden"
+                                  style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                                >
+                                  {link.note}
+                                </p>
+                              )}
                             </div>
+                            {isAdminOrHR && (
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8"
+                                  onClick={() => openLinkEditorForEdit(category.id, link)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-8 w-8 text-red-500 hover:text-red-600"
+                                  onClick={() => handleDeleteLink(category.id, link.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </article>

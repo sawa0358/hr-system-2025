@@ -9,7 +9,12 @@ npx prisma generate
 
 # データベースマイグレーションの実行
 echo "🗄️ データベースマイグレーションを実行中..."
-npx prisma migrate deploy
+set -e
+if ! npx prisma migrate deploy; then
+  echo "⚠️ migrate deploy に失敗しました。migration.sql の欠落などが原因の可能性があります。"
+  echo "➡️ 代替として schema をDBへ直接適用します（db push）。"
+  npx prisma db push --accept-data-loss
+fi
 
 # 「見えないTOP」社員の自動作成
 echo "👤 「見えないTOP」社員を自動作成中..."

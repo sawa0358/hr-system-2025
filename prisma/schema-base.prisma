@@ -116,6 +116,10 @@ model Employee {
   timeOffRequests       TimeOffRequest[]
   alertEvents           AlertEvent[]
   auditLogs             AuditLog[]
+  convenienceCategoriesCreated ConvenienceCategory[] @relation("ConvenienceCategoryCreatedBy")
+  convenienceCategoriesUpdated ConvenienceCategory[] @relation("ConvenienceCategoryUpdatedBy")
+  convenienceEntriesCreated    ConvenienceEntry[]    @relation("ConvenienceEntryCreatedBy")
+  convenienceEntriesUpdated    ConvenienceEntry[]    @relation("ConvenienceEntryUpdatedBy")
   
   // ワークスペース関係
   workspaceMembers      WorkspaceMember[]

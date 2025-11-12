@@ -11,7 +11,9 @@
 # バックアップファイル
 backups/
 *.db
+# 追記: PrismaのマイグレーションSQLは必要（除外しない）
 *.sql
+!prisma/migrations/**/migration.sql
 *.dump
 *.backup
 

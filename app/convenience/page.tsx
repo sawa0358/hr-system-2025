@@ -16,6 +16,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type UtilityUrl = {
   id: string
@@ -75,6 +85,7 @@ export default function ConveniencePage() {
   const [categoryDraftName, setCategoryDraftName] = useState("")
   const [linkEditor, setLinkEditor] = useState<LinkEditorState>(null)
   const [selectedLink, setSelectedLink] = useState<{ categoryName: string; link: UtilityLink } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'link'; id: string; name: string } | null>(null)
   const permissions = useMemo(() => (currentUser?.role ? getPermissions(currentUser.role) : null), [currentUser?.role])
   const canManage = !!permissions?.manageConvenience
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
@@ -235,11 +246,17 @@ export default function ConveniencePage() {
     }
   }
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!isAdminOrHR || !currentUser?.id) return
+  const confirmDeleteCategory = (categoryId: string, categoryName: string) => {
+    setDeleteTarget({ type: 'category', id: categoryId, name: categoryName })
+  }
+
+  const handleDeleteCategory = async () => {
+    if (!deleteTarget || deleteTarget.type !== 'category' || !isAdminOrHR || !currentUser?.id) return
+    const categoryId = deleteTarget.id
 
     setIsSubmitting(true)
     setErrorMessage(null)
+    setDeleteTarget(null)
     try {
       const res = await fetch(`/api/convenience/categories/${categoryId}`, {
         method: "DELETE",
@@ -259,7 +276,8 @@ export default function ConveniencePage() {
       console.info("[convenience] delete category success:", { status: res.status, data })
 
       await fetchCategories()
-      if (linkEditor && linkEditor.categoryId === categoryId) {
+      const deletedCategoryId = categoryId
+      if (linkEditor && linkEditor.categoryId === deletedCategoryId) {
         setLinkEditor(null)
       }
       if (selectedLink?.link && selectedLink.link.id) {
@@ -406,11 +424,17 @@ export default function ConveniencePage() {
     }
   }
 
-  const handleDeleteLink = async (categoryId: string, linkId: string) => {
-    if (!isAdminOrHR || !currentUser?.id) return
+  const confirmDeleteLink = (linkId: string, linkTitle: string) => {
+    setDeleteTarget({ type: 'link', id: linkId, name: linkTitle })
+  }
+
+  const handleDeleteLink = async () => {
+    if (!deleteTarget || deleteTarget.type !== 'link' || !isAdminOrHR || !currentUser?.id) return
+    const linkId = deleteTarget.id
 
     setIsSubmitting(true)
     setErrorMessage(null)
+    setDeleteTarget(null)
     try {
       const res = await fetch(`/api/convenience/entries/${linkId}`, {
         method: "DELETE",
@@ -430,10 +454,11 @@ export default function ConveniencePage() {
       console.info("[convenience] delete entry success:", { status: res.status, data })
 
       await fetchCategories()
-      if (linkEditor?.mode === "edit" && linkEditor.linkId === linkId) {
+      const deletedLinkId = linkId
+      if (linkEditor?.mode === "edit" && linkEditor.linkId === deletedLinkId) {
         setLinkEditor(null)
       }
-      if (selectedLink?.link.id === linkId) {
+      if (selectedLink?.link.id === deletedLinkId) {
         setSelectedLink(null)
       }
     } catch (error) {
@@ -457,29 +482,29 @@ export default function ConveniencePage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-teal-200 via-teal-100 to-teal-200 py-10 px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-3xl border border-teal-300 bg-teal-200/70 p-6 shadow-xl backdrop-blur">
+      <div className="min-h-screen bg-slate-100 py-10 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-teal-900">便利機能</h1>
+            <h1 className="text-3xl font-bold text-slate-900">便利機能</h1>
           </div>
           <Button
             type="button"
             size="icon"
             variant="ghost"
             onClick={() => router.back()}
-            className="h-10 w-10 rounded-full border border-transparent text-teal-700 hover:border-teal-400 hover:bg-teal-100/80"
+            className="h-10 w-10"
           >
             <X className="h-5 w-5" />
           </Button>
           </header>
 
           {isAdminOrHR && (
-            <section className="rounded-2xl border border-dashed border-teal-400/70 bg-teal-100/60 p-4">
+            <section className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
             {isAddingCategory ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-teal-300 bg-white/80 p-4 shadow-sm">
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <FolderOpen className="h-5 w-5 text-teal-600" />
+                  <FolderOpen className="h-5 w-5 text-slate-600" />
                   <Input
                     value={newCategoryName}
                     onChange={(e) => setNewCategoryName(e.target.value)}
@@ -511,8 +536,8 @@ export default function ConveniencePage() {
             ) : (
               <Button
                 type="button"
-                variant="ghost"
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-teal-300/70 bg-teal-50/70 text-teal-700 hover:bg-teal-100"
+                variant="outline"
+                className="flex h-12 w-full items-center justify-center gap-2"
                 onClick={() => setIsAddingCategory(true)}
                 disabled={isSubmitting}
               >
@@ -531,11 +556,11 @@ export default function ConveniencePage() {
             )}
 
             {isLoading ? (
-              <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+              <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-600">
                 読み込み中です...
               </div>
             ) : categories.length === 0 ? (
-              <div className="rounded-2xl border border-teal-300 bg-white/70 p-6 text-center text-slate-600">
+              <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-slate-600">
                 まだカテゴリがありません。{isAdminOrHR ? "「カテゴリを追加」から作成を始めましょう。" : "管理者にカテゴリの追加を依頼してください。"}
               </div>
             ) : (
@@ -547,11 +572,11 @@ export default function ConveniencePage() {
                     return (
                       <section
                         key={category.id}
-                        className="rounded-2xl border border-teal-300/80 bg-white/80 p-5 shadow-sm transition-shadow hover:shadow-md"
+                        className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
                       >
                         <header className="mb-4 flex flex-wrap items-center gap-3">
                           <div className="flex flex-1 items-center gap-3">
-                    <Folder className="h-5 w-5 text-teal-600" />
+                    <Folder className="h-5 w-5 text-slate-600" />
                     {isEditing ? (
                       <Input
                         value={categoryDraftName}
@@ -560,7 +585,7 @@ export default function ConveniencePage() {
                         autoFocus
                       />
                     ) : (
-                      <h2 className="text-lg font-semibold text-teal-900">{category.name}</h2>
+                      <h2 className="text-lg font-semibold text-slate-900">{category.name}</h2>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -612,7 +637,7 @@ export default function ConveniencePage() {
                           size="icon"
                           variant="ghost"
                           className="h-9 w-9 text-red-500 hover:text-red-600"
-                          onClick={() => handleDeleteCategory(category.id)}
+                          onClick={() => confirmDeleteCategory(category.id, category.name)}
                           disabled={isSubmitting}
                         >
                           <Trash2 className="h-5 w-5" />
@@ -735,7 +760,7 @@ export default function ConveniencePage() {
                                   size="icon"
                                   variant="ghost"
                                   className="h-8 w-8 text-red-500 hover:text-red-600"
-                                  onClick={() => handleDeleteLink(category.id, link.id)}
+                                  onClick={() => confirmDeleteLink(link.id, link.title)}
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -963,6 +988,35 @@ export default function ConveniencePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>削除の確認</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.type === 'category' 
+                ? `カテゴリ「${deleteTarget.name}」を削除してもよろしいですか？このカテゴリ内の全てのリンクも削除されます。`
+                : `リンク「${deleteTarget?.name}」を削除してもよろしいですか？`
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>いいえ</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (deleteTarget?.type === 'category') {
+                  handleDeleteCategory()
+                } else {
+                  handleDeleteLink()
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              はい、削除します
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

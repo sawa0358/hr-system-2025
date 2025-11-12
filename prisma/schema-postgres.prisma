@@ -717,6 +717,7 @@ model ConvenienceCategory {
   name         String
   position     Int       @default(0)
   isArchived   Boolean   @default(false)
+  isAdminOnly  Boolean   @default(false)
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -738,6 +739,7 @@ model ConvenienceEntry {
   note         String?
   position     Int       @default(0)
   isArchived   Boolean   @default(false)
+  isAdminOnly  Boolean   @default(false)
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

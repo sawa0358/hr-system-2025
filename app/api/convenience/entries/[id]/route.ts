@@ -28,6 +28,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       note?: string | null
       position?: number
       isArchived?: boolean
+      isAdminOnly?: boolean
       categoryId?: string
       urls?: ConvenienceUrlInput[]
     } = {}
@@ -58,6 +59,13 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         return NextResponse.json({ error: "isArchived は真偽値で指定してください" }, { status: 400 })
       }
       payload.isArchived = body.isArchived
+    }
+
+    if ("isAdminOnly" in body) {
+      if (typeof body.isAdminOnly !== "boolean") {
+        return NextResponse.json({ error: "isAdminOnly は真偽値で指定してください" }, { status: 400 })
+      }
+      payload.isAdminOnly = body.isAdminOnly
     }
 
     if ("categoryId" in body) {

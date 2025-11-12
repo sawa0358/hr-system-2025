@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
     const note = typeof body.note === "string" ? body.note : null
     const position = typeof body.position === "number" ? body.position : undefined
     const isArchived = typeof body.isArchived === "boolean" ? body.isArchived : false
+    const isAdminOnly = typeof body.isAdminOnly === "boolean" ? body.isAdminOnly : false
 
     if (!categoryId) {
       return NextResponse.json({ error: "categoryId は必須です" }, { status: 400 })
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
           note,
           position,
           isArchived,
+          isAdminOnly,
           urls,
         },
         resolved.user.id,

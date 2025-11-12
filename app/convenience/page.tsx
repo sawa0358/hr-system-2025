@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Pencil, Trash2, LinkIcon, Folder, FolderOpen, X } from "lucide-react"
+import { Plus, Pencil, Trash2, LinkIcon, Folder, FolderOpen, X, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { getPermissions } from "@/lib/permissions"
@@ -40,6 +42,7 @@ type UtilityLink = {
   urls: UtilityUrl[]
   note: string | null
   position: number
+  isAdminOnly: boolean
 }
 
 type UtilityCategory = {
@@ -47,6 +50,7 @@ type UtilityCategory = {
   name: string
   links: UtilityLink[]
   position: number
+  isAdminOnly: boolean
 }
 
 type EditorUrlItem = {
@@ -61,6 +65,7 @@ type LinkEditorState =
       title: string
       urls: EditorUrlItem[]
       note: string
+      isAdminOnly: boolean
     }
   | {
       mode: "edit"
@@ -69,6 +74,7 @@ type LinkEditorState =
       title: string
       urls: EditorUrlItem[]
       note: string
+      isAdminOnly: boolean
     }
   | null
 
@@ -81,8 +87,10 @@ export default function ConveniencePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryIsAdminOnly, setNewCategoryIsAdminOnly] = useState(false)
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [categoryDraftName, setCategoryDraftName] = useState("")
+  const [categoryDraftIsAdminOnly, setCategoryDraftIsAdminOnly] = useState(false)
   const [linkEditor, setLinkEditor] = useState<LinkEditorState>(null)
   const [selectedLink, setSelectedLink] = useState<{ categoryName: string; link: UtilityLink } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'link'; id: string; name: string } | null>(null)
@@ -113,12 +121,14 @@ export default function ConveniencePage() {
         id: category.id,
         name: category.name,
         position: category.position ?? 0,
+        isAdminOnly: category.isAdminOnly ?? false,
         links:
           category.entries?.map((entry: any) => ({
             id: entry.id,
             title: entry.title,
             note: entry.note,
             position: entry.position ?? 0,
+            isAdminOnly: entry.isAdminOnly ?? false,
             urls:
               entry.urls?.map((url: any) => ({
                 id: url.id,
@@ -130,10 +140,12 @@ export default function ConveniencePage() {
       }))
       setCategories(
         mapped
+          .filter((cat) => isAdminOrHR || !cat.isAdminOnly)
           .sort((a, b) => a.position - b.position)
           .map((cat) => ({
             ...cat,
             links: cat.links
+              .filter((link) => isAdminOrHR || !link.isAdminOnly)
               .sort((a, b) => a.position - b.position)
               .map((link) => ({
                 ...link,
@@ -182,6 +194,7 @@ export default function ConveniencePage() {
         body: JSON.stringify({
           name: newCategoryName.trim(),
           position: categories.length,
+          isAdminOnly: newCategoryIsAdminOnly,
         }),
       })
 
@@ -195,6 +208,7 @@ export default function ConveniencePage() {
 
       await fetchCategories()
       setNewCategoryName("")
+      setNewCategoryIsAdminOnly(false)
       setIsAddingCategory(false)
     } catch (error) {
       console.error("[convenience] create category failed:", error)
@@ -224,6 +238,7 @@ export default function ConveniencePage() {
         credentials: "include",
         body: JSON.stringify({
           name: categoryDraftName.trim(),
+          isAdminOnly: categoryDraftIsAdminOnly,
         }),
       })
 
@@ -238,6 +253,7 @@ export default function ConveniencePage() {
       await fetchCategories()
       setEditingCategoryId(null)
       setCategoryDraftName("")
+      setCategoryDraftIsAdminOnly(false)
     } catch (error) {
       console.error("[convenience] update category failed:", error)
       setErrorMessage(error instanceof Error ? error.message : "カテゴリの更新に失敗しました")
@@ -299,6 +315,7 @@ export default function ConveniencePage() {
       title: "",
       urls: [{ value: "" }],
       note: "",
+      isAdminOnly: false,
     })
   }
 
@@ -310,6 +327,7 @@ export default function ConveniencePage() {
       linkId: link.id,
       title: link.title,
       note: link.note ?? "",
+      isAdminOnly: link.isAdminOnly ?? false,
       urls:
         link.urls.length > 0
           ? link.urls.map((item) => ({
@@ -348,6 +366,7 @@ export default function ConveniencePage() {
             categoryId: linkEditor.categoryId,
             title: linkEditor.title.trim(),
             note: linkEditor.note.trim().length > 0 ? linkEditor.note : null,
+            isAdminOnly: linkEditor.isAdminOnly,
             urls:
               sanitizedUrls.length > 0
                 ? sanitizedUrls.map((item, index) => ({
@@ -401,6 +420,7 @@ export default function ConveniencePage() {
           body: JSON.stringify({
             title: linkEditor.title.trim(),
             note: linkEditor.note.trim().length > 0 ? linkEditor.note : null,
+            isAdminOnly: linkEditor.isAdminOnly,
             urls: payloadUrls,
           }),
         })
@@ -513,6 +533,17 @@ export default function ConveniencePage() {
                     autoFocus
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="new-category-admin-only"
+                    checked={newCategoryIsAdminOnly}
+                    onCheckedChange={setNewCategoryIsAdminOnly}
+                  />
+                  <Label htmlFor="new-category-admin-only" className="text-sm flex items-center gap-1 cursor-pointer">
+                    <Lock className="h-4 w-4" />
+                    総務・管理者のみ表示
+                  </Label>
+                </div>
                 <div className="flex items-center justify-end gap-2">
                   <Button
                     type="button"
@@ -520,6 +551,7 @@ export default function ConveniencePage() {
                     onClick={() => {
                       setIsAddingCategory(false)
                       setNewCategoryName("")
+                      setNewCategoryIsAdminOnly(false)
                     }}
                   >
                     キャンセル
@@ -599,6 +631,7 @@ export default function ConveniencePage() {
                           onClick={() => {
                             setEditingCategoryId(null)
                             setCategoryDraftName("")
+                            setCategoryDraftIsAdminOnly(false)
                           }}
                           disabled={isSubmitting}
                         >
@@ -628,6 +661,7 @@ export default function ConveniencePage() {
                           onClick={() => {
                             setEditingCategoryId(category.id)
                             setCategoryDraftName(category.name)
+                            setCategoryDraftIsAdminOnly(category.isAdminOnly ?? false)
                           }}
                           disabled={isSubmitting}
                         >
@@ -716,6 +750,22 @@ export default function ConveniencePage() {
                               placeholder="メモを入力"
                               rows={4}
                             />
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id="edit-link-admin-only"
+                                checked={linkEditor.isAdminOnly}
+                                onCheckedChange={(checked) =>
+                                  setLinkEditor({
+                                    ...linkEditor,
+                                    isAdminOnly: checked,
+                                  })
+                                }
+                              />
+                              <Label htmlFor="edit-link-admin-only" className="text-sm flex items-center gap-1 cursor-pointer">
+                                <Lock className="h-4 w-4" />
+                                総務・管理者のみ表示
+                              </Label>
+                            </div>
                           </div>
                           <div className="mt-4 flex justify-end gap-2">
                             <Button
@@ -882,6 +932,7 @@ export default function ConveniencePage() {
                                 title: "",
                                 urls: [{ value: "" }],
                                 note: "",
+                                isAdminOnly: false,
                               }),
                               note: e.target.value,
                             })
@@ -889,6 +940,29 @@ export default function ConveniencePage() {
                           placeholder="メモを入力"
                           rows={4}
                         />
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            id="create-link-admin-only"
+                            checked={linkEditor.isAdminOnly}
+                            onCheckedChange={(checked) =>
+                              setLinkEditor({
+                                ...(linkEditor ?? {
+                                  mode: "create",
+                                  categoryId: category.id,
+                                  title: "",
+                                  urls: [{ value: "" }],
+                                  note: "",
+                                  isAdminOnly: false,
+                                }),
+                                isAdminOnly: checked,
+                              })
+                            }
+                          />
+                          <Label htmlFor="create-link-admin-only" className="text-sm flex items-center gap-1 cursor-pointer">
+                            <Lock className="h-4 w-4" />
+                            総務・管理者のみ表示
+                          </Label>
+                        </div>
                       </div>
                       <div className="mt-4 flex justify-end gap-2">
                         <Button

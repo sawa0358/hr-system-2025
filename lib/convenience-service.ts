@@ -39,6 +39,7 @@ export type ConvenienceTreeResponse = {
     name: string
     position: number
     isArchived: boolean
+    isAdminOnly: boolean
     deletedAt: string | null
     createdAt: string
     updatedAt: string
@@ -51,6 +52,7 @@ export type ConvenienceTreeResponse = {
       note: string | null
       position: number
       isArchived: boolean
+      isAdminOnly: boolean
       deletedAt: string | null
       createdAt: string
       updatedAt: string
@@ -162,6 +164,7 @@ export async function createConvenienceCategory(input: {
   tenantId?: string | null
   position?: number
   isArchived?: boolean
+  isAdminOnly?: boolean
   createdBy?: string | null
 }): Promise<ConvenienceCategoryWithRelations> {
   const tenantFilter =
@@ -182,6 +185,7 @@ export async function createConvenienceCategory(input: {
       tenantId: tenantFilter ?? null,
       position,
       isArchived: Boolean(input.isArchived),
+      isAdminOnly: Boolean(input.isAdminOnly),
       createdBy: input.createdBy ?? null,
       updatedBy: input.createdBy ?? null,
     },
@@ -200,6 +204,7 @@ export async function updateConvenienceCategory(
     name?: string
     position?: number
     isArchived?: boolean
+    isAdminOnly?: boolean
     tenantId?: string | null
   },
   userId: string | null,
@@ -220,6 +225,10 @@ export async function updateConvenienceCategory(
 
   if (typeof updates.isArchived === "boolean") {
     data.isArchived = updates.isArchived
+  }
+
+  if (typeof updates.isAdminOnly === "boolean") {
+    data.isAdminOnly = updates.isAdminOnly
   }
 
   if ("tenantId" in updates) {
@@ -274,6 +283,7 @@ export async function createConvenienceEntry(
     note?: string | null
     position?: number
     isArchived?: boolean
+    isAdminOnly?: boolean
     urls?: ConvenienceUrlInput[]
   },
   userId: string | null,
@@ -304,6 +314,7 @@ export async function createConvenienceEntry(
       note: input.note?.trim() ?? null,
       position,
       isArchived: Boolean(input.isArchived),
+      isAdminOnly: Boolean(input.isAdminOnly),
       createdBy: userId,
       updatedBy: userId,
       urls: input.urls
@@ -344,6 +355,7 @@ export async function updateConvenienceEntry(
     note?: string | null
     position?: number
     isArchived?: boolean
+    isAdminOnly?: boolean
     categoryId?: string
     urls?: ConvenienceUrlInput[]
   },
@@ -369,6 +381,10 @@ export async function updateConvenienceEntry(
 
   if (typeof updates.isArchived === "boolean") {
     data.isArchived = updates.isArchived
+  }
+
+  if (typeof updates.isAdminOnly === "boolean") {
+    data.isAdminOnly = updates.isAdminOnly
   }
 
   if (typeof updates.categoryId === "string") {
@@ -512,6 +528,7 @@ export function serializeConvenienceCategory(category: ConvenienceCategoryWithRe
     name: category.name,
     position: category.position,
     isArchived: category.isArchived,
+    isAdminOnly: category.isAdminOnly,
     deletedAt: category.deletedAt ? category.deletedAt.toISOString() : null,
     createdAt: category.createdAt.toISOString(),
     updatedAt: category.updatedAt.toISOString(),
@@ -529,6 +546,7 @@ export function serializeConvenienceEntry(entry: ConvenienceEntryWithUrls) {
     note: entry.note,
     position: entry.position,
     isArchived: entry.isArchived,
+    isAdminOnly: entry.isAdminOnly,
     deletedAt: entry.deletedAt ? entry.deletedAt.toISOString() : null,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString(),

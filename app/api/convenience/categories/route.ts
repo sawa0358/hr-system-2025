@@ -38,12 +38,14 @@ export async function POST(request: NextRequest) {
 
     const position = typeof body.position === "number" ? body.position : undefined
     const isArchived = typeof body.isArchived === "boolean" ? body.isArchived : false
+    const isAdminOnly = typeof body.isAdminOnly === "boolean" ? body.isAdminOnly : false
 
     const category = await createConvenienceCategory({
       name,
       tenantId,
       position,
       isArchived,
+      isAdminOnly,
       createdBy: resolved.user.id,
     })
 

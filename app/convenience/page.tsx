@@ -714,18 +714,18 @@ export default function ConveniencePage() {
                     return (
                       <article
                         key={link.id}
-                        className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm break-words"
+                        className="rounded-xl border border-slate-200 bg-white/95 p-4 shadow-sm break-words overflow-hidden"
                       >
                         <div className="flex items-start gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 text-teal-700">
                             <LinkIcon className="h-5 w-5" />
                           </div>
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-4">
                               <div
                                 role="button"
                                 tabIndex={0}
-                                className="flex-1 cursor-pointer select-none text-left outline-none"
+                                className="flex-1 min-w-0 cursor-pointer select-none text-left outline-none"
                                 onClick={() => setSelectedLink({ categoryName: category.name, link })}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter" || e.key === " ") {
@@ -734,9 +734,9 @@ export default function ConveniencePage() {
                                   }
                                 }}
                               >
-                                <h3 className="text-base font-semibold text-slate-900">{link.title}</h3>
+                                <h3 className="text-base font-semibold text-slate-900 break-words">{link.title}</h3>
                                 {link.urls.filter((url) => url.url.trim().length > 0).length > 0 && (
-                                  <div className="mt-1 flex flex-col gap-1">
+                                  <div className="mt-1 flex flex-col gap-1 overflow-hidden">
                                     {link.urls
                                       .filter((url) => url.url.trim().length > 0)
                                       .map((url, index) => (
@@ -746,7 +746,8 @@ export default function ConveniencePage() {
                                           target="_blank"
                                           rel="noreferrer"
                                           onClick={(e) => e.stopPropagation()}
-                                          className="inline-flex items-center text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all"
+                                          className="block text-sm font-medium text-blue-600 underline underline-offset-4 hover:text-blue-700 break-all overflow-hidden"
+                                          style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
                                         >
                                           {url.url}
                                         </a>
@@ -754,7 +755,10 @@ export default function ConveniencePage() {
                                   </div>
                                 )}
                                 {link.note && (
-                                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-wrap-anywhere">
+                                  <p 
+                                    className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 line-clamp-3 break-words overflow-hidden"
+                                    style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                                  >
                                     {link.note}
                                   </p>
                                 )}

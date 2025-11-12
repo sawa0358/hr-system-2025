@@ -618,7 +618,17 @@ export default function ConveniencePage() {
                         autoFocus
                       />
                     ) : (
-                      <h2 className="text-lg font-semibold text-slate-900">{category.name}</h2>
+                      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
+                        {category.isAdminOnly && (
+                          <Lock
+                            className="h-4 w-4 flex-shrink-0"
+                            style={{ color: "#ffc108", strokeWidth: 2.5 }}
+                            aria-hidden="true"
+                            title="総務・管理者のみ表示"
+                          />
+                        )}
+                        <span>{category.name}</span>
+                      </h2>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -794,7 +804,17 @@ export default function ConveniencePage() {
                       >
                         <div className="flex flex-col gap-3">
                           <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-base font-semibold text-slate-900 break-words flex-1">{link.title}</h3>
+                            <h3 className="flex items-center gap-2 text-base font-semibold text-slate-900 break-words flex-1">
+                              {link.isAdminOnly && (
+                                <Lock
+                                  className="h-4 w-4 flex-shrink-0"
+                                  style={{ color: "#ffc108", strokeWidth: 2.5 }}
+                                  aria-hidden="true"
+                                  title="総務・管理者のみ表示"
+                                />
+                              )}
+                              <span className="break-words">{link.title}</span>
+                            </h3>
                             {isAdminOrHR && (
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <Button
@@ -1019,7 +1039,19 @@ export default function ConveniencePage() {
           {selectedLink && (
             <div className="overflow-hidden">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-semibold text-slate-900 break-words">{selectedLink.link.title}</DialogTitle>
+                <DialogTitle className="text-2xl font-semibold text-slate-900 break-words">
+                  <span className="flex items-center gap-2">
+                    {selectedLink.link.isAdminOnly && (
+                      <Lock
+                        className="h-5 w-5"
+                        style={{ color: "#ffc108" }}
+                        aria-hidden="true"
+                        title="総務・管理者のみ表示"
+                      />
+                    )}
+                    <span className="break-words">{selectedLink.link.title}</span>
+                  </span>
+                </DialogTitle>
                 {selectedLink.categoryName && (
                   <DialogDescription className="text-sm font-medium text-teal-700">
                     {selectedLink.categoryName}

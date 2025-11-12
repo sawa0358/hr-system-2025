@@ -38,13 +38,6 @@ prisma/dev.db
 prisma/*.db.backup*
 latest.dump*
 
-# production backups (本番バックアップファイル)
-production_data_backup/*.sql
-production_data_backup/*.dump
-production_data_backup/*.txt
-production-full-backup-*.sql
-production-heroku-backup-*.dump
-
 
 # Logs
 logs

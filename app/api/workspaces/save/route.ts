@@ -264,7 +264,14 @@ export async function POST(request: NextRequest) {
     // S3に保存
     const bucketName = process.env.AWS_S3_BUCKET_NAME || process.env.S3_BUCKET_NAME;
     if (!bucketName) {
-      throw new Error('AWS_S3_BUCKET_NAME環境変数が設定されていません');
+      // ローカル開発環境ではS3が設定されていない場合があるため、警告のみ出して成功レスポンスを返す
+      console.warn('⚠️ AWS_S3_BUCKET_NAME環境変数が設定されていません。S3への保存をスキップします。');
+      return NextResponse.json({
+        success: true,
+        message: 'ワークスペースの保存をスキップしました（S3未設定）',
+        skipped: true,
+        workspaceId: workspace.id,
+      });
     }
 
     const key = `workspaces/workspace-${workspace.id}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;

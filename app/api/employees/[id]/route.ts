@@ -91,6 +91,10 @@ export async function PUT(
     console.log('has description:', 'description' in body);
     console.log('has escription:', 'escription' in body);
     
+    // orgChartOrderだけの更新の場合は、そのフィールドだけを更新
+    const bodyKeys = Object.keys(body);
+    const isOrgChartOrderOnlyUpdate = bodyKeys.length === 1 && bodyKeys[0] === 'orgChartOrder';
+    
     // 現在の社員データを取得してコピー社員かどうか確認
     const currentEmployee = await prisma.employee.findUnique({
       where: { id: params.id },
@@ -98,6 +102,19 @@ export async function PUT(
     });
     
     const isCopyEmployee = currentEmployee?.status === 'copy';
+    
+    // orgChartOrderだけの更新の場合は、そのフィールドだけを更新
+    if (isOrgChartOrderOnlyUpdate) {
+      const orgChartOrder = typeof body.orgChartOrder === 'number' ? body.orgChartOrder : null;
+      const employee = await prisma.employee.update({
+        where: { id: params.id },
+        data: { orgChartOrder }
+      });
+      return NextResponse.json({
+        success: true,
+        employee
+      });
+    }
     
     // メールアドレスの重複チェック（自分以外）
     // 空文字列やnullの場合はチェックをスキップ
@@ -305,6 +322,11 @@ export async function PUT(
         const trimmed = String(body.orgChartLabel).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      orgChartOrder: (() => {
+        if (body.orgChartOrder === undefined) return undefined;
+        const n = Number(body.orgChartOrder);
+        return Number.isFinite(n) ? n : null;
+      })(),
     } : {
       name: body.name,
       furigana: (() => {
@@ -430,6 +452,11 @@ export async function PUT(
         const trimmed = String(body.orgChartLabel).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
+      orgChartOrder: (() => {
+        if (body.orgChartOrder === undefined) return undefined;
+        const n = Number(body.orgChartOrder);
+        return Number.isFinite(n) ? n : null;
+      })(),
       // 公開設定
       privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,
       privacyOrganization: body.privacyOrganization !== undefined ? body.privacyOrganization : true,
@@ -467,7 +494,7 @@ export async function PUT(
       'retirementDate', 'privacyDisplayName', 'privacyOrganization', 'privacyDepartment',
       'privacyPosition', 'privacyUrl', 'privacyAddress', 'privacyBio', 'privacyEmail',
       'privacyWorkPhone', 'privacyExtension', 'privacyMobilePhone', 'privacyBirthDate',
-      'orgChartLabel', 'description', 'employeeNumber', 'employeeType', 'employeeId',
+      'orgChartLabel', 'orgChartOrder', 'description', 'employeeNumber', 'employeeType', 'employeeId',
       // 有給管理用フィールド
       'employmentType', 'weeklyPattern', 'configVersion', 'vacationPattern'
     ];

@@ -52,6 +52,7 @@ enum RequestStatus {
 
 model Employee {
   id                    String            @id @default(cuid())
+  orgChartOrder         Int?
   employeeId            String            @unique
   employeeNumber        String            @unique
   employeeType          String
@@ -711,57 +712,61 @@ model Bulletin {
   @@map("bulletins")
 }
 
+// ==========================
+// 便利機能（Convenience）
+// ==========================
+
 model ConvenienceCategory {
-  id           String    @id @default(cuid())
-  tenantId     String?
-  name         String
-  position     Int       @default(0)
-  isArchived   Boolean   @default(false)
-  isAdminOnly  Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-  updatedBy    String?
+  id            String   @id @default(cuid())
+  tenantId      String?
+  name          String
+  position      Int      @default(0)
+  isArchived    Boolean  @default(false)
+  isAdminOnly   Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
   createdByUser Employee? @relation("ConvenienceCategoryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser Employee? @relation("ConvenienceCategoryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  entries      ConvenienceEntry[]
+  entries       ConvenienceEntry[]
 
   @@index([tenantId, position])
   @@map("convenience_categories")
 }
 
 model ConvenienceEntry {
-  id           String    @id @default(cuid())
-  categoryId   String
-  category     ConvenienceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  title        String
-  note         String?
-  position     Int       @default(0)
-  isArchived   Boolean   @default(false)
-  isAdminOnly  Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-  updatedBy    String?
+  id            String   @id @default(cuid())
+  categoryId    String
+  category      ConvenienceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title         String
+  note          String?
+  position      Int      @default(0)
+  isArchived    Boolean  @default(false)
+  isAdminOnly   Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
   createdByUser Employee? @relation("ConvenienceEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser Employee? @relation("ConvenienceEntryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  urls         ConvenienceEntryUrl[]
+  urls          ConvenienceEntryUrl[]
 
   @@index([categoryId, position])
   @@map("convenience_entries")
 }
 
 model ConvenienceEntryUrl {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   entryId     String
   entry       ConvenienceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   url         String
   description String?
-  position    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")

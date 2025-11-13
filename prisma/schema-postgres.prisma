@@ -52,6 +52,7 @@ enum RequestStatus {
 
 model Employee {
   id                    String            @id @default(cuid())
+  orgChartOrder         Int?
   employeeId            String            @unique
   employeeNumber        String            @unique
   employeeType          String

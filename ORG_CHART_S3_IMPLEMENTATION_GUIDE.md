@@ -246,3 +246,4 @@ aws s3api put-object --bucket your-hr-system-bucket --key organization-charts/
 - `components/organization-chart.tsx` - 組織図コンポーネント
 - `ENV_S3_ORG_CHART_EXAMPLE.md` - 環境変数設定例
 
+

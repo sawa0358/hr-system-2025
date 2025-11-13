@@ -19,3 +19,4 @@ if (shouldStart) {
   console.log('[InitCardReminderScheduler] カード期限通知スケジューラーはスキップされました (NODE_ENV:', process.env.NODE_ENV, ', AUTO_START_CARD_REMINDER_SCHEDULER:', process.env.AUTO_START_CARD_REMINDER_SCHEDULER, ')')
 }
 
+

@@ -171,3 +171,4 @@ export async function POST(request: Request) {
   return NextResponse.json({ bulletin: mapBulletin(bulletin) }, { status: 201 })
 }
 
+

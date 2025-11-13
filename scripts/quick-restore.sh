@@ -95,3 +95,4 @@ echo "  - アプリが起動しない場合: npm install && npx prisma generate"
 echo "  - データが表示されない場合: npx prisma studio でデータベースを確認"
 echo "  - 元の状態に戻す場合: git stash pop"
 
+

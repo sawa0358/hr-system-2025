@@ -235,3 +235,4 @@ heroku config:get DATABASE_URL --app hr-system-2025
 **最終更新**: 2025年11月11日  
 **バージョン**: 1.0.0
 
+

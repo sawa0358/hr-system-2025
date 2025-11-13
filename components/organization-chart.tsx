@@ -1323,24 +1323,64 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       }
     }
 
+    // 並び順適用のための再帰ソート関数
+    const sortChildrenByOrder = (node: OrgNode): OrgNode => {
+      const children = node.children || []
+      const sorted = [...children].sort((a, b) => {
+        const ao = a.employee?.orgChartOrder
+        const bo = b.employee?.orgChartOrder
+        const aOrder = typeof ao === 'number' ? ao : Number.POSITIVE_INFINITY
+        const bOrder = typeof bo === 'number' ? bo : Number.POSITIVE_INFINITY
+        if (aOrder !== bOrder) return aOrder - bOrder
+        // 予備キー: 社員番号（数値化可能なら昇順）
+        const an = Number(a.employeeNumber)
+        const bn = Number(b.employeeNumber)
+        const aNum = Number.isFinite(an) ? an : Number.POSITIVE_INFINITY
+        const bNum = Number.isFinite(bn) ? bn : Number.POSITIVE_INFINITY
+        if (aNum !== bNum) return aNum - bNum
+        // 最後の予備キー: 名前
+        return (a.name || '').localeCompare(b.name || '')
+      })
+      const next: OrgNode = { ...node, children: sorted.map(c => sortChildrenByOrder(c)) }
+      return next
+    }
+
+    // ルート配列もorgChartOrderで並び替え
+    const sortRootArray = (roots: OrgNode[]): OrgNode[] => {
+      const sortedRoots = [...roots].sort((a, b) => {
+        const ao = a.employee?.orgChartOrder
+        const bo = b.employee?.orgChartOrder
+        const aOrder = typeof ao === 'number' ? ao : Number.POSITIVE_INFINITY
+        const bOrder = typeof bo === 'number' ? bo : Number.POSITIVE_INFINITY
+        if (aOrder !== bOrder) return aOrder - bOrder
+        const an = Number(a.employeeNumber)
+        const bn = Number(b.employeeNumber)
+        const aNum = Number.isFinite(an) ? an : Number.POSITIVE_INFINITY
+        const bNum = Number.isFinite(bn) ? bn : Number.POSITIVE_INFINITY
+        if (aNum !== bNum) return aNum - bNum
+        return (a.name || '').localeCompare(b.name || '')
+      })
+      return sortedRoots.map(r => sortChildrenByOrder(r))
+    }
+
     // 複数のルートがある場合は、横並びで表示するための仮想ルートを作成
     if (hierarchy.length > 1) {
       console.log('複数のルートノードを横並びで表示:', hierarchy.map(h => h.name))
-      
+      const sortedRoots = sortRootArray(hierarchy)
       // 仮想ルートノードを作成（表示されない）
       const virtualRoot: OrgNode = {
         id: 'virtual-root',
         name: '組織図',
         position: '',
         department: '',
-        children: hierarchy
+        children: sortedRoots
       }
       
       return virtualRoot
     }
 
-    // 単一のルートノードの場合はそのまま返す
-    return hierarchy[0]
+    // 単一のルートノードの場合はそのまま返す（子は並び替え）
+    return sortChildrenByOrder(hierarchy[0])
   }
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))
@@ -1406,28 +1446,18 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
       return
     }
 
-    // 横ラインのドロップゾーンへのドロップの場合（並列移動）
-    if (typeof over.id === 'string' && over.id.startsWith('horizontal-drop-')) {
-      const [, , parentId, targetIndexStr] = over.id.split('-')
-      const targetIndex = parseInt(targetIndexStr)
-      await handleHorizontalMove(draggedNode, targetIndex, parentId)
-      return
-    }
-
-    // 右へ移動のドロップゾーンへのドロップの場合
-    if (typeof over.id === 'string' && over.id.startsWith('right-move-')) {
-      const [, , parentId, targetIndexStr] = over.id.split('-')
-      const targetIndex = parseInt(targetIndexStr)
-      await handleHorizontalMove(draggedNode, targetIndex, parentId)
-      return
-    }
-
-    // 左へ移動のドロップゾーンへのドロップの場合
-    if (typeof over.id === 'string' && over.id.startsWith('left-move-')) {
-      const [, , parentId, targetIndexStr] = over.id.split('-')
-      const targetIndex = parseInt(targetIndexStr)
-      await handleHorizontalMove(draggedNode, targetIndex, parentId)
-      return
+    // 横移動用のドロップゾーンへのドロップの場合（並列移動）
+    const dropData = over.data.current as { type?: string; parentId?: string; targetIndex?: number } | undefined
+    if (dropData && (dropData.type === 'horizontal-move' || dropData.type === 'right-move' || dropData.type === 'left-move')) {
+      const parentId = dropData.parentId
+      const targetIndex = dropData.targetIndex
+      if (parentId && typeof targetIndex === 'number' && !isNaN(targetIndex)) {
+        console.log('横移動検出:', { parentId, targetIndex, draggedNode: draggedNode.name })
+        await handleHorizontalMove(draggedNode, targetIndex, parentId)
+        return
+      } else {
+        console.error('横移動ドロップゾーンのデータが不正:', { dropData, parentId, targetIndex })
+      }
     }
 
     // TOPドロップゾーンへのドロップの場合
@@ -1506,18 +1536,36 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   // 並列移動の処理
   const handleHorizontalMove = async (draggedNode: OrgNode, targetIndex: number, parentId: string) => {
-    console.log('Handling horizontal move:', { draggedNode, targetIndex, parentId })
+    console.log('🔄 横移動処理開始:', { 
+      draggedNode: draggedNode.name, 
+      draggedNodeId: draggedNode.id,
+      targetIndex, 
+      parentId,
+      currentTree: displayedTree
+    })
     
     // 同じ親を持つ子要素間での並列移動
     const newTree = reorderSiblingsHorizontal(displayedTree, draggedNode.id, targetIndex, parentId)
     if (newTree) {
+      console.log('✅ ツリーの並び替え成功:', newTree)
       setDisplayedTree(newTree)
-      console.log(`社員 ${draggedNode.name} を並列位置 ${targetIndex + 1} に移動しました`)
-      // データベースに階層情報を保存
-      await saveOrgChartHierarchy(draggedNode, { id: parentId } as OrgNode)
+      console.log(`✅ 社員 ${draggedNode.name} を並列位置 ${targetIndex} に移動しました`)
+      // 並び順を保存（同一親の子のorgChartOrderを一括更新）
+      try {
+        await saveSiblingOrder(parentId, newTree)
+        console.log('✅ 並び順の保存が完了しました')
+      } catch (error) {
+        console.error('❌ 並び順の保存に失敗しました:', error)
+        alert('並び順の保存に失敗しました。ページを再読み込みしてください。')
+      }
     } else {
-      console.error('並列移動に失敗しました')
-      alert('並列移動に失敗しました')
+      console.error('❌ 並列移動に失敗しました: reorderSiblingsHorizontalがnullを返しました', {
+        displayedTree,
+        draggedId: draggedNode.id,
+        targetIndex,
+        parentId
+      })
+      alert('並列移動に失敗しました。同じ階層の社員間でのみ移動できます。')
     }
   }
 
@@ -1800,21 +1848,41 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
   // 並列移動用の並び替え関数
   const reorderSiblingsHorizontal = (tree: OrgNode, draggedId: string, targetIndex: number, parentId: string): OrgNode | null => {
+    console.log('🔄 並び替え処理開始:', { draggedId, targetIndex, parentId, treeId: tree.id })
+    
     const reorder = (node: OrgNode): OrgNode => {
       if (!node.children) return node
 
       // 指定された親ノードの場合
       if (node.id === parentId) {
         const draggedIndex = node.children.findIndex((child) => child.id === draggedId)
+        console.log('📋 親ノード発見:', { 
+          nodeId: node.id, 
+          nodeName: node.name,
+          childrenCount: node.children.length,
+          draggedIndex,
+          draggedId
+        })
         
         if (draggedIndex !== -1) {
           const newChildren = [...node.children]
           const [draggedNode] = newChildren.splice(draggedIndex, 1)
           
-          // ターゲット位置に挿入
-          newChildren.splice(targetIndex, 0, draggedNode)
+          // ターゲット位置に挿入（元の位置より後ろに移動する場合はインデックスを調整）
+          const adjustedIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex
+          newChildren.splice(adjustedIndex, 0, draggedNode)
+          
+          console.log('✅ 並び替え完了:', {
+            before: node.children.map(c => c.name),
+            after: newChildren.map(c => c.name),
+            draggedNode: draggedNode.name,
+            fromIndex: draggedIndex,
+            toIndex: adjustedIndex
+          })
           
           return { ...node, children: newChildren }
+        } else {
+          console.warn('⚠️ ドラッグされたノードが見つかりません:', { draggedId, children: node.children.map(c => c.id) })
         }
       }
 
@@ -1826,7 +1894,89 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     }
 
     const result = reorder(tree)
+    if (!result) {
+      console.error('❌ 並び替え結果がnullです')
+      return null
+    }
     return result
+  }
+
+  // 親配下の子の順序をDBに保存
+  const saveSiblingOrder = async (parentId: string, treeSnapshot?: OrgNode) => {
+    try {
+      const tree = treeSnapshot || displayedTree
+      console.log('💾 並び順保存開始:', { parentId, treeSnapshot: !!treeSnapshot })
+
+      // 指定IDのノードを探索。virtual-rootはルート配列扱い
+      const findNode = (node: OrgNode, id: string): OrgNode | null => {
+        if (node.id === id) return node
+        if (!node.children) return null
+        for (const child of node.children) {
+          const found = findNode(child, id)
+          if (found) return found
+        }
+        return null
+      }
+
+      let siblings: OrgNode[] = []
+      if (parentId === 'virtual-root') {
+        siblings = tree.children || []
+        console.log('📋 virtual-rootの子ノード:', siblings.map(s => ({ name: s.name, id: s.id })))
+      } else {
+        const parent = findNode(tree, parentId)
+        siblings = parent?.children || []
+        console.log('📋 親ノードの子ノード:', { 
+          parentId, 
+          parentName: parent?.name,
+          siblings: siblings.map(s => ({ name: s.name, id: s.id }))
+        })
+      }
+
+      if (siblings.length === 0) {
+        console.warn('⚠️ 保存対象の子ノードがありません:', { parentId })
+        return
+      }
+
+      // 順にorgChartOrderを付与して更新
+      const updatePromises = []
+      for (let i = 0; i < siblings.length; i++) {
+        const child = siblings[i]
+        const empId = child.employee?.id
+        if (!empId) {
+          console.warn('⚠️ 子ノードにemployee.idがありません:', { childName: child.name, childId: child.id })
+          continue
+        }
+        const body = { orgChartOrder: i }
+        console.log(`💾 社員 ${child.name} (${empId}) のorgChartOrderを ${i} に設定`)
+        updatePromises.push(
+          fetch(`/api/employees/${empId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          }).then(async (response) => {
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`社員 ${child.name} の更新に失敗: ${response.status} - ${errorText}`)
+            }
+            return response.json()
+          })
+        )
+      }
+
+      // すべての更新を並列実行
+      await Promise.all(updatePromises)
+      console.log('✅ すべての並び順の保存が完了しました')
+
+      // 保存後に最新を取得して反映（遅延）
+      setTimeout(() => {
+        console.log('🔄 社員データを再取得します')
+        fetchEmployees()
+      }, 100)
+    } catch (e) {
+      console.error('❌ 同階層の順序保存に失敗しました', e)
+      alert(`同階層の順序保存に失敗しました: ${e instanceof Error ? e.message : String(e)}`)
+      throw e
+    }
   }
 
   const moveNode = (tree: OrgNode, draggedId: string, targetId: string): OrgNode => {

@@ -63,3 +63,4 @@ heroku config:set MAIL_FROM=your-email@gmail.com
 
 詳しい設定方法は `MAIL_SETUP_GUIDE.md` を参照してください。
 
+

@@ -89,3 +89,4 @@ echo "🗑️  cronジョブを削除するには:"
 echo "  ./scripts/setup-cron-backup.sh"
 echo "  選択肢5を選択"
 
+

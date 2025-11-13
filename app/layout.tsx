@@ -9,6 +9,7 @@ import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ClientOnly } from "@/components/client-only"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { GlobalErrorHandler } from "@/components/global-error-handler"
 
 // サーバー起動時にスケジューラーを初期化
 if (typeof window === 'undefined') {
@@ -33,6 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        <GlobalErrorHandler />
         <ErrorBoundary>
           <AuthProvider>
             <Suspense fallback={<div>Loading...</div>}>

@@ -113,75 +113,73 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
                 ワーカー選択
               </h3>
               
-              {workers.length > 0 ? (
-                <>
-                  <div className="space-y-2">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">チーム</label>
-                      <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                        <SelectTrigger className="h-9 w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">すべて</SelectItem>
-                          {teams.map((team) => (
-                            <SelectItem key={team} value={team}>
-                              {team}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">区分</label>
-                      <Select value={selectedEmployment} onValueChange={setSelectedEmployment}>
-                        <SelectTrigger className="h-9 w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">すべて</SelectItem>
-                          <SelectItem value="業務委託">業務委託</SelectItem>
-                          <SelectItem value="外注先">外注先</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">ワーカーを選ぶ</label>
-                    <Select value={currentWorkerId} onValueChange={handleWorkerChange}>
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue placeholder="ワーカーを選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredWorkers.length > 0 ? (
-                          filteredWorkers.map((worker) => (
-                            <SelectItem key={worker.id} value={worker.id}>
-                              <div className="flex flex-col">
-                                <span>{worker.name}</span>
-                                {worker.teams && worker.teams.length > 0 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {worker.teams.join(', ')}
-                                  </span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="" disabled>
-                            該当するワーカーがありません
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                <div className="text-xs text-muted-foreground py-2">
-                  ワーカーが登録されていません
+              {/* フィルターは常に表示し、リストに0件でも操作可能にする */}
+              <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">チーム</label>
+                  <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team} value={team}>
+                          {team}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">区分</label>
+                  <Select value={selectedEmployment} onValueChange={setSelectedEmployment}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="業務委託">業務委託</SelectItem>
+                      <SelectItem value="外注先">外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">ワーカーを選ぶ</label>
+                <Select value={currentWorkerId} onValueChange={handleWorkerChange}>
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder="ワーカーを選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredWorkers.length > 0 ? (
+                      filteredWorkers.map((worker) => (
+                        <SelectItem key={worker.id} value={worker.id}>
+                          <div className="flex flex-col">
+                            <span>{worker.name}</span>
+                            {worker.teams && worker.teams.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {worker.teams.join(', ')}
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="__no_results__" disabled>
+                        該当するワーカーがありません
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {workers.length === 0 && (
+                  <div className="text-xs text-muted-foreground py-1">
+                    ワーカーが登録されていません
+                  </div>
+                )}
+              </div>
             </div>
           )}
           

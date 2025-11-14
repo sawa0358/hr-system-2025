@@ -425,10 +425,10 @@ export default function SettingsPage() {
                             required
                             placeholder="ログイン用パスワード"
                             disabled={
-                              !(['hr', 'admin'].includes(currentUser?.role || '')) || !passwordEditable
+                              !(['hr', 'admin'].includes(currentUser?.role || '')) || passwordUnlockText !== '__UNLOCKED__'
                             }
                           />
-                          {(['hr', 'admin'].includes(currentUser?.role || '')) && !passwordEditable && (
+                          {(['hr', 'admin'].includes(currentUser?.role || '')) && passwordUnlockText !== '__UNLOCKED__' && (
                             <div className="flex items-center gap-2">
                               <Input
                                 placeholder="Pass"
@@ -442,8 +442,7 @@ export default function SettingsPage() {
                                 className="h-8 px-2"
                                 onClick={() => {
                                   if (passwordUnlockText === 'Pass') {
-                                    setPasswordEditable(true)
-                                    setPasswordUnlockText('')
+                                    setPasswordUnlockText('__UNLOCKED__')
                                   } else {
                                     toast({
                                       title: '認証エラー',

@@ -28,9 +28,22 @@ export async function GET(request: NextRequest) {
     const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
     const hasPermission = allowedRoles.includes(user.role || '')
 
+    // Prisma Clientが古く、WorkClockモデルを持っていない場合の防御
+    const hasWorkClockWorkerModel =
+      (prisma as any)?.workClockWorker &&
+      typeof (prisma as any).workClockWorker.findUnique === 'function'
+    const hasWorkClockTimeEntryModel =
+      (prisma as any)?.workClockTimeEntry &&
+      typeof (prisma as any).workClockTimeEntry.findMany === 'function'
+
+    if (!hasWorkClockWorkerModel || !hasWorkClockTimeEntryModel) {
+      console.warn('[WorkClock API] Prisma Client が古いか、WorkClockモデルが未定義です。')
+      return NextResponse.json([], { status: 200 })
+    }
+
     // workerIdが指定されている場合、本人または権限者でないとアクセス不可
     if (workerId) {
-      const worker = await prisma.workClockWorker.findUnique({
+      const worker = await (prisma as any).workClockWorker.findUnique({
         where: { id: workerId },
       })
 
@@ -59,7 +72,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const entries = await prisma.workClockTimeEntry.findMany({
+    const entries = await (prisma as any).workClockTimeEntry.findMany({
       where,
       include: {
         worker: {
@@ -82,10 +95,24 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json(formattedEntries)
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock time entries取得エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { error: '時間記録の取得に失敗しました' },
+      {
+        error: '時間記録の取得に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
       { status: 500 }
     )
   }
@@ -120,8 +147,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Prisma Clientが古く、WorkClockモデルを持っていない場合の防御
+    const hasWorkClockWorkerModel =
+      (prisma as any)?.workClockWorker &&
+      typeof (prisma as any).workClockWorker.findUnique === 'function'
+    const hasWorkClockTimeEntryModel =
+      (prisma as any)?.workClockTimeEntry &&
+      typeof (prisma as any).workClockTimeEntry.create === 'function'
+
+    if (!hasWorkClockWorkerModel || !hasWorkClockTimeEntryModel) {
+      console.warn('[WorkClock API] Prisma Client が古いか、WorkClockモデルが未定義です。')
+      return NextResponse.json(
+        { error: 'データベースモデルが利用できません。Prisma Client の再生成が必要です。' },
+        { status: 503 }
+      )
+    }
+
     // ワーカーの存在確認と権限チェック
-    const worker = await prisma.workClockWorker.findUnique({
+    const worker = await (prisma as any).workClockWorker.findUnique({
       where: { id: workerId },
     })
 
@@ -137,7 +180,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
-    const entry = await prisma.workClockTimeEntry.create({
+    const entry = await (prisma as any).workClockTimeEntry.create({
       data: {
         workerId,
         date: new Date(date),
@@ -161,10 +204,24 @@ export async function POST(request: NextRequest) {
       ...entry,
       date: entry.date.toISOString().split('T')[0],
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock time entry作成エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { error: '時間記録の作成に失敗しました' },
+      {
+        error: '時間記録の作成に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
       { status: 500 }
     )
   }

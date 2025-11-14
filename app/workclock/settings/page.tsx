@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam } from '@/lib/workclock/api-storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -69,11 +69,14 @@ export default function SettingsPage() {
   const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [teams, setTeams] = useState<string[]>([])
+  const [employees, setEmployees] = useState<any[]>([])
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [formData, setFormData] = useState({
+    employeeId: '',
     name: '',
     password: '',
     companyName: '',
@@ -95,6 +98,19 @@ export default function SettingsPage() {
       loadWorkers()
     }
     setTeams(getTeams())
+    // 初回ロードで社員一覧も取得
+    ;(async () => {
+      try {
+        setIsLoadingEmployees(true)
+        const res = await fetch('/api/employees')
+        const data = await res.json()
+        setEmployees(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error('社員一覧の取得に失敗', e)
+      } finally {
+        setIsLoadingEmployees(false)
+      }
+    })()
   }, [currentUser])
 
   const loadWorkers = async () => {
@@ -125,6 +141,7 @@ export default function SettingsPage() {
 
   const resetForm = () => {
     setFormData({
+      employeeId: '',
       name: '',
       password: '',
       companyName: '',
@@ -166,7 +183,11 @@ export default function SettingsPage() {
           description: 'ワーカー情報を更新しました',
         })
       } else {
-        await addWorker({
+        if (!formData.employeeId) {
+          throw new Error('社員を選択してください')
+        }
+        const payload: NewWorkerPayload = {
+          employeeId: formData.employeeId,
           name: formData.name,
           password: formData.password || undefined,
           companyName: formData.companyName || undefined,
@@ -179,7 +200,8 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
-        })
+        }
+        await addWorker(payload)
         await loadWorkers()
         toast({
           title: '登録完了',
@@ -339,6 +361,45 @@ export default function SettingsPage() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                      {!editingWorker && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="employee">社員を選択（業務委託/外注先）*</Label>
+                          <Select
+                            value={formData.employeeId || 'none'}
+                            onValueChange={(value) => {
+                              if (value === 'none') {
+                                setFormData({ ...formData, employeeId: '' })
+                                return
+                              }
+                              const emp = employees.find((e) => e.id === value)
+                              setFormData({
+                                ...formData,
+                                employeeId: value,
+                                name: emp?.name || formData.name,
+                                email: emp?.email || formData.email,
+                              })
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={isLoadingEmployees ? '読み込み中...' : '社員を選択'} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none" disabled>選択してください</SelectItem>
+                              {employees
+                                .filter((e) => (e.employeeType || '').includes('業務委託') || (e.employeeType || '').includes('外注先'))
+                                .filter((e) => !workers.find((w) => (w as any).employee?.id === e.id || (w as any).employeeId === e.id))
+                                .map((e) => (
+                                  <SelectItem key={e.id} value={e.id}>
+                                    {e.name}（{e.employeeType || '種別未設定'}）
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <div className="text-xs text-muted-foreground">
+                            社員情報から氏名・メールを自動入力します
+                          </div>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="name">氏名 *</Label>

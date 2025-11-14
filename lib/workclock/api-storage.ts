@@ -139,7 +139,12 @@ export async function deleteWorker(id: string): Promise<void> {
   }
 }
 
-export async function addWorker(worker: Omit<Worker, 'id'>): Promise<Worker> {
+// WorkClockWorker 新規作成時のペイロード（Employeeとのリンク必須）
+export interface NewWorkerPayload extends Omit<Worker, 'id'> {
+  employeeId: string
+}
+
+export async function addWorker(worker: NewWorkerPayload): Promise<Worker> {
   try {
     const response = await fetch(`${API_BASE}/workers`, {
       method: 'POST',

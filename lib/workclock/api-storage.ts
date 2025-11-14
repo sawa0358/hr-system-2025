@@ -23,12 +23,10 @@ function getCurrentUserId(): string {
       const user = JSON.parse(savedUser)
       
       // 古い形式のIDの場合は空文字を返す（auth-context.tsxと同じチェック）
+      // 注意: 実際のユーザーIDは除外リストに含めないこと
       if (user.id === "admin" || user.id === "manager" || user.id === "sub" || 
           user.id === "ippan" || user.id === "etsuran" || 
-          user.id === "001" || user.id === "002" || user.id === "003" ||
-          user.id === "cmgkljr1000008z81edjq66sl" ||
-          user.id === "cmgorkhkh00008z11nhm08dt7" ||
-          user.id === "cmgtj2n3o00008zcwnsyk1k4n") {
+          user.id === "001" || user.id === "002" || user.id === "003") {
         console.warn('WorkClock: 古いユーザーIDが検出されました', user.id)
         return ''
       }
@@ -103,13 +101,17 @@ export async function getWorkerById(id: string): Promise<Worker | undefined> {
   }
 }
 
-export async function updateWorker(id: string, updates: Partial<Worker>): Promise<void> {
+export async function updateWorker(id: string, updates: Partial<Worker>, userId?: string): Promise<void> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
     const response = await fetch(`${API_BASE}/workers/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
       body: JSON.stringify(updates),
     })
@@ -144,13 +146,17 @@ export interface NewWorkerPayload extends Omit<Worker, 'id'> {
   employeeId: string
 }
 
-export async function addWorker(worker: NewWorkerPayload): Promise<Worker> {
+export async function addWorker(worker: NewWorkerPayload, userId?: string): Promise<Worker> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
     const response = await fetch(`${API_BASE}/workers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
       body: JSON.stringify(worker),
     })
@@ -166,11 +172,16 @@ export async function addWorker(worker: NewWorkerPayload): Promise<Worker> {
 }
 
 // Time Entries
-export async function getTimeEntries(): Promise<TimeEntry[]> {
+export async function getTimeEntries(userId?: string): Promise<TimeEntry[]> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      return []
+    }
     const response = await fetch(`${API_BASE}/time-entries`, {
       headers: {
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
     })
     if (!response.ok) {

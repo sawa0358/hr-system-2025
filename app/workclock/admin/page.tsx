@@ -36,7 +36,7 @@ export default function AdminPage() {
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth()
       
-      const allEntries = await getTimeEntries()
+      const allEntries = await getTimeEntries(currentUser.id)
       const entries = allEntries.filter((entry) => {
         const entryDate = new Date(entry.date)
         return entryDate.getFullYear() === year && entryDate.getMonth() === month

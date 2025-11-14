@@ -165,6 +165,11 @@ export default function SettingsPage() {
     e.preventDefault()
 
     try {
+      const userId = currentUser?.id
+      if (!userId) {
+        throw new Error('認証が必要です。ログインしてください。')
+      }
+
       if (editingWorker) {
         await updateWorker(editingWorker.id, {
           name: formData.name,
@@ -179,7 +184,7 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
-        })
+        }, userId)
         await loadWorkers()
         toast({
           title: '更新完了',
@@ -204,7 +209,7 @@ export default function SettingsPage() {
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
         }
-        await addWorker(payload)
+        await addWorker(payload, userId)
         await loadWorkers()
         toast({
           title: '登録完了',

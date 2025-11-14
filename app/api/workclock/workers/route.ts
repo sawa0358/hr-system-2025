@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 既存のワーカーをチェック
-    const existing = await prisma.workClockWorker.findUnique({
+    const existing = await (prisma as any).workClockWorker.findUnique({
       where: { employeeId },
     })
 
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const worker = await prisma.workClockWorker.create({
+    const worker = await (prisma as any).workClockWorker.create({
       data: {
         employeeId,
         name,
@@ -218,10 +218,43 @@ export async function POST(request: NextRequest) {
       ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock worker作成エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+
+    // マイグレーション未適用やテーブル未作成時（開発中）の一時的な救済
+    const message: string = String(error?.message || '')
+    const prismaCode: string | undefined = error?.code
+    const isMissingTable =
+      prismaCode === 'P2021' ||
+      prismaCode === 'P2022' ||
+      message.toLowerCase().includes('no such table') ||
+      message.toLowerCase().includes('does not exist')
+
+    if (isMissingTable) {
+      console.warn('[WorkClock API] テーブル未作成のため503を返します')
+      return NextResponse.json(
+        { error: 'データベーステーブルが作成されていません。Prismaマイグレーションを実行してください。' },
+        { status: 503 }
+      )
+    }
+
+    // 開発環境では詳細なエラー情報を返す
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { error: 'ワーカーの作成に失敗しました' },
+      {
+        error: 'ワーカーの作成に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
       { status: 500 }
     )
   }

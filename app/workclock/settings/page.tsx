@@ -418,12 +418,42 @@ export default function SettingsPage() {
                             id="password"
                             type="password"
                             value={formData.password}
-                            onChange={(e) =>
-                              setFormData({ ...formData, password: e.target.value })
-                            }
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             required
                             placeholder="ログイン用パスワード"
+                            disabled={
+                              !(['hr', 'admin'].includes(currentUser?.role || '')) || !passwordEditable
+                            }
                           />
+                          {(['hr', 'admin'].includes(currentUser?.role || '')) && !passwordEditable && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                placeholder="Pass"
+                                value={passwordUnlockText}
+                                onChange={(e) => setPasswordUnlockText(e.target.value)}
+                                className="h-8 w-24"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-8 px-2"
+                                onClick={() => {
+                                  if (passwordUnlockText === 'Pass') {
+                                    setPasswordEditable(true)
+                                    setPasswordUnlockText('')
+                                  } else {
+                                    toast({
+                                      title: '認証エラー',
+                                      description: '解除パスが一致しません',
+                                      variant: 'destructive',
+                                    })
+                                  }
+                                }}
+                              >
+                                編集を有効化
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
 

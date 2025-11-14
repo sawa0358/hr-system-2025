@@ -71,6 +71,9 @@ export default function SettingsPage() {
   const [teams, setTeams] = useState<string[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
+  // パスワード編集ロック（初期はロック。HR/管理者のみ解除可能）
+  const [passwordEditable, setPasswordEditable] = useState(false)
+  const [passwordUnlockText, setPasswordUnlockText] = useState('')
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)

@@ -16,14 +16,14 @@ import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Users, LayoutDashboard, Settings } from 'lucide-react'
 
 interface SidebarNavProps {
-  workers: Array<{ id: string; name: string; teams?: string[]; role?: 'admin' | 'worker' }>
+  workers: Array<{ id: string; name: string; teams?: string[]; role?: 'admin' | 'worker'; employeeType?: string | null }>
   currentRole: 'admin' | 'worker'
 }
 
 export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<string>('all')
-  const [selectedRole, setSelectedRole] = useState<string>('all')
+  const [selectedEmployment, setSelectedEmployment] = useState<string>('all') // 業務委託/外注先
   const pathname = usePathname()
   const router = useRouter()
 
@@ -43,12 +43,15 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
       filtered = filtered.filter(w => w.teams?.includes(selectedTeam))
     }
     
-    if (selectedRole !== 'all') {
-      filtered = filtered.filter(w => w.role === selectedRole)
+    if (selectedEmployment !== 'all') {
+      filtered = filtered.filter(w => {
+        const et = (w.employeeType || '').toString()
+        return et.includes(selectedEmployment)
+      })
     }
     
     return filtered
-  }, [workers, selectedTeam, selectedRole])
+  }, [workers, selectedTeam, selectedEmployment])
 
   const handleWorkerChange = (workerId: string) => {
     router.push(`/workclock/worker/${workerId}`)
@@ -131,15 +134,15 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">権限</label>
-                      <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <label className="text-xs font-medium text-muted-foreground">区分</label>
+                      <Select value={selectedEmployment} onValueChange={setSelectedEmployment}>
                         <SelectTrigger className="h-9 w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">すべて</SelectItem>
-                          <SelectItem value="admin">管理者</SelectItem>
-                          <SelectItem value="worker">ワーカー</SelectItem>
+                          <SelectItem value="業務委託">業務委託</SelectItem>
+                          <SelectItem value="外注先">外注先</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             email: true,
+            employeeType: true,
           },
         },
       },
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
       return {
         ...worker,
         teams,
+        employeeType: worker.employee?.employeeType || null,
       }
     })
 

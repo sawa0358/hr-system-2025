@@ -1,0 +1,155 @@
+=====================================
+本番環境フルバックアップ情報
+=====================================
+
+バックアップ日時: 2025年11月14日 04時20分37秒
+Herokuアプリ: hr-system-2025
+バックアップ方式: Heroku公式バックアップ（pg_dump version 17対応）
+
+【作成されたファイル】
+1. Heroku公式バックアップ（PostgreSQL dump形式）
+   ファイル名: production-heroku-backup-20251114_042014.dump
+   サイズ: 164K
+   フォーマット: PostgreSQL custom format
+
+【Herokuバックアップ詳細】
+ ›   Warning: heroku update available from 10.11.0 to 10.15.0.
+=== Backup b023
+
+Database:         DATABASE
+Started at:       2025-11-13 19:20:20 +0000
+Finished at:      2025-11-13 19:20:22 +0000
+Status:           Completed
+Type:             Manual
+Original DB Size: 11.33MB
+Backup Size:      162.41KB (99% compression)
+
+=== Backup Logs
+
+2025-11-13 19:20:21 +0000 pg_dump: last built-in OID is 16383
+2025-11-13 19:20:21 +0000 pg_dump: reading extensions
+2025-11-13 19:20:21 +0000 pg_dump: identifying extension members
+2025-11-13 19:20:21 +0000 pg_dump: reading schemas
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined tables
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined functions
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined types
+2025-11-13 19:20:21 +0000 pg_dump: reading procedural languages
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined aggregate functions
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined operators
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined access methods
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined operator classes
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined operator families
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined text search parsers
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined text search templates
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined text search dictionaries
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined text search configurations
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined foreign-data wrappers
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined foreign servers
+2025-11-13 19:20:21 +0000 pg_dump: reading default privileges
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined collations
+2025-11-13 19:20:21 +0000 pg_dump: reading user-defined conversions
+2025-11-13 19:20:21 +0000 pg_dump: reading type casts
+2025-11-13 19:20:21 +0000 pg_dump: reading transforms
+2025-11-13 19:20:21 +0000 pg_dump: reading table inheritance information
+2025-11-13 19:20:21 +0000 pg_dump: reading event triggers
+2025-11-13 19:20:21 +0000 pg_dump: finding extension tables
+2025-11-13 19:20:21 +0000 pg_dump: finding inheritance relationships
+2025-11-13 19:20:21 +0000 pg_dump: reading column info for interesting tables
+2025-11-13 19:20:21 +0000 pg_dump: finding table default expressions
+2025-11-13 19:20:21 +0000 pg_dump: flagging inherited columns in subtables
+2025-11-13 19:20:21 +0000 pg_dump: reading partitioning data
+2025-11-13 19:20:21 +0000 pg_dump: reading indexes
+2025-11-13 19:20:21 +0000 pg_dump: flagging indexes in partitioned tables
+2025-11-13 19:20:21 +0000 pg_dump: reading extended statistics
+2025-11-13 19:20:21 +0000 pg_dump: reading constraints
+2025-11-13 19:20:21 +0000 pg_dump: reading triggers
+2025-11-13 19:20:21 +0000 pg_dump: reading rewrite rules
+2025-11-13 19:20:21 +0000 pg_dump: reading policies
+2025-11-13 19:20:21 +0000 pg_dump: reading row-level security policies
+2025-11-13 19:20:21 +0000 pg_dump: reading publications
+2025-11-13 19:20:21 +0000 pg_dump: reading publication membership of tables
+2025-11-13 19:20:21 +0000 pg_dump: reading publication membership of schemas
+2025-11-13 19:20:21 +0000 pg_dump: reading subscriptions
+2025-11-13 19:20:21 +0000 pg_dump: reading subscription membership of tables
+2025-11-13 19:20:21 +0000 pg_dump: reading large objects
+2025-11-13 19:20:21 +0000 pg_dump: reading dependency data
+2025-11-13 19:20:22 +0000 pg_dump: saving encoding = UTF8
+2025-11-13 19:20:22 +0000 pg_dump: saving "standard_conforming_strings = on"
+2025-11-13 19:20:22 +0000 pg_dump: saving "search_path = "
+2025-11-13 19:20:22 +0000 pg_dump: saving database definition
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public._prisma_migrations"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.activity_logs"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.alert_events"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.alert_settings"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.attendance"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.audit_logs"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.board_lists"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.boards"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.bulletin_categories"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.bulletins"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.card_members"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.cards"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.consumptions"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.convenience_categories"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.convenience_entries"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.convenience_entry_urls"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.custom_folders"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.employees"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.evaluations"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.family_members"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.files"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.folders"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.grant_lots"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.leave_requests"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.master_data"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.parttime_grant_schedule"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.payroll"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.task_members"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.tasks"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.time_off_requests"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.user_settings"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_app_configs"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_balances"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_grant_schedule"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_requests"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_settings"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.vacation_usage"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.workspace_members"
+2025-11-13 19:20:22 +0000 pg_dump: dumping contents of table "public.workspaces"
+2025-11-13 19:20:22 +0000 waiting for upload to complete
+2025-11-13 19:20:22 +0000 upload finished successfully
+2025-11-13 19:20:22 +0000 waiting for pg_dump to complete
+2025-11-13 19:20:22 +0000 pg_dump finished successfully
+
+【復元方法】
+
+方法1: Heroku公式バックアップから直接復元（推奨）
+  heroku pg:backups:restore --app hr-system-2025
+
+方法2: ダウンロードしたファイルから復元
+  # ローカルPostgreSQLに復元（PostgreSQL 17が必要）
+  pg_restore --verbose --clean --no-acl --no-owner -d $DATABASE_URL ./production_data_backup/production-heroku-backup-20251114_042014.dump
+  
+  # またはHerokuにアップロードして復元
+  heroku pg:backups:restore './production_data_backup/production-heroku-backup-20251114_042014.dump' DATABASE_URL --app hr-system-2025
+
+方法3: 復元スクリプトを使用
+  ./scripts/restore-production-from-heroku-backup.sh ./production_data_backup/production-heroku-backup-20251114_042014.dump
+
+【Heroku上のバックアップ一覧を確認】
+  heroku pg:backups --app hr-system-2025
+
+【注意事項】
+- このバックアップはPostgreSQL custom format形式です
+- 復元にはpg_restoreコマンドを使用します（pg_dumpではありません）
+- ローカルで復元する場合はPostgreSQL 17が必要です
+- Heroku上では直接復元できます（バージョン不一致の心配なし）
+- Herokuは最新の10個のバックアップを自動保持します
+
+【エラーが発生した場合】
+このファイルと以下の情報を提供してください：
+- タイムスタンプ: 20251114_042014
+- バックアップファイル: production-heroku-backup-20251114_042014.dump
+- エラー内容とスクリーンショット
+
+=====================================

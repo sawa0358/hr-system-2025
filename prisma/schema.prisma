@@ -150,6 +150,9 @@ model Employee {
   
   // 家族構成関係
   familyMembers         FamilyMember[]
+  
+  // WorkClock関係
+  workClockWorkers      WorkClockWorker[]
 
   @@map("employees")
 }
@@ -770,4 +773,47 @@ model ConvenienceEntryUrl {
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")
+}
+
+// ==========================
+// WorkClock（業務委託時間管理）用モデル
+// ==========================
+
+model WorkClockWorker {
+  id                      String   @id @default(cuid())
+  employeeId              String   @unique
+  employee                Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name                    String
+  password                String?
+  companyName             String?  // 屋号・会社名
+  qualifiedInvoiceNumber  String?  // 適格証明番号
+  chatworkId              String?  // チャットワークID
+  email                   String
+  phone                   String?  // 電話番号
+  address                 String?  // 住所
+  hourlyRate              Float
+  teams                   String?  // JSON配列として保存
+  role                    String   @default("worker") // 'worker' | 'admin'
+  notes                   String?  // 備考欄
+  timeEntries             WorkClockTimeEntry[]
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("workclock_workers")
+}
+
+model WorkClockTimeEntry {
+  id          String   @id @default(cuid())
+  workerId    String
+  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date        DateTime // 日付
+  startTime   String   // HH:mm形式（24時間）
+  endTime     String   // HH:mm形式（24時間）
+  breakMinutes Int     @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workerId, date])
+  @@map("workclock_time_entries")
 }

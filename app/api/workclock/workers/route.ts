@@ -1,0 +1,227 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+// GET: ワーカー一覧を取得
+export async function GET(request: NextRequest) {
+  try {
+    const userId = request.headers.get('x-employee-id')
+    if (!userId) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    // ユーザー情報を取得
+    const user = await prisma.employee.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
+    }
+
+    // 権限チェック: サブマネージャー以上のみ
+    const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
+    if (!allowedRoles.includes(user.role || '')) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
+    // Prisma Clientが古く、WorkClockWorkerモデルを持っていない場合の防御
+    const hasWorkClockModel =
+      (prisma as any)?.workClockWorker &&
+      typeof (prisma as any).workClockWorker.findMany === 'function'
+
+    if (!hasWorkClockModel) {
+      console.warn('[WorkClock API] prisma.workClockWorker が未定義です。Prisma Client の再生成が必要です。')
+      // フロントが落ちないよう一旦空配列を返す（メンテ表示は別途検討）
+      return NextResponse.json([], { status: 200 })
+    }
+
+    const workers = await (prisma as any).workClockWorker.findMany({
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    console.log(`[WorkClock API] Found ${workers.length} workers`)
+
+    // teamsをJSONから配列に変換
+    const formattedWorkers = workers.map((worker) => {
+      let teams: string[] = []
+      if (worker.teams) {
+        try {
+          teams = JSON.parse(worker.teams)
+        } catch (e) {
+          console.warn(`WorkClock worker ${worker.id}のteamsパースエラー:`, e)
+          teams = []
+        }
+      }
+      return {
+        ...worker,
+        teams,
+      }
+    })
+
+    return NextResponse.json(formattedWorkers)
+  } catch (error: any) {
+    console.error('WorkClock workers取得エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+
+    // マイグレーション未適用やテーブル未作成時（開発中）の一時的な救済:
+    // Prisma/SQLite: P2021（テーブルが存在しない）, P2022（列が存在しない）
+    // SQLiteエンジンの素のエラー文言: "no such table" など
+    const message: string = String(error?.message || '')
+    const prismaCode: string | undefined = error?.code
+    const isMissingTable =
+      prismaCode === 'P2021' ||
+      prismaCode === 'P2022' ||
+      message.toLowerCase().includes('no such table') ||
+      message.toLowerCase().includes('does not exist')
+
+    if (isMissingTable) {
+      console.warn('[WorkClock API] テーブル未作成のため空配列を返します（開発用フェイルセーフ）')
+      return NextResponse.json([], { status: 200 })
+    }
+
+    // 開発環境では詳細なエラー情報を返す
+    const isDev = process.env.NODE_ENV === 'development'
+    return NextResponse.json(
+      { 
+        error: 'ワーカー一覧の取得に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST: 新しいワーカーを作成
+export async function POST(request: NextRequest) {
+  try {
+    const userId = request.headers.get('x-employee-id')
+    if (!userId) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    // ユーザー情報を取得
+    const user = await prisma.employee.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
+    }
+
+    // 権限チェック: サブマネージャー以上のみ
+    const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
+    if (!allowedRoles.includes(user.role || '')) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
+    // Prisma Clientが古く、WorkClockWorkerモデルを持っていない場合の防御
+    const hasWorkClockModel =
+      (prisma as any)?.workClockWorker &&
+      typeof (prisma as any).workClockWorker.create === 'function'
+    if (!hasWorkClockModel) {
+      console.warn('[WorkClock API] prisma.workClockWorker が未定義です。Prisma Client の再生成が必要です。')
+      return NextResponse.json(
+        { error: 'サーバー初期化中です。数秒後に再試行してください。' },
+        { status: 503 }
+      )
+    }
+
+    const body = await request.json()
+    const {
+      employeeId,
+      name,
+      password,
+      companyName,
+      qualifiedInvoiceNumber,
+      chatworkId,
+      email,
+      phone,
+      address,
+      hourlyRate,
+      teams,
+      role,
+      notes,
+    } = body
+
+    // 必須項目チェック
+    if (!employeeId || !name || !email || hourlyRate === undefined) {
+      return NextResponse.json(
+        { error: '必須項目が不足しています' },
+        { status: 400 }
+      )
+    }
+
+    // 既存のワーカーをチェック
+    const existing = await prisma.workClockWorker.findUnique({
+      where: { employeeId },
+    })
+
+    if (existing) {
+      return NextResponse.json(
+        { error: 'この社員は既にワーカーとして登録されています' },
+        { status: 400 }
+      )
+    }
+
+    const worker = await prisma.workClockWorker.create({
+      data: {
+        employeeId,
+        name,
+        password,
+        companyName,
+        qualifiedInvoiceNumber,
+        chatworkId,
+        email,
+        phone,
+        address,
+        hourlyRate: parseFloat(hourlyRate),
+        teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
+        role: role || 'worker',
+        notes,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      ...worker,
+      teams: worker.teams ? JSON.parse(worker.teams) : [],
+    })
+  } catch (error) {
+    console.error('WorkClock worker作成エラー:', error)
+    return NextResponse.json(
+      { error: 'ワーカーの作成に失敗しました' },
+      { status: 500 }
+    )
+  }
+}
+

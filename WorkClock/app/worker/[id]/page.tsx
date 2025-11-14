@@ -1,0 +1,127 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+import { Worker, TimeEntry } from '@/lib/types'
+import {
+  getWorkerById,
+  getEntriesByWorkerAndMonth,
+  getWorkers,
+  initializeSampleData,
+} from '@/lib/storage'
+import { SidebarNav } from '@/components/sidebar-nav'
+import { WorkerSummary } from '@/components/worker-summary'
+import { CalendarView } from '@/components/calendar-view'
+import { ExportPDFButton } from '@/components/export-pdf-button'
+import { LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+
+export default function WorkerPage() {
+  const params = useParams()
+  const workerId = params.id as string
+
+  const [worker, setWorker] = useState<Worker | null>(null)
+  const [workers, setWorkers] = useState<Worker[]>([])
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    initializeSampleData()
+    loadData()
+  }, [workerId, currentDate, refreshKey])
+
+  const loadData = () => {
+    const foundWorker = getWorkerById(workerId)
+    setWorker(foundWorker || null)
+
+    const allWorkers = getWorkers()
+    setWorkers(allWorkers)
+
+    if (foundWorker) {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      const monthEntries = getEntriesByWorkerAndMonth(workerId, year, month)
+      setEntries(monthEntries)
+    }
+  }
+
+  const handleEntriesChange = () => {
+    setRefreshKey((prev) => prev + 1)
+  }
+
+  if (!worker) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold">ワーカーが見つかりません</h2>
+          <p className="text-muted-foreground">指定されたIDのワーカーは存在しません。</p>
+        </div>
+      </div>
+    )
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = today.toISOString().split('T')[0]
+  const todayEntries = entries.filter((e) => e.date === todayStr)
+
+  return (
+    <div className="flex h-screen">
+      <SidebarNav workers={workers} currentRole={worker.role} />
+      
+      <main className="flex-1 overflow-y-auto">
+        <div className="container mx-auto p-6 space-y-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <WorkerSummary
+                worker={worker}
+                monthlyEntries={entries}
+                todayEntries={todayEntries}
+                selectedMonth={currentDate}
+              />
+            </div>
+            <div className="flex gap-2">
+              <ExportPDFButton
+                worker={worker}
+                entries={entries}
+                month={currentDate}
+                variant="outline"
+              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // ログアウト処理
+                        window.location.href = '/'
+                      }}
+                    >
+                      <LogOut className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>ログアウト</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+
+          <CalendarView
+            workerId={workerId}
+            entries={entries}
+            onEntriesChange={handleEntriesChange}
+          />
+        </div>
+      </main>
+    </div>
+  )
+}

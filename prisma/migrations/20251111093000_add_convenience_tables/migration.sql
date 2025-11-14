@@ -57,3 +57,4 @@ CREATE INDEX "convenience_entries_categoryId_position_idx" ON "convenience_entri
 CREATE INDEX "convenience_entry_urls_entryId_position_idx" ON "convenience_entry_urls"("entryId", "position");
 
 
+

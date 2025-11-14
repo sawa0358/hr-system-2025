@@ -7,8 +7,7 @@ import {
   getWorkerById,
   getEntriesByWorkerAndMonth,
   getWorkers,
-  initializeSampleData,
-} from '@/lib/workclock/storage'
+} from '@/lib/workclock/api-storage'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { WorkerSummary } from '@/components/workclock/worker-summary'
 import { CalendarView } from '@/components/workclock/calendar-view'
@@ -38,22 +37,30 @@ export default function WorkerPage() {
   const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
 
   useEffect(() => {
-    initializeSampleData()
     loadData()
   }, [workerId, currentDate, refreshKey])
 
-  const loadData = () => {
-    const foundWorker = getWorkerById(workerId)
-    setWorker(foundWorker || null)
+  const loadData = async () => {
+    try {
+      if (!currentUser?.id) {
+        console.error('WorkClock: currentUser.idが取得できません')
+        return
+      }
 
-    const allWorkers = getWorkers()
-    setWorkers(allWorkers)
+      const foundWorker = await getWorkerById(workerId)
+      setWorker(foundWorker || null)
 
-    if (foundWorker) {
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const monthEntries = getEntriesByWorkerAndMonth(workerId, year, month)
-      setEntries(monthEntries)
+      const allWorkers = await getWorkers(currentUser.id)
+      setWorkers(allWorkers)
+
+      if (foundWorker) {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth()
+        const monthEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+        setEntries(monthEntries)
+      }
+    } catch (error) {
+      console.error('データ読み込みエラー:', error)
     }
   }
 

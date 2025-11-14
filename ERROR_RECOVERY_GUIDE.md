@@ -236,3 +236,4 @@ heroku config:get DATABASE_URL --app hr-system-2025
 **バージョン**: 1.0.0
 
 
+

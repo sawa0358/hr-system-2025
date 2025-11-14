@@ -37,14 +37,36 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, saveWorkers, getTeams, saveTeams, addTeam } from '@/lib/workclock/storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
+
+// getCurrentUserIdをエクスポートする必要があるので、直接実装
+function getCurrentUserId(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    let savedUser = localStorage.getItem('currentUser')
+    if (!savedUser) {
+      savedUser = sessionStorage.getItem('currentUser')
+    }
+    if (savedUser) {
+      const user = JSON.parse(savedUser)
+      if (user.id && typeof user.id === 'string' && user.id.length > 0) {
+        return user.id
+      }
+    }
+  } catch (error) {
+    console.error('WorkClock: ユーザー情報のパースエラー', error)
+  }
+  return ''
+}
 
 export default function SettingsPage() {
+  const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [teams, setTeams] = useState<string[]>([])
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
@@ -69,9 +91,37 @@ export default function SettingsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    setWorkers(getWorkers())
+    if (currentUser?.id) {
+      loadWorkers()
+    }
     setTeams(getTeams())
-  }, [])
+  }, [currentUser])
+
+  const loadWorkers = async () => {
+    try {
+      // currentUserからIDを取得（useAuthフックを使用）
+      const userId = currentUser?.id || getCurrentUserId()
+      if (!userId) {
+        console.error('WorkClock: ユーザーIDが取得できません')
+        toast({
+          title: 'エラー',
+          description: '認証が必要です。ログインしてください。',
+          variant: 'destructive',
+        })
+        return
+      }
+      
+      const loadedWorkers = await getWorkers(userId)
+      setWorkers(loadedWorkers)
+    } catch (error) {
+      console.error('Workers取得エラー:', error)
+      toast({
+        title: 'エラー',
+        description: 'ワーカー一覧の取得に失敗しました',
+        variant: 'destructive',
+      })
+    }
+  }
 
   const resetForm = () => {
     setFormData({
@@ -91,59 +141,62 @@ export default function SettingsPage() {
     setEditingWorker(null)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingWorker) {
-      const updatedWorkers = workers.map((w) =>
-        w.id === editingWorker.id
-          ? {
-              ...w,
-              name: formData.name,
-              password: formData.password,
-              companyName: formData.companyName,
-              qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
-              chatworkId: formData.chatworkId,
-              email: formData.email,
-              phone: formData.phone,
-              address: formData.address,
-              hourlyRate: Number(formData.hourlyRate),
-              teams: formData.teams,
-              role: formData.role,
-              notes: formData.notes,
-            }
-          : w
-      )
-      saveWorkers(updatedWorkers)
-      setWorkers(updatedWorkers)
+    try {
+      if (editingWorker) {
+        await updateWorker(editingWorker.id, {
+          name: formData.name,
+          password: formData.password || undefined,
+          companyName: formData.companyName || undefined,
+          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
+          chatworkId: formData.chatworkId || undefined,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+          hourlyRate: Number(formData.hourlyRate),
+          teams: formData.teams,
+          role: formData.role as 'worker' | 'admin',
+          notes: formData.notes || undefined,
+        })
+        await loadWorkers()
+        toast({
+          title: '更新完了',
+          description: 'ワーカー情報を更新しました',
+        })
+      } else {
+        await addWorker({
+          name: formData.name,
+          password: formData.password || undefined,
+          companyName: formData.companyName || undefined,
+          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
+          chatworkId: formData.chatworkId || undefined,
+          email: formData.email,
+          phone: formData.phone || undefined,
+          address: formData.address || undefined,
+          hourlyRate: Number(formData.hourlyRate),
+          teams: formData.teams,
+          role: formData.role as 'worker' | 'admin',
+          notes: formData.notes || undefined,
+        })
+        await loadWorkers()
+        toast({
+          title: '登録完了',
+          description: '新しいワーカーを登録しました',
+        })
+      }
+
+      setIsDialogOpen(false)
+      resetForm()
+    } catch (error: any) {
+      console.error('ワーカー保存エラー:', error)
       toast({
-        title: '更新完了',
-        description: 'ワーカー情報を更新しました',
-      })
-    } else {
-      const newWorker = addWorker({
-        name: formData.name,
-        password: formData.password,
-        companyName: formData.companyName,
-        qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
-        chatworkId: formData.chatworkId,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        hourlyRate: Number(formData.hourlyRate),
-        teams: formData.teams,
-        role: formData.role,
-        notes: formData.notes,
-      })
-      setWorkers([...workers, newWorker])
-      toast({
-        title: '登録完了',
-        description: '新しいワーカーを登録しました',
+        title: 'エラー',
+        description: error.message || 'ワーカーの保存に失敗しました',
+        variant: 'destructive',
       })
     }
-
-    setIsDialogOpen(false)
-    resetForm()
   }
 
   const handleEdit = (worker: Worker) => {
@@ -165,15 +218,23 @@ export default function SettingsPage() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (workerId: string) => {
+  const handleDelete = async (workerId: string) => {
     if (confirm('このワーカーを削除してもよろしいですか？')) {
-      const updatedWorkers = workers.filter((w) => w.id !== workerId)
-      saveWorkers(updatedWorkers)
-      setWorkers(updatedWorkers)
-      toast({
-        title: '削除完了',
-        description: 'ワーカーを削除しました',
-      })
+      try {
+        await deleteWorker(workerId)
+        await loadWorkers()
+        toast({
+          title: '削除完了',
+          description: 'ワーカーを削除しました',
+        })
+      } catch (error: any) {
+        console.error('ワーカー削除エラー:', error)
+        toast({
+          title: 'エラー',
+          description: error.message || 'ワーカーの削除に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 

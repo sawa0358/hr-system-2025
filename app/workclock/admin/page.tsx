@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Worker, TimeEntry } from '@/lib/workclock/types'
-import { getWorkers, getTimeEntries, initializeSampleData, getWorkerById, getEntriesByWorkerAndMonth } from '@/lib/workclock/storage'
+import { getWorkers, getTimeEntries, getWorkerById, getEntriesByWorkerAndMonth } from '@/lib/workclock/api-storage'
+import { useAuth } from '@/lib/auth-context'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { AdminOverview } from '@/components/workclock/admin-overview'
 import { WorkerTable } from '@/components/workclock/worker-table'
@@ -11,28 +12,40 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { downloadPDF } from '@/lib/workclock/pdf-export'
 
 export default function AdminPage() {
+  const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
 
   useEffect(() => {
-    initializeSampleData()
-    loadData()
-  }, [currentDate])
+    if (currentUser?.id) {
+      loadData()
+    }
+  }, [currentDate, currentUser])
 
-  const loadData = () => {
-    const loadedWorkers = getWorkers()
-    setWorkers(loadedWorkers)
+  const loadData = async () => {
+    try {
+      if (!currentUser?.id) {
+        console.error('WorkClock: currentUser.idが取得できません')
+        return
+      }
 
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    
-    const entries = getTimeEntries().filter((entry) => {
-      const entryDate = new Date(entry.date)
-      return entryDate.getFullYear() === year && entryDate.getMonth() === month
-    })
-    
-    setAllEntries(entries)
+      const loadedWorkers = await getWorkers(currentUser.id)
+      setWorkers(loadedWorkers)
+
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      
+      const allEntries = await getTimeEntries()
+      const entries = allEntries.filter((entry) => {
+        const entryDate = new Date(entry.date)
+        return entryDate.getFullYear() === year && entryDate.getMonth() === month
+      })
+      
+      setAllEntries(entries)
+    } catch (error) {
+      console.error('データ読み込みエラー:', error)
+    }
   }
 
   const goToPreviousMonth = () => {
@@ -47,18 +60,23 @@ export default function AdminPage() {
     setCurrentDate(new Date(year, month + 1, 1))
   }
 
-  const handleExportPDF = (workerId: string) => {
-    const worker = getWorkerById(workerId)
-    if (!worker) {
-      alert('ワーカー情報が見つかりません')
-      return
-    }
+  const handleExportPDF = async (workerId: string) => {
+    try {
+      const worker = await getWorkerById(workerId)
+      if (!worker) {
+        alert('ワーカー情報が見つかりません')
+        return
+      }
 
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const workerEntries = getEntriesByWorkerAndMonth(workerId, year, month)
-    
-    downloadPDF(worker, workerEntries, currentDate)
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+      
+      downloadPDF(worker, workerEntries, currentDate)
+    } catch (error) {
+      console.error('PDFエクスポートエラー:', error)
+      alert('PDFエクスポートに失敗しました')
+    }
   }
 
   const adminWorker = workers.find((w) => w.role === 'admin') || {

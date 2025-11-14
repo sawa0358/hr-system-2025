@@ -18,6 +18,7 @@ import {
   Calendar,
   LogOut,
   Sparkles,
+  Timer,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
   { icon: KanbanSquare, label: "タスク管理", href: "/tasks", permission: "viewOwnTasks" as const },
   { icon: Network, label: "組織図", href: "/organization", permission: "viewOrgChart" as const },
+  { icon: Timer, label: "業務委託時間管理", href: "/workclock", permission: "viewDashboard" as const, roles: ["sub_manager", "store_manager", "manager", "hr", "admin"] },
 ]
 
 const dropdownMenuItems = [
@@ -272,8 +274,21 @@ export function Sidebar() {
 
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => 
-    menuItems.filter((item) => hasPermission(item.permission)), 
-    [hasPermission]
+    menuItems.filter((item) => {
+      // 権限チェック
+      if (!hasPermission(item.permission)) {
+        return false
+      }
+      // rolesプロパティがある場合は、現在のユーザーのroleが含まれているかチェック
+      if ('roles' in item && item.roles) {
+        if (!currentUser || !currentUser.role) {
+          return false
+        }
+        return item.roles.includes(currentUser.role)
+      }
+      return true
+    }), 
+    [hasPermission, currentUser]
   )
   const visibleDropdownItems = React.useMemo(() => {
     return dropdownMenuItems.filter((item) => {

@@ -47,7 +47,7 @@ export default function WorkerPage() {
         return
       }
 
-      const foundWorker = await getWorkerById(workerId)
+      const foundWorker = await getWorkerById(workerId, currentUser.id)
       setWorker(foundWorker || null)
 
       const allWorkers = await getWorkers(currentUser.id)

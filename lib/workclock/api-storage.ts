@@ -84,11 +84,16 @@ export async function saveWorkers(workers: Worker[]): Promise<void> {
   console.warn('saveWorkers: 一括保存はサポートされていません。個別に更新してください。')
 }
 
-export async function getWorkerById(id: string): Promise<Worker | undefined> {
+export async function getWorkerById(id: string, userId?: string): Promise<Worker | undefined> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      return undefined
+    }
     const response = await fetch(`${API_BASE}/workers/${id}`, {
       headers: {
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
     })
     if (!response.ok) {

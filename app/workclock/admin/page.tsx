@@ -62,7 +62,12 @@ export default function AdminPage() {
 
   const handleExportPDF = async (workerId: string) => {
     try {
-      const worker = await getWorkerById(workerId)
+      if (!currentUser?.id) {
+        console.error('WorkClock: currentUser.idが取得できません')
+        alert('認証情報が取得できません。再度ログインしてください。')
+        return
+      }
+      const worker = await getWorkerById(workerId, currentUser.id)
       if (!worker) {
         alert('ワーカー情報が見つかりません')
         return

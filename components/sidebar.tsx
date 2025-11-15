@@ -272,9 +272,28 @@ export function Sidebar() {
     }
   }, [collapsed, pathname])
 
+  // WorkClockページ内でワーカー権限かどうかを判定
+  const isWorkClockWorker = React.useMemo(() => {
+    if (!pathname.startsWith('/workclock')) {
+      return false
+    }
+    if (!currentUser) {
+      return false
+    }
+    const employeeType = currentUser.employeeType || ''
+    return employeeType.includes('業務委託') || employeeType.includes('外注先')
+  }, [pathname, currentUser])
+
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
-  const visibleMenuItems = React.useMemo(() => 
-    menuItems.filter((item) => {
+  const visibleMenuItems = React.useMemo(() => {
+    // WorkClockページ内でワーカー権限の場合は、「タスク管理」と「業務委託時間管理」のみを表示
+    if (isWorkClockWorker) {
+      return menuItems.filter((item) => {
+        return item.href === '/tasks' || item.href === '/workclock'
+      })
+    }
+    
+    return menuItems.filter((item) => {
       // 権限チェック
       if (!hasPermission(item.permission)) {
         return false
@@ -287,9 +306,8 @@ export function Sidebar() {
         return item.roles.includes(currentUser.role)
       }
       return true
-    }), 
-    [hasPermission, currentUser]
-  )
+    })
+  }, [hasPermission, currentUser, isWorkClockWorker])
   const visibleDropdownItems = React.useMemo(() => {
     return dropdownMenuItems.filter((item) => {
       // 権限チェック

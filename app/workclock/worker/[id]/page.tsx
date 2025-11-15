@@ -33,9 +33,6 @@ export default function WorkerPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
 
-  // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
-  const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
-
   useEffect(() => {
     if (currentUser?.id) {
       loadData()
@@ -81,14 +78,35 @@ export default function WorkerPage() {
     )
   }
 
+  // ワーカー権限のユーザーの場合はSidebarNavを非表示
+  // HRシステムのユーザーroleが管理者系（admin, hr, manager, store_manager, sub_manager）の場合は常に表示
+  // WorkClockのworker.roleが'worker'で、かつHRシステムのroleが一般ユーザー（viewer, general）の場合のみ非表示
+  // currentUserが存在しない場合は管理者として扱う（SidebarNavを表示）
+  const isAdminUser = currentUser?.role ? ['admin', 'hr', 'manager', 'store_manager', 'sub_manager'].includes(currentUser.role) : true
+  const isWorkerOnly = !isAdminUser && worker.role === 'worker'
+  
+  // デバッグ用ログ
+  console.log('WorkClock WorkerPage:', { 
+    workerId, 
+    workerRole: worker.role,
+    currentUser: currentUser ? { id: currentUser.id, role: currentUser.role } : null,
+    currentUserRole: currentUser?.role,
+    isAdminUser,
+    isWorkerOnly,
+    shouldShowSidebar: !isWorkerOnly 
+  })
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayStr = today.toISOString().split('T')[0]
   const todayEntries = entries.filter((e) => e.date === todayStr)
 
+  // SidebarNavのcurrentRoleを決定（管理者の場合は'admin'、ワーカーの場合は'worker'）
+  const sidebarRole = isAdminUser ? 'admin' : (worker.role || 'admin')
+  
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
-      {!isWorkerOnly && <SidebarNav workers={workers} currentRole={worker.role} />}
+      {!isWorkerOnly && worker && <SidebarNav workers={workers} currentRole={sidebarRole} />}
       
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#bddcd9' }}>
         <div className="w-full max-w-7xl mx-auto p-4 md:p-6 space-y-6">

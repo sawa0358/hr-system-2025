@@ -153,17 +153,19 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </Link>
           )}
 
-          <Link href="/workclock/settings">
-            <Button
-              variant={pathname === '/workclock/settings' ? 'secondary' : 'ghost'}
-              className={cn('w-full justify-start', isCollapsed && 'justify-center px-2')}
-            >
-              <Settings className="h-4 w-4" />
-              {!isCollapsed && <span className="ml-2">設定</span>}
-            </Button>
-          </Link>
+          {currentRole === 'admin' && (
+            <Link href="/workclock/settings">
+              <Button
+                variant={pathname === '/workclock/settings' ? 'secondary' : 'ghost'}
+                className={cn('w-full justify-start', isCollapsed && 'justify-center px-2')}
+              >
+                <Settings className="h-4 w-4" />
+                {!isCollapsed && <span className="ml-2">設定</span>}
+              </Button>
+            </Link>
+          )}
 
-          {!isCollapsed && (
+          {!isCollapsed && currentRole === 'admin' && (
             <div className="mt-4 space-y-3 px-2 py-2">
               <h3 className="flex items-center text-xs font-medium text-muted-foreground">
                 <Users className="mr-2 h-3 w-3" />
@@ -240,7 +242,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </div>
           )}
           
-          {isCollapsed && workers.length > 0 && (
+          {isCollapsed && workers.length > 0 && currentRole === 'admin' && (
             <Select value={currentWorkerId} onValueChange={handleWorkerChange}>
               <SelectTrigger className="w-full border-0 bg-transparent px-2">
                 <Users className="h-4 w-4" />

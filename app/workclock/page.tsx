@@ -9,10 +9,16 @@ export default function HomePage() {
   const router = useRouter()
   const { currentUser } = useAuth()
   const [isLoading, setIsLoading] = useState(true)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   useEffect(() => {
     if (!currentUser) {
       setIsLoading(false)
+      return
+    }
+
+    // リダイレクト中の場合は何もしない
+    if (isRedirecting) {
       return
     }
 
@@ -38,19 +44,26 @@ export default function HomePage() {
           const ownWorker = workers.find(w => w.employeeId === currentUser.id)
           if (ownWorker) {
             // 自分のWorkClockWorkerレコードが見つかった場合、そのページにリダイレクト
+            setIsRedirecting(true)
             router.push(`/workclock/worker/${ownWorker.id}`)
+            return
           } else {
-            // 自分のWorkClockWorkerレコードが見つからない場合、employeeIdで直接アクセスを試みる
-            // または、設定画面にリダイレクトして登録を促す
+            // 自分のWorkClockWorkerレコードが見つからない場合、設定画面にリダイレクトして登録を促す
+            setIsRedirecting(true)
             router.replace('/workclock/settings?employeeId=' + currentUser.id)
+            return
           }
         } else if (workers.length > 0) {
           // 管理者権限のユーザーは最初のワーカーのページにリダイレクト
+          setIsRedirecting(true)
           router.push(`/workclock/worker/${workers[0].id}`)
+          return
         } else {
           // 許可ロールのユーザーは設定画面へ誘導（登録・編集が可能）
           if (isAdmin) {
+            setIsRedirecting(true)
             router.replace('/workclock/settings?empty=1')
+            return
           } else {
             setIsLoading(false)
           }
@@ -62,7 +75,7 @@ export default function HomePage() {
     }
     
     loadWorkers()
-  }, [router, currentUser])
+  }, [router, currentUser, isRedirecting])
 
   if (isLoading) {
     return (

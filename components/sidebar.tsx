@@ -272,25 +272,39 @@ export function Sidebar() {
     }
   }, [collapsed, pathname])
 
-  // WorkClockページ内でワーカー権限かどうかを判定
-  const isWorkClockWorker = React.useMemo(() => {
-    if (!pathname.startsWith('/workclock')) {
-      return false
-    }
+  // 雇用形態が「業務委託」または「外注先」かどうかを判定
+  const isWorkerEmployeeType = React.useMemo(() => {
     if (!currentUser) {
       return false
     }
     const employeeType = currentUser.employeeType || ''
     return employeeType.includes('業務委託') || employeeType.includes('外注先')
-  }, [pathname, currentUser])
+  }, [currentUser])
+
+  // WorkClockページ内でワーカー権限かどうかを判定
+  const isWorkClockWorker = React.useMemo(() => {
+    if (!pathname.startsWith('/workclock')) {
+      return false
+    }
+    return isWorkerEmployeeType
+  }, [pathname, isWorkerEmployeeType])
 
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
   const visibleMenuItems = React.useMemo(() => {
-    // WorkClockページ内でワーカー権限の場合は、「タスク管理」と「業務委託時間管理」のみを表示
-    if (isWorkClockWorker) {
-      return menuItems.filter((item) => {
-        return item.href === '/tasks' || item.href === '/workclock'
-      })
+    // 雇用形態が「業務委託」または「外注先」のワーカー権限の場合は、「タスク管理」と「業務委託時間管理」のみを表示
+    if (isWorkerEmployeeType) {
+      // HRシステムのroleが管理者系の場合は通常のフィルタリングを適用
+      const isAdminUser = currentUser?.role && ['admin', 'hr', 'manager', 'store_manager', 'sub_manager'].includes(currentUser.role)
+      if (!isAdminUser) {
+        return menuItems.filter((item) => {
+          // 権限チェック
+          if (!hasPermission(item.permission)) {
+            return false
+          }
+          // 「タスク管理」と「業務委託時間管理」のみを表示
+          return item.href === '/tasks' || item.href === '/workclock'
+        })
+      }
     }
     
     return menuItems.filter((item) => {
@@ -298,6 +312,14 @@ export function Sidebar() {
       if (!hasPermission(item.permission)) {
         return false
       }
+      
+      // 「業務委託時間管理」の場合は、雇用形態が「業務委託」または「外注先」のユーザーにも表示
+      if (item.href === '/workclock') {
+        if (isWorkerEmployeeType) {
+          return true
+        }
+      }
+      
       // rolesプロパティがある場合は、現在のユーザーのroleが含まれているかチェック
       if ('roles' in item && item.roles) {
         if (!currentUser || !currentUser.role) {
@@ -307,7 +329,7 @@ export function Sidebar() {
       }
       return true
     })
-  }, [hasPermission, currentUser, isWorkClockWorker])
+  }, [hasPermission, currentUser, isWorkClockWorker, isWorkerEmployeeType])
   const visibleDropdownItems = React.useMemo(() => {
     return dropdownMenuItems.filter((item) => {
       // 権限チェック
@@ -538,25 +560,32 @@ export function Sidebar() {
               </li>
             )}
 
-            <li>
-              <Link
-                href="/convenience"
-                onClick={(e) => {
-                  if (!isAuthenticated || !currentUser) {
-                    e.preventDefault()
-                    console.warn("[Sidebar] 認証されていません。便利機能ページへの遷移をキャンセルします。")
-                  }
-                }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
-                )}
-                title={collapsed ? "便利機能" : undefined}
-              >
-                <Sparkles className="w-5 h-5 flex-shrink-0" />
-                {!collapsed && <span className="text-sm font-medium flex-1 text-left">便利機能</span>}
-              </Link>
-            </li>
+            {/* 便利機能: ワーカー権限のユーザー（管理者系でない場合）は非表示 */}
+            {(() => {
+              const isAdminUser = currentUser?.role && ['admin', 'hr', 'manager', 'store_manager', 'sub_manager'].includes(currentUser.role)
+              const shouldHideConvenience = isWorkerEmployeeType && !isAdminUser
+              return !shouldHideConvenience ? (
+                <li>
+                  <Link
+                    href="/convenience"
+                    onClick={(e) => {
+                      if (!isAuthenticated || !currentUser) {
+                        e.preventDefault()
+                        console.warn("[Sidebar] 認証されていません。便利機能ページへの遷移をキャンセルします。")
+                      }
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                      "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
+                    )}
+                    title={collapsed ? "便利機能" : undefined}
+                  >
+                    <Sparkles className="w-5 h-5 flex-shrink-0" />
+                    {!collapsed && <span className="text-sm font-medium flex-1 text-left">便利機能</span>}
+                  </Link>
+                </li>
+              ) : null
+            })()}
           </ul>
 
           {visibleAdminMenuItems.length > 0 && !collapsed && (

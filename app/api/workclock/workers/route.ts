@@ -12,16 +12,20 @@ export async function GET(request: NextRequest) {
     // ユーザー情報を取得
     const user = await prisma.employee.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { role: true, employeeType: true },
     })
 
     if (!user) {
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
     }
 
-    // 権限チェック: サブマネージャー以上のみ
+    // 権限チェック: サブマネージャー以上、または業務委託・外注先のワーカー
     const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
-    if (!allowedRoles.includes(user.role || '')) {
+    const isAdmin = allowedRoles.includes(user.role || '')
+    const employeeType = user.employeeType || ''
+    const isWorker = employeeType.includes('業務委託') || employeeType.includes('外注先')
+    
+    if (!isAdmin && !isWorker) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
@@ -36,7 +40,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([], { status: 200 })
     }
 
+    // ワーカー権限のユーザーの場合は、自分のWorkClockWorkerレコードのみを取得
+    const whereClause = isAdmin 
+      ? {} // 管理者は全ワーカーを取得
+      : { employeeId: userId } // ワーカーは自分のレコードのみ
+    
     const workers = await (prisma as any).workClockWorker.findMany({
+      where: whereClause,
       include: {
         employee: {
           select: {

@@ -44,6 +44,7 @@ import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
+import { PasswordVerificationDialog } from '@/components/password-verification-dialog'
 
 // getCurrentUserIdをエクスポートする必要があるので、直接実装
 function getCurrentUserId(): string {
@@ -71,9 +72,9 @@ export default function SettingsPage() {
   const [teams, setTeams] = useState<string[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
-  // パスワード編集ロック（初期はロック。HR/管理者のみ解除可能）
-  const [passwordEditable, setPasswordEditable] = useState(false)
-  const [passwordUnlockText, setPasswordUnlockText] = useState('')
+  // パスワード編集ロック（初期はロック。店長・総務・管理者のみ解除可能）
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [isPasswordEditable, setIsPasswordEditable] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -100,7 +101,16 @@ export default function SettingsPage() {
     if (currentUser?.id) {
       loadWorkers()
     }
-    setTeams(getTeams())
+    // チーム一覧を初期化（localStorageから取得、なければデフォルト値）
+    const initialTeams = getTeams()
+    if (initialTeams.length === 0) {
+      // デフォルトチームを設定
+      const defaultTeams = ['チームA', 'チームB', 'チームC']
+      saveTeams(defaultTeams)
+      setTeams(defaultTeams)
+    } else {
+      setTeams(initialTeams)
+    }
     // 初回ロードで社員一覧も取得
     ;(async () => {
       try {
@@ -159,6 +169,7 @@ export default function SettingsPage() {
       notes: '',
     })
     setEditingWorker(null)
+    setIsPasswordEditable(false) // パスワード編集をリセット
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -229,11 +240,26 @@ export default function SettingsPage() {
     }
   }
 
-  const handleEdit = (worker: Worker) => {
+  const handleEdit = async (worker: Worker) => {
     setEditingWorker(worker)
+    // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
+    setTeams(getTeams())
+    // 社員のパスワードを取得（デフォルト値として）
+    let employeePassword = worker.password || ''
+    if (worker.employeeId) {
+      try {
+        const res = await fetch(`/api/employees/${worker.employeeId}`)
+        if (res.ok) {
+          const empData = await res.json()
+          employeePassword = empData.password || worker.password || ''
+        }
+      } catch (e) {
+        console.error('社員パスワードの取得に失敗', e)
+      }
+    }
     setFormData({
       name: worker.name,
-      password: worker.password || '',
+      password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
       companyName: worker.companyName || '',
       qualifiedInvoiceNumber: worker.qualifiedInvoiceNumber || '',
       chatworkId: worker.chatworkId || '',
@@ -244,7 +270,9 @@ export default function SettingsPage() {
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
+      employeeId: worker.employeeId || '',
     })
+    setIsPasswordEditable(false) // パスワード編集をロック
     setIsDialogOpen(true)
   }
 
@@ -272,8 +300,9 @@ export default function SettingsPage() {
     e.preventDefault()
     if (newTeamName.trim()) {
       addTeam(newTeamName.trim())
-      setTeams([...teams, newTeamName.trim()])
+      setTeams(getTeams()) // チーム管理と連動
       setNewTeamName('')
+      setIsTeamDialogOpen(false)
       toast({
         title: 'チーム追加完了',
         description: `${newTeamName}を追加しました`,
@@ -285,13 +314,21 @@ export default function SettingsPage() {
     if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`)) {
       const updatedTeams = teams.filter(t => t !== teamName)
       saveTeams(updatedTeams)
-      setTeams(updatedTeams)
+      setTeams(getTeams()) // チーム管理と連動
       toast({
         title: 'チーム削除完了',
         description: `${teamName}を削除しました`,
       })
     }
   }
+
+  // パスワード認証成功時のコールバック
+  const handlePasswordVerified = () => {
+    setIsPasswordEditable(true)
+  }
+
+  // 店長・総務・管理者の権限チェック
+  const canEditPassword = ['store_manager', 'hr', 'admin'].includes(currentUser?.role || '')
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
@@ -307,7 +344,13 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
+              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                setIsTeamDialogOpen(open)
+                if (!open) {
+                  // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
+                  setTeams(getTeams())
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Tags className="mr-2 h-4 w-4" />
@@ -351,7 +394,16 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                setIsDialogOpen(open)
+                if (open) {
+                  // ダイアログを開いた時に最新のチーム一覧を取得
+                  setTeams(getTeams())
+                } else {
+                  resetForm()
+                  setIsPasswordEditable(false) // パスワード編集をリセット
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button onClick={resetForm}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -374,18 +426,35 @@ export default function SettingsPage() {
                           <Label htmlFor="employee">社員を選択（業務委託/外注先）*</Label>
                           <Select
                             value={formData.employeeId || 'none'}
-                            onValueChange={(value) => {
+                            onValueChange={async (value) => {
                               if (value === 'none') {
                                 setFormData({ ...formData, employeeId: '' })
                                 return
                               }
                               const emp = employees.find((e) => e.id === value)
+                              // 社員のパスワードを取得
+                              let employeePassword = ''
+                              if (emp?.id) {
+                                try {
+                                  const res = await fetch(`/api/employees/${emp.id}`)
+                                  if (res.ok) {
+                                    const empData = await res.json()
+                                    employeePassword = empData.password || ''
+                                  }
+                                } catch (e) {
+                                  console.error('社員パスワードの取得に失敗', e)
+                                }
+                              }
                               setFormData({
                                 ...formData,
                                 employeeId: value,
                                 name: emp?.name || formData.name,
                                 email: emp?.email || formData.email,
+                                phone: emp?.phone || formData.phone,
+                                address: emp?.address || formData.address,
+                                password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
                               })
+                              setIsPasswordEditable(false) // パスワード編集をロック
                             }}
                           >
                             <SelectTrigger>
@@ -429,36 +498,22 @@ export default function SettingsPage() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             required
                             placeholder="ログイン用パスワード"
-                            disabled={
-                              !(['hr', 'admin'].includes(currentUser?.role || '')) || passwordUnlockText !== '__UNLOCKED__'
-                            }
+                            disabled={!isPasswordEditable || !canEditPassword}
+                            className={!isPasswordEditable || !canEditPassword ? "text-[#374151] bg-[#edeaed]" : ""}
                           />
-                          {(['hr', 'admin'].includes(currentUser?.role || '')) && passwordUnlockText !== '__UNLOCKED__' && (
+                          {canEditPassword && !isPasswordEditable && (
                             <div className="flex items-center gap-2">
-                              <Input
-                                placeholder="Pass"
-                                value={passwordUnlockText}
-                                onChange={(e) => setPasswordUnlockText(e.target.value)}
-                                className="h-8 w-24"
-                              />
                               <Button
                                 type="button"
                                 variant="outline"
-                                className="h-8 px-2"
-                                onClick={() => {
-                                  if (passwordUnlockText === 'Pass') {
-                                    setPasswordUnlockText('__UNLOCKED__')
-                                  } else {
-                                    toast({
-                                      title: '認証エラー',
-                                      description: '解除パスが一致しません',
-                                      variant: 'destructive',
-                                    })
-                                  }
-                                }}
+                                size="sm"
+                                onClick={() => setIsPasswordDialogOpen(true)}
                               >
                                 編集を有効化
                               </Button>
+                              <p className="text-xs text-muted-foreground">
+                                パスワードを編集するには、自身のパスワード認証が必要です
+                              </p>
                             </div>
                           )}
                         </div>
@@ -579,6 +634,10 @@ export default function SettingsPage() {
                             <SelectItem value="admin">管理者</SelectItem>
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          ※ 管理者権限：管理者ダッシュボードにアクセス可能（全ワーカーの勤務時間を一覧表示・管理可能）
+                          <br />※ ワーカー権限：自分の勤務時間のみ表示・管理可能
+                        </p>
                       </div>
 
                       <div className="grid gap-2">
@@ -594,6 +653,13 @@ export default function SettingsPage() {
                         />
                       </div>
                     </div>
+                    <PasswordVerificationDialog
+                      open={isPasswordDialogOpen}
+                      onOpenChange={setIsPasswordDialogOpen}
+                      onVerified={handlePasswordVerified}
+                      currentUser={currentUser}
+                      actionType="join-date"
+                    />
                     <DialogFooter>
                       <Button
                         type="button"
@@ -601,6 +667,7 @@ export default function SettingsPage() {
                         onClick={() => {
                           setIsDialogOpen(false)
                           resetForm()
+                          setIsPasswordEditable(false) // パスワード編集をリセット
                         }}
                       >
                         キャンセル

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -14,18 +14,47 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, ChevronRight, Users, LayoutDashboard, Settings } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 
 interface SidebarNavProps {
-  workers: Array<{ id: string; name: string; teams?: string[]; role?: 'admin' | 'worker'; employeeType?: string | null }>
+  workers: Array<{ id: string; name: string; teams?: string[]; role?: 'admin' | 'worker'; employeeType?: string | null; employeeId?: string }>
   currentRole: 'admin' | 'worker'
+}
+
+interface Employee {
+  id: string
+  name: string
+  employeeType?: string | null
 }
 
 export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<string>('all')
   const [selectedEmployment, setSelectedEmployment] = useState<string>('all') // 業務委託/外注先
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const pathname = usePathname()
   const router = useRouter()
+
+  // 業務委託・外注先の社員を取得
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await fetch('/api/employees')
+        if (response.ok) {
+          const employees = await response.json()
+          // 業務委託・外注先の社員のみをフィルタリング
+          const filteredEmployees = employees.filter((emp: Employee) => {
+            const empType = emp.employeeType || ''
+            return empType.includes('業務委託') || empType.includes('外注先')
+          })
+          setAllEmployees(filteredEmployees)
+        }
+      } catch (error) {
+        console.error('社員データの取得エラー:', error)
+      }
+    }
+    fetchEmployees()
+  }, [])
 
   const currentWorkerId = pathname.includes('/workclock/worker/') 
     ? pathname.split('/workclock/worker/')[1] 
@@ -36,8 +65,30 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
     return uniqueTeams as string[]
   }, [workers])
 
+  // WorkClockWorkerとして登録されているワーカーと、登録されていない業務委託・外注先の社員を統合
+  const allAvailableWorkers = useMemo(() => {
+    // WorkClockWorkerとして登録されているワーカーのemployeeIdを取得
+    const registeredEmployeeIds = new Set(workers.map(w => w.employeeId || w.id))
+    
+    // 登録されていない業務委託・外注先の社員をWorkClockWorker形式に変換
+    const unregisteredEmployees = allEmployees
+      .filter(emp => !registeredEmployeeIds.has(emp.id))
+      .map(emp => ({
+        id: emp.id, // 一時的なIDとしてemployee.idを使用
+        name: emp.name,
+        teams: [],
+        role: 'worker' as const,
+        employeeType: emp.employeeType || null,
+        employeeId: emp.id,
+        isUnregistered: true, // 未登録フラグ
+      }))
+    
+    // 既存のワーカーと未登録の社員を統合
+    return [...workers, ...unregisteredEmployees]
+  }, [workers, allEmployees])
+
   const filteredWorkers = useMemo(() => {
-    let filtered = workers
+    let filtered = allAvailableWorkers
     
     if (selectedTeam !== 'all') {
       filtered = filtered.filter(w => w.teams?.includes(selectedTeam))
@@ -51,10 +102,16 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
     }
     
     return filtered
-  }, [workers, selectedTeam, selectedEmployment])
+  }, [allAvailableWorkers, selectedTeam, selectedEmployment])
 
   const handleWorkerChange = (workerId: string) => {
-    router.push(`/workclock/worker/${workerId}`)
+    // 未登録の社員を選択した場合は、設定画面にリダイレクト
+    const selectedWorker = allAvailableWorkers.find(w => w.id === workerId)
+    if (selectedWorker && (selectedWorker as any).isUnregistered) {
+      router.push(`/workclock/settings?employeeId=${workerId}`)
+    } else {
+      router.push(`/workclock/worker/${workerId}`)
+    }
   }
 
   return (
@@ -133,7 +190,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">区分</label>
+                  <label className="text-xs font-medium text-muted-foreground">雇用形態</label>
                   <Select value={selectedEmployment} onValueChange={setSelectedEmployment}>
                     <SelectTrigger className="h-9 w-full">
                       <SelectValue />

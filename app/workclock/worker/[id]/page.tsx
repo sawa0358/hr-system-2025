@@ -37,8 +37,10 @@ export default function WorkerPage() {
   const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
 
   useEffect(() => {
-    loadData()
-  }, [workerId, currentDate, refreshKey])
+    if (currentUser?.id) {
+      loadData()
+    }
+  }, [workerId, currentDate, refreshKey, currentUser?.id])
 
   const loadData = async () => {
     try {

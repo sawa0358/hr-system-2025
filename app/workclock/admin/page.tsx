@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Worker, TimeEntry } from '@/lib/workclock/types'
-import { getWorkers, getTimeEntries, getWorkerById, getEntriesByWorkerAndMonth } from '@/lib/workclock/api-storage'
+import { getWorkers, getTimeEntries } from '@/lib/workclock/api-storage'
 import { useAuth } from '@/lib/auth-context'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { AdminOverview } from '@/components/workclock/admin-overview'
@@ -60,23 +60,16 @@ export default function AdminPage() {
     setCurrentDate(new Date(year, month + 1, 1))
   }
 
-  const handleExportPDF = async (workerId: string) => {
+  const handleExportPDF = (workerId: string) => {
     try {
-      if (!currentUser?.id) {
-        console.error('WorkClock: currentUser.idが取得できません')
-        alert('認証情報が取得できません。再度ログインしてください。')
-        return
-      }
-      const worker = await getWorkerById(workerId, currentUser.id)
+      const worker = workers.find((w) => w.id === workerId)
       if (!worker) {
         alert('ワーカー情報が見つかりません')
         return
       }
 
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month, currentUser.id)
-      
+      const workerEntries = allEntries.filter((e) => e.workerId === workerId)
+
       downloadPDF(worker, workerEntries, currentDate)
     } catch (error) {
       console.error('PDFエクスポートエラー:', error)

@@ -15,6 +15,11 @@ export function generatePDFContent(
   const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
   const totalAmount = totalHours * worker.hourlyRate
 
+  const teamsText =
+    Array.isArray(worker.teams) && worker.teams.length > 0
+      ? worker.teams.join(', ')
+      : ''
+
   // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => 
     new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -232,7 +237,7 @@ export function generatePDFContent(
         <div class="header-info">
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>
-            ${worker.team ? `<p><strong>所属:</strong> ${worker.team}</p>` : ''}
+            ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
             <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
           </div>
           <div class="period">${monthName}</div>

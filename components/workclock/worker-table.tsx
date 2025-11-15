@@ -34,11 +34,16 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
   const activeWorkers = workers.filter((w) => w.role === 'worker')
-  const teams = Array.from(new Set(activeWorkers.map((w) => w.team).filter(Boolean))) as string[]
+  const teams = Array.from(
+    new Set(
+      activeWorkers.flatMap((w) => w.teams || [])
+    )
+  ) as string[]
 
-  const filteredWorkers = filterTeam === 'all' 
-    ? activeWorkers 
-    : activeWorkers.filter((w) => w.team === filterTeam)
+  const filteredWorkers =
+    filterTeam === 'all'
+      ? activeWorkers
+      : activeWorkers.filter((w) => (w.teams || []).includes(filterTeam))
 
   const workerStats = filteredWorkers.map((worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
@@ -82,26 +87,32 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
 
   return (
     <div className="space-y-6">
-      {/* Team Summary Cards */}
-      {teams.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">チーム別サマリー</h2>
-            <Select value={filterTeam} onValueChange={setFilterTeam}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="チームで絞り込み" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全てのチーム</SelectItem>
-                {teams.map((team) => (
-                  <SelectItem key={team} value={team}>
-                    {team}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      {/* Team Summary & Filter */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold">チーム別サマリー</h2>
+          <Select
+            value={filterTeam}
+            onValueChange={setFilterTeam}
+            disabled={teams.length === 0}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue
+                placeholder={teams.length === 0 ? 'チームは未登録です' : 'チームで絞り込み'}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全てのチーム</SelectItem>
+              {teams.map((team) => (
+                <SelectItem key={team} value={team}>
+                  {team}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
+        {teams.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-3">
             {teamTotals.map((teamTotal) => (
               <Card key={teamTotal.team}>
@@ -129,13 +140,30 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
               </Card>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            チームが登録されていないため、サマリーは表示されません。
+          </div>
+        )}
+      </div>
 
       {/* Worker Details Table */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex items-center justify-between">
           <CardTitle>個人別詳細</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              workerStats.forEach((worker) => {
+                onExportPDF(worker.id)
+              })
+            }}
+            disabled={workerStats.length === 0}
+          >
+            <FileText className="mr-1 h-3 w-3" />
+            表示中全員をPDF出力
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -155,8 +183,14 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
                 <TableRow key={worker.id}>
                   <TableCell className="font-medium">{worker.name}</TableCell>
                   <TableCell>
-                    {worker.team ? (
-                      <Badge variant="secondary">{worker.team}</Badge>
+                    {worker.teams && worker.teams.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {worker.teams.map((team) => (
+                          <Badge key={team} variant="secondary">
+                            {team}
+                          </Badge>
+                        ))}
+                      </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">未所属</span>
                     )}
@@ -173,15 +207,11 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onExportPDF(worker.id)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => onExportPDF(worker.id)}>
                         <FileText className="mr-1 h-3 w-3" />
                         PDF
                       </Button>
-                      <Link href={`/worker/${worker.id}`}>
+                      <Link href={`/workclock/worker/${worker.id}`}>
                         <Button variant="ghost" size="sm">
                           <ExternalLink className="mr-1 h-3 w-3" />
                           詳細

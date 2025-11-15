@@ -34,6 +34,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const pathname = usePathname()
   const router = useRouter()
+  const { currentUser } = useAuth()
 
   // 業務委託・外注先の社員を取得
   useEffect(() => {
@@ -56,9 +57,17 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
     fetchEmployees()
   }, [])
 
-  const currentWorkerId = pathname.includes('/workclock/worker/') 
-    ? pathname.split('/workclock/worker/')[1] 
+  const currentWorkerId = pathname.includes('/workclock/worker/')
+    ? pathname.split('/workclock/worker/')[1]
     : ''
+
+  // HRシステム上のロールから管理者権限を判定
+  const hrRole = currentUser?.role
+  const allowedAdminRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
+  const isHrAdmin = hrRole ? allowedAdminRoles.includes(hrRole) : false
+
+  // WorkClock上のroleか、HRシステム上のroleのどちらかが管理者なら、管理メニューを表示
+  const isAdminView = currentRole === 'admin' || isHrAdmin
 
   const teams = useMemo(() => {
     const uniqueTeams = Array.from(new Set(workers.flatMap(w => w.teams || [])))
@@ -141,7 +150,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
 
       <ScrollArea className="flex-1">
         <div className="space-y-2 p-2">
-          {currentRole === 'admin' && (
+          {isAdminView && (
             <Link href="/workclock/admin">
               <Button
                 variant={pathname === '/workclock/admin' ? 'secondary' : 'ghost'}
@@ -153,7 +162,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </Link>
           )}
 
-          {currentRole === 'admin' && (
+          {isAdminView && (
             <Link href="/workclock/settings">
               <Button
                 variant={pathname === '/workclock/settings' ? 'secondary' : 'ghost'}
@@ -165,7 +174,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </Link>
           )}
 
-          {!isCollapsed && currentRole === 'admin' && (
+          {!isCollapsed && isAdminView && (
             <div className="mt-4 space-y-3 px-2 py-2">
               <h3 className="flex items-center text-xs font-medium text-muted-foreground">
                 <Users className="mr-2 h-3 w-3" />
@@ -242,7 +251,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </div>
           )}
           
-          {isCollapsed && workers.length > 0 && currentRole === 'admin' && (
+          {isCollapsed && workers.length > 0 && isAdminView && (
             <Select value={currentWorkerId} onValueChange={handleWorkerChange}>
               <SelectTrigger className="w-full border-0 bg-transparent px-2">
                 <Users className="h-4 w-4" />

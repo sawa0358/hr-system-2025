@@ -56,7 +56,7 @@ export default function WorkerPage() {
       if (foundWorker) {
         const year = currentDate.getFullYear()
         const month = currentDate.getMonth()
-        const monthEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+        const monthEntries = await getEntriesByWorkerAndMonth(workerId, year, month, currentUser.id)
         setEntries(monthEntries)
       }
     } catch (error) {

@@ -75,7 +75,7 @@ export default function AdminPage() {
 
       const year = currentDate.getFullYear()
       const month = currentDate.getMonth()
-      const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+      const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month, currentUser.id)
       
       downloadPDF(worker, workerEntries, currentDate)
     } catch (error) {

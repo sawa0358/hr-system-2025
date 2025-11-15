@@ -18,6 +18,7 @@ import { addTimeEntry, updateTimeEntry, deleteTimeEntry } from '@/lib/workclock/
 import { calculateDuration, formatDuration } from '@/lib/workclock/time-utils'
 import { Trash2, Plus, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { useAuth } from '@/lib/auth-context'
 
 interface TimeEntryDialogProps {
   open: boolean
@@ -42,6 +43,8 @@ export function TimeEntryDialog({
   initialStartTime,
   initialEndTime,
 }: TimeEntryDialogProps) {
+  const { currentUser } = useAuth()
+  
   const getInitialTimes = () => {
     if (initialStartTime && initialEndTime) {
       return { startTime: initialStartTime, endTime: initialEndTime }
@@ -68,27 +71,43 @@ export function TimeEntryDialog({
     weekday: 'long',
   })
 
-  const handleAddEntry = () => {
-    addTimeEntry({
-      workerId,
-      date: dateStr,
-      startTime,
-      endTime,
-      breakMinutes: parseInt(breakMinutes) || 0,
-      notes,
-    })
-    
-    // Reset form
-    setStartTime('09:00')
-    setEndTime('18:00')
-    setBreakMinutes('60')
-    setNotes('')
-    onClose()
+  const handleAddEntry = async () => {
+    if (!currentUser?.id) {
+      console.error('WorkClock: currentUser.idが取得できません')
+      return
+    }
+    try {
+      await addTimeEntry({
+        workerId,
+        date: dateStr,
+        startTime,
+        endTime,
+        breakMinutes: parseInt(breakMinutes) || 0,
+        notes,
+      }, currentUser.id)
+      
+      // Reset form
+      setStartTime('09:00')
+      setEndTime('18:00')
+      setBreakMinutes('60')
+      setNotes('')
+      onClose()
+    } catch (error) {
+      console.error('勤務記録の追加エラー:', error)
+    }
   }
 
-  const handleDeleteEntry = (id: string) => {
-    deleteTimeEntry(id)
-    onClose()
+  const handleDeleteEntry = async (id: string) => {
+    if (!currentUser?.id) {
+      console.error('WorkClock: currentUser.idが取得できません')
+      return
+    }
+    try {
+      await deleteTimeEntry(id, currentUser.id)
+      onClose()
+    } catch (error) {
+      console.error('勤務記録の削除エラー:', error)
+    }
   }
 
   const duration = calculateDuration(startTime, endTime, parseInt(breakMinutes) || 0)

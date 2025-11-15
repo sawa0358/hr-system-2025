@@ -14,9 +14,10 @@ interface CalendarViewProps {
   workerId: string
   entries: TimeEntry[]
   onEntriesChange: () => void
+  actionButtons?: React.ReactNode
 }
 
-export function CalendarView({ workerId, entries, onEntriesChange }: CalendarViewProps) {
+export function CalendarView({ workerId, entries, onEntriesChange, actionButtons }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -77,7 +78,7 @@ export function CalendarView({ workerId, entries, onEntriesChange }: CalendarVie
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2">
           <Button
             variant={viewMode === 'month' ? 'default' : 'outline'}
@@ -98,6 +99,11 @@ export function CalendarView({ workerId, entries, onEntriesChange }: CalendarVie
             週表示
           </Button>
         </div>
+        {actionButtons && (
+          <div className="flex gap-2">
+            {actionButtons}
+          </div>
+        )}
       </div>
 
       {viewMode === 'week' ? (

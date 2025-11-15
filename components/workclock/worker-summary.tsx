@@ -28,14 +28,14 @@ export function WorkerSummary({
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       <div>
         <h1 className="text-3xl font-bold text-foreground">{worker.name}</h1>
         {worker.team && <p className="text-muted-foreground">{worker.team}</p>}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
+        <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">時給</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -46,7 +46,7 @@ export function WorkerSummary({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">今月の勤務時間</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -59,7 +59,7 @@ export function WorkerSummary({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">本日の勤務時間</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
@@ -74,7 +74,7 @@ export function WorkerSummary({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="w-full">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">今月の報酬見込</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />

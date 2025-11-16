@@ -89,10 +89,17 @@ export async function GET(request: NextRequest) {
     })
 
     // 日付を文字列形式に変換
-    const formattedEntries = entries.map((entry) => ({
-      ...entry,
-      date: entry.date.toISOString().split('T')[0], // YYYY-MM-DD形式
-    }))
+    const formattedEntries = entries.map((entry) => {
+      const d = new Date(entry.date)
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+
+      return {
+        ...entry,
+        date: `${year}-${month}-${day}`, // ローカルタイム基準のYYYY-MM-DD形式
+      }
+    })
 
     return NextResponse.json(formattedEntries)
   } catch (error: any) {
@@ -200,9 +207,14 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    const d = new Date(entry.date)
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+
     return NextResponse.json({
       ...entry,
-      date: entry.date.toISOString().split('T')[0],
+      date: `${year}-${month}-${day}`,
     })
   } catch (error: any) {
     console.error('WorkClock time entry作成エラー:', error)

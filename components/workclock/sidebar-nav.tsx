@@ -129,6 +129,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
         'relative flex h-screen flex-col border-r bg-sidebar transition-all duration-300',
         isCollapsed ? 'w-16' : 'w-64'
       )}
+      style={{ backgroundColor: '#add1cd' }}
     >
       <div className="flex h-14 items-center justify-between border-b px-4">
         {!isCollapsed && (

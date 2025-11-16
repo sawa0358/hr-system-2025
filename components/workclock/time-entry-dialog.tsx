@@ -63,7 +63,9 @@ export function TimeEntryDialog({
   const [breakMinutes, setBreakMinutes] = useState('60')
   const [notes, setNotes] = useState('')
 
-  const dateStr = selectedDate.toISOString().split('T')[0]
+  const dateStr = `${selectedDate.getFullYear()}-${String(
+    selectedDate.getMonth() + 1
+  ).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
   const formattedDate = selectedDate.toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',

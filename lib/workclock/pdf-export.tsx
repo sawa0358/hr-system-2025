@@ -1,6 +1,25 @@
 import { Worker, TimeEntry } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
 
+function formatDateLabel(dateStr: string): string {
+  const [yearStr, monthStr, dayStr] = dateStr.split('-')
+  const year = Number(yearStr)
+  const month = Number(monthStr)
+  const day = Number(dayStr)
+
+  if (!year || !month || !day) {
+    return dateStr
+  }
+
+  const date = new Date(year, month - 1, day)
+  return date.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  })
+}
+
 export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
@@ -20,10 +39,8 @@ export function generatePDFContent(
       ? worker.teams.join(', ')
       : ''
 
-  // Sort entries by date
-  const sortedEntries = [...entries].sort((a, b) => 
-    new Date(a.date).getTime() - new Date(b.date).getTime()
-  )
+  // Sort entries by date (文字列比較でOK: YYYY-MM-DD形式)
+  const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
 
   // Group by date
   const entriesByDate = sortedEntries.reduce((acc, entry) => {
@@ -266,13 +283,7 @@ export function generatePDFContent(
     html += '<div class="details"><h2>勤務詳細</h2>'
 
     Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
-      const dateObj = new Date(date)
-      const formattedDate = dateObj.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      })
+      const formattedDate = formatDateLabel(date)
 
       const dayTotal = getMonthlyTotal(dayEntries)
       
@@ -346,6 +357,389 @@ export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date): 
   printWindow.document.close()
   
   // Wait for content to load then trigger print
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print()
+    }, 250)
+  }
+}
+
+interface WorkerWithEntries {
+  worker: Worker
+  entries: TimeEntry[]
+}
+
+function generateCombinedPDFContent(
+  items: WorkerWithEntries[],
+  month: Date
+): string {
+  const monthName = month.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+  })
+
+  let html = `
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>勤務報告書（複数人） - ${monthName}</title>
+      <style>
+        @media print {
+          @page { margin: 2cm; }
+          body { margin: 0; }
+        }
+
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        body {
+          font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+          font-size: 12px;
+          line-height: 1.6;
+          color: #333;
+          padding: 40px;
+          max-width: 210mm;
+          margin: 0 auto;
+        }
+
+        .worker-section {
+          margin-bottom: 40px;
+          page-break-after: always;
+        }
+
+        .worker-section:last-child {
+          page-break-after: auto;
+        }
+
+        .header {
+          margin-bottom: 20px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
+        }
+
+        .header h1 {
+          font-size: 20px;
+          margin-bottom: 6px;
+          color: #000;
+        }
+
+        .header-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-end;
+        }
+
+        .worker-info {
+          font-size: 13px;
+        }
+
+        .worker-info p {
+          margin: 3px 0;
+        }
+
+        .period {
+          font-size: 14px;
+          font-weight: bold;
+          color: #555;
+        }
+
+        .summary {
+          background: #f5f5f5;
+          padding: 16px;
+          border-radius: 8px;
+          margin: 20px 0;
+          border: 1px solid #ddd;
+        }
+
+        .summary-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 12px;
+        }
+
+        .summary-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 6px 0;
+          border-bottom: 1px solid #ddd;
+        }
+
+        .summary-item:last-child {
+          border-bottom: none;
+        }
+
+        .summary-label {
+          font-weight: 600;
+          color: #666;
+        }
+
+        .summary-value {
+          font-weight: bold;
+          color: #000;
+        }
+
+        .total-amount {
+          grid-column: 1 / -1;
+          margin-top: 8px;
+          padding-top: 10px;
+          border-top: 2px solid #333;
+          font-size: 14px;
+        }
+
+        .total-amount .summary-value {
+          color: #0066cc;
+          font-size: 18px;
+        }
+
+        .details {
+          margin-top: 24px;
+        }
+
+        .details h2 {
+          font-size: 16px;
+          margin-bottom: 10px;
+          padding-bottom: 6px;
+          border-bottom: 2px solid #333;
+        }
+
+        .date-group {
+          margin-bottom: 18px;
+          page-break-inside: avoid;
+        }
+
+        .date-header {
+          background: #f9f9f9;
+          padding: 8px 12px;
+          font-weight: bold;
+          border-left: 4px solid #0066cc;
+          margin-bottom: 8px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .date-total {
+          color: #0066cc;
+          font-size: 13px;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+        }
+
+        th {
+          background: #f0f0f0;
+          padding: 8px;
+          text-align: left;
+          font-weight: 600;
+          border: 1px solid #ddd;
+          font-size: 11px;
+        }
+
+        td {
+          padding: 8px;
+          border: 1px solid #ddd;
+          vertical-align: top;
+        }
+
+        .time-range {
+          font-weight: 600;
+          color: #333;
+          white-space: nowrap;
+        }
+
+        .duration {
+          color: #0066cc;
+          font-weight: bold;
+          text-align: right;
+        }
+
+        .notes {
+          color: #666;
+          font-size: 11px;
+          max-width: 300px;
+        }
+
+        .no-data {
+          text-align: center;
+          padding: 24px;
+          color: #999;
+          font-style: italic;
+        }
+
+        .footer {
+          margin-top: 16px;
+          padding-top: 10px;
+          border-top: 1px solid #ddd;
+          text-align: center;
+          color: #999;
+          font-size: 10px;
+        }
+      </style>
+    </head>
+    <body>
+  `
+
+  items.forEach(({ worker, entries }) => {
+    const teamsText =
+      Array.isArray(worker.teams) && worker.teams.length > 0
+        ? worker.teams.join(', ')
+        : ''
+
+    const monthlyTotal = getMonthlyTotal(entries)
+    const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
+    const totalAmount = totalHours * worker.hourlyRate
+
+    const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
+
+    const entriesByDate = sortedEntries.reduce((acc, entry) => {
+      if (!acc[entry.date]) {
+        acc[entry.date] = []
+      }
+      acc[entry.date].push(entry)
+      return acc
+    }, {} as Record<string, TimeEntry[]>)
+
+    html += `
+      <div class="worker-section">
+        <div class="header">
+          <h1>勤務報告書（${worker.name}）</h1>
+          <div class="header-info">
+            <div class="worker-info">
+              <p><strong>氏名:</strong> ${worker.name}</p>
+              ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
+              <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
+            </div>
+            <div class="period">${monthName}</div>
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span class="summary-label">勤務日数</span>
+              <span class="summary-value">${Object.keys(entriesByDate).length}日</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">総勤務時間</span>
+              <span class="summary-value">${formatDuration(
+                monthlyTotal.hours,
+                monthlyTotal.minutes
+              )}</span>
+            </div>
+            <div class="summary-item total-amount">
+              <span class="summary-label">報酬合計</span>
+              <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+    `
+
+    if (Object.keys(entriesByDate).length > 0) {
+      html += '<div class="details"><h2>勤務詳細</h2>'
+
+      Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
+        const formattedDate = formatDateLabel(date)
+
+        const dayTotal = getMonthlyTotal(dayEntries)
+
+        html += `
+          <div class="date-group">
+            <div class="date-header">
+              <span>${formattedDate}</span>
+              <span class="date-total">${formatDuration(
+                dayTotal.hours,
+                dayTotal.minutes
+              )}</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 120px;">時間</th>
+                  <th style="width: 80px;">休憩</th>
+                  <th style="width: 100px;">実働時間</th>
+                  <th>メモ</th>
+                </tr>
+              </thead>
+              <tbody>
+        `
+
+        dayEntries.forEach((entry) => {
+          const duration = calculateDuration(
+            entry.startTime,
+            entry.endTime,
+            entry.breakMinutes
+          )
+
+          html += `
+            <tr>
+              <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
+              <td style="text-align: center;">${entry.breakMinutes}分</td>
+              <td class="duration">${formatDuration(
+                duration.hours,
+                duration.minutes
+              )}</td>
+              <td class="notes">${entry.notes || '-'}</td>
+            </tr>
+          `
+        })
+
+        html += `
+              </tbody>
+            </table>
+          </div>
+        `
+      })
+
+      html += '</div>'
+    } else {
+      html += '<div class="no-data">この期間の勤務記録はありません</div>'
+    }
+
+    html += `
+        <div class="footer">
+          <p>この報告書は時間管理システムより自動生成されました</p>
+          <p>生成日時: ${new Date().toLocaleString('ja-JP')}</p>
+        </div>
+      </div>
+    `
+  })
+
+  html += `
+    </body>
+    </html>
+  `
+
+  return html
+}
+
+export function downloadCombinedPDF(
+  items: WorkerWithEntries[],
+  month: Date
+): void {
+  if (!items || items.length === 0) {
+    alert('PDF出力対象のワーカーがいません。')
+    return
+  }
+
+  const htmlContent = generateCombinedPDFContent(items, month)
+
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('ポップアップがブロックされました。ブラウザの設定を確認してください。')
+    return
+  }
+
+  printWindow.document.write(htmlContent)
+  printWindow.document.close()
+
   printWindow.onload = () => {
     setTimeout(() => {
       printWindow.print()

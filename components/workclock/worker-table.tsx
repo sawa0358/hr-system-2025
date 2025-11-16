@@ -28,9 +28,10 @@ interface WorkerTableProps {
   workers: Worker[]
   allEntries: TimeEntry[]
   onExportPDF: (workerId: string) => void
+  onExportAllPDF: (workerIds: string[]) => void
 }
 
-export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTableProps) {
+export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
   const activeWorkers = workers.filter((w) => w.role === 'worker')
@@ -155,9 +156,8 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
             variant="outline"
             size="sm"
             onClick={() => {
-              workerStats.forEach((worker) => {
-                onExportPDF(worker.id)
-              })
+              const ids = workerStats.map((worker) => worker.id)
+              onExportAllPDF(ids)
             }}
             disabled={workerStats.length === 0}
           >

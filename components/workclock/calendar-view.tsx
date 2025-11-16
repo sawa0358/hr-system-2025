@@ -36,7 +36,9 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
   }
 
   const getEntriesForDate = (date: Date): TimeEntry[] => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+      date.getDate()
+    ).padStart(2, '0')}`
     return entries.filter((e) => e.date === dateStr)
   }
 

@@ -9,7 +9,7 @@ import { AdminOverview } from '@/components/workclock/admin-overview'
 import { WorkerTable } from '@/components/workclock/worker-table'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { downloadPDF } from '@/lib/workclock/pdf-export'
+import { downloadPDF, downloadCombinedPDF } from '@/lib/workclock/pdf-export'
 
 export default function AdminPage() {
   const { currentUser } = useAuth()
@@ -77,12 +77,27 @@ export default function AdminPage() {
     }
   }
 
-  const adminWorker = workers.find((w) => w.role === 'admin') || {
-    id: 'admin',
-    name: '管理者',
-    email: 'admin@example.com',
-    hourlyRate: 0,
-    role: 'admin' as const,
+  const handleExportAllPDF = (workerIds: string[]) => {
+    try {
+      const items = workerIds
+        .map((id) => {
+          const worker = workers.find((w) => w.id === id)
+          if (!worker) return null
+          const entries = allEntries.filter((e) => e.workerId === id)
+          return { worker, entries }
+        })
+        .filter((item): item is { worker: Worker; entries: TimeEntry[] } => item !== null)
+
+      if (items.length === 0) {
+        alert('PDF出力対象のワーカーが見つかりません')
+        return
+      }
+
+      downloadCombinedPDF(items, currentDate)
+    } catch (error) {
+      console.error('一括PDFエクスポートエラー:', error)
+      alert('一括PDFエクスポートに失敗しました')
+    }
   }
 
   return (
@@ -116,6 +131,7 @@ export default function AdminPage() {
             workers={workers}
             allEntries={allEntries}
             onExportPDF={handleExportPDF}
+            onExportAllPDF={handleExportAllPDF}
           />
         </div>
       </main>

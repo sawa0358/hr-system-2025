@@ -134,7 +134,7 @@ export function TimeEntryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-hidden flex flex-col bg-[#bed8d8] text-slate-900">
         <DialogHeader>
           <DialogTitle className="text-2xl">勤務時間の記録</DialogTitle>
           <DialogDescription className="text-base">{formattedDate}</DialogDescription>
@@ -194,7 +194,7 @@ export function TimeEntryDialog({
             </div>
           )}
 
-          <div className="space-y-4 rounded-lg border-2 border-dashed p-6">
+          <div className="space-y-4 rounded-lg border-2 border-dashed p-6 bg-[#dce5e5] text-slate-900">
             <h3 className="flex items-center text-lg font-semibold">
               <Plus className="mr-2 h-5 w-5 text-primary" />
               新規勤務記録を追加
@@ -208,6 +208,7 @@ export function TimeEntryDialog({
                   onChange={setStartTime}
                   label="開始時刻を選択（5分刻み）"
                   initialHour={initialHour}
+                  startFromValue
                 />
               </div>
 
@@ -218,6 +219,7 @@ export function TimeEntryDialog({
                   onChange={setEndTime}
                   label="終了時刻を選択（5分刻み）"
                   minTime={startTime}
+                  startFromValue
                 />
               </div>
             </div>

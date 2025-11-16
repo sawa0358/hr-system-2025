@@ -110,11 +110,9 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
     const target = event.currentTarget as HTMLDivElement
     const rect = target.getBoundingClientRect()
     const offsetY = event.clientY - rect.top
-    let minutesOffset = Math.floor((offsetY / HOUR_HEIGHT) * 60)
-    if (minutesOffset < 0) minutesOffset = 0
-    if (minutesOffset > 59) minutesOffset = 59
-    minutesOffset = Math.round(minutesOffset / 5) * 5
-    if (minutesOffset === 60) minutesOffset = 55
+
+    // 1時間セルの前半・後半で 00 / 30 分を決定
+    let minutesOffset = offsetY < HOUR_HEIGHT / 2 ? 0 : 30
     const minutes = totalMinutesBase + minutesOffset
 
     setDragStart({ date, minutes })
@@ -129,11 +127,9 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
         const target = event.currentTarget as HTMLDivElement
         const rect = target.getBoundingClientRect()
         const offsetY = event.clientY - rect.top
-        let minutesOffset = Math.floor((offsetY / HOUR_HEIGHT) * 60)
-        if (minutesOffset < 0) minutesOffset = 0
-        if (minutesOffset > 59) minutesOffset = 59
-        minutesOffset = Math.round(minutesOffset / 5) * 5
-        if (minutesOffset === 60) minutesOffset = 55
+
+        // 1時間セルの前半・後半で 00 / 30 分を決定
+        let minutesOffset = offsetY < HOUR_HEIGHT / 2 ? 0 : 30
         const minutes = totalMinutesBase + minutesOffset
 
         setDragEnd({ date, minutes })
@@ -145,9 +141,9 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
     if (isDragging && dragStart && dragEnd) {
       const minMinutes = Math.min(dragStart.minutes, dragEnd.minutes)
       let maxMinutes = Math.max(dragStart.minutes, dragEnd.minutes)
-      // 少なくとも5分の幅を確保
+      // 少なくとも30分の幅を確保
       if (maxMinutes === minMinutes) {
-        maxMinutes = Math.min(minMinutes + 5, 24 * 60)
+        maxMinutes = Math.min(minMinutes + 30, 24 * 60)
       }
 
       const startTotal = Math.min(minMinutes, maxMinutes)
@@ -173,20 +169,20 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
     setDragStart(null)
     setDragEnd(null)
   }
-
-  const isInDragRange = (date: Date, hour: number): boolean => {
+  const isSegmentSelected = (date: Date, hour: number, segment: 0 | 1): boolean => {
     if (!isDragging || !dragStart || !dragEnd) return false
     if (date.toDateString() !== dragStart.date.toDateString()) return false
+
     const minMinutes = Math.min(dragStart.minutes, dragEnd.minutes)
     let maxMinutes = Math.max(dragStart.minutes, dragEnd.minutes)
     if (maxMinutes === minMinutes) {
-      maxMinutes = Math.min(minMinutes + 5, 24 * 60)
+      maxMinutes = Math.min(minMinutes + 30, 24 * 60)
     }
 
-    const cellStart = hour * 60
-    const cellEnd = (hour + 1) * 60
+    const segmentStart = hour * 60 + segment * 30
+    const segmentEnd = segmentStart + 30
 
-    return cellEnd > minMinutes && cellStart < maxMinutes
+    return segmentEnd > minMinutes && segmentStart < maxMinutes
   }
 
   const handleDialogClose = () => {
@@ -289,18 +285,37 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
 
                   {/* Hour cells */}
                   <div className="relative">
-                    {HOURS.map((hour) => (
-                      <div
-                        key={hour}
-                        className={cn(
-                          'cursor-pointer border-b transition-colors hover:bg-accent/30',
-                          isInDragRange(date, hour) && 'bg-primary/20'
-                        )}
-                        style={{ height: `${HOUR_HEIGHT}px` }}
-                        onMouseDown={(e) => handleMouseDown(date, hour, e)}
-                        onMouseEnter={(e) => handleMouseEnter(date, hour, e)}
-                      />
-                    ))}
+                    {HOURS.map((hour) => {
+                      const topSelected = isSegmentSelected(date, hour, 0)
+                      const bottomSelected = isSegmentSelected(date, hour, 1)
+
+                      return (
+                        <div
+                          key={hour}
+                          className="relative cursor-pointer border-b transition-colors hover:bg-accent/30"
+                          style={{ height: `${HOUR_HEIGHT}px` }}
+                          onMouseDown={(e) => handleMouseDown(date, hour, e)}
+                          onMouseEnter={(e) => handleMouseEnter(date, hour, e)}
+                        >
+                          {/* 上半分（00〜30分）の反転 */}
+                          <div
+                            className={cn(
+                              'pointer-events-none absolute inset-x-0 top-0 h-1/2',
+                              topSelected && 'bg-primary/20'
+                            )}
+                          />
+                          {/* 下半分（30〜60分）の反転 */}
+                          <div
+                            className={cn(
+                              'pointer-events-none absolute inset-x-0 bottom-0 h-1/2',
+                              bottomSelected && 'bg-primary/20'
+                            )}
+                          />
+                          {/* 30分位置の点線 */}
+                          <div className="pointer-events-none absolute inset-x-0 top-1/2 border-t border-dashed border-muted-foreground/40" />
+                        </div>
+                      )
+                    })}
 
                     {/* Time entries */}
                     {dayEntries.map((entry) => {

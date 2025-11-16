@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Check, Clock } from 'lucide-react'
+import { Check, Clock, ChevronDown } from 'lucide-react'
 import { generateTimeOptions } from '@/lib/workclock/time-utils'
 import { cn } from '@/lib/utils'
 
@@ -13,11 +13,20 @@ interface TimeGridSelectProps {
   label: string
   initialHour?: number | null
   minTime?: string
+  startFromValue?: boolean
 }
 
-export function TimeGridSelect({ value, onChange, label, initialHour, minTime }: TimeGridSelectProps) {
+export function TimeGridSelect({
+  value,
+  onChange,
+  label,
+  initialHour,
+  minTime,
+  startFromValue,
+}: TimeGridSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   
   const getTimeOptions = () => {
     let times: string[]
@@ -36,6 +45,12 @@ export function TimeGridSelect({ value, onChange, label, initialHour, minTime }:
       times = times.filter((time) => time >= minTime)
     }
 
+    // 選択されている時刻からリストを開始（必要に応じて）
+    if (startFromValue && value && times.includes(value)) {
+      const idx = times.indexOf(value)
+      times = [...times.slice(idx), ...times.slice(0, idx)]
+    }
+
     return times
   }
 
@@ -45,6 +60,33 @@ export function TimeGridSelect({ value, onChange, label, initialHour, minTime }:
     onChange(time)
     setIsOpen(false)
   }
+
+  // 外側クリック or スクロールでプルダウンを閉じる
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (containerRef.current && !containerRef.current.contains(target)) {
+        setIsOpen(false)
+      }
+    }
+
+    const handleWheel = (event: WheelEvent) => {
+      const target = event.target as Node
+      if (containerRef.current && !containerRef.current.contains(target)) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('wheel', handleWheel, { passive: true })
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('wheel', handleWheel)
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen && scrollRef.current && value) {
@@ -63,15 +105,18 @@ export function TimeGridSelect({ value, onChange, label, initialHour, minTime }:
   }, [isOpen, value, timeOptions])
 
   return (
-    <div className="relative space-y-2">
+    <div ref={containerRef} className="relative space-y-2">
       <Button
         type="button"
         variant="outline"
-        className="w-full justify-start text-left font-normal text-base h-12"
+        className="w-full justify-between text-left font-normal text-base h-12"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <Clock className="mr-2 h-5 w-5 text-muted-foreground" />
-        <span className="flex-1 font-mono text-lg">{value || '時刻を選択'}</span>
+        <div className="flex items-center gap-2">
+          <Clock className="h-5 w-5 text-muted-foreground" />
+          <span className="font-mono text-lg">{value || '時刻を選択'}</span>
+        </div>
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </Button>
 
       {isOpen && (

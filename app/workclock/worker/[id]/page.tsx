@@ -37,8 +37,12 @@ export default function WorkerPage() {
   const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
 
   useEffect(() => {
+    // currentUserがまだ読み込まれていない場合は何もしない（初期読み込み待ち）
+    if (!currentUser?.id) {
+      return
+    }
     loadData()
-  }, [workerId, currentDate, refreshKey])
+  }, [workerId, currentDate, refreshKey, currentUser?.id])
 
   const loadData = async () => {
     try {

@@ -144,6 +144,9 @@ model Employee {
   
   // カスタムフォルダ関係
   customFolders         CustomFolder[] @relation("CustomFolderEmployee")
+
+  // WorkClock（業務委託時間管理）関係
+  workClockWorkers      WorkClockWorker[]
   
   // ユーザー設定関係
   userSettings          UserSettings[] @relation("UserSettingsEmployee")
@@ -766,4 +769,46 @@ model ConvenienceEntryUrl {
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")
+}
+
+/// WorkClock（業務委託時間管理） ワーカー
+model WorkClockWorker {
+  id                     String   @id @default(cuid())
+  employeeId             String   @unique
+  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name                   String
+  password               String?
+  companyName            String?
+  qualifiedInvoiceNumber String?
+  chatworkId             String?
+  email                  String
+  phone                  String?
+  address                String?
+  hourlyRate             Float
+  teams                  String?  // JSON文字列（string[]）
+  role                   String   @default("worker") // 'worker' | 'admin'
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  timeEntries            WorkClockTimeEntry[]
+
+  @@map("workclock_workers")
+}
+
+/// WorkClock（業務委託時間管理） 勤務記録
+model WorkClockTimeEntry {
+  id           String   @id @default(cuid())
+  workerId     String
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  startTime    String
+  endTime      String
+  breakMinutes Int      @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([workerId, date])
+  @@map("workclock_time_entries")
 }

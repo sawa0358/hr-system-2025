@@ -171,27 +171,6 @@ export function generatePDFContent(
           border-bottom: 2px solid #333;
         }
         
-        .date-group {
-          margin-bottom: 25px;
-          page-break-inside: avoid;
-        }
-        
-        .date-header {
-          background: #f9f9f9;
-          padding: 10px 15px;
-          font-weight: bold;
-          border-left: 4px solid #0066cc;
-          margin-bottom: 10px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        
-        .date-total {
-          color: #0066cc;
-          font-size: 14px;
-        }
-        
         table {
           width: 100%;
           border-collapse: collapse;
@@ -200,7 +179,7 @@ export function generatePDFContent(
         
         th {
           background: #f0f0f0;
-          padding: 10px;
+          padding: 8px 10px;
           text-align: left;
           font-weight: 600;
           border: 1px solid #ddd;
@@ -208,9 +187,22 @@ export function generatePDFContent(
         }
         
         td {
-          padding: 10px;
+          padding: 6px 10px;
           border: 1px solid #ddd;
           vertical-align: top;
+          font-size: 11px;
+        }
+        
+        .date-cell {
+          white-space: nowrap;
+          background: #fafafa;
+          font-weight: 600;
+        }
+        
+        .date-total-small {
+          margin-top: 4px;
+          font-size: 10px;
+          color: #0066cc;
         }
         
         .time-range {
@@ -223,12 +215,12 @@ export function generatePDFContent(
           color: #0066cc;
           font-weight: bold;
           text-align: right;
+          white-space: nowrap;
         }
         
         .notes {
           color: #666;
           font-size: 11px;
-          max-width: 300px;
         }
         
         .footer {
@@ -280,52 +272,58 @@ export function generatePDFContent(
   `
 
   if (Object.keys(entriesByDate).length > 0) {
-    html += '<div class="details"><h2>勤務詳細</h2>'
+    html += `
+      <div class="details">
+        <h2>勤務詳細</h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 170px;">日付 / 合計時間</th>
+              <th style="width: 140px;">時間帯</th>
+              <th style="width: 70px;">休憩</th>
+              <th style="width: 110px;">実働時間</th>
+              <th>メモ</th>
+            </tr>
+          </thead>
+          <tbody>
+    `
 
     Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
       const formattedDate = formatDateLabel(date)
-
       const dayTotal = getMonthlyTotal(dayEntries)
-      
-      html += `
-        <div class="date-group">
-          <div class="date-header">
-            <span>${formattedDate}</span>
-            <span class="date-total">${formatDuration(dayTotal.hours, dayTotal.minutes)}</span>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 120px;">時間</th>
-                <th style="width: 80px;">休憩</th>
-                <th style="width: 100px;">実働時間</th>
-                <th>メモ</th>
-              </tr>
-            </thead>
-            <tbody>
-      `
 
-      dayEntries.forEach((entry) => {
+      dayEntries.forEach((entry, index) => {
         const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
-        
+
+        html += '<tr>'
+
+        if (index === 0) {
+          html += `
+            <td class="date-cell" rowspan="${dayEntries.length}">
+              <div>${formattedDate}</div>
+              <div class="date-total-small">${formatDuration(
+                dayTotal.hours,
+                dayTotal.minutes
+              )}</div>
+            </td>
+          `
+        }
+
         html += `
-          <tr>
-            <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
-            <td style="text-align: center;">${entry.breakMinutes}分</td>
-            <td class="duration">${formatDuration(duration.hours, duration.minutes)}</td>
-            <td class="notes">${entry.notes || '-'}</td>
-          </tr>
+          <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
+          <td style="text-align: center; white-space: nowrap;">${entry.breakMinutes}分</td>
+          <td class="duration">${formatDuration(duration.hours, duration.minutes)}</td>
+          <td class="notes">${entry.notes || '-'}</td>
+        </tr>
         `
       })
-
-      html += `
-            </tbody>
-          </table>
-        </div>
-      `
     })
 
-    html += '</div>'
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `
   } else {
     html += '<div class="no-data">この期間の勤務記録はありません</div>'
   }
@@ -507,27 +505,6 @@ function generateCombinedPDFContent(
           border-bottom: 2px solid #333;
         }
 
-        .date-group {
-          margin-bottom: 18px;
-          page-break-inside: avoid;
-        }
-
-        .date-header {
-          background: #f9f9f9;
-          padding: 8px 12px;
-          font-weight: bold;
-          border-left: 4px solid #0066cc;
-          margin-bottom: 8px;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .date-total {
-          color: #0066cc;
-          font-size: 13px;
-        }
-
         table {
           width: 100%;
           border-collapse: collapse;
@@ -544,9 +521,22 @@ function generateCombinedPDFContent(
         }
 
         td {
-          padding: 8px;
+          padding: 6px 8px;
           border: 1px solid #ddd;
           vertical-align: top;
+          font-size: 11px;
+        }
+
+        .date-cell {
+          white-space: nowrap;
+          background: #fafafa;
+          font-weight: 600;
+        }
+
+        .date-total-small {
+          margin-top: 4px;
+          font-size: 10px;
+          color: #0066cc;
         }
 
         .time-range {
@@ -559,12 +549,12 @@ function generateCombinedPDFContent(
           color: #0066cc;
           font-weight: bold;
           text-align: right;
+          white-space: nowrap;
         }
 
         .notes {
           color: #666;
           font-size: 11px;
-          max-width: 300px;
         }
 
         .no-data {
@@ -642,63 +632,67 @@ function generateCombinedPDFContent(
         </div>
     `
 
-    if (Object.keys(entriesByDate).length > 0) {
-      html += '<div class="details"><h2>勤務詳細</h2>'
+      if (Object.keys(entriesByDate).length > 0) {
+      html += `
+        <div class="details">
+          <h2>勤務詳細</h2>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 170px;">日付 / 合計時間</th>
+                <th style="width: 140px;">時間帯</th>
+                <th style="width: 70px;">休憩</th>
+                <th style="width: 110px;">実働時間</th>
+                <th>メモ</th>
+              </tr>
+            </thead>
+            <tbody>
+      `
 
       Object.entries(entriesByDate).forEach(([date, dayEntries]) => {
         const formattedDate = formatDateLabel(date)
 
         const dayTotal = getMonthlyTotal(dayEntries)
 
-        html += `
-          <div class="date-group">
-            <div class="date-header">
-              <span>${formattedDate}</span>
-              <span class="date-total">${formatDuration(
-                dayTotal.hours,
-                dayTotal.minutes
-              )}</span>
-            </div>
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 120px;">時間</th>
-                  <th style="width: 80px;">休憩</th>
-                  <th style="width: 100px;">実働時間</th>
-                  <th>メモ</th>
-                </tr>
-              </thead>
-              <tbody>
-        `
-
-        dayEntries.forEach((entry) => {
+        dayEntries.forEach((entry, index) => {
           const duration = calculateDuration(
             entry.startTime,
             entry.endTime,
             entry.breakMinutes
           )
 
+          html += '<tr>'
+
+          if (index === 0) {
+            html += `
+              <td class="date-cell" rowspan="${dayEntries.length}">
+                <div>${formattedDate}</div>
+                <div class="date-total-small">${formatDuration(
+                  dayTotal.hours,
+                  dayTotal.minutes
+                )}</div>
+              </td>
+            `
+          }
+
           html += `
-            <tr>
-              <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
-              <td style="text-align: center;">${entry.breakMinutes}分</td>
-              <td class="duration">${formatDuration(
-                duration.hours,
-                duration.minutes
-              )}</td>
-              <td class="notes">${entry.notes || '-'}</td>
-            </tr>
+            <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
+            <td style="text-align: center; white-space: nowrap;">${entry.breakMinutes}分</td>
+            <td class="duration">${formatDuration(
+              duration.hours,
+              duration.minutes
+            )}</td>
+            <td class="notes">${entry.notes || '-'}</td>
+          </tr>
           `
         })
-
-        html += `
-              </tbody>
-            </table>
-          </div>
-        `
       })
 
-      html += '</div>'
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `
     } else {
       html += '<div class="no-data">この期間の勤務記録はありません</div>'
     }

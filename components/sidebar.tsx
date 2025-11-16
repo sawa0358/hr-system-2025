@@ -18,7 +18,6 @@ import {
   Calendar,
   LogOut,
   Sparkles,
-  Timer,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -30,7 +29,8 @@ const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
   { icon: KanbanSquare, label: "タスク管理", href: "/tasks", permission: "viewOwnTasks" as const },
   { icon: Network, label: "組織図", href: "/organization", permission: "viewOrgChart" as const },
-  { icon: Timer, label: "業務委託時間管理", href: "/workclock", permission: "viewDashboard" as const, roles: ["sub_manager", "store_manager", "manager", "hr", "admin"] },
+  // 業務委託時間管理（WorkClock）
+  { icon: Clock, label: "業務委託時間管理", href: "/workclock", permission: "viewDashboard" as const },
 ]
 
 const dropdownMenuItems = [
@@ -272,64 +272,11 @@ export function Sidebar() {
     }
   }, [collapsed, pathname])
 
-  // 雇用形態が「業務委託」または「外注先」かどうかを判定
-  const isWorkerEmployeeType = React.useMemo(() => {
-    if (!currentUser) {
-      return false
-    }
-    const employeeType = currentUser.employeeType || ''
-    return employeeType.includes('業務委託') || employeeType.includes('外注先')
-  }, [currentUser])
-
-  // WorkClockページ内でワーカー権限かどうかを判定
-  const isWorkClockWorker = React.useMemo(() => {
-    if (!pathname.startsWith('/workclock')) {
-      return false
-    }
-    return isWorkerEmployeeType
-  }, [pathname, isWorkerEmployeeType])
-
   // メニューアイテムの可視性をメモ化してパフォーマンスを向上
-  const visibleMenuItems = React.useMemo(() => {
-    // 雇用形態が「業務委託」または「外注先」のワーカー権限の場合は、「タスク管理」と「業務委託時間管理」のみを表示
-    if (isWorkerEmployeeType) {
-      // HRシステムのroleが管理者系の場合は通常のフィルタリングを適用
-      const isAdminUser = currentUser?.role && ['admin', 'hr', 'manager', 'store_manager', 'sub_manager'].includes(currentUser.role)
-      if (!isAdminUser) {
-        return menuItems.filter((item) => {
-          // 権限チェック
-          if (!hasPermission(item.permission)) {
-            return false
-          }
-          // 「タスク管理」と「業務委託時間管理」のみを表示
-          return item.href === '/tasks' || item.href === '/workclock'
-        })
-      }
-    }
-    
-    return menuItems.filter((item) => {
-      // 権限チェック
-      if (!hasPermission(item.permission)) {
-        return false
-      }
-      
-      // 「業務委託時間管理」の場合は、雇用形態が「業務委託」または「外注先」のユーザーにも表示
-      if (item.href === '/workclock') {
-        if (isWorkerEmployeeType) {
-          return true
-        }
-      }
-      
-      // rolesプロパティがある場合は、現在のユーザーのroleが含まれているかチェック
-      if ('roles' in item && item.roles) {
-        if (!currentUser || !currentUser.role) {
-          return false
-        }
-        return item.roles.includes(currentUser.role)
-      }
-      return true
-    })
-  }, [hasPermission, currentUser, isWorkClockWorker, isWorkerEmployeeType])
+  const visibleMenuItems = React.useMemo(
+    () => menuItems.filter((item) => hasPermission(item.permission)),
+    [hasPermission]
+  )
   const visibleDropdownItems = React.useMemo(() => {
     return dropdownMenuItems.filter((item) => {
       // 権限チェック
@@ -400,6 +347,22 @@ export function Sidebar() {
     return isAllowed
   }, [visibleDropdownItems, currentUser, allowedEmployeeTypesForLeave])
 
+  // 業務委託/外注先かどうか
+  const employeeType = currentUser?.employeeType || ""
+  const isExternalWorker =
+    employeeType.includes("業務委託") || employeeType.includes("外注先")
+
+  // 業務委託/外注先の場合、タスク管理と業務委託時間管理のみ表示
+  const primaryMenuItemsForRender = React.useMemo(
+    () =>
+      isExternalWorker
+        ? visibleMenuItems.filter(
+            (item) => item.href === "/tasks" || item.href === "/workclock"
+          )
+        : visibleMenuItems,
+    [visibleMenuItems, isExternalWorker]
+  )
+
   return (
     <>
       <LoginModal open={!isAuthenticated} onLoginSuccess={login} />
@@ -407,7 +370,7 @@ export function Sidebar() {
       <aside
         ref={sidebarRef}
         className={cn(
-          "bg-white border-r border-slate-200 transition-all duration-300 flex flex-col",
+          "bg-[#f5f4cd] border-r border-slate-200 transition-all duration-300 flex flex-col",
           collapsed ? "w-16" : "w-64",
         )}
       >
@@ -438,9 +401,22 @@ export function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 p-2">
           <ul className="space-y-1">
-            {visibleMenuItems.map((item) => {
+            {primaryMenuItemsForRender.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
+
+              // 業務委託時間管理メニューの表示制御
+              if (item.href === "/workclock") {
+                const isGeneral = role === "general"
+                const isViewer = role === "viewer"
+                // 一般ユーザー以外は表示 / 一般ユーザーでも「業務委託」「外注先」は表示
+                const canShowWorkclock =
+                  (!isGeneral && !isViewer) || (isGeneral && isExternalWorker)
+
+                if (!canShowWorkclock) {
+                  return null
+                }
+              }
 
               return (
                 <li key={item.href}>
@@ -478,7 +454,7 @@ export function Sidebar() {
             })}
 
             {/* プルダウンメニュー */}
-            {canShowDropdown && (
+            {canShowDropdown && !isExternalWorker && (
               <li>
                 <button
                   onClick={(e) => {
@@ -487,7 +463,7 @@ export function Sidebar() {
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                    "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
+                    "bg-[#fdfdea] hover:bg-[#fdfdea] hover:text-blue-600 text-slate-700",
                   )}
                   title={collapsed ? "人事管理" : undefined}
                 >
@@ -507,7 +483,7 @@ export function Sidebar() {
                 
                 {/* サブメニュー */}
                 {!collapsed && dropdownOpen && (
-                  <ul className="mt-1 ml-4 space-y-1">
+                  <ul className="mt-1 ml-4 space-y-1 rounded-md bg-[#fdfdea] p-1">
                     {visibleDropdownItems.map((item) => {
                       const Icon = item.icon
                       const isActive = pathname === item.href
@@ -560,35 +536,34 @@ export function Sidebar() {
               </li>
             )}
 
-            {/* 便利機能: ワーカー権限のユーザー（管理者系でない場合）は非表示 */}
-            {(() => {
-              const isAdminUser = currentUser?.role && ['admin', 'hr', 'manager', 'store_manager', 'sub_manager'].includes(currentUser.role)
-              const shouldHideConvenience = isWorkerEmployeeType && !isAdminUser
-              return !shouldHideConvenience ? (
-                <li>
-                  <Link
-                    href="/convenience"
-                    onClick={(e) => {
-                      if (!isAuthenticated || !currentUser) {
-                        e.preventDefault()
-                        console.warn("[Sidebar] 認証されていません。便利機能ページへの遷移をキャンセルします。")
-                      }
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                      "hover:bg-blue-50 hover:text-blue-600 text-slate-700",
-                    )}
-                    title={collapsed ? "便利機能" : undefined}
-                  >
-                    <Sparkles className="w-5 h-5 flex-shrink-0" />
-                    {!collapsed && <span className="text-sm font-medium flex-1 text-left">便利機能</span>}
-                  </Link>
-                </li>
-              ) : null
-            })()}
+            {!isExternalWorker && (
+              <li>
+                <Link
+                  href="/convenience"
+                  onClick={(e) => {
+                    if (!isAuthenticated || !currentUser) {
+                      e.preventDefault()
+                      console.warn(
+                        "[Sidebar] 認証されていません。便利機能ページへの遷移をキャンセルします。"
+                      )
+                    }
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                    "hover:bg-blue-50 hover:text-blue-600 text-slate-700"
+                  )}
+                  title={collapsed ? "便利機能" : undefined}
+                >
+                  <Sparkles className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && (
+                    <span className="text-sm font-medium flex-1 text-left">便利機能</span>
+                  )}
+                </Link>
+              </li>
+            )}
           </ul>
 
-          {visibleAdminMenuItems.length > 0 && !collapsed && (
+          {visibleAdminMenuItems.length > 0 && !collapsed && !isExternalWorker && (
             <div className="mt-6">
               <p className="px-3 text-xs font-semibold text-slate-500 uppercase mb-2">管理者メニュー</p>
               <ul className="space-y-1">
@@ -636,7 +611,7 @@ export function Sidebar() {
 
         {/* User Info */}
         {!collapsed && currentUser && (
-          <div className="p-4 border-t border-slate-200">
+          <div className="p-4 border-t border-slate-200 bg-[#efefef]">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold whitespace-nowrap overflow-hidden">
                 {(() => {

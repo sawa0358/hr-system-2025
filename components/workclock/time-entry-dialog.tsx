@@ -85,6 +85,10 @@ export function TimeEntryDialog({
     if (!window.confirm('追加しますか？後で変更はできません')) {
       return
     }
+    if (!notes.trim()) {
+      alert('作業内容を入力してください（メモは必須です）。')
+      return
+    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return
@@ -234,7 +238,7 @@ export function TimeEntryDialog({
                   onChange={(e) => setBreakMinutes(e.target.value)}
                   min="0"
                   step="5"
-                  className="text-base"
+                  className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
                 />
               </div>
 
@@ -249,15 +253,19 @@ export function TimeEntryDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-base font-medium">メモ（任意）</Label>
+              <Label htmlFor="notes" className="text-base font-medium">
+                作業内容（必須）
+              </Label>
               <Textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="作業内容やメモを入力..."
                 rows={3}
-                className="text-base"
+                className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
               />
+              <p className="text-xs text-muted-foreground">
+                作業内容を箇条書きなどで、簡潔に入力してください。
+              </p>
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

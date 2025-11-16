@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -60,7 +60,7 @@ export function TimeEntryDialog({
   const initialTimes = getInitialTimes()
   const [startTime, setStartTime] = useState(initialTimes.startTime)
   const [endTime, setEndTime] = useState(initialTimes.endTime)
-  const [breakMinutes, setBreakMinutes] = useState('60')
+  const [breakMinutes, setBreakMinutes] = useState('0')
   const [notes, setNotes] = useState('')
 
   const dateStr = `${selectedDate.getFullYear()}-${String(
@@ -73,7 +73,18 @@ export function TimeEntryDialog({
     weekday: 'long',
   })
 
+  // モーダルを開くたびに、開始・終了時刻を最新のドラッグ／クリック結果で初期化する
+  useEffect(() => {
+    if (!open) return
+    const times = getInitialTimes()
+    setStartTime(times.startTime)
+    setEndTime(times.endTime)
+  }, [open, dateStr, initialHour, initialStartTime, initialEndTime])
+
   const handleAddEntry = async () => {
+    if (!window.confirm('追加しますか？後で変更はできません')) {
+      return
+    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return
@@ -91,7 +102,7 @@ export function TimeEntryDialog({
       // Reset form
       setStartTime('09:00')
       setEndTime('18:00')
-      setBreakMinutes('60')
+      setBreakMinutes('0')
       setNotes('')
       onClose()
     } catch (error) {
@@ -114,10 +125,12 @@ export function TimeEntryDialog({
 
   const duration = calculateDuration(startTime, endTime, parseInt(breakMinutes) || 0)
   
-  const totalDayHours = existingEntries.reduce((total, entry) => {
+  const totalDayMinutes = existingEntries.reduce((total, entry) => {
     const entryDuration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
-    return total + entryDuration.hours + entryDuration.minutes / 60
+    return total + entryDuration.hours * 60 + entryDuration.minutes
   }, 0)
+  const totalDayHoursInt = Math.floor(totalDayMinutes / 60)
+  const totalDayRemainMinutes = totalDayMinutes % 60
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,7 +148,7 @@ export function TimeEntryDialog({
                 <div className="flex items-center gap-2 rounded-lg bg-primary/10 px-3 py-1.5">
                   <Clock className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium">
-                    本日合計: {totalDayHours.toFixed(2)}時間
+                    本日合計: {formatDuration(totalDayHoursInt, totalDayRemainMinutes)}
                   </span>
                 </div>
               </div>
@@ -204,7 +217,7 @@ export function TimeEntryDialog({
                   value={endTime} 
                   onChange={setEndTime}
                   label="終了時刻を選択（5分刻み）"
-                  initialHour={initialHour}
+                  minTime={startTime}
                 />
               </div>
             </div>

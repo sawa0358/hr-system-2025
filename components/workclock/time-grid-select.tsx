@@ -12,22 +12,31 @@ interface TimeGridSelectProps {
   onChange: (value: string) => void
   label: string
   initialHour?: number | null
+  minTime?: string
 }
 
-export function TimeGridSelect({ value, onChange, label, initialHour }: TimeGridSelectProps) {
+export function TimeGridSelect({ value, onChange, label, initialHour, minTime }: TimeGridSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   
   const getTimeOptions = () => {
+    let times: string[]
+
     if (initialHour !== null && initialHour !== undefined) {
       // Generate times from initialHour:00 to initialHour:55 in 5 minute increments
-      const times: string[] = []
+      times = []
       for (let minute = 0; minute < 60; minute += 5) {
         times.push(`${initialHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`)
       }
-      return times
+    } else {
+      times = generateTimeOptions()
     }
-    return generateTimeOptions()
+
+    if (minTime) {
+      times = times.filter((time) => time >= minTime)
+    }
+
+    return times
   }
 
   const timeOptions = getTimeOptions()

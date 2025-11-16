@@ -93,7 +93,7 @@ export default function WorkerPage() {
       
       <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#bddcd9' }}>
         <div className="container mx-auto p-6 space-y-6">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-4">
             <div className="flex-1">
               <WorkerSummary
                 worker={worker}
@@ -102,7 +102,7 @@ export default function WorkerPage() {
                 selectedMonth={currentDate}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 mt-2 self-start">
               <ExportPDFButton
                 worker={worker}
                 entries={entries}
@@ -115,8 +115,10 @@ export default function WorkerPage() {
                     <Button
                       variant="outline"
                       onClick={() => {
-                        // ログアウト処理
-                        window.location.href = '/'
+                        if (window.confirm('時間管理システムからログアウトしますか？')) {
+                          // ログアウト処理
+                          window.location.href = '/'
+                        }
                       }}
                     >
                       <LogOut className="h-4 w-4" />

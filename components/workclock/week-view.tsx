@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, MouseEvent } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { TimeEntry } from '@/lib/workclock/types'
@@ -25,8 +25,8 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState<{ date: Date; hour: number } | null>(null)
-  const [dragEnd, setDragEnd] = useState<{ date: Date; hour: number } | null>(null)
+  const [dragStart, setDragStart] = useState<{ date: Date; minutes: number } | null>(null)
+  const [dragEnd, setDragEnd] = useState<{ date: Date; minutes: number } | null>(null)
   const [dragStartTime, setDragStartTime] = useState<string | null>(null)
   const [dragEndTime, setDragEndTime] = useState<string | null>(null)
 
@@ -103,28 +103,65 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
     setIsDialogOpen(true)
   }
 
-  const handleMouseDown = (date: Date, hour: number) => {
+  const handleMouseDown = (date: Date, hour: number, event: MouseEvent<HTMLDivElement>) => {
     setIsDragging(true)
-    setDragStart({ date, hour })
-    setDragEnd({ date, hour })
+
+    const totalMinutesBase = hour * 60
+    const target = event.currentTarget as HTMLDivElement
+    const rect = target.getBoundingClientRect()
+    const offsetY = event.clientY - rect.top
+    let minutesOffset = Math.floor((offsetY / HOUR_HEIGHT) * 60)
+    if (minutesOffset < 0) minutesOffset = 0
+    if (minutesOffset > 59) minutesOffset = 59
+    minutesOffset = Math.round(minutesOffset / 5) * 5
+    if (minutesOffset === 60) minutesOffset = 55
+    const minutes = totalMinutesBase + minutesOffset
+
+    setDragStart({ date, minutes })
+    setDragEnd({ date, minutes })
   }
 
-  const handleMouseEnter = (date: Date, hour: number) => {
+  const handleMouseEnter = (date: Date, hour: number, event: MouseEvent<HTMLDivElement>) => {
     if (isDragging && dragStart) {
       // 同じ日付内でのみドラッグを許可
       if (date.toDateString() === dragStart.date.toDateString()) {
-        setDragEnd({ date, hour })
+        const totalMinutesBase = hour * 60
+        const target = event.currentTarget as HTMLDivElement
+        const rect = target.getBoundingClientRect()
+        const offsetY = event.clientY - rect.top
+        let minutesOffset = Math.floor((offsetY / HOUR_HEIGHT) * 60)
+        if (minutesOffset < 0) minutesOffset = 0
+        if (minutesOffset > 59) minutesOffset = 59
+        minutesOffset = Math.round(minutesOffset / 5) * 5
+        if (minutesOffset === 60) minutesOffset = 55
+        const minutes = totalMinutesBase + minutesOffset
+
+        setDragEnd({ date, minutes })
       }
     }
   }
 
   const handleMouseUp = () => {
     if (isDragging && dragStart && dragEnd) {
-      const startHour = Math.min(dragStart.hour, dragEnd.hour)
-      const endHour = Math.max(dragStart.hour, dragEnd.hour) + 1
+      const minMinutes = Math.min(dragStart.minutes, dragEnd.minutes)
+      let maxMinutes = Math.max(dragStart.minutes, dragEnd.minutes)
+      // 少なくとも5分の幅を確保
+      if (maxMinutes === minMinutes) {
+        maxMinutes = Math.min(minMinutes + 5, 24 * 60)
+      }
 
-      const startTime = `${startHour.toString().padStart(2, '0')}:00`
-      const endTime = `${endHour.toString().padStart(2, '0')}:00`
+      const startTotal = Math.min(minMinutes, maxMinutes)
+      const endTotal = Math.max(minMinutes, maxMinutes)
+
+      const startHour = Math.floor(startTotal / 60)
+      const startMinute = startTotal % 60
+      const endHour = Math.floor(endTotal / 60)
+      const endMinute = endTotal % 60
+
+      const startTime = `${startHour.toString().padStart(2, '0')}:${startMinute
+        .toString()
+        .padStart(2, '0')}`
+      const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
 
       setSelectedDate(dragStart.date)
       setDragStartTime(startTime)
@@ -140,11 +177,16 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
   const isInDragRange = (date: Date, hour: number): boolean => {
     if (!isDragging || !dragStart || !dragEnd) return false
     if (date.toDateString() !== dragStart.date.toDateString()) return false
+    const minMinutes = Math.min(dragStart.minutes, dragEnd.minutes)
+    let maxMinutes = Math.max(dragStart.minutes, dragEnd.minutes)
+    if (maxMinutes === minMinutes) {
+      maxMinutes = Math.min(minMinutes + 5, 24 * 60)
+    }
 
-    const minHour = Math.min(dragStart.hour, dragEnd.hour)
-    const maxHour = Math.max(dragStart.hour, dragEnd.hour)
+    const cellStart = hour * 60
+    const cellEnd = (hour + 1) * 60
 
-    return hour >= minHour && hour <= maxHour
+    return cellEnd > minMinutes && cellStart < maxMinutes
   }
 
   const handleDialogClose = () => {
@@ -251,12 +293,12 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
                       <div
                         key={hour}
                         className={cn(
-                          "cursor-pointer border-b transition-colors hover:bg-accent/30",
-                          isInDragRange(date, hour) && "bg-primary/20"
+                          'cursor-pointer border-b transition-colors hover:bg-accent/30',
+                          isInDragRange(date, hour) && 'bg-primary/20'
                         )}
                         style={{ height: `${HOUR_HEIGHT}px` }}
-                        onMouseDown={() => handleMouseDown(date, hour)}
-                        onMouseEnter={() => handleMouseEnter(date, hour)}
+                        onMouseDown={(e) => handleMouseDown(date, hour, e)}
+                        onMouseEnter={(e) => handleMouseEnter(date, hour, e)}
                       />
                     ))}
 

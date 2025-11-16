@@ -252,18 +252,26 @@ export async function getEntriesByWorkerAndMonth(
   }
 }
 
-export async function addTimeEntry(entry: Omit<TimeEntry, 'id'>): Promise<TimeEntry> {
+export async function addTimeEntry(
+  entry: Omit<TimeEntry, 'id'>,
+  userId?: string
+): Promise<TimeEntry> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
     const response = await fetch(`${API_BASE}/time-entries`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
       body: JSON.stringify(entry),
     })
     if (!response.ok) {
-      const error = await response.json()
+      const error = await response.json().catch(() => ({}))
       throw new Error(error.error || '時間記録の作成に失敗しました')
     }
     return await response.json()
@@ -273,13 +281,22 @@ export async function addTimeEntry(entry: Omit<TimeEntry, 'id'>): Promise<TimeEn
   }
 }
 
-export async function updateTimeEntry(id: string, updates: Partial<TimeEntry>): Promise<void> {
+export async function updateTimeEntry(
+  id: string,
+  updates: Partial<TimeEntry>,
+  userId?: string
+): Promise<void> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
     const response = await fetch(`${API_BASE}/time-entries/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
       body: JSON.stringify(updates),
     })
@@ -292,16 +309,22 @@ export async function updateTimeEntry(id: string, updates: Partial<TimeEntry>): 
   }
 }
 
-export async function deleteTimeEntry(id: string): Promise<void> {
+export async function deleteTimeEntry(id: string, userId?: string): Promise<void> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
     const response = await fetch(`${API_BASE}/time-entries/${id}`, {
       method: 'DELETE',
       headers: {
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
     })
     if (!response.ok) {
-      throw new Error('時間記録の削除に失敗しました')
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || '時間記録の削除に失敗しました')
     }
   } catch (error) {
     console.error('deleteTimeEntry error:', error)

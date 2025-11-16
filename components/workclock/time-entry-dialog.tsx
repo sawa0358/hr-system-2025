@@ -82,11 +82,11 @@ export function TimeEntryDialog({
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime])
 
   const handleAddEntry = async () => {
-    if (!window.confirm('追加しますか？後で変更はできません')) {
-      return
-    }
     if (!notes.trim()) {
       alert('作業内容を入力してください（メモは必須です）。')
+      return
+    }
+    if (!window.confirm('追加しますか？後で変更はできません')) {
       return
     }
     if (!currentUser?.id) {
@@ -115,6 +115,9 @@ export function TimeEntryDialog({
   }
 
   const handleDeleteEntry = async (id: string) => {
+    if (!window.confirm('この勤務記録を削除しますか？この操作は元に戻せません。')) {
+      return
+    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return

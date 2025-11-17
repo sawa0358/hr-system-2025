@@ -29,28 +29,16 @@ export function TimeGridSelect({
   const containerRef = useRef<HTMLDivElement>(null)
   
   const getTimeOptions = () => {
-    let times: string[]
+    // 1日分（00:00〜23:55）を 5 分刻みで生成
+    let times = generateTimeOptions()
 
-    if (initialHour !== null && initialHour !== undefined) {
-      // Generate times from initialHour:00 to initialHour:55 in 5 minute increments
-      times = []
-      for (let minute = 0; minute < 60; minute += 5) {
-        times.push(`${initialHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`)
-      }
-    } else {
-      times = generateTimeOptions()
-    }
-
+    // 終了時刻側では、開始時刻より前は選べないようにフィルタ
     if (minTime) {
       times = times.filter((time) => time >= minTime)
     }
 
-    // 選択されている時刻からリストを開始（必要に応じて）
-    if (startFromValue && value && times.includes(value)) {
-      const idx = times.indexOf(value)
-      times = [...times.slice(idx), ...times.slice(0, idx)]
-    }
-
+    // 並び順は常に 00:00 → 23:55 のままにしておく
+    // （デフォルト時刻の前後どちらにもスクロールできるようにする）
     return times
   }
 
@@ -125,11 +113,6 @@ export function TimeGridSelect({
             <div className="text-sm font-medium">
               {label}
             </div>
-            {initialHour !== null && initialHour !== undefined && (
-              <div className="mt-1 text-xs text-muted-foreground">
-                {initialHour.toString().padStart(2, '0')}:00 〜 {initialHour.toString().padStart(2, '0')}:55 の範囲
-              </div>
-            )}
           </div>
           
           <ScrollArea className="h-[400px]" ref={scrollRef}>

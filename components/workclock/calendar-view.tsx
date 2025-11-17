@@ -184,6 +184,8 @@ export function CalendarView({
       {viewMode === 'week' ? (
         <WeekView
           workerId={workerId}
+          employeeId={employeeId}
+          worker={worker}
           entries={entries}
           onEntriesChange={onEntriesChange}
         />

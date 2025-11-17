@@ -52,17 +52,27 @@ export function generatePDFContent(
   Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
     const total = getMonthlyTotal(patternEntries)
     const hours = total.hours + total.minutes / 60
-    const rate = pattern === 'A' ? worker.hourlyRate : 
-                 pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
-                 (worker.hourlyRateC || worker.hourlyRate)
+    const rate =
+      pattern === 'A'
+        ? worker.hourlyRate
+        : pattern === 'B'
+        ? worker.hourlyRateB || worker.hourlyRate
+        : worker.hourlyRateC || worker.hourlyRate
     patternTotals[pattern as 'A' | 'B' | 'C'] = {
       hours: total.hours,
       minutes: total.minutes,
-      amount: hours * rate
+      amount: hours * rate,
     }
   })
 
-  const totalAmount = patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount
+  const monthlyFixedAmount =
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : null
+
+  // 時給パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+  const totalAmount =
+    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + (monthlyFixedAmount ?? 0)
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -72,11 +82,6 @@ export function generatePDFContent(
     B: worker.wagePatternLabelB || baseLabels.B,
     C: worker.wagePatternLabelC || baseLabels.C,
   }
-
-  const monthlyFixedAmount =
-    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
-      ? worker.monthlyFixedAmount
-      : null
 
   const teamsText =
     Array.isArray(worker.teams) && worker.teams.length > 0
@@ -700,22 +705,27 @@ function generateCombinedPDFContent(
     Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
       const total = getMonthlyTotal(patternEntries)
       const hours = total.hours + total.minutes / 60
-      const rate = pattern === 'A' ? worker.hourlyRate : 
-                   pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
-                   (worker.hourlyRateC || worker.hourlyRate)
+      const rate =
+        pattern === 'A'
+          ? worker.hourlyRate
+          : pattern === 'B'
+          ? worker.hourlyRateB || worker.hourlyRate
+          : worker.hourlyRateC || worker.hourlyRate
       patternTotals[pattern as 'A' | 'B' | 'C'] = {
         hours: total.hours,
         minutes: total.minutes,
-        amount: hours * rate
+        amount: hours * rate,
       }
     })
-
-    const totalAmount = patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount
 
     const monthlyFixedAmount =
       typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
         ? worker.monthlyFixedAmount
         : null
+
+    // 時給パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+    const totalAmount =
+      patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + (monthlyFixedAmount ?? 0)
     
     // DB優先でパターン名を取得
     const scopeKey = (worker as any).employeeId || worker.id

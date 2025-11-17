@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { TimeEntry } from '@/lib/types'
+import { TimeEntry, Worker } from '@/lib/types'
 import { calculateDuration } from '@/lib/time-utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,6 +11,8 @@ import { TimeEntryDialog } from './time-entry-dialog'
 
 interface WeekViewProps {
   workerId: string
+  employeeId?: string | null
+  worker?: Worker | null
   entries: TimeEntry[]
   onEntriesChange: () => void
 }
@@ -18,7 +20,7 @@ interface WeekViewProps {
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const HOUR_HEIGHT = 60 // pixels per hour
 
-export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) {
+export function WeekView({ workerId, employeeId, worker, entries, onEntriesChange }: WeekViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
@@ -319,6 +321,8 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
           initialHour={selectedHour}
           initialStartTime={dragStartTime}
           initialEndTime={dragEndTime}
+          employeeId={employeeId}
+          worker={worker}
         />
       )}
     </div>

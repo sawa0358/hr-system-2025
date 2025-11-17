@@ -1,31 +1,63 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { TimeEntry } from '@/lib/workclock/types'
 import { getDaysInMonth, calculateDuration, formatDuration } from '@/lib/workclock/time-utils'
-import { ChevronLeft, ChevronRight, Plus, Calendar, CalendarDays } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Calendar, CalendarDays, ToggleLeft, ToggleRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TimeEntryDialog } from './time-entry-dialog'
 import { WeekView } from './week-view'
+import { getWorkerBillingMeta, saveWorkerBillingMeta } from '@/lib/workclock/worker-billing-meta'
+import { PasswordVerificationDialog } from '@/components/password-verification-dialog'
+import { useAuth } from '@/lib/auth-context'
 
 interface CalendarViewProps {
   workerId: string
+  employeeId: string
   entries: TimeEntry[]
   onEntriesChange: () => void
   actionButtons?: React.ReactNode
+  // 月額固定の有無・ON/OFFはUI専用。現時点ではDBには保存されない。
+  hasMonthlyFixed?: boolean
 }
 
-export function CalendarView({ workerId, entries, onEntriesChange, actionButtons }: CalendarViewProps) {
+export function CalendarView({
+  workerId,
+  employeeId,
+  entries,
+  onEntriesChange,
+  actionButtons,
+  hasMonthlyFixed: hasMonthlyFixedProp,
+}: CalendarViewProps) {
+  const { currentUser } = useAuth()
+
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isMonthlyFixedOn, setIsMonthlyFixedOn] = useState(true)
+  const [hasMonthlyFixed, setHasMonthlyFixed] = useState<boolean | undefined>(hasMonthlyFixedProp)
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
+  const [pendingToggleState, setPendingToggleState] = useState<boolean | null>(null)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
   const days = getDaysInMonth(year, month)
+
+  useEffect(() => {
+    if (!employeeId) return
+    const meta = getWorkerBillingMeta(employeeId)
+    if (typeof hasMonthlyFixedProp === 'boolean') {
+      setHasMonthlyFixed(hasMonthlyFixedProp)
+    } else {
+      setHasMonthlyFixed(meta.monthlyFixedAmount !== undefined && meta.monthlyFixedAmount > 0)
+    }
+    if (typeof meta.monthlyFixedOn === 'boolean') {
+      setIsMonthlyFixedOn(meta.monthlyFixedOn)
+    }
+  }, [employeeId, hasMonthlyFixedProp])
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1))
@@ -69,6 +101,21 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
     onEntriesChange()
   }
 
+  const handleMonthlyToggleClick = () => {
+    if (!hasMonthlyFixed) return
+    setPendingToggleState(!isMonthlyFixedOn)
+    setIsPasswordDialogOpen(true)
+  }
+
+  const handleMonthlyToggleVerified = () => {
+    if (pendingToggleState === null) return
+    setIsMonthlyFixedOn(pendingToggleState)
+    saveWorkerBillingMeta(employeeId, {
+      monthlyFixedOn: pendingToggleState,
+    })
+    setPendingToggleState(null)
+  }
+
   const monthName = currentDate.toLocaleDateString('ja-JP', {
     year: 'numeric',
     month: 'long',
@@ -101,11 +148,35 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
             週表示
           </Button>
         </div>
-        {actionButtons && (
-          <div className="flex gap-2">
-            {actionButtons}
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {hasMonthlyFixed && (
+            <button
+              type="button"
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs shadow-sm',
+                isMonthlyFixedOn
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background/80 hover:bg-accent'
+              )}
+              onClick={handleMonthlyToggleClick}
+            >
+              {isMonthlyFixedOn ? (
+                <ToggleRight className="h-4 w-4 text-primary" />
+              ) : (
+                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="font-medium">月額固定</span>
+              <span className="text-[11px] text-muted-foreground">
+                {isMonthlyFixedOn ? 'ON' : 'OFF'}
+              </span>
+            </button>
+          )}
+          {actionButtons && (
+            <div className="flex gap-2">
+              {actionButtons}
+            </div>
+          )}
+        </div>
       </div>
 
       {viewMode === 'week' ? (
@@ -206,6 +277,19 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
           )}
         </>
       )}
+
+      <PasswordVerificationDialog
+        open={isPasswordDialogOpen}
+        onOpenChange={(open) => {
+          setIsPasswordDialogOpen(open)
+          if (!open) {
+            setPendingToggleState(null)
+          }
+        }}
+        onVerified={handleMonthlyToggleVerified}
+        currentUser={currentUser}
+        actionType="workclock-billing"
+      />
     </div>
   )
 }

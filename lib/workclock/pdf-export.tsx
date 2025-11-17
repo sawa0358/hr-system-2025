@@ -1,5 +1,6 @@
 import { Worker, TimeEntry } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
+import { getWagePatternLabels } from './wage-patterns'
 
 function formatDateLabel(dateStr: string): string {
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
@@ -33,6 +34,13 @@ export function generatePDFContent(
   const monthlyTotal = getMonthlyTotal(entries)
   const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
   const totalAmount = totalHours * worker.hourlyRate
+
+  const wageLabels = getWagePatternLabels((worker as any).employeeId || worker.id)
+
+  const monthlyFixedAmount =
+    (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
+      ? Number((worker as any).monthlyFixedAmount)
+      : null
 
   const teamsText =
     Array.isArray(worker.teams) && worker.teams.length > 0
@@ -247,7 +255,12 @@ export function generatePDFContent(
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>
             ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
-            <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
+            <p><strong>${wageLabels.A}:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
+            ${
+              monthlyFixedAmount
+                ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}（UIのみ設定済・現時点では集計に未反映）</p>`
+                : ''
+            }
           </div>
           <div class="period">${monthName}</div>
         </div>
@@ -586,6 +599,11 @@ function generateCombinedPDFContent(
     const monthlyTotal = getMonthlyTotal(entries)
     const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
     const totalAmount = totalHours * worker.hourlyRate
+    const monthlyFixedAmount =
+      (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
+        ? Number((worker as any).monthlyFixedAmount)
+        : null
+    const wageLabels = getWagePatternLabels((worker as any).employeeId || worker.id)
 
     const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
 
@@ -605,7 +623,12 @@ function generateCombinedPDFContent(
             <div class="worker-info">
               <p><strong>氏名:</strong> ${worker.name}</p>
               ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
-              <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
+              <p><strong>${wageLabels.A}:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
+              ${
+                monthlyFixedAmount
+                  ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}（UIのみ設定済・現時点では集計に未反映）</p>`
+                  : ''
+              }
             </div>
             <div class="period">${monthName}</div>
           </div>

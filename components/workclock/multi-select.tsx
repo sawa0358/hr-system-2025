@@ -11,6 +11,8 @@ interface MultiSelectProps {
   selected: string[]
   onChange: (selected: string[]) => void
   placeholder?: string
+  readOnly?: boolean
+  onClickDisabled?: () => void
 }
 
 export function MultiSelect({
@@ -18,6 +20,8 @@ export function MultiSelect({
   selected,
   onChange,
   placeholder = '選択してください',
+  readOnly = false,
+  onClickDisabled,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
 
@@ -39,8 +43,15 @@ export function MultiSelect({
           type="button"
           className={cn(
             "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 h-9",
-            !selected.length && "text-muted-foreground"
+            !selected.length && "text-muted-foreground",
+            readOnly && "cursor-pointer opacity-60"
           )}
+          onClick={() => {
+            if (readOnly && onClickDisabled) {
+              onClickDisabled()
+              return
+            }
+          }}
         >
           <div className="flex flex-wrap gap-1 flex-1 min-w-0">
             {selected.length === 0 ? (

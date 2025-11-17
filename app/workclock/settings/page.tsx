@@ -45,6 +45,8 @@ import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { PasswordVerificationDialog } from '@/components/password-verification-dialog'
+import { getWagePatternLabels, saveWagePatternLabels } from '@/lib/workclock/wage-patterns'
+import { getWorkerBillingMeta, saveWorkerBillingMeta } from '@/lib/workclock/worker-billing-meta'
 
 // getCurrentUserIdをエクスポートする必要があるので、直接実装
 function getCurrentUserId(): string {
@@ -72,13 +74,14 @@ export default function SettingsPage() {
   const [teams, setTeams] = useState<string[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
-  // パスワード編集ロック（初期はロック。店長・総務・管理者のみ解除可能）
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
-  const [isPasswordEditable, setIsPasswordEditable] = useState(false)
+  // ワーカー編集全体のロック（既存ワーカーは初期ロック、新規はアンロック）
+  const [isWorkerEditUnlocked, setIsWorkerEditUnlocked] = useState(false)
+  const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
+  const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -89,7 +92,13 @@ export default function SettingsPage() {
     email: '',
     phone: '',
     address: '',
+    // Aパターンを既存のhourlyRateとみなす（DB/API連携は従来通りhourlyRateのみ）
     hourlyRate: '',
+    // 追加の時給パターン（UI専用・現時点ではDB未連携）
+    hourlyRatePatternB: '',
+    hourlyRatePatternC: '',
+    // 月額固定（UI専用・現時点ではDB未連携）
+    monthlyFixedAmount: '',
     teams: [] as string[],
     role: 'worker' as 'admin' | 'worker',
     notes: '',
@@ -164,12 +173,15 @@ export default function SettingsPage() {
       phone: '',
       address: '',
       hourlyRate: '',
+      hourlyRatePatternB: '',
+      hourlyRatePatternC: '',
+      monthlyFixedAmount: '',
       teams: [],
       role: 'worker',
       notes: '',
     })
     setEditingWorker(null)
-    setIsPasswordEditable(false) // パスワード編集をリセット
+    setIsWorkerEditUnlocked(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,6 +194,21 @@ export default function SettingsPage() {
       }
 
       if (editingWorker) {
+        // 特定フィールドの変更確認
+        const changedCompanyName =
+          (editingWorker.companyName || '') !== (formData.companyName || '')
+        const changedAddress = (editingWorker.address || '') !== (formData.address || '')
+        const changedNotes = (editingWorker.notes || '') !== (formData.notes || '')
+
+        if (changedCompanyName || changedAddress || changedNotes) {
+          const confirmed = window.confirm(
+            '屋号・会社名 / 住所 / 備考欄のいずれかが変更されています。本当に変更しますか？'
+          )
+          if (!confirmed) {
+            return
+          }
+        }
+
         await updateWorker(editingWorker.id, {
           name: formData.name,
           password: formData.password || undefined,
@@ -196,6 +223,14 @@ export default function SettingsPage() {
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
         }, userId)
+        // 月額固定のUI用メタ情報を保存（localStorage）
+        const employeeIdForMeta = formData.employeeId || editingWorker.employeeId || ''
+        if (employeeIdForMeta) {
+          const amount = Number(formData.monthlyFixedAmount || 0)
+          saveWorkerBillingMeta(employeeIdForMeta, {
+            monthlyFixedAmount: isNaN(amount) ? undefined : amount,
+          })
+        }
         await loadWorkers()
         toast({
           title: '更新完了',
@@ -221,6 +256,13 @@ export default function SettingsPage() {
           notes: formData.notes || undefined,
         }
         await addWorker(payload, userId)
+        // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
+        if (payload.employeeId) {
+          const amount = Number(formData.monthlyFixedAmount || 0)
+          saveWorkerBillingMeta(payload.employeeId, {
+            monthlyFixedAmount: isNaN(amount) ? undefined : amount,
+          })
+        }
         await loadWorkers()
         toast({
           title: '登録完了',
@@ -257,6 +299,9 @@ export default function SettingsPage() {
         console.error('社員パスワードの取得に失敗', e)
       }
     }
+    const wageScopeKey = worker.employeeId || worker.id
+    setWageLabels(getWagePatternLabels(wageScopeKey))
+
     setFormData({
       name: worker.name,
       password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
@@ -267,12 +312,22 @@ export default function SettingsPage() {
       phone: worker.phone || '',
       address: worker.address || '',
       hourlyRate: String(worker.hourlyRate),
+      // 月額固定（UI専用）はlocalStorageのメタ情報から復元
+      monthlyFixedAmount: (() => {
+        const meta = getWorkerBillingMeta(worker.employeeId)
+        return meta.monthlyFixedAmount !== undefined ? String(meta.monthlyFixedAmount) : ''
+      })(),
+      // 既存データにはパターンB/C・月額固定の情報はないため、将来のDB対応までは空欄で保持
+      hourlyRatePatternB: '',
+      hourlyRatePatternC: '',
+      monthlyFixedAmount: '',
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
       employeeId: worker.employeeId || '',
     })
-    setIsPasswordEditable(false) // パスワード編集をロック
+    // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
+    setIsWorkerEditUnlocked(false)
     setIsDialogOpen(true)
   }
 
@@ -322,13 +377,16 @@ export default function SettingsPage() {
     }
   }
 
-  // パスワード認証成功時のコールバック
-  const handlePasswordVerified = () => {
-    setIsPasswordEditable(true)
+  // パスワード認証成功時のコールバック（ワーカー編集全体をアンロック）
+  const handleWorkerEditVerified = () => {
+    setIsWorkerEditUnlocked(true)
   }
 
-  // 店長・総務・管理者の権限チェック
+  // 店長・総務・管理者の権限チェック（システムパスワード編集は従来通り）
   const canEditPassword = ['store_manager', 'hr', 'admin'].includes(currentUser?.role || '')
+  // 報酬設定や権限（ワーカー/管理者）は総務・管理者のみ編集可能
+  const canEditCompensation = ['hr', 'admin'].includes(currentUser?.role || '')
+  const canEditCompValues = canEditCompensation && isWorkerEditUnlocked
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
@@ -401,11 +459,17 @@ export default function SettingsPage() {
                   setTeams(getTeams())
                 } else {
                   resetForm()
-                  setIsPasswordEditable(false) // パスワード編集をリセット
+                  setIsWorkerEditUnlocked(false)
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button onClick={resetForm}>
+                <Button
+                  onClick={() => {
+                    resetForm()
+                    // 新規ワーカー登録時は報酬設定の編集を最初から有効化
+                    setIsWorkerEditUnlocked(true)
+                  }}
+                >
                     <Plus className="mr-2 h-4 w-4" />
                     新規ワーカー登録
                   </Button>
@@ -477,7 +541,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="name">氏名 *</Label>
                           <Input
@@ -487,6 +551,8 @@ export default function SettingsPage() {
                               setFormData({ ...formData, name: e.target.value })
                             }
                             required
+                            readOnly={!!editingWorker}
+                            className={editingWorker ? 'bg-muted text-muted-foreground' : ''}
                           />
                         </div>
                         <div className="grid gap-2">
@@ -498,21 +564,13 @@ export default function SettingsPage() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             required
                             placeholder="ログイン用パスワード"
-                            disabled={!isPasswordEditable || !canEditPassword}
-                            className={!isPasswordEditable || !canEditPassword ? "text-[#374151] bg-[#edeaed]" : ""}
+                            disabled={!isWorkerEditUnlocked || !canEditPassword}
+                            className={!isWorkerEditUnlocked || !canEditPassword ? "text-[#374151] bg-[#edeaed]" : ""}
                           />
-                          {canEditPassword && !isPasswordEditable && (
+                          {canEditPassword && !isWorkerEditUnlocked && editingWorker && (
                             <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsPasswordDialogOpen(true)}
-                              >
-                                編集を有効化
-                              </Button>
                               <p className="text-xs text-muted-foreground">
-                                パスワードを編集するには、自身のパスワード認証が必要です
+                                ワーカー編集を有効化すると、パスワードも編集できるようになります
                               </p>
                             </div>
                           )}
@@ -531,15 +589,19 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="grid gap-2">
-                          <Label htmlFor="qualifiedInvoiceNumber">適格証明番号</Label>
-                          <Input
-                            id="qualifiedInvoiceNumber"
-                            value={formData.qualifiedInvoiceNumber}
-                            onChange={(e) =>
-                              setFormData({ ...formData, qualifiedInvoiceNumber: e.target.value })
-                            }
-                            placeholder="T1234567890123"
-                          />
+                        <Label htmlFor="qualifiedInvoiceNumber">適格証明番号</Label>
+                        <Input
+                          id="qualifiedInvoiceNumber"
+                          value={formData.qualifiedInvoiceNumber}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              qualifiedInvoiceNumber: e.target.value,
+                            })
+                          }
+                          placeholder="T1234567890123"
+                          disabled={!isWorkerEditUnlocked}
+                        />
                         </div>
                       </div>
 
@@ -550,10 +612,9 @@ export default function SettingsPage() {
                             id="email"
                             type="email"
                             value={formData.email}
-                            onChange={(e) =>
-                              setFormData({ ...formData, email: e.target.value })
-                            }
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             required
+                            disabled={!isWorkerEditUnlocked}
                           />
                         </div>
                         <div className="grid gap-2">
@@ -562,10 +623,9 @@ export default function SettingsPage() {
                             id="phone"
                             type="tel"
                             value={formData.phone}
-                            onChange={(e) =>
-                              setFormData({ ...formData, phone: e.target.value })
-                            }
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                             placeholder="03-1234-5678"
+                            disabled={!isWorkerEditUnlocked}
                           />
                         </div>
                       </div>
@@ -579,6 +639,7 @@ export default function SettingsPage() {
                             setFormData({ ...formData, chatworkId: e.target.value })
                           }
                           placeholder="chatwork_username"
+                          disabled={!isWorkerEditUnlocked}
                         />
                       </div>
 
@@ -594,19 +655,176 @@ export default function SettingsPage() {
                         />
                       </div>
 
-                      <div className="grid gap-2">
-                        <Label htmlFor="hourlyRate">時給（円）*</Label>
-                        <Input
-                          id="hourlyRate"
-                          type="number"
-                          min="0"
-                          value={formData.hourlyRate}
-                          onChange={(e) =>
-                            setFormData({ ...formData, hourlyRate: e.target.value })
-                          }
-                          required
-                        />
-                      </div>
+                      <Card className="border border-dashed bg-muted/40">
+                        <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-base">報酬設定</CardTitle>
+                            <CardDescription className="text-xs">
+                              時給パターン（A/B/C）と月額固定を設定できます。現時点ではAパターンのみが計算・保存に利用されます。
+                            </CardDescription>
+                          </div>
+                          {canEditCompensation && editingWorker && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="xs"
+                              onClick={() => setIsWorkerPasswordDialogOpen(true)}
+                              className="mt-1"
+                            >
+                              編集を有効化
+                            </Button>
+                          )}
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid gap-3">
+                            <Label className="text-xs font-semibold text-muted-foreground">
+                              時給パターン
+                            </Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Input
+                                    type="text"
+                                    value={wageLabels.A}
+                                    onChange={(e) => {
+                                      const value = e.target.value || 'Aパターン'
+                                      const next = { ...wageLabels, A: value }
+                                      setWageLabels(next)
+                                      const scopeKey =
+                                        (editingWorker as any)?.employeeId ||
+                                        editingWorker?.id ||
+                                        formData.employeeId ||
+                                        undefined
+                                      saveWagePatternLabels(next, scopeKey)
+                                    }}
+                                    className="h-8 text-xs"
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                    デフォルト
+                                  </span>
+                                </div>
+                                <Input
+                                  id="hourlyRate"
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRate}
+                                  onChange={(e) =>
+                                    setFormData({ ...formData, hourlyRate: e.target.value })
+                                  }
+                                  placeholder="1,200"
+                                  required
+                                  disabled={!canEditCompValues}
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                  従来の「時給（円）*」と同じ値です。現在の計算・PDF出力ではこの金額のみが使用されます。
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Input
+                                    type="text"
+                                    value={wageLabels.B}
+                                    onChange={(e) => {
+                                      const value = e.target.value || 'Bパターン'
+                                      const next = { ...wageLabels, B: value }
+                                      setWageLabels(next)
+                                      const scopeKey =
+                                        (editingWorker as any)?.employeeId ||
+                                        editingWorker?.id ||
+                                        formData.employeeId ||
+                                        undefined
+                                      saveWagePatternLabels(next, scopeKey)
+                                    }}
+                                    className="h-8 text-xs"
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">
+                                    任意設定
+                                  </span>
+                                </div>
+                                <Input
+                                  id="hourlyRatePatternB"
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRatePatternB}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      hourlyRatePatternB: e.target.value,
+                                    })
+                                  }
+                                  placeholder="例: 1,500"
+                                  disabled={!canEditCompValues}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <Input
+                                    type="text"
+                                    value={wageLabels.C}
+                                    onChange={(e) => {
+                                      const value = e.target.value || 'Cパターン'
+                                      const next = { ...wageLabels, C: value }
+                                      setWageLabels(next)
+                                      const scopeKey =
+                                        (editingWorker as any)?.employeeId ||
+                                        editingWorker?.id ||
+                                        formData.employeeId ||
+                                        undefined
+                                      saveWagePatternLabels(next, scopeKey)
+                                    }}
+                                    className="h-8 text-xs"
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">
+                                    任意設定
+                                  </span>
+                                </div>
+                                <Input
+                                  id="hourlyRatePatternC"
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRatePatternC}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      hourlyRatePatternC: e.target.value,
+                                    })
+                                  }
+                                  placeholder="例: 2,000"
+                                  disabled={!canEditCompValues}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="border-t pt-4 space-y-2">
+                            <Label className="text-xs font-semibold text-muted-foreground">
+                              月額固定
+                            </Label>
+                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-center">
+                              <Input
+                                id="monthlyFixedAmount"
+                                type="number"
+                                min="0"
+                                value={formData.monthlyFixedAmount}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    monthlyFixedAmount: e.target.value,
+                                  })
+                                }
+                                placeholder="例: 300000"
+                                disabled={!canEditCompValues}
+                              />
+                              <p className="text-[11px] text-muted-foreground md:text-right">
+                                例）300,000円など。カレンダー画面の「月額固定 ON/OFF」トグルと連動予定です。
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
 
                       <div className="grid gap-2">
                         <Label htmlFor="teams">チーム（複数選択可）</Label>
@@ -615,6 +833,7 @@ export default function SettingsPage() {
                           selected={formData.teams}
                           onChange={(selected) => setFormData({ ...formData, teams: selected })}
                           placeholder="チームを選択"
+                          readOnly={!isWorkerEditUnlocked}
                         />
                       </div>
 
@@ -625,9 +844,10 @@ export default function SettingsPage() {
                           onValueChange={(value: 'admin' | 'worker') =>
                             setFormData({ ...formData, role: value })
                           }
+                          disabled={!canEditCompValues}
                         >
                           <SelectTrigger>
-                            <SelectValue />
+                            <SelectValue placeholder="権限を選択" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="worker">ワーカー</SelectItem>
@@ -654,11 +874,13 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <PasswordVerificationDialog
-                      open={isPasswordDialogOpen}
-                      onOpenChange={setIsPasswordDialogOpen}
-                      onVerified={handlePasswordVerified}
+                      open={isWorkerPasswordDialogOpen}
+                      onOpenChange={(open) => {
+                        setIsWorkerPasswordDialogOpen(open)
+                      }}
+                      onVerified={handleWorkerEditVerified}
                       currentUser={currentUser}
-                      actionType="join-date"
+                      actionType="workclock-worker"
                     />
                     <DialogFooter>
                       <Button

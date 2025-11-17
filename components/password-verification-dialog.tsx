@@ -12,7 +12,7 @@ interface PasswordVerificationDialogProps {
   onOpenChange: (open: boolean) => void
   onVerified: () => void
   currentUser?: any
-  actionType?: "employee-my-number" | "family-my-number" | "join-date"
+  actionType?: "employee-my-number" | "family-my-number" | "join-date" | "workclock-billing"
 }
 
 export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser, actionType }: PasswordVerificationDialogProps) {
@@ -20,12 +20,24 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
   const [error, setError] = useState("")
 
   const isJoinDateContext = actionType === "join-date"
+  const isWorkClockContext = actionType === "workclock-billing"
+  const isWorkClockWorkerContext = actionType === "workclock-worker"
+
   const descriptionText = isJoinDateContext
     ? "入社日を変更するには、ログインパスワードの入力が必要です。"
-    : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
+    : isWorkClockContext
+      ? "時間管理システムの重要な設定を変更するには、ログインパスワードの入力が必要です。"
+      : isWorkClockWorkerContext
+        ? ""
+        : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
+
   const warningText = isJoinDateContext
     ? "入社日は勤怠管理や年次有給の付与に影響します。変更内容を十分に確認してください。"
-    : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
+    : isWorkClockContext
+      ? "報酬や勤務記録に関わる設定です。変更内容を十分に確認した上で操作してください。"
+      : isWorkClockWorkerContext
+        ? ""
+        : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
 
   const handleVerify = () => {
     // 現在のユーザーのパスワードと照合
@@ -51,10 +63,12 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-amber-800">{warningText}</p>
-          </div>
+          {warningText && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <p className="text-xs text-amber-800">{warningText}</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">ログインパスワード</Label>

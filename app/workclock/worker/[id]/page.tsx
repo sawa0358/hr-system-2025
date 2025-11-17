@@ -32,6 +32,7 @@ export default function WorkerPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
+  const [isMonthlyFixedOn, setIsMonthlyFixedOn] = useState(true)
 
   // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
   const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
@@ -138,6 +139,7 @@ export default function WorkerPage() {
 
           <CalendarView
             workerId={workerId}
+            employeeId={(worker as any).employeeId || ''}
             entries={entries}
             onEntriesChange={handleEntriesChange}
           />

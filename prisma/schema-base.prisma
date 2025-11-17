@@ -45,6 +45,13 @@ enum RequestStatus {
   CANCELLED
 }
 
+// WorkClock用 時給パターン
+enum WagePattern {
+  A
+  B
+  C
+}
+
 model Employee {
   id                    String            @id @default(cuid())
   employeeId            String            @unique
@@ -144,6 +151,9 @@ model Employee {
   
   // 家族構成関係
   familyMembers         FamilyMember[]
+
+  // WorkClock（業務委託時間管理）関係
+  workClockWorkers      WorkClockWorker[]
 
   @@map("employees")
 }
@@ -764,4 +774,59 @@ model ConvenienceEntryUrl {
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")
+}
+
+// ==========================
+// WorkClock（業務委託時間管理）用モデル
+// ==========================
+
+model WorkClockWorker {
+  id                     String   @id @default(cuid())
+  employeeId             String   @unique
+  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name                   String
+  password               String?
+  companyName            String?
+  qualifiedInvoiceNumber String?
+  chatworkId             String?
+  email                  String
+  phone                  String?
+  address                String?
+  hourlyRate             Float
+  // 時給パターン名（ラベル）
+  wagePatternLabelA      String?  @default("Aパターン")
+  wagePatternLabelB      String?  @default("Bパターン")
+  wagePatternLabelC      String?  @default("Cパターン")
+  // 追加の時給パターン金額（任意）
+  hourlyRateB            Float?
+  hourlyRateC            Float?
+  // 月額固定（金額とON/OFF）
+  monthlyFixedAmount     Int?
+  monthlyFixedEnabled    Boolean  @default(false)
+  teams                  String?  // JSON文字列（string[]）
+  role                   String   @default("worker") // 'worker' | 'admin'
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  timeEntries            WorkClockTimeEntry[]
+
+  @@map("workclock_workers")
+}
+
+model WorkClockTimeEntry {
+  id           String       @id @default(cuid())
+  workerId     String
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  wagePattern  WagePattern  @default(A)
+  startTime    String
+  endTime      String
+  breakMinutes Int          @default(0)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([workerId, date])
+  @@map("workclock_time_entries")
 }

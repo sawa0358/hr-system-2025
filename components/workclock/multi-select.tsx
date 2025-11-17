@@ -26,6 +26,7 @@ export function MultiSelect({
   const [open, setOpen] = React.useState(false)
 
   const handleSelect = (option: string) => {
+    if (readOnly) return
     const newSelected = selected.includes(option)
       ? selected.filter((s) => s !== option)
       : [...selected, option]
@@ -33,6 +34,7 @@ export function MultiSelect({
   }
 
   const handleRemove = (option: string) => {
+    if (readOnly) return
     onChange(selected.filter((s) => s !== option))
   }
 

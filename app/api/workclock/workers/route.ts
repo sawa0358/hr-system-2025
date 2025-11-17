@@ -172,6 +172,14 @@ export async function POST(request: NextRequest) {
       phone,
       address,
       hourlyRate,
+      // WorkClock拡張フィールド
+      wagePatternLabelA,
+      wagePatternLabelB,
+      wagePatternLabelC,
+      hourlyRateB,
+      hourlyRateC,
+      monthlyFixedAmount,
+      monthlyFixedEnabled,
       teams,
       role,
       notes,
@@ -209,6 +217,17 @@ export async function POST(request: NextRequest) {
         phone,
         address,
         hourlyRate: parseFloat(hourlyRate),
+        // ラベル・追加パターン・月額固定（任意）
+        wagePatternLabelA,
+        wagePatternLabelB,
+        wagePatternLabelC,
+        hourlyRateB: hourlyRateB !== undefined && hourlyRateB !== null ? parseFloat(hourlyRateB) : undefined,
+        hourlyRateC: hourlyRateC !== undefined && hourlyRateC !== null ? parseFloat(hourlyRateC) : undefined,
+        monthlyFixedAmount:
+          monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
+            ? parseInt(monthlyFixedAmount, 10)
+            : undefined,
+        monthlyFixedEnabled: monthlyFixedEnabled ?? false,
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',
         notes,

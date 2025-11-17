@@ -50,9 +50,15 @@ enum RequestStatus {
   CANCELLED
 }
 
+// WorkClock用 時給パターン
+enum WagePattern {
+  A
+  B
+  C
+}
+
 model Employee {
   id                    String            @id @default(cuid())
-  orgChartOrder         Int?
   employeeId            String            @unique
   employeeNumber        String            @unique
   employeeType          String
@@ -150,8 +156,8 @@ model Employee {
   
   // 家族構成関係
   familyMembers         FamilyMember[]
-  
-  // WorkClock関係
+
+  // WorkClock（業務委託時間管理）関係
   workClockWorkers      WorkClockWorker[]
 
   @@map("employees")
@@ -780,39 +786,51 @@ model ConvenienceEntryUrl {
 // ==========================
 
 model WorkClockWorker {
-  id                      String   @id @default(cuid())
-  employeeId              String   @unique
-  employee                Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name                    String
-  password                String?
-  companyName             String?  // 屋号・会社名
-  qualifiedInvoiceNumber  String?  // 適格証明番号
-  chatworkId              String?  // チャットワークID
-  email                   String
-  phone                   String?  // 電話番号
-  address                 String?  // 住所
-  hourlyRate              Float
-  teams                   String?  // JSON配列として保存
-  role                    String   @default("worker") // 'worker' | 'admin'
-  notes                   String?  // 備考欄
-  timeEntries             WorkClockTimeEntry[]
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  employeeId             String   @unique
+  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name                   String
+  password               String?
+  companyName            String?
+  qualifiedInvoiceNumber String?
+  chatworkId             String?
+  email                  String
+  phone                  String?
+  address                String?
+  hourlyRate             Float
+  // 時給パターン名（ラベル）
+  wagePatternLabelA      String?  @default("Aパターン")
+  wagePatternLabelB      String?  @default("Bパターン")
+  wagePatternLabelC      String?  @default("Cパターン")
+  // 追加の時給パターン金額（任意）
+  hourlyRateB            Float?
+  hourlyRateC            Float?
+  // 月額固定（金額とON/OFF）
+  monthlyFixedAmount     Int?
+  monthlyFixedEnabled    Boolean  @default(false)
+  teams                  String?  // JSON文字列（string[]）
+  role                   String   @default("worker") // 'worker' | 'admin'
+  notes                  String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  timeEntries            WorkClockTimeEntry[]
 
   @@map("workclock_workers")
 }
 
 model WorkClockTimeEntry {
-  id          String   @id @default(cuid())
-  workerId    String
-  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  date        DateTime // 日付
-  startTime   String   // HH:mm形式（24時間）
-  endTime     String   // HH:mm形式（24時間）
-  breakMinutes Int     @default(0)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String       @id @default(cuid())
+  workerId     String
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  wagePattern  WagePattern  @default(A)
+  startTime    String
+  endTime      String
+  breakMinutes Int          @default(0)
+  notes        String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([workerId, date])
   @@map("workclock_time_entries")

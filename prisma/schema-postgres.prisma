@@ -50,9 +50,15 @@ enum RequestStatus {
   CANCELLED
 }
 
+// WorkClock用 時給パターン
+enum WagePattern {
+  A
+  B
+  C
+}
+
 model Employee {
   id                    String            @id @default(cuid())
-  orgChartOrder         Int?
   employeeId            String            @unique
   employeeNumber        String            @unique
   employeeType          String
@@ -144,15 +150,15 @@ model Employee {
   
   // カスタムフォルダ関係
   customFolders         CustomFolder[] @relation("CustomFolderEmployee")
-
-  // WorkClock（業務委託時間管理）関係
-  workClockWorkers      WorkClockWorker[]
   
   // ユーザー設定関係
   userSettings          UserSettings[] @relation("UserSettingsEmployee")
   
   // 家族構成関係
   familyMembers         FamilyMember[]
+
+  // WorkClock（業務委託時間管理）関係
+  workClockWorkers      WorkClockWorker[]
 
   @@map("employees")
 }
@@ -715,63 +721,70 @@ model Bulletin {
   @@map("bulletins")
 }
 
+// ==========================
+// 便利機能（Convenience）
+// ==========================
+
 model ConvenienceCategory {
-  id           String    @id @default(cuid())
-  tenantId     String?
-  name         String
-  position     Int       @default(0)
-  isArchived   Boolean   @default(false)
-  isAdminOnly  Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-  updatedBy    String?
+  id            String   @id @default(cuid())
+  tenantId      String?
+  name          String
+  position      Int      @default(0)
+  isArchived    Boolean  @default(false)
+  isAdminOnly   Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
   createdByUser Employee? @relation("ConvenienceCategoryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser Employee? @relation("ConvenienceCategoryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  entries      ConvenienceEntry[]
+  entries       ConvenienceEntry[]
 
   @@index([tenantId, position])
   @@map("convenience_categories")
 }
 
 model ConvenienceEntry {
-  id           String    @id @default(cuid())
-  categoryId   String
-  category     ConvenienceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  title        String
-  note         String?
-  position     Int       @default(0)
-  isArchived   Boolean   @default(false)
-  isAdminOnly  Boolean   @default(false)
-  deletedAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  createdBy    String?
-  updatedBy    String?
+  id            String   @id @default(cuid())
+  categoryId    String
+  category      ConvenienceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title         String
+  note          String?
+  position      Int      @default(0)
+  isArchived    Boolean  @default(false)
+  isAdminOnly   Boolean  @default(false)
+  deletedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
   createdByUser Employee? @relation("ConvenienceEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
   updatedByUser Employee? @relation("ConvenienceEntryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-  urls         ConvenienceEntryUrl[]
+  urls          ConvenienceEntryUrl[]
 
   @@index([categoryId, position])
   @@map("convenience_entries")
 }
 
 model ConvenienceEntryUrl {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   entryId     String
   entry       ConvenienceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   url         String
   description String?
-  position    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")
 }
 
-/// WorkClock（業務委託時間管理） ワーカー
+// ==========================
+// WorkClock（業務委託時間管理）用モデル
+// ==========================
+
 model WorkClockWorker {
   id                     String   @id @default(cuid())
   employeeId             String   @unique
@@ -785,6 +798,16 @@ model WorkClockWorker {
   phone                  String?
   address                String?
   hourlyRate             Float
+  // 時給パターン名（ラベル）
+  wagePatternLabelA      String?  @default("Aパターン")
+  wagePatternLabelB      String?  @default("Bパターン")
+  wagePatternLabelC      String?  @default("Cパターン")
+  // 追加の時給パターン金額（任意）
+  hourlyRateB            Float?
+  hourlyRateC            Float?
+  // 月額固定（金額とON/OFF）
+  monthlyFixedAmount     Int?
+  monthlyFixedEnabled    Boolean  @default(false)
   teams                  String?  // JSON文字列（string[]）
   role                   String   @default("worker") // 'worker' | 'admin'
   notes                  String?
@@ -796,18 +819,18 @@ model WorkClockWorker {
   @@map("workclock_workers")
 }
 
-/// WorkClock（業務委託時間管理） 勤務記録
 model WorkClockTimeEntry {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   workerId     String
   worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date         DateTime
+  wagePattern  WagePattern  @default(A)
   startTime    String
   endTime      String
-  breakMinutes Int      @default(0)
+  breakMinutes Int          @default(0)
   notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@index([workerId, date])
   @@map("workclock_time_entries")

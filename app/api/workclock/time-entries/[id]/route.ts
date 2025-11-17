@@ -103,7 +103,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { date, startTime, endTime, breakMinutes, notes } = body
+    const { date, startTime, endTime, breakMinutes, notes, wagePattern } = body
 
     const updated = await prisma.workClockTimeEntry.update({
       where: { id: params.id },
@@ -112,6 +112,10 @@ export async function PUT(
         startTime,
         endTime,
         breakMinutes,
+        wagePattern:
+          wagePattern && ['A', 'B', 'C'].includes(wagePattern)
+            ? wagePattern
+            : undefined,
         notes,
       },
       include: {

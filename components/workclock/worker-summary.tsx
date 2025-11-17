@@ -28,14 +28,20 @@ export function WorkerSummary({
     month: 'long',
   })
 
-  const wageLabels = getWagePatternLabels((worker as any).employeeId || worker.id)
+  const scopeKey = worker.employeeId || (worker as any).employeeId || worker.id
+  const baseLabels = getWagePatternLabels(scopeKey)
+  const wageLabels = {
+    A: worker.wagePatternLabelA || baseLabels.A,
+    B: worker.wagePatternLabelB || baseLabels.B,
+    C: worker.wagePatternLabelC || baseLabels.C,
+  }
 
-  // 月額固定が将来的にDBに追加される前提のUI。現時点ではworkClockWorkerにカラムがないため、
-  // Worker型には含まれていませんが、拡張プロパティとして存在する場合のみ表示を変える想定です。
   const monthlyFixedAmount =
-    (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
-      ? Number((worker as any).monthlyFixedAmount)
-      : null
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
+        ? Number((worker as any).monthlyFixedAmount)
+        : null
 
   return (
     <div className="space-y-4 w-full">

@@ -209,20 +209,41 @@ export default function SettingsPage() {
           }
         }
 
-        await updateWorker(editingWorker.id, {
-          name: formData.name,
-          password: formData.password || undefined,
-          companyName: formData.companyName || undefined,
-          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
-          chatworkId: formData.chatworkId || undefined,
-          email: formData.email,
-          phone: formData.phone || undefined,
-          address: formData.address || undefined,
-          hourlyRate: Number(formData.hourlyRate),
-          teams: formData.teams,
-          role: formData.role as 'worker' | 'admin',
-          notes: formData.notes || undefined,
-        }, userId)
+        await updateWorker(
+          editingWorker.id,
+          {
+            name: formData.name,
+            password: formData.password || undefined,
+            companyName: formData.companyName || undefined,
+            qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
+            chatworkId: formData.chatworkId || undefined,
+            email: formData.email,
+            phone: formData.phone || undefined,
+            address: formData.address || undefined,
+            hourlyRate: Number(formData.hourlyRate),
+            // 追加の時給パターン金額をDBに保存
+            hourlyRateB:
+              formData.hourlyRatePatternB !== ''
+                ? Number(formData.hourlyRatePatternB)
+                : undefined,
+            hourlyRateC:
+              formData.hourlyRatePatternC !== ''
+                ? Number(formData.hourlyRatePatternC)
+                : undefined,
+            // 月額固定金額をDBに保存（0 または空なら未設定）
+            monthlyFixedAmount:
+              formData.monthlyFixedAmount !== ''
+                ? Number(formData.monthlyFixedAmount)
+                : null,
+            monthlyFixedEnabled:
+              formData.monthlyFixedAmount !== '' &&
+              Number(formData.monthlyFixedAmount) > 0,
+            teams: formData.teams,
+            role: formData.role as 'worker' | 'admin',
+            notes: formData.notes || undefined,
+          },
+          userId
+        )
         // 月額固定のUI用メタ情報を保存（localStorage）
         const employeeIdForMeta = formData.employeeId || editingWorker.employeeId || ''
         if (employeeIdForMeta) {
@@ -251,6 +272,21 @@ export default function SettingsPage() {
           phone: formData.phone || undefined,
           address: formData.address || undefined,
           hourlyRate: Number(formData.hourlyRate),
+          hourlyRateB:
+            formData.hourlyRatePatternB !== ''
+              ? Number(formData.hourlyRatePatternB)
+              : undefined,
+          hourlyRateC:
+            formData.hourlyRatePatternC !== ''
+              ? Number(formData.hourlyRatePatternC)
+              : undefined,
+          monthlyFixedAmount:
+            formData.monthlyFixedAmount !== ''
+              ? Number(formData.monthlyFixedAmount)
+              : undefined,
+          monthlyFixedEnabled:
+            formData.monthlyFixedAmount !== '' &&
+            Number(formData.monthlyFixedAmount) > 0,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
@@ -302,6 +338,11 @@ export default function SettingsPage() {
     const wageScopeKey = worker.employeeId || worker.id
     setWageLabels(getWagePatternLabels(wageScopeKey))
 
+    const meta = getWorkerBillingMeta(worker.employeeId)
+    const monthlyFixed =
+      worker.monthlyFixedAmount ??
+      (typeof meta.monthlyFixedAmount === 'number' ? meta.monthlyFixedAmount : undefined)
+
     setFormData({
       name: worker.name,
       password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
@@ -312,15 +353,12 @@ export default function SettingsPage() {
       phone: worker.phone || '',
       address: worker.address || '',
       hourlyRate: String(worker.hourlyRate),
-      // 月額固定（UI専用）はlocalStorageのメタ情報から復元
-      monthlyFixedAmount: (() => {
-        const meta = getWorkerBillingMeta(worker.employeeId)
-        return meta.monthlyFixedAmount !== undefined ? String(meta.monthlyFixedAmount) : ''
-      })(),
-      // 既存データにはパターンB/C・月額固定の情報はないため、将来のDB対応までは空欄で保持
-      hourlyRatePatternB: '',
-      hourlyRatePatternC: '',
-      monthlyFixedAmount: '',
+      hourlyRatePatternB:
+        typeof worker.hourlyRateB === 'number' ? String(worker.hourlyRateB) : '',
+      hourlyRatePatternC:
+        typeof worker.hourlyRateC === 'number' ? String(worker.hourlyRateC) : '',
+      monthlyFixedAmount:
+        typeof monthlyFixed === 'number' ? String(monthlyFixed) : '',
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
@@ -586,6 +624,7 @@ export default function SettingsPage() {
                             onChange={(e) =>
                               setFormData({ ...formData, companyName: e.target.value })
                             }
+                            disabled={!isWorkerEditUnlocked}
                           />
                         </div>
                         <div className="grid gap-2">
@@ -652,6 +691,7 @@ export default function SettingsPage() {
                             setFormData({ ...formData, address: e.target.value })
                           }
                           placeholder="〒000-0000 東京都..."
+                          disabled={!isWorkerEditUnlocked}
                         />
                       </div>
 
@@ -870,6 +910,7 @@ export default function SettingsPage() {
                             setFormData({ ...formData, notes: e.target.value })
                           }
                           placeholder="その他の情報や備考を入力"
+                          disabled={!isWorkerEditUnlocked}
                         />
                       </div>
                     </div>

@@ -15,23 +15,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { TimeGridSelect } from './time-grid-select'
 import { TimeEntry } from '@/lib/workclock/types'
 import { addTimeEntry, updateTimeEntry, deleteTimeEntry } from '@/lib/workclock/api-storage'
-import { getWagePatternLabels } from '@/lib/workclock/wage-patterns'
 import { calculateDuration, formatDuration } from '@/lib/workclock/time-utils'
 import { Trash2, Plus, Clock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/lib/auth-context'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 interface TimeEntryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workerId: string
+  employeeId?: string | null
   selectedDate: Date
   existingEntries: TimeEntry[]
   onClose: () => void
@@ -44,6 +37,7 @@ export function TimeEntryDialog({
   open,
   onOpenChange,
   workerId,
+  employeeId,
   selectedDate,
   existingEntries,
   onClose,
@@ -70,8 +64,6 @@ export function TimeEntryDialog({
   const [endTime, setEndTime] = useState(initialTimes.endTime)
   const [breakMinutes, setBreakMinutes] = useState('0')
   const [notes, setNotes] = useState('')
-  const [wagePattern, setWagePattern] = useState<'A' | 'B' | 'C'>('A')
-  const wageLabels = getWagePatternLabels(workerId)
 
   const dateStr = `${selectedDate.getFullYear()}-${String(
     selectedDate.getMonth() + 1
@@ -92,11 +84,11 @@ export function TimeEntryDialog({
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime])
 
   const handleAddEntry = async () => {
-    if (!notes.trim()) {
-      alert('作業内容を入力してください（メモは必須です）。')
+    if (!window.confirm('追加しますか？後で変更はできません')) {
       return
     }
-    if (!window.confirm('追加しますか？後で変更はできません')) {
+    if (!notes.trim()) {
+      alert('作業内容を入力してください（メモは必須です）。')
       return
     }
     if (!currentUser?.id) {
@@ -104,24 +96,20 @@ export function TimeEntryDialog({
       return
     }
     try {
-      await addTimeEntry(
-        {
-          workerId,
-          date: dateStr,
-          startTime,
-          endTime,
-          breakMinutes: parseInt(breakMinutes) || 0,
-          notes,
-        },
-        currentUser.id
-      )
+      await addTimeEntry({
+        workerId,
+        date: dateStr,
+        startTime,
+        endTime,
+        breakMinutes: parseInt(breakMinutes) || 0,
+        notes,
+      }, currentUser.id)
       
       // Reset form
       setStartTime('09:00')
       setEndTime('18:00')
       setBreakMinutes('0')
       setNotes('')
-      setWagePattern('A')
       onClose()
     } catch (error) {
       console.error('勤務記録の追加エラー:', error)
@@ -129,9 +117,6 @@ export function TimeEntryDialog({
   }
 
   const handleDeleteEntry = async (id: string) => {
-    if (!window.confirm('この勤務記録を削除しますか？この操作は元に戻せません。')) {
-      return
-    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return
@@ -220,28 +205,6 @@ export function TimeEntryDialog({
               <Plus className="mr-2 h-5 w-5 text-primary" />
               新規勤務記録を追加
             </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-base font-medium">時給パターン</Label>
-                <Select
-                  value={wagePattern}
-                  onValueChange={(value: 'A' | 'B' | 'C') => setWagePattern(value)}
-                >
-                  <SelectTrigger className="bg-white border border-slate-300 rounded-md shadow-sm">
-                    <SelectValue placeholder={`${wageLabels.A}（デフォルト）`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">{wageLabels.A}（デフォルト）</SelectItem>
-                    <SelectItem value="B">{wageLabels.B}</SelectItem>
-                    <SelectItem value="C">{wageLabels.C}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  実際の報酬計算・保存は今後のDB/API対応時に反映予定です（現時点ではAパターンの金額で集計されています）。
-                </p>
-              </div>
-            </div>
 
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">

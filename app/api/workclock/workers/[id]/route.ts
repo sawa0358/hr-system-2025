@@ -107,6 +107,14 @@ export async function PUT(
       phone,
       address,
       hourlyRate,
+      // WorkClock拡張フィールド
+      wagePatternLabelA,
+      wagePatternLabelB,
+      wagePatternLabelC,
+      hourlyRateB,
+      hourlyRateC,
+      monthlyFixedAmount,
+      monthlyFixedEnabled,
       teams,
       role,
       notes,
@@ -124,6 +132,21 @@ export async function PUT(
         phone,
         address,
         hourlyRate: hourlyRate !== undefined ? parseFloat(hourlyRate) : undefined,
+        wagePatternLabelA,
+        wagePatternLabelB,
+        wagePatternLabelC,
+        hourlyRateB:
+          hourlyRateB !== undefined && hourlyRateB !== null ? parseFloat(hourlyRateB) : undefined,
+        hourlyRateC:
+          hourlyRateC !== undefined && hourlyRateC !== null ? parseFloat(hourlyRateC) : undefined,
+        monthlyFixedAmount:
+          monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
+            ? parseInt(monthlyFixedAmount, 10)
+            : undefined,
+        monthlyFixedEnabled:
+          monthlyFixedEnabled !== undefined && monthlyFixedEnabled !== null
+            ? Boolean(monthlyFixedEnabled)
+            : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,
         notes,
@@ -143,10 +166,25 @@ export async function PUT(
       ...updated,
       teams: updated.teams ? JSON.parse(updated.teams) : [],
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock worker更新エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { error: 'ワーカーの更新に失敗しました' },
+      {
+        error: 'ワーカーの更新に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
       { status: 500 }
     )
   }

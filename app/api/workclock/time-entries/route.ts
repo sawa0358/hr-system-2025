@@ -195,6 +195,7 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
+        // wagePattern は DB 側のデフォルト (A) に任せる
       },
       include: {
         worker: {

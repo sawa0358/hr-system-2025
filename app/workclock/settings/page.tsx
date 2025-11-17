@@ -335,8 +335,15 @@ export default function SettingsPage() {
         console.error('社員パスワードの取得に失敗', e)
       }
     }
+    // DB優先でパターン名を取得（localStorage はフォールバック）
     const wageScopeKey = worker.employeeId || worker.id
-    setWageLabels(getWagePatternLabels(wageScopeKey))
+    const baseLabels = getWagePatternLabels(wageScopeKey)
+    const dbLabels = {
+      A: worker.wagePatternLabelA || baseLabels.A,
+      B: worker.wagePatternLabelB || baseLabels.B,
+      C: worker.wagePatternLabelC || baseLabels.C,
+    }
+    setWageLabels(dbLabels)
 
     const meta = getWorkerBillingMeta(worker.employeeId)
     const monthlyFixed =

@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        // wagePattern は DB 側のデフォルト (A) に任せる
+        wagePattern: wagePattern && ['A', 'B', 'C'].includes(wagePattern) ? wagePattern : 'A',
       },
       include: {
         worker: {

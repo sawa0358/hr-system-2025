@@ -142,6 +142,9 @@ export function TimeEntryDialog({
   }
 
   const handleDeleteEntry = async (id: string) => {
+    if (!window.confirm('この勤務記録を削除しますか？この操作は元に戻せません。')) {
+      return
+    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return

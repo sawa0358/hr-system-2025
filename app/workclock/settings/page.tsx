@@ -272,6 +272,10 @@ export default function SettingsPage() {
           phone: formData.phone || undefined,
           address: formData.address || undefined,
           hourlyRate: Number(formData.hourlyRate),
+          // パターン名（ラベル）を DB に保存
+          wagePatternLabelA: wageLabels.A,
+          wagePatternLabelB: wageLabels.B,
+          wagePatternLabelC: wageLabels.C,
           hourlyRateB:
             formData.hourlyRatePatternB !== ''
               ? Number(formData.hourlyRatePatternB)

@@ -75,20 +75,40 @@ export function WorkerSummary({
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="space-y-1">
+            <div className="space-y-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">
                   {wageLabels.A}
                 </span>
-                <span className="text-2xl font-bold">
+                <span className="text-xl font-bold">
                   ¥{worker.hourlyRate.toLocaleString()}
                 </span>
                 <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                   デフォルト
                 </span>
               </div>
+              {worker.hourlyRateB && (
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {wageLabels.B}
+                  </span>
+                  <span className="text-lg font-bold">
+                    ¥{worker.hourlyRateB.toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {worker.hourlyRateC && (
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {wageLabels.C}
+                  </span>
+                  <span className="text-lg font-bold">
+                    ¥{worker.hourlyRateC.toLocaleString()}
+                  </span>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                現在の勤務時間集計・PDF出力はAパターンの金額をベースに計算されています。
+                勤務記録のパターン選択に応じて、それぞれの時給で計算されます。
               </p>
             </div>
           </CardContent>

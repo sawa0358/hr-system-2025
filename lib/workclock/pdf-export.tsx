@@ -366,6 +366,8 @@ export function generatePDFContent(
               <th style="width: 140px;">時間帯</th>
               <th style="width: 70px;">休憩</th>
               <th style="width: 110px;">実働時間</th>
+              <th style="width: 80px;">パターン</th>
+              <th style="width: 100px;">小計</th>
               <th>メモ</th>
             </tr>
           </thead>
@@ -378,6 +380,15 @@ export function generatePDFContent(
 
       dayEntries.forEach((entry, index) => {
         const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
+        const pattern = (entry as any).wagePattern || 'A'
+        const rate = pattern === 'A' ? worker.hourlyRate :
+                     pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
+                     (worker.hourlyRateC || worker.hourlyRate)
+        const hours = duration.hours + duration.minutes / 60
+        const subtotal = Math.floor(hours * rate)
+        const patternLabel = pattern === 'A' ? wageLabels.A :
+                             pattern === 'B' ? wageLabels.B :
+                             wageLabels.C
 
         html += '<tr>'
 
@@ -397,6 +408,8 @@ export function generatePDFContent(
           <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
           <td style="text-align: center; white-space: nowrap;">${entry.breakMinutes}分</td>
           <td class="duration">${formatDuration(duration.hours, duration.minutes)}</td>
+          <td style="text-align: center; font-size: 10px; white-space: nowrap;">${patternLabel}</td>
+          <td style="text-align: right; font-weight: 600; white-space: nowrap;">¥${subtotal.toLocaleString()}</td>
           <td class="notes">${entry.notes || '-'}</td>
         </tr>
         `
@@ -809,6 +822,8 @@ function generateCombinedPDFContent(
                 <th style="width: 140px;">時間帯</th>
                 <th style="width: 70px;">休憩</th>
                 <th style="width: 110px;">実働時間</th>
+                <th style="width: 80px;">パターン</th>
+                <th style="width: 100px;">小計</th>
                 <th>メモ</th>
               </tr>
             </thead>
@@ -826,6 +841,15 @@ function generateCombinedPDFContent(
             entry.endTime,
             entry.breakMinutes
           )
+          const pattern = (entry as any).wagePattern || 'A'
+          const rate = pattern === 'A' ? worker.hourlyRate :
+                       pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
+                       (worker.hourlyRateC || worker.hourlyRate)
+          const hours = duration.hours + duration.minutes / 60
+          const subtotal = Math.floor(hours * rate)
+          const patternLabel = pattern === 'A' ? wageLabels.A :
+                               pattern === 'B' ? wageLabels.B :
+                               wageLabels.C
 
           html += '<tr>'
 
@@ -848,6 +872,8 @@ function generateCombinedPDFContent(
               duration.hours,
               duration.minutes
             )}</td>
+            <td style="text-align: center; font-size: 10px; white-space: nowrap;">${patternLabel}</td>
+            <td style="text-align: right; font-weight: 600; white-space: nowrap;">¥${subtotal.toLocaleString()}</td>
             <td class="notes">${entry.notes || '-'}</td>
           </tr>
           `

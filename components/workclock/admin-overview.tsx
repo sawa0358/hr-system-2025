@@ -11,19 +11,58 @@ interface AdminOverviewProps {
   selectedMonth: Date
 }
 
+// PDF出力と同じロジックで、ワーカー単位の月間コストを算出
+function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
+  if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
+
+  const entriesByPattern = entries.reduce((acc, entry) => {
+    const pattern = entry.wagePattern || 'A'
+    if (!acc[pattern]) acc[pattern] = []
+    acc[pattern].push(entry)
+    return acc
+  }, {} as Record<string, TimeEntry[]>)
+
+  const patternTotals: Record<'A' | 'B' | 'C', { hours: number; minutes: number; amount: number }> = {
+    A: { hours: 0, minutes: 0, amount: 0 },
+    B: { hours: 0, minutes: 0, amount: 0 },
+    C: { hours: 0, minutes: 0, amount: 0 },
+  }
+
+  Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
+    const total = getMonthlyTotal(patternEntries)
+    const hours = total.hours + total.minutes / 60
+    const rate =
+      pattern === 'A'
+        ? worker.hourlyRate
+        : pattern === 'B'
+        ? worker.hourlyRateB || worker.hourlyRate
+        : worker.hourlyRateC || worker.hourlyRate
+
+    patternTotals[pattern as 'A' | 'B' | 'C'] = {
+      hours: total.hours,
+      minutes: total.minutes,
+      amount: hours * rate,
+    }
+  })
+
+  const monthlyFixedAmount =
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : 0
+
+  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + monthlyFixedAmount
+}
+
 export function AdminOverview({ workers, allEntries, selectedMonth }: AdminOverviewProps) {
   const activeWorkers = workers.filter((w) => w.role === 'worker')
   
   const totalHoursAndMinutes = getMonthlyTotal(allEntries)
   const totalHours = totalHoursAndMinutes.hours + totalHoursAndMinutes.minutes / 60
 
-  let totalCost = 0
-  activeWorkers.forEach((worker) => {
+  const totalCost = activeWorkers.reduce((sum, worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
-    const workerTotal = getMonthlyTotal(workerEntries)
-    const workerHours = workerTotal.hours + workerTotal.minutes / 60
-    totalCost += workerHours * worker.hourlyRate
-  })
+    return sum + calculateWorkerMonthlyCost(worker, workerEntries)
+  }, 0)
 
   const avgHoursPerWorker = activeWorkers.length > 0 ? totalHours / activeWorkers.length : 0
 

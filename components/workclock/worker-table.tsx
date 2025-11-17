@@ -31,6 +31,48 @@ interface WorkerTableProps {
   onExportAllPDF: (workerIds: string[]) => void
 }
 
+// PDFと同じロジックで、ワーカー単位の月間コストを算出
+function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
+  if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
+
+  const entriesByPattern = entries.reduce((acc, entry) => {
+    const pattern = entry.wagePattern || 'A'
+    if (!acc[pattern]) acc[pattern] = []
+    acc[pattern].push(entry)
+    return acc
+  }, {} as Record<string, TimeEntry[]>)
+
+  const patternTotals: Record<'A' | 'B' | 'C', { hours: number; minutes: number; amount: number }> = {
+    A: { hours: 0, minutes: 0, amount: 0 },
+    B: { hours: 0, minutes: 0, amount: 0 },
+    C: { hours: 0, minutes: 0, amount: 0 },
+  }
+
+  Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
+    const total = getMonthlyTotal(patternEntries)
+    const hours = total.hours + total.minutes / 60
+    const rate =
+      pattern === 'A'
+        ? worker.hourlyRate
+        : pattern === 'B'
+        ? worker.hourlyRateB || worker.hourlyRate
+        : worker.hourlyRateC || worker.hourlyRate
+
+    patternTotals[pattern as 'A' | 'B' | 'C'] = {
+      hours: total.hours,
+      minutes: total.minutes,
+      amount: hours * rate,
+    }
+  })
+
+  const monthlyFixedAmount =
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : 0
+
+  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + monthlyFixedAmount
+}
+
 export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
@@ -49,8 +91,7 @@ export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }
   const workerStats = filteredWorkers.map((worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
     const total = getMonthlyTotal(workerEntries)
-    const totalHours = total.hours + total.minutes / 60
-    const totalAmount = totalHours * worker.hourlyRate
+    const totalAmount = calculateWorkerMonthlyCost(worker, workerEntries)
 
     return {
       ...worker,
@@ -63,19 +104,16 @@ export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }
 
   // Calculate team totals
   const teamTotals = teams.map((team) => {
-    const teamWorkers = activeWorkers.filter((w) => w.team === team)
+    const teamWorkers = activeWorkers.filter((w) => (w.teams || []).includes(team))
     const teamEntries = allEntries.filter((e) => 
       teamWorkers.some((w) => w.id === e.workerId)
     )
     const total = getMonthlyTotal(teamEntries)
     
-    let teamCost = 0
-    teamWorkers.forEach((worker) => {
+    const teamCost = teamWorkers.reduce((sum, worker) => {
       const workerEntries = teamEntries.filter((e) => e.workerId === worker.id)
-      const workerTotal = getMonthlyTotal(workerEntries)
-      const workerHours = workerTotal.hours + workerTotal.minutes / 60
-      teamCost += workerHours * worker.hourlyRate
-    })
+      return sum + calculateWorkerMonthlyCost(worker, workerEntries)
+    }, 0)
 
     return {
       team,

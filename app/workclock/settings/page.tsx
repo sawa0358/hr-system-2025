@@ -571,7 +571,6 @@ export default function SettingsPage() {
                                 address: emp?.address || formData.address,
                                 password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
                               })
-                              setIsPasswordEditable(false) // パスワード編集をロック
                             }}
                           >
                             <SelectTrigger>
@@ -945,7 +944,6 @@ export default function SettingsPage() {
                         onClick={() => {
                           setIsDialogOpen(false)
                           resetForm()
-                          setIsPasswordEditable(false) // パスワード編集をリセット
                         }}
                       >
                         キャンセル

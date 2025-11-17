@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { workerId, date, startTime, endTime, breakMinutes, notes } = body
+    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern } = body
 
     // 必須項目チェック
     if (!workerId || !date || !startTime || !endTime) {
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        wagePattern: wagePattern && ['A', 'B', 'C'].includes(wagePattern) ? wagePattern : 'A',
+        // wagePattern は DB 側のデフォルト (A) に任せる
       },
       include: {
         worker: {

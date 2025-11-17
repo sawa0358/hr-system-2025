@@ -16,6 +16,7 @@ import { useAuth } from '@/lib/auth-context'
 interface CalendarViewProps {
   workerId: string
   employeeId: string
+  worker?: any
   entries: TimeEntry[]
   onEntriesChange: () => void
   actionButtons?: React.ReactNode
@@ -26,6 +27,7 @@ interface CalendarViewProps {
 export function CalendarView({
   workerId,
   employeeId,
+  worker,
   entries,
   onEntriesChange,
   actionButtons,
@@ -270,6 +272,8 @@ export function CalendarView({
               open={isDialogOpen}
               onOpenChange={setIsDialogOpen}
               workerId={workerId}
+              employeeId={employeeId}
+              worker={worker}
               selectedDate={selectedDate}
               existingEntries={getEntriesForDate(selectedDate)}
               onClose={handleDialogClose}

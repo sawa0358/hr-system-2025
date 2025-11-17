@@ -21,7 +21,25 @@ export function WorkerSummary({
 }: WorkerSummaryProps) {
   const monthlyTotal = getMonthlyTotal(monthlyEntries)
   const todayTotal = getMonthlyTotal(todayEntries)
-  const monthlyAmount = (monthlyTotal.hours + monthlyTotal.minutes / 60) * worker.hourlyRate
+  
+  // パターン別の集計
+  const entriesByPattern = monthlyEntries.reduce((acc, entry) => {
+    const pattern = entry.wagePattern || 'A'
+    if (!acc[pattern]) acc[pattern] = []
+    acc[pattern].push(entry)
+    return acc
+  }, {} as Record<string, TimeEntry[]>)
+
+  // パターン別の金額を計算
+  let monthlyAmount = 0
+  Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
+    const total = getMonthlyTotal(patternEntries)
+    const hours = total.hours + total.minutes / 60
+    const rate = pattern === 'A' ? worker.hourlyRate : 
+                 pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
+                 (worker.hourlyRateC || worker.hourlyRate)
+    monthlyAmount += hours * rate
+  })
 
   const monthName = selectedMonth.toLocaleDateString('ja-JP', {
     year: 'numeric',

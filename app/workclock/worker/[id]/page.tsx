@@ -236,6 +236,8 @@ export default function WorkerPage() {
 
           <CalendarView
             workerId={workerId}
+            employeeId={worker?.employeeId || workerId}
+            worker={worker}
             entries={entries}
             onEntriesChange={handleEntriesChange}
           />

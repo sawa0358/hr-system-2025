@@ -50,6 +50,10 @@ export function CalendarView({
   const month = currentDate.getMonth()
   const days = getDaysInMonth(year, month)
 
+  // 月額固定ON/OFFを変更できるロール（店長・マネージャー・総務・管理者）
+  const allowedMonthlyToggleRoles = ['store_manager', 'manager', 'hr', 'admin']
+  const canChangeMonthlyFixed = allowedMonthlyToggleRoles.includes(currentUser?.role || '')
+
   useEffect(() => {
     if (!employeeId) return
     const meta = getWorkerBillingMeta(employeeId)
@@ -107,6 +111,10 @@ export function CalendarView({
 
   const handleMonthlyToggleClick = () => {
     if (!hasMonthlyFixed) return
+    if (!canChangeMonthlyFixed) {
+      alert('月額固定のON/OFFを変更できるのは店長・マネージャー・総務・管理者のみです。')
+      return
+    }
     setPendingToggleState(!isMonthlyFixedOn)
     setIsPasswordDialogOpen(true)
   }
@@ -160,7 +168,8 @@ export function CalendarView({
                 'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs shadow-sm',
                 isMonthlyFixedOn
                   ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-background/80 hover:bg-accent'
+                  : 'bg-background/80 hover:bg-accent',
+                !canChangeMonthlyFixed && 'opacity-60 cursor-not-allowed'
               )}
               onClick={handleMonthlyToggleClick}
             >

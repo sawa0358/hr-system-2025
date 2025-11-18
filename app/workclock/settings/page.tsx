@@ -90,6 +90,7 @@ export default function SettingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
+  const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
   const [formData, setFormData] = useState({
@@ -107,6 +108,10 @@ export default function SettingsPage() {
     // 追加の時給パターン（UI専用・現時点ではDB未連携）
     hourlyRatePatternB: '',
     hourlyRatePatternC: '',
+    // 回数パターン金額
+    countRateA: '',
+    countRateB: '',
+    countRateC: '',
     // 月額固定（UI専用・現時点ではDB未連携）
     monthlyFixedAmount: '',
     teams: [] as string[],
@@ -202,6 +207,9 @@ export default function SettingsPage() {
       hourlyRate: '',
       hourlyRatePatternB: '',
       hourlyRatePatternC: '',
+      countRateA: '',
+      countRateB: '',
+      countRateC: '',
       monthlyFixedAmount: '',
       teams: [],
       role: 'worker',
@@ -261,6 +269,23 @@ export default function SettingsPage() {
               formData.hourlyRatePatternC !== ''
                 ? Number(formData.hourlyRatePatternC)
                 : undefined,
+            // 回数パターン名（ラベル）をDBに保存
+            countPatternLabelA: countLabels.A,
+            countPatternLabelB: countLabels.B,
+            countPatternLabelC: countLabels.C,
+            // 回数パターン金額をDBに保存
+            countRateA:
+              formData.countRateA !== ''
+                ? Number(formData.countRateA)
+                : undefined,
+            countRateB:
+              formData.countRateB !== ''
+                ? Number(formData.countRateB)
+                : undefined,
+            countRateC:
+              formData.countRateC !== ''
+                ? Number(formData.countRateC)
+                : undefined,
             // 月額固定金額をDBに保存（0 または空なら未設定）
             monthlyFixedAmount:
               formData.monthlyFixedAmount !== ''
@@ -314,6 +339,22 @@ export default function SettingsPage() {
           hourlyRateC:
             formData.hourlyRatePatternC !== ''
               ? Number(formData.hourlyRatePatternC)
+              : undefined,
+          // 回数パターン名（ラベル）を DB に保存
+          countPatternLabelA: countLabels.A,
+          countPatternLabelB: countLabels.B,
+          countPatternLabelC: countLabels.C,
+          countRateA:
+            formData.countRateA !== ''
+              ? Number(formData.countRateA)
+              : undefined,
+          countRateB:
+            formData.countRateB !== ''
+              ? Number(formData.countRateB)
+              : undefined,
+          countRateC:
+            formData.countRateC !== ''
+              ? Number(formData.countRateC)
               : undefined,
           monthlyFixedAmount:
             formData.monthlyFixedAmount !== ''
@@ -379,6 +420,14 @@ export default function SettingsPage() {
       C: worker.wagePatternLabelC || baseLabels.C,
     }
     setWageLabels(dbLabels)
+    
+    // 回数パターンのラベルも読み込み
+    const dbCountLabels = {
+      A: worker.countPatternLabelA || '回数Aパターン',
+      B: worker.countPatternLabelB || '回数Bパターン',
+      C: worker.countPatternLabelC || '回数Cパターン',
+    }
+    setCountLabels(dbCountLabels)
 
     const meta = getWorkerBillingMeta(worker.employeeId)
     const monthlyFixed =
@@ -399,6 +448,12 @@ export default function SettingsPage() {
         typeof worker.hourlyRateB === 'number' ? String(worker.hourlyRateB) : '',
       hourlyRatePatternC:
         typeof worker.hourlyRateC === 'number' ? String(worker.hourlyRateC) : '',
+      countRateA:
+        typeof worker.countRateA === 'number' ? String(worker.countRateA) : '',
+      countRateB:
+        typeof worker.countRateB === 'number' ? String(worker.countRateB) : '',
+      countRateC:
+        typeof worker.countRateC === 'number' ? String(worker.countRateC) : '',
       monthlyFixedAmount:
         typeof monthlyFixed === 'number' ? String(monthlyFixed) : '',
       teams: worker.teams || [],
@@ -942,6 +997,86 @@ export default function SettingsPage() {
                                   placeholder="例: 2,000"
                                   disabled={!canEditCompValues}
                                 />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="border-t pt-4 space-y-3">
+                            <Label className="text-xs font-semibold text-muted-foreground">
+                              回数パターン（〇〇円／回orセット）
+                            </Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <Input
+                                  type="text"
+                                  value={countLabels.A}
+                                  onChange={(e) => {
+                                    const value = e.target.value || '回数Aパターン'
+                                    setCountLabels({ ...countLabels, A: value })
+                                  }}
+                                  placeholder="例: 訪問1回"
+                                  className="h-8 text-xs"
+                                  disabled={!canEditCompValues}
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateA}
+                                  onChange={(e) =>
+                                    setFormData({ ...formData, countRateA: e.target.value })
+                                  }
+                                  placeholder="例: 5000"
+                                  disabled={!canEditCompValues}
+                                />
+                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                              </div>
+                              <div className="space-y-1">
+                                <Input
+                                  type="text"
+                                  value={countLabels.B}
+                                  onChange={(e) => {
+                                    const value = e.target.value || '回数Bパターン'
+                                    setCountLabels({ ...countLabels, B: value })
+                                  }}
+                                  placeholder="例: セット作業"
+                                  className="h-8 text-xs"
+                                  disabled={!canEditCompValues}
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateB}
+                                  onChange={(e) =>
+                                    setFormData({ ...formData, countRateB: e.target.value })
+                                  }
+                                  placeholder="例: 8000"
+                                  disabled={!canEditCompValues}
+                                />
+                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                              </div>
+                              <div className="space-y-1">
+                                <Input
+                                  type="text"
+                                  value={countLabels.C}
+                                  onChange={(e) => {
+                                    const value = e.target.value || '回数Cパターン'
+                                    setCountLabels({ ...countLabels, C: value })
+                                  }}
+                                  placeholder="例: 特別対応"
+                                  className="h-8 text-xs"
+                                  disabled={!canEditCompValues}
+                                />
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateC}
+                                  onChange={(e) =>
+                                    setFormData({ ...formData, countRateC: e.target.value })
+                                  }
+                                  placeholder="例: 10000"
+                                  disabled={!canEditCompValues}
+                                />
+                                <p className="text-[10px] text-muted-foreground">円／回</p>
                               </div>
                             </div>
                           </div>

@@ -78,6 +78,9 @@ export function TimeEntryDialog({
   const [breakMinutes, setBreakMinutes] = useState('0')
   const [notes, setNotes] = useState('')
   const [wagePattern, setWagePattern] = useState<'A' | 'B' | 'C'>('A')
+  const [isCountMode, setIsCountMode] = useState(false) // 回数パターンモードかどうか
+  const [countPattern, setCountPattern] = useState<'A' | 'B' | 'C'>('A')
+  const [count, setCount] = useState('1')
 
   // DB優先でパターン名を取得（localStorage はフォールバック）
   const scopeKey = employeeId || workerId
@@ -86,6 +89,11 @@ export function TimeEntryDialog({
     A: worker?.wagePatternLabelA || baseLabels.A,
     B: worker?.wagePatternLabelB || baseLabels.B,
     C: worker?.wagePatternLabelC || baseLabels.C,
+  }
+  const countLabels = {
+    A: worker?.countPatternLabelA || '回数Aパターン',
+    B: worker?.countPatternLabelB || '回数Bパターン',
+    C: worker?.countPatternLabelC || '回数Cパターン',
   }
 
   const dateStr = `${selectedDate.getFullYear()}-${String(
@@ -114,6 +122,9 @@ export function TimeEntryDialog({
     }
     setBreakMinutes('0')
     setNotes('')
+    setIsCountMode(false)
+    setCountPattern('A')
+    setCount('1')
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker])
 
   const handleAddEntry = async () => {
@@ -129,15 +140,24 @@ export function TimeEntryDialog({
       return
     }
     try {
-      await addTimeEntry({
+      const entryData: any = {
         workerId,
         date: dateStr,
         startTime,
         endTime,
         breakMinutes: parseInt(breakMinutes) || 0,
         notes,
+        // 時給パターンは常に保存
         wagePattern,
-      }, currentUser.id)
+      }
+      
+      // 回数パターンが選択されている場合は追加
+      if (isCountMode) {
+        entryData.countPattern = countPattern
+        entryData.count = parseInt(count) || 1
+      }
+      
+      await addTimeEntry(entryData, currentUser.id)
       
       // Reset form
       setStartTime('09:00')
@@ -145,6 +165,9 @@ export function TimeEntryDialog({
       setBreakMinutes('0')
       setNotes('')
       setWagePattern('A')
+      setIsCountMode(false)
+      setCountPattern('A')
+      setCount('1')
       onClose()
     } catch (error) {
       console.error('勤務記録の追加エラー:', error)
@@ -247,7 +270,7 @@ export function TimeEntryDialog({
                 新規勤務記録を追加
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-base font-medium">時給パターン</Label>
                 <Select
@@ -281,7 +304,95 @@ export function TimeEntryDialog({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  選択したパターンで勤務記録が保存されます。
+                  時給計算に使用されます。{isCountMode && '（回数パターンと併用可能）'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-base font-medium">回数パターン（任意）</Label>
+                <Select
+                  value={isCountMode ? countPattern : 'none'}
+                  onValueChange={(value: 'A' | 'B' | 'C' | 'none') => {
+                    if (value === 'none') {
+                      setIsCountMode(false)
+                    } else {
+                      setCountPattern(value)
+                      setIsCountMode(true)
+                    }
+                  }}
+                  disabled={!worker?.countRateA && !worker?.countRateB && !worker?.countRateC}
+                >
+                  <SelectTrigger 
+                    className={`bg-white border border-slate-300 rounded-md shadow-sm ${
+                      !worker?.countRateA && !worker?.countRateB && !worker?.countRateC ? 'opacity-50' : ''
+                    } ${isCountMode ? 'ring-2 ring-primary' : ''}`}
+                  >
+                    <SelectValue placeholder="使用しない" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">使用しない</SelectItem>
+                    <SelectItem 
+                      value="A" 
+                      disabled={!worker?.countRateA}
+                      className={!worker?.countRateA ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      {countLabels.A}
+                      {worker?.countRateA ? ` (¥${worker.countRateA.toLocaleString()}/回)` : ' (未設定)'}
+                    </SelectItem>
+                    <SelectItem 
+                      value="B" 
+                      disabled={!worker?.countRateB}
+                      className={!worker?.countRateB ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      {countLabels.B}
+                      {worker?.countRateB ? ` (¥${worker.countRateB.toLocaleString()}/回)` : ' (未設定)'}
+                    </SelectItem>
+                    <SelectItem 
+                      value="C" 
+                      disabled={!worker?.countRateC}
+                      className={!worker?.countRateC ? "opacity-50 cursor-not-allowed" : ""}
+                    >
+                      {countLabels.C}
+                      {worker?.countRateC ? ` (¥${worker.countRateC.toLocaleString()}/回)` : ' (未設定)'}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {isCountMode && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCount(String(Math.max(1, parseInt(count) - 1)))}
+                      className="h-8 w-8"
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="number"
+                      value={count}
+                      onChange={(e) => setCount(e.target.value)}
+                      min="1"
+                      className="text-center h-8 w-20"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCount(String(parseInt(count) + 1))}
+                      className="h-8 w-8"
+                    >
+                      +
+                    </Button>
+                    <span className="text-sm text-muted-foreground">回</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {!worker?.countRateA && !worker?.countRateB && !worker?.countRateC
+                    ? 'ワーカー編集で金額を設定してください。'
+                    : isCountMode
+                    ? '時給計算に加算されます。'
+                    : '回数パターンを選択すると時給に加算されます。'}
                 </p>
               </div>
               </div>

@@ -243,7 +243,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern } = body
+    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern, countPattern, count } = body
 
     // 必須項目チェック
     if (!workerId || !date || !startTime || !endTime) {
@@ -312,8 +312,11 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        // フロントから渡された時給パターンをそのまま使用（未指定時のみデフォルトA）
+        // 時給パターンは常に保存（未指定時はデフォルトA）
         wagePattern: (body as any).wagePattern ?? 'A',
+        // 回数パターン（指定された場合のみ保存）
+        countPattern: countPattern ?? null,
+        count: count ?? null,
       },
       include: {
         worker: {

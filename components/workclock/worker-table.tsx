@@ -35,6 +35,7 @@ interface WorkerTableProps {
 function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
   if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
 
+  // 時給パターンの計算（全エントリから時間ベースで計算）
   const entriesByPattern = entries.reduce((acc, entry) => {
     const pattern = entry.wagePattern || 'A'
     if (!acc[pattern]) acc[pattern] = []
@@ -65,12 +66,28 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
     }
   })
 
+  // 回数パターンの計算（countPatternが設定されているエントリから計算）
+  let countAmount = 0
+  entries.forEach(entry => {
+    if (entry.countPattern) {
+      const pattern = entry.countPattern
+      const count = entry.count || 1
+      const rate =
+        pattern === 'A'
+          ? worker.countRateA || 0
+          : pattern === 'B'
+          ? worker.countRateB || 0
+          : worker.countRateC || 0
+      countAmount += count * rate
+    }
+  })
+
   const monthlyFixedAmount =
     typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
       ? worker.monthlyFixedAmount
       : 0
 
-  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + monthlyFixedAmount
+  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + countAmount + monthlyFixedAmount
 }
 
 export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }: WorkerTableProps) {

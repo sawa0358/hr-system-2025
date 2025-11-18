@@ -31,10 +31,11 @@ export function generatePDFContent(
     month: 'long',
   })
 
+  // 全エントリの時間合計を計算
   const monthlyTotal = getMonthlyTotal(entries)
   const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
   
-  // パターン別の集計
+  // 時給パターン別の集計（全エントリから時間ベースで計算）
   const entriesByPattern = entries.reduce((acc, entry) => {
     const pattern = entry.wagePattern || 'A'
     if (!acc[pattern]) acc[pattern] = []
@@ -42,7 +43,7 @@ export function generatePDFContent(
     return acc
   }, {} as Record<string, TimeEntry[]>)
 
-  // パターン別の時間と金額を計算
+  // 時給パターン別の時間と金額を計算
   const patternTotals = {
     A: { hours: 0, minutes: 0, amount: 0 },
     B: { hours: 0, minutes: 0, amount: 0 },
@@ -65,14 +66,38 @@ export function generatePDFContent(
     }
   })
 
+  // 回数パターン別の集計と金額を計算（countPatternが設定されているエントリから計算）
+  const countTotals = {
+    A: { count: 0, amount: 0 },
+    B: { count: 0, amount: 0 },
+    C: { count: 0, amount: 0 },
+  }
+
+  entries.forEach(entry => {
+    if (entry.countPattern) {
+      const pattern = entry.countPattern
+      const count = entry.count || 1
+      const rate =
+        pattern === 'A'
+          ? worker.countRateA || 0
+          : pattern === 'B'
+          ? worker.countRateB || 0
+          : worker.countRateC || 0
+      countTotals[pattern as 'A' | 'B' | 'C'].count += count
+      countTotals[pattern as 'A' | 'B' | 'C'].amount += count * rate
+    }
+  })
+
   const monthlyFixedAmount =
     typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
       ? worker.monthlyFixedAmount
       : null
 
-  // 時給パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
   const totalAmount =
-    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + (monthlyFixedAmount ?? 0)
+    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
+    countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
+    (monthlyFixedAmount ?? 0)
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -81,6 +106,11 @@ export function generatePDFContent(
     A: worker.wagePatternLabelA || baseLabels.A,
     B: worker.wagePatternLabelB || baseLabels.B,
     C: worker.wagePatternLabelC || baseLabels.C,
+  }
+  const countLabels = {
+    A: worker.countPatternLabelA || '回数Aパターン',
+    B: worker.countPatternLabelB || '回数Bパターン',
+    C: worker.countPatternLabelC || '回数Cパターン',
   }
 
   const teamsText =

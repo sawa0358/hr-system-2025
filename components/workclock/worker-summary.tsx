@@ -22,7 +22,7 @@ export function WorkerSummary({
   const monthlyTotal = getMonthlyTotal(monthlyEntries)
   const todayTotal = getMonthlyTotal(todayEntries)
   
-  // パターン別の集計
+  // 時給パターン別の集計（全エントリから時間ベースで計算）
   const entriesByPattern = monthlyEntries.reduce((acc, entry) => {
     const pattern = entry.wagePattern || 'A'
     if (!acc[pattern]) acc[pattern] = []
@@ -30,7 +30,7 @@ export function WorkerSummary({
     return acc
   }, {} as Record<string, TimeEntry[]>)
 
-  // パターン別の金額を計算
+  // 時給パターン別の金額を計算
   let monthlyAmount = 0
   Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
     const total = getMonthlyTotal(patternEntries)
@@ -39,6 +39,18 @@ export function WorkerSummary({
                  pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
                  (worker.hourlyRateC || worker.hourlyRate)
     monthlyAmount += hours * rate
+  })
+
+  // 回数パターンの金額を計算（countPatternが設定されているエントリから計算）
+  monthlyEntries.forEach(entry => {
+    if (entry.countPattern) {
+      const pattern = entry.countPattern
+      const count = entry.count || 1
+      const rate = pattern === 'A' ? (worker.countRateA || 0) :
+                   pattern === 'B' ? (worker.countRateB || 0) :
+                   (worker.countRateC || 0)
+      monthlyAmount += count * rate
+    }
   })
 
   const monthName = selectedMonth.toLocaleDateString('ja-JP', {

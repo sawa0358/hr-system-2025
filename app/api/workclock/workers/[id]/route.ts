@@ -165,6 +165,12 @@ export async function PUT(
       wagePatternLabelC,
       hourlyRateB,
       hourlyRateC,
+      countPatternLabelA,
+      countPatternLabelB,
+      countPatternLabelC,
+      countRateA,
+      countRateB,
+      countRateC,
       monthlyFixedAmount,
       monthlyFixedEnabled,
       teams,
@@ -191,6 +197,15 @@ export async function PUT(
           hourlyRateB !== undefined && hourlyRateB !== null ? parseFloat(hourlyRateB) : undefined,
         hourlyRateC:
           hourlyRateC !== undefined && hourlyRateC !== null ? parseFloat(hourlyRateC) : undefined,
+        countPatternLabelA,
+        countPatternLabelB,
+        countPatternLabelC,
+        countRateA:
+          countRateA !== undefined && countRateA !== null ? parseFloat(countRateA) : undefined,
+        countRateB:
+          countRateB !== undefined && countRateB !== null ? parseFloat(countRateB) : undefined,
+        countRateC:
+          countRateC !== undefined && countRateC !== null ? parseFloat(countRateC) : undefined,
         monthlyFixedAmount:
           monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
             ? parseInt(monthlyFixedAmount, 10)

@@ -382,6 +382,34 @@ export function generatePDFContent(
               `
               : ''
           }
+          ${
+            countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
+              ? `
+          <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+              ${countTotals.A.count > 0 && worker.countRateA ? `
+                <div>
+                  <span class="summary-label">${countLabels.A}:</span>
+                  <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
+                </div>
+              ` : ''}
+              ${countTotals.B.count > 0 && worker.countRateB ? `
+                <div>
+                  <span class="summary-label">${countLabels.B}:</span>
+                  <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
+                </div>
+              ` : ''}
+              ${countTotals.C.count > 0 && worker.countRateC ? `
+                <div>
+                  <span class="summary-label">${countLabels.C}:</span>
+                  <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+              `
+              : ''
+          }
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
             <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
@@ -420,10 +448,36 @@ export function generatePDFContent(
                      pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
                      (worker.hourlyRateC || worker.hourlyRate)
         const hours = duration.hours + duration.minutes / 60
-        const subtotal = Math.floor(hours * rate)
-        const patternLabel = pattern === 'A' ? wageLabels.A :
-                             pattern === 'B' ? wageLabels.B :
-                             wageLabels.C
+        const hourlyAmount = Math.floor(hours * rate)
+
+        // 回数パターンの金額（あれば加算）
+        let countInfo = ''
+        let countAmount = 0
+        if (entry.countPattern) {
+          const cPattern = entry.countPattern
+          const count = entry.count || 1
+          const cRate =
+            cPattern === 'A'
+              ? worker.countRateA || 0
+              : cPattern === 'B'
+              ? worker.countRateB || 0
+              : worker.countRateC || 0
+          countAmount = count * cRate
+          const cLabel =
+            cPattern === 'A' ? countLabels.A :
+            cPattern === 'B' ? countLabels.B :
+            countLabels.C
+          countInfo = cRate > 0
+            ? ` / ${cLabel}(${count}回×¥${cRate.toLocaleString()})`
+            : ` / ${cLabel}(${count}回)`
+        }
+
+        const subtotal = hourlyAmount + countAmount
+
+        const patternLabel =
+          (pattern === 'A' ? wageLabels.A :
+           pattern === 'B' ? wageLabels.B :
+           wageLabels.C) + countInfo
 
         html += '<tr>'
 
@@ -748,14 +802,38 @@ function generateCombinedPDFContent(
       }
     })
 
+    // 回数パターン別の集計と金額を計算
+    const countTotals = {
+      A: { count: 0, amount: 0 },
+      B: { count: 0, amount: 0 },
+      C: { count: 0, amount: 0 },
+    }
+
+    entries.forEach(entry => {
+      if (entry.countPattern) {
+        const pattern = entry.countPattern
+        const count = entry.count || 1
+        const rate =
+          pattern === 'A'
+            ? worker.countRateA || 0
+            : pattern === 'B'
+            ? worker.countRateB || 0
+            : worker.countRateC || 0
+        countTotals[pattern as 'A' | 'B' | 'C'].count += count
+        countTotals[pattern as 'A' | 'B' | 'C'].amount += count * rate
+      }
+    })
+
     const monthlyFixedAmount =
       typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
         ? worker.monthlyFixedAmount
         : null
 
-    // 時給パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
     const totalAmount =
-      patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + (monthlyFixedAmount ?? 0)
+      patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
+      countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
+      (monthlyFixedAmount ?? 0)
     
     // DB優先でパターン名を取得
     const scopeKey = (worker as any).employeeId || worker.id
@@ -764,6 +842,11 @@ function generateCombinedPDFContent(
       A: worker.wagePatternLabelA || baseLabels.A,
       B: worker.wagePatternLabelB || baseLabels.B,
       C: worker.wagePatternLabelC || baseLabels.C,
+    }
+    const countLabels = {
+      A: worker.countPatternLabelA || '回数Aパターン',
+      B: worker.countPatternLabelB || '回数Bパターン',
+      C: worker.countPatternLabelC || '回数Cパターン',
     }
 
     const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
@@ -843,6 +926,34 @@ function generateCombinedPDFContent(
                 `
                 : ''
             }
+            ${
+              countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
+                ? `
+            <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
+              <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                ${countTotals.A.count > 0 && worker.countRateA ? `
+                  <div>
+                    <span class="summary-label">${countLabels.A}:</span>
+                    <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${countTotals.B.count > 0 && worker.countRateB ? `
+                  <div>
+                    <span class="summary-label">${countLabels.B}:</span>
+                    <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${countTotals.C.count > 0 && worker.countRateC ? `
+                  <div>
+                    <span class="summary-label">${countLabels.C}:</span>
+                    <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+                `
+                : ''
+            }
             <div class="summary-item total-amount">
               <span class="summary-label">報酬合計</span>
               <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
@@ -886,10 +997,36 @@ function generateCombinedPDFContent(
                        pattern === 'B' ? (worker.hourlyRateB || worker.hourlyRate) :
                        (worker.hourlyRateC || worker.hourlyRate)
           const hours = duration.hours + duration.minutes / 60
-          const subtotal = Math.floor(hours * rate)
-          const patternLabel = pattern === 'A' ? wageLabels.A :
-                               pattern === 'B' ? wageLabels.B :
-                               wageLabels.C
+          const hourlyAmount = Math.floor(hours * rate)
+
+          // 回数パターンの金額（あれば加算）
+          let countInfo = ''
+          let countAmount = 0
+          if (entry.countPattern) {
+            const cPattern = entry.countPattern
+            const count = entry.count || 1
+            const cRate =
+              cPattern === 'A'
+                ? worker.countRateA || 0
+                : cPattern === 'B'
+                ? worker.countRateB || 0
+                : worker.countRateC || 0
+            countAmount = count * cRate
+            const cLabel =
+              cPattern === 'A' ? countLabels.A :
+              cPattern === 'B' ? countLabels.B :
+              countLabels.C
+            countInfo = cRate > 0
+              ? ` / ${cLabel}(${count}回×¥${cRate.toLocaleString()})`
+              : ` / ${cLabel}(${count}回)`
+          }
+
+          const subtotal = hourlyAmount + countAmount
+
+          const patternLabel =
+            (pattern === 'A' ? wageLabels.A :
+             pattern === 'B' ? wageLabels.B :
+             wageLabels.C) + countInfo
 
           html += '<tr>'
 

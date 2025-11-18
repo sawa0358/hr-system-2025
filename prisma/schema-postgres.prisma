@@ -805,6 +805,14 @@ model WorkClockWorker {
   // 追加の時給パターン金額（任意）
   hourlyRateB            Float?
   hourlyRateC            Float?
+  // 回数パターン名（ラベル）
+  countPatternLabelA     String?  @default("回数Aパターン")
+  countPatternLabelB     String?  @default("回数Bパターン")
+  countPatternLabelC     String?  @default("回数Cパターン")
+  // 回数パターン金額（任意）
+  countRateA             Float?
+  countRateB             Float?
+  countRateC             Float?
   // 月額固定（金額とON/OFF）
   monthlyFixedAmount     Int?
   monthlyFixedEnabled    Boolean  @default(false)
@@ -824,11 +832,14 @@ model WorkClockTimeEntry {
   workerId     String
   worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date         DateTime
-  wagePattern  WagePattern  @default(A)
+  wagePattern  WagePattern? @default(A)
   startTime    String
   endTime      String
   breakMinutes Int          @default(0)
   notes        String?
+  // 回数パターン（時給パターンと併用可能）
+  countPattern WagePattern?
+  count        Int?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 

@@ -810,7 +810,7 @@ export default function SettingsPage() {
                           <div>
                             <CardTitle className="text-base">報酬設定</CardTitle>
                             <CardDescription className="text-xs">
-                              時給パターン（A/B/C）と月額固定を設定できます。現時点ではAパターンのみが計算・保存に利用されます。
+                              時給パターン（A/B/C）と月額固定を設定できます。
                             </CardDescription>
                           </div>
                           {canEditCompensation && editingWorker && (
@@ -866,9 +866,6 @@ export default function SettingsPage() {
                                   required
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[11px] text-muted-foreground">
-                                  従来の「時給（円）*」と同じ値です。現在の計算・PDF出力ではこの金額のみが使用されます。
-                                </p>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -969,7 +966,7 @@ export default function SettingsPage() {
                                 disabled={!canEditCompValues}
                               />
                               <p className="text-[11px] text-muted-foreground md:text-right">
-                                例）300,000円など。カレンダー画面の「月額固定 ON/OFF」トグルと連動予定です。
+                                カレンダー画面の「月額固定 ON/OFF」トグルと連動。
                               </p>
                             </div>
                           </div>

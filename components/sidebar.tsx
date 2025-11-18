@@ -62,6 +62,18 @@ export function Sidebar() {
   const { currentUser, isAuthenticated, login, logout } = useAuth()
   const sidebarRef = useRef<HTMLElement>(null)
 
+  // 人事管理プルダウン内のページかどうかを判定
+  const isInDropdownMenu = ['/employees', '/attendance', '/payroll', '/leave'].some(path => 
+    pathname.startsWith(path)
+  )
+
+  // 人事管理プルダウンを自動的に開く（サブメニューページにいる場合）
+  useEffect(() => {
+    if (isInDropdownMenu && !collapsed) {
+      setDropdownOpen(true)
+    }
+  }, [isInDropdownMenu, collapsed])
+
   // 有給管理を表示するべき雇用形態
   const allowedEmployeeTypesForLeave = [
     "正社員",
@@ -403,7 +415,11 @@ export function Sidebar() {
           <ul className="space-y-1">
             {primaryMenuItemsForRender.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              // 業務委託時間管理は /workclock/ で始まるすべてのパスでアクティブにする
+              // ただし、人事管理プルダウン内のページにいる時は、他のメニューは非アクティブにする
+              const isActive = item.href === "/workclock" 
+                ? pathname.startsWith("/workclock") && !isInDropdownMenu
+                : (pathname === item.href && !isInDropdownMenu)
 
               // 業務委託時間管理メニューの表示制御
               if (item.href === "/workclock") {
@@ -425,6 +441,8 @@ export function Sidebar() {
                     onClick={(e) => {
                       try {
                         e.stopPropagation()
+                        // 人事管理プルダウンを自動的に閉じる
+                        setDropdownOpen(false)
                         // 認証状態を確認（エラーが発生しても再ログインを強制しない）
                         if (!isAuthenticated || !currentUser) {
                           e.preventDefault()
@@ -463,7 +481,9 @@ export function Sidebar() {
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                    "bg-[#fdfdea] hover:bg-[#fdfdea] hover:text-blue-600 text-slate-700",
+                    dropdownOpen || isInDropdownMenu
+                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
+                      : "bg-[#fdfdea] hover:bg-blue-50 hover:text-blue-600 text-slate-700",
                   )}
                   title={collapsed ? "人事管理" : undefined}
                 >
@@ -486,7 +506,8 @@ export function Sidebar() {
                   <ul className="mt-1 ml-4 space-y-1 rounded-md bg-[#fdfdea] p-1">
                     {visibleDropdownItems.map((item) => {
                       const Icon = item.icon
-                      const isActive = pathname === item.href
+                      // サブパスも含めてアクティブ判定（例: /leave, /leave/admin, /leave/employee なども含む）
+                      const isActive = pathname.startsWith(item.href)
                       // 有給管理メニューの場合のみバッジを表示
                       const showBadge = item.href === "/leave" && pendingCount > 0
 
@@ -496,6 +517,7 @@ export function Sidebar() {
                             href={item.href}
                             onClick={(e) => {
                               e.stopPropagation()
+                              // 人事管理サブメニューはプルダウンを開いたまま維持
                               // 認証状態を確認
                               if (!isAuthenticated || !currentUser) {
                                 e.preventDefault()
@@ -541,6 +563,9 @@ export function Sidebar() {
                 <Link
                   href="/convenience"
                   onClick={(e) => {
+                    e.stopPropagation()
+                    // 人事管理プルダウンを自動的に閉じる
+                    setDropdownOpen(false)
                     if (!isAuthenticated || !currentUser) {
                       e.preventDefault()
                       console.warn(
@@ -550,7 +575,8 @@ export function Sidebar() {
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                    "hover:bg-blue-50 hover:text-blue-600 text-slate-700"
+                    "hover:bg-blue-50 hover:text-blue-600",
+                    (pathname === "/convenience" && !isInDropdownMenu) ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-700"
                   )}
                   title={collapsed ? "便利機能" : undefined}
                 >
@@ -569,7 +595,7 @@ export function Sidebar() {
               <ul className="space-y-1">
                 {visibleAdminMenuItems.map((item) => {
                   const Icon = item.icon
-                  const isActive = pathname === item.href
+                  const isActive = pathname === item.href && !isInDropdownMenu
 
                   return (
                     <li key={item.href}>
@@ -577,6 +603,8 @@ export function Sidebar() {
                         href={item.href}
                         onClick={(e) => {
                           e.stopPropagation()
+                          // 人事管理プルダウンを自動的に閉じる
+                          setDropdownOpen(false)
                           // 認証状態を確認
                           if (!isAuthenticated || !currentUser) {
                             e.preventDefault()

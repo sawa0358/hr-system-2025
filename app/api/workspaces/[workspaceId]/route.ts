@@ -81,9 +81,26 @@ export async function GET(request: NextRequest, { params }: { params: { workspac
     }
 
     return NextResponse.json({ workspace, permissions: workspacePerms })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[v0] Error fetching workspace:", error)
-    return NextResponse.json({ error: "ワークスペースの取得に失敗しました" }, { status: 500 })
+    console.error("エラー詳細:", {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    const isDev = process.env.NODE_ENV === 'development'
+    return NextResponse.json(
+      {
+        error: "ワークスペースの取得に失敗しました",
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
+      { status: 500 }
+    )
   }
 }
 

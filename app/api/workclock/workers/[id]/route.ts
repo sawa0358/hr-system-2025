@@ -14,7 +14,7 @@ export async function GET(
 
     // ユーザー情報を取得
     const user = await prisma.employee.findUnique({
-      where: { id: userId },
+      where: { id: userId as string },
       select: { role: true },
     })
 
@@ -22,8 +22,9 @@ export async function GET(
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
     }
 
+    const workerId = params.id as string
     const worker = await prisma.workClockWorker.findUnique({
-      where: { id: params.id },
+      where: { id: workerId },
       include: {
         employee: {
           select: {
@@ -42,7 +43,7 @@ export async function GET(
     // 権限チェック: 本人またはサブマネージャー以上、もしくは
     // WorkClock 上でリーダー（role === 'admin'）かつ同じチームのメンバー
     const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
-    const isOwner = worker.employeeId === userId
+    const isOwner = worker.employeeId === (userId as string)
     const hasPermission = allowedRoles.includes(user.role || '')
 
     let isLeaderOfSameTeam = false
@@ -50,7 +51,7 @@ export async function GET(
       try {
         // 自分自身の WorkClockWorker レコードを取得して、リーダーかどうかを判定
         const viewerWorker = await prisma.workClockWorker.findUnique({
-          where: { employeeId: userId },
+          where: { employeeId: userId as string },
         })
 
         if (viewerWorker?.role === 'admin') {
@@ -88,10 +89,24 @@ export async function GET(
       ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock worker取得エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { error: 'ワーカーの取得に失敗しました' },
+      {
+        error: 'ワーカーの取得に失敗しました',
+        ...(isDev && {
+          details: error?.message || 'Unknown error',
+          code: error?.code,
+          name: error?.name,
+        }),
+      },
       { status: 500 }
     )
   }
@@ -110,7 +125,7 @@ export async function PUT(
 
     // ユーザー情報を取得
     const user = await prisma.employee.findUnique({
-      where: { id: userId },
+      where: { id: userId as string },
       select: { role: true },
     })
 
@@ -118,8 +133,9 @@ export async function PUT(
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
     }
 
+    const workerId = params.id as string
     const worker = await prisma.workClockWorker.findUnique({
-      where: { id: params.id },
+      where: { id: workerId },
     })
 
     if (!worker) {
@@ -128,7 +144,7 @@ export async function PUT(
 
     // 権限チェック: サブマネージャー以上のみ
     const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
-    if (!allowedRoles.includes(user.role)) {
+    if (!user.role || !allowedRoles.includes(user.role)) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
@@ -157,7 +173,7 @@ export async function PUT(
     } = body
 
     const updated = await prisma.workClockWorker.update({
-      where: { id: params.id },
+      where: { id: workerId },
       data: {
         name,
         password: password !== undefined ? password : undefined,
@@ -253,8 +269,9 @@ export async function DELETE(
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
+    const workerId = params.id as string
     await prisma.workClockWorker.delete({
-      where: { id: params.id },
+      where: { id: workerId },
     })
 
     return NextResponse.json({ success: true })

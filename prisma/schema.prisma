@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -837,7 +837,7 @@ model WorkClockTimeEntry {
   endTime      String
   breakMinutes Int          @default(0)
   notes        String?
-  // 回数パターン（時給パターンと排他的に使用）
+  // 回数パターン（時給パターンと併用可能）
   countPattern WagePattern?
   count        Int?
   createdAt    DateTime     @default(now())

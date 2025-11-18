@@ -104,10 +104,17 @@ export function TimeEntryDialog({
     const times = getInitialTimes()
     setStartTime(times.startTime)
     setEndTime(times.endTime)
-    setWagePattern('A')
+    // 新規追加時は常にAパターンで初期化（選択されているパターンが無効な場合もAにフォールバック）
+    if (wagePattern === 'B' && !worker?.hourlyRateB) {
+      setWagePattern('A')
+    } else if (wagePattern === 'C' && !worker?.hourlyRateC) {
+      setWagePattern('A')
+    } else {
+      setWagePattern('A')
+    }
     setBreakMinutes('0')
     setNotes('')
-  }, [open, dateStr, initialHour, initialStartTime, initialEndTime])
+  }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker])
 
   const handleAddEntry = async () => {
     if (!window.confirm('追加しますか？後で変更はできません')) {
@@ -255,13 +262,21 @@ export function TimeEntryDialog({
                       {wageLabels.A}
                       {worker?.hourlyRate && ` (¥${worker.hourlyRate.toLocaleString()})`}
                     </SelectItem>
-                    <SelectItem value="B">
+                    <SelectItem 
+                      value="B" 
+                      disabled={!worker?.hourlyRateB}
+                      className={!worker?.hourlyRateB ? "opacity-50 cursor-not-allowed" : ""}
+                    >
                       {wageLabels.B}
-                      {worker?.hourlyRateB && ` (¥${worker.hourlyRateB.toLocaleString()})`}
+                      {worker?.hourlyRateB ? ` (¥${worker.hourlyRateB.toLocaleString()})` : ' (未設定)'}
                     </SelectItem>
-                    <SelectItem value="C">
+                    <SelectItem 
+                      value="C" 
+                      disabled={!worker?.hourlyRateC}
+                      className={!worker?.hourlyRateC ? "opacity-50 cursor-not-allowed" : ""}
+                    >
                       {wageLabels.C}
-                      {worker?.hourlyRateC && ` (¥${worker.hourlyRateC.toLocaleString()})`}
+                      {worker?.hourlyRateC ? ` (¥${worker.hourlyRateC.toLocaleString()})` : ' (未設定)'}
                     </SelectItem>
                   </SelectContent>
                 </Select>

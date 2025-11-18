@@ -60,12 +60,16 @@ export function CalendarView({
     if (typeof hasMonthlyFixedProp === 'boolean') {
       setHasMonthlyFixed(hasMonthlyFixedProp)
     } else {
-      setHasMonthlyFixed(meta.monthlyFixedAmount !== undefined && meta.monthlyFixedAmount > 0)
+      // worker.monthlyFixedAmountを優先的に確認（DBに保存されている値）
+      const workerMonthlyFixed = typeof worker?.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      // 次にlocalStorageのメタ情報を確認
+      const metaMonthlyFixed = meta.monthlyFixedAmount !== undefined && meta.monthlyFixedAmount > 0
+      setHasMonthlyFixed(workerMonthlyFixed || metaMonthlyFixed)
     }
     if (typeof meta.monthlyFixedOn === 'boolean') {
       setIsMonthlyFixedOn(meta.monthlyFixedOn)
     }
-  }, [employeeId, hasMonthlyFixedProp])
+  }, [employeeId, hasMonthlyFixedProp, worker?.monthlyFixedAmount])
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1))

@@ -62,10 +62,13 @@ export function MultiSelect({
               selected.map((item) => (
                 <Badge key={item} variant="secondary" className="mr-1">
                   {item}
-                  <button
-                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer hover:opacity-70"
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
                         handleRemove(item)
                       }
                     }}
@@ -73,10 +76,15 @@ export function MultiSelect({
                       e.preventDefault()
                       e.stopPropagation()
                     }}
-                    onClick={() => handleRemove(item)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleRemove(item)
+                    }}
+                    aria-label={`${item}を削除`}
                   >
                     <X className="h-3 w-3" />
-                  </button>
+                  </span>
                 </Badge>
               ))
             )}

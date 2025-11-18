@@ -63,11 +63,17 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
 
   // HRシステム上のロールから管理者権限を判定
   const hrRole = currentUser?.role
+  const employmentType = currentUser?.employeeType || ''
   const allowedAdminRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
   const isHrAdmin = hrRole ? allowedAdminRoles.includes(hrRole) : false
 
   // WorkClock上のroleか、HRシステム上のroleのどちらかが管理者なら、管理メニューを表示
   const isAdminView = currentRole === 'admin' || isHrAdmin
+
+  // 業務委託・外注先の「リーダー」（WorkClock role=admin）は設定画面を触れないようにする
+  const isOutsourcedLeader =
+    currentRole === 'admin' &&
+    (employmentType.includes('業務委託') || employmentType.includes('外注先'))
 
   const teams = useMemo(() => {
     const uniqueTeams = Array.from(new Set(workers.flatMap(w => w.teams || [])))
@@ -76,6 +82,11 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
 
   // WorkClockWorkerとして登録されているワーカーと、登録されていない業務委託・外注先の社員を統合
   const allAvailableWorkers = useMemo(() => {
+    // 業務委託/外注先のリーダーは、新規登録用の未登録社員は一覧に含めない
+    if (isOutsourcedLeader) {
+      return workers
+    }
+
     // WorkClockWorkerとして登録されているワーカーのemployeeIdを取得
     const registeredEmployeeIds = new Set(workers.map(w => w.employeeId || w.id))
     
@@ -114,7 +125,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
   }, [allAvailableWorkers, selectedTeam, selectedEmployment])
 
   const handleWorkerChange = (workerId: string) => {
-    // 未登録の社員を選択した場合は、設定画面にリダイレクト
+    // 未登録の社員を選択した場合は、設定画面にリダイレクト（ただしアウトソースのリーダーはそもそも未登録社員を一覧に含めない）
     const selectedWorker = allAvailableWorkers.find(w => w.id === workerId)
     if (selectedWorker && (selectedWorker as any).isUnregistered) {
       router.push(`/workclock/settings?employeeId=${workerId}`)
@@ -163,7 +174,7 @@ export function SidebarNav({ workers, currentRole }: SidebarNavProps) {
             </Link>
           )}
 
-          {isAdminView && (
+          {isAdminView && !isOutsourcedLeader && (
             <Link href="/workclock/settings">
               <Button
                 variant={pathname === '/workclock/settings' ? 'secondary' : 'ghost'}

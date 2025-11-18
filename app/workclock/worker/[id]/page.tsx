@@ -34,9 +34,6 @@ export default function WorkerPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [isMonthlyFixedOn, setIsMonthlyFixedOn] = useState(true)
 
-  // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
-  const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
-
   useEffect(() => {
     // currentUserがまだ読み込まれていない場合は何もしない（初期読み込み待ち）
     if (!currentUser?.id) {
@@ -91,6 +88,13 @@ export default function WorkerPage() {
     '0'
   )}-${String(today.getDate()).padStart(2, '0')}`
   const todayEntries = entries.filter((e) => e.date === todayStr)
+
+  // HR-systemのロールが viewer/general の場合でも、
+  // WorkClock 上でリーダー（role === 'admin'）ならサイドバーを表示する
+  const isWorkerOnly =
+    currentUser &&
+    (currentUser.role === 'viewer' || currentUser.role === 'general') &&
+    worker.role !== 'admin'
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>

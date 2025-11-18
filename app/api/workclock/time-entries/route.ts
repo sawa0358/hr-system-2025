@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([], { status: 200 })
     }
 
-    // workerIdが指定されている場合、本人または権限者でないとアクセス不可
+    // workerIdが指定されている場合、本人または権限者、
+    // もしくは WorkClock 上でリーダー（role === 'admin'）かつ同じチームのメンバーでないとアクセス不可
     if (workerId) {
       const worker = await (prisma as any).workClockWorker.findUnique({
         where: { id: workerId },
@@ -52,7 +53,42 @@ export async function GET(request: NextRequest) {
       }
 
       const isOwner = worker.employeeId === userId
+      let isLeaderOfSameTeam = false
+
       if (!isOwner && !hasPermission) {
+        try {
+          const viewerWorker = await (prisma as any).workClockWorker.findUnique({
+            where: { employeeId: userId },
+          })
+
+          if (viewerWorker?.role === 'admin') {
+            let viewerTeams: string[] = []
+            let targetTeams: string[] = []
+            try {
+              if (viewerWorker.teams) {
+                viewerTeams = JSON.parse(viewerWorker.teams || '[]')
+              }
+            } catch (e) {
+              console.warn('[WorkClock API] viewerWorker teams parse error:', e)
+            }
+            try {
+              if (worker.teams) {
+                targetTeams = JSON.parse(worker.teams || '[]')
+              }
+            } catch (e) {
+              console.warn('[WorkClock API] worker teams parse error:', e)
+            }
+
+            if (viewerTeams.length > 0 && targetTeams.length > 0) {
+              isLeaderOfSameTeam = targetTeams.some((t) => viewerTeams.includes(t))
+            }
+          }
+        } catch (e) {
+          console.warn('[WorkClock API] leader same-team check failed (time-entries GET):', e)
+        }
+      }
+
+      if (!isOwner && !hasPermission && !isLeaderOfSameTeam) {
         return NextResponse.json({ error: '権限がありません' }, { status: 403 })
       }
     } else if (!hasPermission) {

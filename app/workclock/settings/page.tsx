@@ -437,7 +437,7 @@ export default function SettingsPage() {
 
   // 店長・総務・管理者の権限チェック（システムパスワード編集は従来通り）
   const canEditPassword = ['store_manager', 'hr', 'admin'].includes(currentUser?.role || '')
-  // 報酬設定や権限（ワーカー/管理者）は総務・管理者のみ編集可能
+  // 報酬設定や権限（ワーカー/リーダー）は総務・管理者のみ編集可能
   const canEditCompensation = ['hr', 'admin'].includes(currentUser?.role || '')
   const canEditCompValues = canEditCompensation && isWorkerEditUnlocked
 
@@ -905,11 +905,11 @@ export default function SettingsPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="worker">ワーカー</SelectItem>
-                            <SelectItem value="admin">管理者</SelectItem>
+                            <SelectItem value="admin">リーダー</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          ※ 管理者権限：管理者ダッシュボードにアクセス可能（全ワーカーの勤務時間を一覧表示・管理可能）
+                          ※ リーダー権限：自分が所属するチームのワーカー/リーダーの勤務時間を一覧表示・管理可能
                           <br />※ ワーカー権限：自分の勤務時間のみ表示・管理可能
                         </p>
                       </div>
@@ -996,7 +996,7 @@ export default function SettingsPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {worker.role === 'admin' ? '管理者' : '業務委託・外注先'}
+                        {worker.role === 'admin' ? 'リーダー' : '業務委託・外注先'}
                       </TableCell>
                       <TableCell>
                         <div 

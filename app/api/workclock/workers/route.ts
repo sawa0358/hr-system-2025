@@ -40,10 +40,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([], { status: 200 })
     }
 
-    // ワーカー権限のユーザーの場合は、自分のWorkClockWorkerレコードのみを取得
-    const whereClause = isAdmin 
-      ? {} // 管理者は全ワーカーを取得
-      : { employeeId: userId } // ワーカーは自分のレコードのみ
+    // 自分自身の WorkClockWorker レコードを取得（存在すればリーダー判定に使用）
+    let viewerWorkerRecord: any = null
+    try {
+      viewerWorkerRecord = await (prisma as any).workClockWorker.findUnique({
+        where: { employeeId: userId },
+      })
+    } catch (e) {
+      console.warn('[WorkClock API] viewerWorkerRecord の取得に失敗しました:', e)
+    }
+    const isWorkClockLeader = viewerWorkerRecord?.role === 'admin'
+
+    // ワーカー権限のユーザーの場合は、本来は自分だけだが、
+    // WorkClock 上でリーダー（role === 'admin'）なら、一旦全ワーカーを取得して後でチームで絞り込む
+    const whereClause = isAdmin || isWorkClockLeader
+      ? {} // 管理者（HRロール）または WorkClock リーダーは一旦全ワーカーを取得
+      : { employeeId: userId } // それ以外のワーカーは自分のレコードのみ
     
     const workers = await (prisma as any).workClockWorker.findMany({
       where: whereClause,
@@ -81,6 +93,21 @@ export async function GET(request: NextRequest) {
         employeeType: worker.employee?.employeeType || null,
       }
     })
+
+    // WorkClock 上で「管理者（=リーダー）」ロールを持つワーカーは、
+    // 自分と「同じチームに所属するワーカー／管理者」だけを閲覧できるように絞り込む
+    const viewerWorker = formattedWorkers.find((w) => w.employeeId === userId)
+    if (viewerWorker && viewerWorker.role === 'admin') {
+      const viewerTeams: string[] = viewerWorker.teams || []
+      if (viewerTeams.length > 0) {
+        const limitedWorkers = formattedWorkers.filter((w) => {
+          if (w.id === viewerWorker.id) return true
+          const wTeams: string[] = w.teams || []
+          return wTeams.some((t) => viewerTeams.includes(t))
+        })
+        return NextResponse.json(limitedWorkers)
+      }
+    }
 
     return NextResponse.json(formattedWorkers)
   } catch (error: any) {

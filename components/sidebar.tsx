@@ -417,9 +417,11 @@ export function Sidebar() {
               const Icon = item.icon
               // 業務委託時間管理は /workclock/ で始まるすべてのパスでアクティブにする
               // ただし、人事管理プルダウン内のページにいる時は、他のメニューは非アクティブにする
-              const isActive = item.href === "/workclock" 
-                ? pathname.startsWith("/workclock") && !isInDropdownMenu
-                : (pathname === item.href && !isInDropdownMenu)
+              const isActive = !dropdownOpen && !isInDropdownMenu && (
+                item.href === "/workclock"
+                  ? pathname.startsWith("/workclock")
+                  : pathname === item.href
+              )
 
               // 業務委託時間管理メニューの表示制御
               if (item.href === "/workclock") {

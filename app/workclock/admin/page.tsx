@@ -8,14 +8,24 @@ import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { AdminOverview } from '@/components/workclock/admin-overview'
 import { WorkerTable } from '@/components/workclock/worker-table'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Menu } from 'lucide-react'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { downloadPDF, downloadCombinedPDF } from '@/lib/workclock/pdf-export'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export default function AdminPage() {
   const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -102,9 +112,67 @@ export default function AdminPage() {
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
-      <SidebarNav workers={workers} currentRole="admin" />
+      {isMobile ? (
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed left-4 top-5 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+              style={{ backgroundColor: '#add1cd' }}
+              aria-label="時間管理メニューを開く"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+            <SheetHeader className="px-4 py-3 border-b">
+              <SheetTitle>時間管理システム</SheetTitle>
+            </SheetHeader>
+            <SidebarNav workers={workers} currentRole="admin" />
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed left-20 top-6 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+            style={{ backgroundColor: '#add1cd' }}
+            aria-label="時間管理メニューを開く"
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div
+            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
+              isMenuOpen ? 'w-72' : 'w-0'
+            }`}
+            style={{ backgroundColor: '#add1cd' }}
+          >
+            {isMenuOpen && (
+              <>
+                <div className="px-4 py-3 border-b">
+                  <h2 className="text-lg font-semibold text-sidebar-foreground">
+                    時間管理システム
+                  </h2>
+                </div>
+                <SidebarNav
+                  workers={workers}
+                  currentRole="admin"
+                  showHeader={false}
+                  collapsible={false}
+                />
+              </>
+            )}
+          </div>
+        </>
+      )}
       
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#bddcd9' }}>
+      <main
+        className={`flex-1 overflow-y-auto ${isMobile ? 'pt-16' : ''}`}
+        style={{ backgroundColor: '#bddcd9' }}
+      >
         <div className="container mx-auto p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex-1" />

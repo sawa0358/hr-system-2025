@@ -17,8 +17,8 @@ export default function DashboardPage() {
         {/* PCでは右上にボタンを配置、モバイルではカード内に配置 */}
         <div className="relative">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">ダッシュボード</h1>
                 <p className="text-slate-600">システムの概要と最新情報を確認できます</p>
               </div>
@@ -26,15 +26,15 @@ export default function DashboardPage() {
               <Button 
                 onClick={() => setShowPermissionMatrix(true)} 
                 variant="outline" 
-                className="gap-2 mt-4 md:hidden w-full"
+                className="gap-2 md:hidden w-full"
               >
                 <Shield className="w-4 h-4" />
                 権限一覧表
               </Button>
             </div>
           </div>
-          {/* PC用：右上に配置 */}
-          <div className="hidden md:block absolute top-0 right-0">
+          {/* PC用：右上に配置（タブレット以上） */}
+          <div className="hidden md:block absolute top-6 right-6">
             <Button 
               onClick={() => setShowPermissionMatrix(true)} 
               variant="outline" 

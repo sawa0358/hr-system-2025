@@ -68,99 +68,99 @@ export function WorkerSummary({
         {worker.team && <p className="text-muted-foreground">{worker.team}</p>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
-        <Card className="w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+        <Card className="w-full min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">報酬設定</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium truncate">報酬設定</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex items-baseline gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
                   {wageLabels.A}
                 </span>
-                <span className="text-xl font-bold">
+                <span className="text-xl font-bold whitespace-nowrap">
                   ¥{worker.hourlyRate.toLocaleString()}
                 </span>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary whitespace-nowrap">
                   デフォルト
                 </span>
               </div>
               {worker.hourlyRateB && (
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
                     {wageLabels.B}
                   </span>
-                  <span className="text-lg font-bold">
+                  <span className="text-lg font-bold whitespace-nowrap">
                     ¥{worker.hourlyRateB.toLocaleString()}
                   </span>
                 </div>
               )}
               {worker.hourlyRateC && (
-                <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-semibold text-muted-foreground">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
                     {wageLabels.C}
                   </span>
-                  <span className="text-lg font-bold">
+                  <span className="text-lg font-bold whitespace-nowrap">
                     ¥{worker.hourlyRateC.toLocaleString()}
                   </span>
                 </div>
               )}
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground break-words">
                 勤務記録のパターン選択に応じて、それぞれの時給で計算されます。
               </p>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="w-full">
+        <Card className="w-full min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-sm font-medium">今月の勤務時間</CardTitle>
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              <CardTitle className="text-sm font-medium truncate">今月の勤務時間</CardTitle>
               {monthlyFixedAmount && (
-                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2 py-0.5">
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2 py-0.5 whitespace-nowrap">
                     <ToggleRight className="h-3 w-3 text-primary" />
                     月額固定 ON
                   </span>
-                  <span>¥{monthlyFixedAmount.toLocaleString()}</span>
+                  <span className="whitespace-nowrap">¥{monthlyFixedAmount.toLocaleString()}</span>
                 </div>
               )}
             </div>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold break-words">
               {formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}
             </div>
-            <p className="text-xs text-muted-foreground">{monthName}</p>
+            <p className="text-xs text-muted-foreground truncate">{monthName}</p>
           </CardContent>
         </Card>
 
-        <Card className="w-full">
+        <Card className="w-full min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">本日の勤務時間</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium truncate">本日の勤務時間</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold break-words">
               {formatDuration(todayTotal.hours, todayTotal.minutes)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground truncate">
               {new Date().toLocaleDateString('ja-JP')}
             </p>
           </CardContent>
         </Card>
 
-        <Card className="w-full">
+        <Card className="w-full min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">今月の報酬見込</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium truncate">今月の報酬見込</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">¥{Math.floor(monthlyAmount).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">{monthlyEntries.length}日勤務</p>
+            <div className="text-2xl font-bold break-words">¥{Math.floor(monthlyAmount).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
           </CardContent>
         </Card>
       </div>

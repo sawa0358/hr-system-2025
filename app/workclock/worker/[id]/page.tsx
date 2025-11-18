@@ -12,7 +12,7 @@ import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { WorkerSummary } from '@/components/workclock/worker-summary'
 import { CalendarView } from '@/components/workclock/calendar-view'
 import { ExportPDFButton } from '@/components/workclock/export-pdf-button'
-import { LogOut } from 'lucide-react'
+import { LogOut, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Tooltip,
@@ -20,7 +20,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { useAuth } from '@/lib/auth-context'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 export default function WorkerPage() {
   const params = useParams()
@@ -32,7 +40,11 @@ export default function WorkerPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
-  const [isMonthlyFixedOn, setIsMonthlyFixedOn] = useState(true)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
+
+  // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
+  const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
 
   useEffect(() => {
     // currentUserがまだ読み込まれていない場合は何もしない（初期読み込み待ち）
@@ -89,26 +101,71 @@ export default function WorkerPage() {
   )}-${String(today.getDate()).padStart(2, '0')}`
   const todayEntries = entries.filter((e) => e.date === todayStr)
 
-  // HR-systemのロールが viewer/general の場合でも、
-  // WorkClock 上でリーダー（role === 'admin'）ならサイドバーを表示する
-  const isWorkerOnly =
-    currentUser &&
-    (currentUser.role === 'viewer' || currentUser.role === 'general') &&
-    worker.role !== 'admin'
-
-  // リーダーが「他人の」勤務時間を見ている場合は、勤務記録の追加・削除を禁止する
-  const viewerWorker = workers.find(
-    (w: any) => w.employeeId === currentUser?.id || w.employee?.id === currentUser?.id
-  )
-  const isLeaderViewingOther =
-    viewerWorker?.role === 'admin' && (worker as any).employeeId !== currentUser?.id
-  const canEditEntries = !isLeaderViewingOther
-
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
-      {!isWorkerOnly && <SidebarNav workers={workers} currentRole={worker.role} />}
-      
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#bddcd9' }}>
+      {!isWorkerOnly && (
+        isMobile ? (
+          <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="fixed left-4 top-5 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+                style={{ backgroundColor: '#add1cd' }}
+                aria-label="時間管理メニューを開く"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+              <SheetHeader className="px-4 py-3 border-b">
+                <SheetTitle>時間管理システム</SheetTitle>
+              </SheetHeader>
+              <SidebarNav workers={workers} currentRole={worker.role} />
+            </SheetContent>
+          </Sheet>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed left-20 top-6 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+              style={{ backgroundColor: '#add1cd' }}
+              aria-label="時間管理メニューを開く"
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div
+              className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
+                isMenuOpen ? 'w-72' : 'w-0'
+              }`}
+              style={{ backgroundColor: '#add1cd' }}
+            >
+              {isMenuOpen && (
+                <>
+                  <div className="px-4 py-3 border-b">
+                    <h2 className="text-lg font-semibold text-sidebar-foreground">
+                      時間管理システム
+                    </h2>
+                  </div>
+                  <SidebarNav
+                    workers={workers}
+                    currentRole={worker.role}
+                    showHeader={false}
+                    collapsible={false}
+                  />
+                </>
+              )}
+            </div>
+          </>
+        )
+      )}
+
+      <main
+        className={`flex-1 overflow-y-auto ${!isWorkerOnly && isMobile ? 'pt-16' : ''}`}
+        style={{ backgroundColor: '#bddcd9' }}
+      >
         <div className="container mx-auto p-6 space-y-6">
           <div className="flex flex-col gap-4">
             <div className="flex-1">
@@ -151,11 +208,8 @@ export default function WorkerPage() {
 
           <CalendarView
             workerId={workerId}
-            employeeId={(worker as any).employeeId || ''}
-            worker={worker}
             entries={entries}
             onEntriesChange={handleEntriesChange}
-            canEditEntries={canEditEntries}
           />
         </div>
       </main>

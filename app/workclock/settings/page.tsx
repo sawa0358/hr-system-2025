@@ -39,7 +39,7 @@ import {
 } from '@/components/ui/table'
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
-import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +47,14 @@ import { useAuth } from '@/lib/auth-context'
 import { PasswordVerificationDialog } from '@/components/password-verification-dialog'
 import { getWagePatternLabels, saveWagePatternLabels } from '@/lib/workclock/wage-patterns'
 import { getWorkerBillingMeta, saveWorkerBillingMeta } from '@/lib/workclock/worker-billing-meta'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 
 // getCurrentUserIdをエクスポートする必要があるので、直接実装
 function getCurrentUserId(): string {
@@ -105,6 +113,8 @@ export default function SettingsPage() {
   })
   const { toast } = useToast()
   const router = useRouter()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -443,9 +453,67 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
-      <SidebarNav workers={workers} currentRole="admin" />
+      {isMobile ? (
+        <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="fixed left-4 top-5 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+              style={{ backgroundColor: '#add1cd' }}
+              aria-label="時間管理メニューを開く"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+            <SheetHeader className="px-4 py-3 border-b">
+              <SheetTitle>時間管理システム</SheetTitle>
+            </SheetHeader>
+            <SidebarNav workers={workers} currentRole="admin" />
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed left-20 top-6 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
+            style={{ backgroundColor: '#add1cd' }}
+            aria-label="時間管理メニューを開く"
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <div
+            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
+              isMenuOpen ? 'w-72' : 'w-0'
+            }`}
+            style={{ backgroundColor: '#add1cd' }}
+          >
+            {isMenuOpen && (
+              <>
+                <div className="px-4 py-3 border-b">
+                  <h2 className="text-lg font-semibold text-sidebar-foreground">
+                    時間管理システム
+                  </h2>
+                </div>
+                <SidebarNav
+                  workers={workers}
+                  currentRole="admin"
+                  showHeader={false}
+                  collapsible={false}
+                />
+              </>
+            )}
+          </div>
+        </>
+      )}
 
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: '#bddcd9' }}>
+      <main
+        className={`flex-1 overflow-y-auto ${isMobile ? 'pt-16' : ''}`}
+        style={{ backgroundColor: '#bddcd9' }}
+      >
         <div className="container mx-auto p-6 max-w-6xl">
           <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -455,21 +523,19 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {/* チーム管理ボタンは総務・管理者のみ表示 */}
-              {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
-                <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
-                  setIsTeamDialogOpen(open)
-                  if (!open) {
-                    // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                    setTeams(getTeams())
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Tags className="mr-2 h-4 w-4" />
-                      チーム管理
-                    </Button>
-                  </DialogTrigger>
+              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                setIsTeamDialogOpen(open)
+                if (!open) {
+                  // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
+                  setTeams(getTeams())
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Tags className="mr-2 h-4 w-4" />
+                    チーム管理
+                  </Button>
+                </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>チーム管理</DialogTitle>
@@ -506,8 +572,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </DialogContent>
-                </Dialog>
-              )}
+              </Dialog>
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open)
                 if (open) {
@@ -717,7 +782,7 @@ export default function SettingsPage() {
                           <div>
                             <CardTitle className="text-base">報酬設定</CardTitle>
                             <CardDescription className="text-xs">
-                              時給パターン（A/B/C）と月額固定を設定できます。
+                              時給パターン（A/B/C）と月額固定を設定できます。現時点ではAパターンのみが計算・保存に利用されます。
                             </CardDescription>
                           </div>
                           {canEditCompensation && editingWorker && (
@@ -773,6 +838,9 @@ export default function SettingsPage() {
                                   required
                                   disabled={!canEditCompValues}
                                 />
+                                <p className="text-[11px] text-muted-foreground">
+                                  従来の「時給（円）*」と同じ値です。現在の計算・PDF出力ではこの金額のみが使用されます。
+                                </p>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -873,7 +941,7 @@ export default function SettingsPage() {
                                 disabled={!canEditCompValues}
                               />
                               <p className="text-[11px] text-muted-foreground md:text-right">
-                                カレンダー画面の「月額固定 ON/OFF」トグルと連動。
+                                例）300,000円など。カレンダー画面の「月額固定 ON/OFF」トグルと連動予定です。
                               </p>
                             </div>
                           </div>

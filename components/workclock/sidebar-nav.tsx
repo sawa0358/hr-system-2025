@@ -20,7 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Users, LayoutDashboard, Settings, Menu } from 'lucide-react'
+import { Users, LayoutDashboard, Settings, Menu, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -175,8 +175,9 @@ export function SidebarNav({
   return (
     <div
       className={cn(
-        'relative flex h-screen flex-col border-r bg-sidebar transition-all duration-300',
-        collapsible ? (effectiveCollapsed ? 'w-16' : 'w-64') : 'w-full'
+        'relative flex flex-col bg-sidebar',
+        collapsible ? (effectiveCollapsed ? 'w-16' : 'w-64') : 'w-full',
+        showHeader === false ? 'h-full' : 'h-screen border-r transition-all duration-300'
       )}
       style={{ backgroundColor: '#add1cd' }}
     >
@@ -202,7 +203,7 @@ export function SidebarNav({
         </div>
       )}
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className={showHeader === false ? 'h-full' : 'flex-1'}>
         <div className="space-y-2 p-2">
           {isAdminView && (
             <Link href="/workclock/admin">

@@ -90,6 +90,8 @@ export default function SettingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const isMobile = useIsMobile()
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -113,8 +115,6 @@ export default function SettingsPage() {
   })
   const { toast } = useToast()
   const router = useRouter()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const isMobile = useIsMobile()
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -144,6 +144,23 @@ export default function SettingsPage() {
       }
     })()
   }, [currentUser])
+
+  // モバイル時のスクロールでメニューを閉じる
+  useEffect(() => {
+    if (!isMobile || !isMenuOpen) return
+
+    const handleScroll = () => {
+      setIsMenuOpen(false)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    document.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.removeEventListener('scroll', handleScroll)
+    }
+  }, [isMobile, isMenuOpen])
 
   const loadWorkers = async () => {
     try {
@@ -459,18 +476,29 @@ export default function SettingsPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="fixed left-4 top-5 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
-              style={{ backgroundColor: '#add1cd' }}
+              className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+              style={{ backgroundColor: '#b4d5e7' }}
               aria-label="時間管理メニューを開く"
             >
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-72 max-w-[80vw]">
+          <SheetContent 
+            side="top" 
+            className="p-0 w-full h-auto max-h-[80vh]"
+            onInteractOutside={() => setIsMenuOpen(false)}
+          >
             <SheetHeader className="px-4 py-3 border-b">
               <SheetTitle>時間管理システム</SheetTitle>
             </SheetHeader>
-            <SidebarNav workers={workers} currentRole="admin" />
+            <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
+              <SidebarNav 
+                workers={workers} 
+                currentRole="admin" 
+                showHeader={false}
+                collapsible={false}
+              />
+            </div>
           </SheetContent>
         </Sheet>
       ) : (
@@ -478,8 +506,8 @@ export default function SettingsPage() {
           <Button
             variant="ghost"
             size="icon"
-            className="fixed left-20 top-6 z-40 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md"
-            style={{ backgroundColor: '#add1cd' }}
+            className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+            style={{ backgroundColor: '#b4d5e7' }}
             aria-label="時間管理メニューを開く"
             onClick={() => setIsMenuOpen((open) => !open)}
           >
@@ -511,7 +539,7 @@ export default function SettingsPage() {
       )}
 
       <main
-        className={`flex-1 overflow-y-auto ${isMobile ? 'pt-16' : ''}`}
+        className={`flex-1 overflow-y-auto ${isMobile ? 'pt-20' : 'pt-16'}`}
         style={{ backgroundColor: '#bddcd9' }}
       >
         <div className="container mx-auto p-6 max-w-6xl">

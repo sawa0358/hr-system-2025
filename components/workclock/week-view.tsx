@@ -15,12 +15,13 @@ interface WeekViewProps {
   worker?: Worker | null
   entries: TimeEntry[]
   onEntriesChange: () => void
+  canEditEntries?: boolean
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const HOUR_HEIGHT = 60 // pixels per hour
 
-export function WeekView({ workerId, employeeId, worker, entries, onEntriesChange }: WeekViewProps) {
+export function WeekView({ workerId, employeeId, worker, entries, onEntriesChange, canEditEntries = true }: WeekViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
@@ -382,6 +383,7 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
           initialEndTime={dragEndTime}
           employeeId={employeeId}
           worker={worker}
+          canEditEntries={canEditEntries}
         />
       )}
     </div>

@@ -44,8 +44,26 @@ export async function GET(
     const isOwner = entry.worker.employeeId === userId
     const hasPermission = allowedRoles.includes(user.role || '')
 
+    // WorkClockリーダー（role === 'admin'）は閲覧のみ許可し、更新は不可
+    let isLeader = false
+    if (!hasPermission) {
+      try {
+        const viewerWorker = await prisma.workClockWorker.findUnique({
+          where: { employeeId: userId },
+        })
+        if (viewerWorker?.role === 'admin') {
+          isLeader = true
+        }
+      } catch (e) {
+        console.warn('[WorkClock API] leader check failed (time-entries PUT):', e)
+      }
+    }
+
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+    if (isLeader) {
+      return NextResponse.json({ error: 'リーダーは勤務記録を更新できません' }, { status: 403 })
     }
 
     return NextResponse.json({
@@ -98,8 +116,26 @@ export async function PUT(
     const isOwner = entry.worker.employeeId === userId
     const hasPermission = allowedRoles.includes(user.role || '')
 
+    // WorkClockリーダー（role === 'admin'）は閲覧のみ許可し、削除は不可
+    let isLeader = false
+    if (!hasPermission) {
+      try {
+        const viewerWorker = await prisma.workClockWorker.findUnique({
+          where: { employeeId: userId },
+        })
+        if (viewerWorker?.role === 'admin') {
+          isLeader = true
+        }
+      } catch (e) {
+        console.warn('[WorkClock API] leader check failed (time-entries DELETE):', e)
+      }
+    }
+
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+    if (isLeader) {
+      return NextResponse.json({ error: 'リーダーは勤務記録を削除できません' }, { status: 403 })
     }
 
     const body = await request.json()

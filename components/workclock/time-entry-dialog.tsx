@@ -40,6 +40,7 @@ interface TimeEntryDialogProps {
   initialHour?: number | null
   initialStartTime?: string | null
   initialEndTime?: string | null
+  canEditEntries?: boolean
 }
 
 export function TimeEntryDialog({
@@ -54,8 +55,10 @@ export function TimeEntryDialog({
   initialHour,
   initialStartTime,
   initialEndTime,
+  canEditEntries = true,
 }: TimeEntryDialogProps) {
   const { currentUser } = useAuth()
+  const readOnly = !canEditEntries
   
   const getInitialTimes = () => {
     if (initialStartTime && initialEndTime) {
@@ -212,14 +215,16 @@ export function TimeEntryDialog({
                             <p className="text-sm text-muted-foreground">{entry.notes}</p>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteEntry(entry.id)}
-                          className="ml-4"
-                        >
-                          <Trash2 className="h-5 w-5 text-destructive" />
-                        </Button>
+                        {!readOnly && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteEntry(entry.id)}
+                            className="ml-4"
+                          >
+                            <Trash2 className="h-5 w-5 text-destructive" />
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   )
@@ -228,13 +233,14 @@ export function TimeEntryDialog({
             </div>
           )}
 
-          <div className="space-y-4 rounded-lg border-2 border-dashed p-6 bg-[#dce5e5] text-slate-900">
-            <h3 className="flex items-center text-lg font-semibold">
-              <Plus className="mr-2 h-5 w-5 text-primary" />
-              新規勤務記録を追加
-            </h3>
+          {!readOnly && (
+            <div className="space-y-4 rounded-lg border-2 border-dashed p-6 bg-[#dce5e5] text-slate-900">
+              <h3 className="flex items-center text-lg font-semibold">
+                <Plus className="mr-2 h-5 w-5 text-primary" />
+                新規勤務記録を追加
+              </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label className="text-base font-medium">時給パターン</Label>
                 <Select
@@ -263,9 +269,9 @@ export function TimeEntryDialog({
                   選択したパターンで勤務記録が保存されます。
                 </p>
               </div>
-            </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="start-time" className="text-base font-medium">開始時刻</Label>
                 <TimeGridSelect 
@@ -287,9 +293,9 @@ export function TimeEntryDialog({
                   startFromValue
                 />
               </div>
-            </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label htmlFor="break" className="text-base font-medium">休憩時間（分）</Label>
                 <Input
@@ -311,9 +317,9 @@ export function TimeEntryDialog({
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
 
-            <div className="space-y-2">
+              <div className="space-y-2">
               <Label htmlFor="notes" className="text-base font-medium">
                 作業内容（必須）
               </Label>
@@ -327,18 +333,19 @@ export function TimeEntryDialog({
               <p className="text-xs text-muted-foreground">
                 作業内容を箇条書きなどで、簡潔に入力してください。
               </p>
-            </div>
+              </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)} size="lg">
-                キャンセル
-              </Button>
-              <Button onClick={handleAddEntry} size="lg" className="min-w-[120px]">
-                <Plus className="mr-2 h-4 w-4" />
-                追加
-              </Button>
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)} size="lg">
+                  キャンセル
+                </Button>
+                <Button onClick={handleAddEntry} size="lg" className="min-w-[120px]">
+                  <Plus className="mr-2 h-4 w-4" />
+                  追加
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -96,6 +96,14 @@ export default function WorkerPage() {
     (currentUser.role === 'viewer' || currentUser.role === 'general') &&
     worker.role !== 'admin'
 
+  // リーダーが「他人の」勤務時間を見ている場合は、勤務記録の追加・削除を禁止する
+  const viewerWorker = workers.find(
+    (w: any) => w.employeeId === currentUser?.id || w.employee?.id === currentUser?.id
+  )
+  const isLeaderViewingOther =
+    viewerWorker?.role === 'admin' && (worker as any).employeeId !== currentUser?.id
+  const canEditEntries = !isLeaderViewingOther
+
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
       {!isWorkerOnly && <SidebarNav workers={workers} currentRole={worker.role} />}
@@ -147,6 +155,7 @@ export default function WorkerPage() {
             worker={worker}
             entries={entries}
             onEntriesChange={handleEntriesChange}
+            canEditEntries={canEditEntries}
           />
         </div>
       </main>

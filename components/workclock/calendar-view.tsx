@@ -22,6 +22,7 @@ interface CalendarViewProps {
   actionButtons?: React.ReactNode
   // 月額固定の有無・ON/OFFはUI専用。現時点ではDBには保存されない。
   hasMonthlyFixed?: boolean
+  canEditEntries?: boolean
 }
 
 export function CalendarView({
@@ -32,6 +33,7 @@ export function CalendarView({
   onEntriesChange,
   actionButtons,
   hasMonthlyFixed: hasMonthlyFixedProp,
+  canEditEntries = true,
 }: CalendarViewProps) {
   const { currentUser } = useAuth()
 
@@ -188,6 +190,7 @@ export function CalendarView({
           worker={worker}
           entries={entries}
           onEntriesChange={onEntriesChange}
+          canEditEntries={canEditEntries}
         />
       ) : (
         <>
@@ -279,6 +282,7 @@ export function CalendarView({
               selectedDate={selectedDate}
               existingEntries={getEntriesForDate(selectedDate)}
               onClose={handleDialogClose}
+              canEditEntries={canEditEntries}
             />
           )}
         </>

@@ -92,12 +92,75 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: '権限がありません' }, { status: 403 })
       }
     } else if (!hasPermission) {
-      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+      // workerId が指定されていない場合でも、
+      // WorkClock 上でリーダー（role === 'admin'）なら、自分と同じチームのメンバーの記録だけ閲覧可能にする
+      let viewerWorker: any = null
+      try {
+        viewerWorker = await (prisma as any).workClockWorker.findUnique({
+          where: { employeeId: userId },
+        })
+      } catch (e) {
+        console.warn('[WorkClock API] viewerWorker fetch failed (time-entries GET, no workerId):', e)
+      }
+
+      if (!viewerWorker || viewerWorker.role !== 'admin') {
+        return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+      }
+      // この後の where 構築時に、同じチームのワーカーに絞り込む
     }
 
     const where: any = {}
     if (workerId) {
       where.workerId = workerId
+    } else if (!hasPermission) {
+      // HRの管理権限は無いが、WorkClockリーダーとして自分と同じチームのメンバーだけを対象にする
+      let viewerWorker: any = null
+      try {
+        viewerWorker = await (prisma as any).workClockWorker.findUnique({
+          where: { employeeId: userId },
+        })
+      } catch (e) {
+        console.warn('[WorkClock API] viewerWorker fetch failed for where filter:', e)
+      }
+
+      if (viewerWorker && viewerWorker.role === 'admin') {
+        let viewerTeams: string[] = []
+        try {
+          if (viewerWorker.teams) {
+            viewerTeams = JSON.parse(viewerWorker.teams || '[]')
+          }
+        } catch (e) {
+          console.warn('[WorkClock API] viewerWorker teams parse error (no workerId):', e)
+        }
+
+        if (viewerTeams.length > 0) {
+          const allWorkers = await (prisma as any).workClockWorker.findMany()
+          const allowedWorkerIds = allWorkers
+            .filter((w: any) => {
+              if (w.id === viewerWorker.id) return true
+              let wTeams: string[] = []
+              try {
+                if (w.teams) {
+                  wTeams = JSON.parse(w.teams || '[]')
+                }
+              } catch {
+                // パース失敗時は除外
+              }
+              return wTeams.some((t) => viewerTeams.includes(t))
+            })
+            .map((w: any) => w.id)
+
+          if (allowedWorkerIds.length === 0) {
+            // 閲覧可能なワーカーがいない場合は空配列を返す
+            return NextResponse.json([], { status: 200 })
+          }
+
+          where.workerId = { in: allowedWorkerIds }
+        } else {
+          // チーム未設定なら自分だけ
+          where.workerId = viewerWorker.id
+        }
+      }
     }
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
@@ -219,8 +282,26 @@ export async function POST(request: NextRequest) {
     const isOwner = worker.employeeId === userId
     const hasPermission = allowedRoles.includes(user.role || '')
 
+    // WorkClock上のリーダー（role === 'admin'）は、閲覧のみ許可し、追加は不可
+    let isLeader = false
+    if (!hasPermission) {
+      try {
+        const viewerWorker = await (prisma as any).workClockWorker.findUnique({
+          where: { employeeId: userId },
+        })
+        if (viewerWorker?.role === 'admin') {
+          isLeader = true
+        }
+      } catch (e) {
+        console.warn('[WorkClock API] leader check failed (time-entries POST):', e)
+      }
+    }
+
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+    if (isLeader) {
+      return NextResponse.json({ error: 'リーダーは勤務記録を追加できません' }, { status: 403 })
     }
 
     const entry = await (prisma as any).workClockTimeEntry.create({

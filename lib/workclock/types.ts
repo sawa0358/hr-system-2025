@@ -22,6 +22,7 @@ export interface Worker {
    */
   employeeType?: string | null
   name: string
+  furigana?: string // フリガナ（並び替え用）
   password?: string
   companyName?: string // 屋号・会社名
   qualifiedInvoiceNumber?: string // 適格証明番号

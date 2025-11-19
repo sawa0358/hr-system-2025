@@ -56,7 +56,8 @@ export function SidebarNav({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<string>('all')
   const [selectedEmployment, setSelectedEmployment] = useState<string>('all') // 業務委託/外注先
-   const [selectedRole, setSelectedRole] = useState<string>('all') // WorkClock上の権限（リーダー/ワーカー）
+  const [selectedRole, setSelectedRole] = useState<string>('all') // WorkClock上の権限（リーダー/ワーカー）
+  const [sortOrder, setSortOrder] = useState<string>('newest') // 並び順
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
@@ -151,8 +152,46 @@ export function SidebarNav({
       })
     }
     
-    return filtered
-  }, [allAvailableWorkers, selectedTeam, selectedEmployment, selectedRole])
+    // 並び替え
+    const sorted = [...filtered]
+    switch (sortOrder) {
+      case 'name_asc':
+        // 名前順（フリガナ昇順）
+        sorted.sort((a, b) => {
+          const aFurigana = a.furigana || a.name || ''
+          const bFurigana = b.furigana || b.name || ''
+          return aFurigana.localeCompare(bFurigana, 'ja')
+        })
+        break
+      case 'team_asc':
+        // チーム名順
+        sorted.sort((a, b) => {
+          const aTeam = a.teams?.[0] || 'zzz' // チーム未設定は最後
+          const bTeam = b.teams?.[0] || 'zzz'
+          return aTeam.localeCompare(bTeam, 'ja')
+        })
+        break
+      case 'role_desc':
+        // 権限順（リーダー→ワーカー）
+        sorted.sort((a, b) => {
+          const aRole = a.role === 'admin' ? 0 : 1
+          const bRole = b.role === 'admin' ? 0 : 1
+          return aRole - bRole
+        })
+        break
+      case 'oldest':
+        // 登録日時の古い順（デフォルトの逆）
+        sorted.reverse()
+        break
+      case 'newest':
+      default:
+        // 登録日時の新しい順（デフォルト）
+        // すでにAPIから新しい順で取得されているのでそのまま
+        break
+    }
+    
+    return sorted
+  }, [allAvailableWorkers, selectedTeam, selectedEmployment, selectedRole, sortOrder])
 
   const closeMenuIfMobile = () => {
     if (isMobile) {
@@ -293,6 +332,22 @@ export function SidebarNav({
                       <SelectItem value="all">すべて</SelectItem>
                       <SelectItem value="admin">リーダー</SelectItem>
                       <SelectItem value="worker">業務委託・外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">並び順</label>
+                  <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">登録日時（新しい順）</SelectItem>
+                      <SelectItem value="oldest">登録日時（古い順）</SelectItem>
+                      <SelectItem value="name_asc">名前順（フリガナ）</SelectItem>
+                      <SelectItem value="team_asc">チーム名順</SelectItem>
+                      <SelectItem value="role_desc">権限順（リーダー優先）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

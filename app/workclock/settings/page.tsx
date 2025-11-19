@@ -85,6 +85,7 @@ export default function SettingsPage() {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   const [filterEmployment, setFilterEmployment] = useState<string>('all')
   const [filterRole, setFilterRole] = useState<string>('all')
+  const [sortOrder, setSortOrder] = useState<string>('newest')
   // ワーカー編集全体のロック（既存ワーカーは初期ロック、新規はアンロック）
   const [isWorkerEditUnlocked, setIsWorkerEditUnlocked] = useState(false)
   const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
@@ -571,6 +572,32 @@ export default function SettingsPage() {
         : worker.role === 'worker'
 
     return matchesTeam && matchesEmployment && matchesRole
+  }).sort((a, b) => {
+    // 並び替えロジック
+    switch (sortOrder) {
+      case 'name_asc':
+        // 名前順（フリガナ昇順）
+        const aFurigana = a.furigana || a.name || ''
+        const bFurigana = b.furigana || b.name || ''
+        return aFurigana.localeCompare(bFurigana, 'ja')
+      case 'team_asc':
+        // チーム名順
+        const aTeam = a.teams?.[0] || 'zzz' // チーム未設定は最後
+        const bTeam = b.teams?.[0] || 'zzz'
+        return aTeam.localeCompare(bTeam, 'ja')
+      case 'role_desc':
+        // 権限順（リーダー→ワーカー）
+        const aRole = a.role === 'admin' ? 0 : 1
+        const bRole = b.role === 'admin' ? 0 : 1
+        return aRole - bRole
+      case 'oldest':
+        // 登録日時の古い順（APIから取得した順序の逆）
+        return 1 // 逆順なので後続の処理で reverse() が適用される想定
+      case 'newest':
+      default:
+        // 登録日時の新しい順（APIデフォルト）
+        return 0 // 元の順序を維持
+    }
   })
 
   return (
@@ -1230,11 +1257,11 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end">
-                <div className="flex-1 space-y-1.5">
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:flex-wrap">
+                <div className="flex-1 space-y-1.5 min-w-[150px]">
                   <Label className="text-xs font-medium text-muted-foreground">チーム</Label>
                   <Select value={filterTeam} onValueChange={setFilterTeam}>
-                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="すべて" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1247,10 +1274,10 @@ export default function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1 space-y-1.5">
+                <div className="flex-1 space-y-1.5 min-w-[150px]">
                   <Label className="text-xs font-medium text-muted-foreground">雇用形態</Label>
                   <Select value={filterEmployment} onValueChange={setFilterEmployment}>
-                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="すべて" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1260,16 +1287,31 @@ export default function SettingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex-1 space-y-1.5">
+                <div className="flex-1 space-y-1.5 min-w-[150px]">
                   <Label className="text-xs font-medium text-muted-foreground">権限</Label>
                   <Select value={filterRole} onValueChange={setFilterRole}>
-                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                    <SelectTrigger className="h-9 w-full">
                       <SelectValue placeholder="すべて" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">すべて</SelectItem>
                       <SelectItem value="admin">リーダー</SelectItem>
                       <SelectItem value="worker">業務委託・外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1.5 min-w-[180px]">
+                  <Label className="text-xs font-medium text-muted-foreground">並び順</Label>
+                  <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">登録日時（新しい順）</SelectItem>
+                      <SelectItem value="oldest">登録日時（古い順）</SelectItem>
+                      <SelectItem value="name_asc">名前順（フリガナ）</SelectItem>
+                      <SelectItem value="team_asc">チーム名順</SelectItem>
+                      <SelectItem value="role_desc">権限順（リーダー優先）</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

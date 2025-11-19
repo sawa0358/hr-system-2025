@@ -218,10 +218,44 @@ export async function POST(request: NextRequest) {
       notes,
     } = body
 
-    // 必須項目チェック
-    if (!employeeId || !name || !email || hourlyRate === undefined) {
+    // 必須項目チェック（社員・氏名のみ必須）
+    if (!employeeId || !name) {
       return NextResponse.json(
         { error: '必須項目が不足しています' },
+        { status: 400 }
+      )
+    }
+
+    // 報酬設定の整合性チェック
+    const hourlyValue =
+      hourlyRate !== undefined && hourlyRate !== null
+        ? Number(hourlyRate)
+        : 0
+    const countAValue =
+      countRateA !== undefined && countRateA !== null
+        ? Number(countRateA)
+        : 0
+    const countBValue =
+      countRateB !== undefined && countRateB !== null
+        ? Number(countRateB)
+        : 0
+    const countCValue =
+      countRateC !== undefined && countRateC !== null
+        ? Number(countRateC)
+        : 0
+    const monthlyValue =
+      monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
+        ? Number(monthlyFixedAmount)
+        : 0
+
+    const hasHourly = hourlyValue > 0
+    const hasCount =
+      countAValue > 0 || countBValue > 0 || countCValue > 0
+    const hasMonthly = monthlyValue > 0
+
+    if (!hasHourly && !hasCount && !hasMonthly) {
+      return NextResponse.json(
+        { error: '時給パターン、回数パターン、月額固定のいずれか1つ以上を設定してください。' },
         { status: 400 }
       )
     }
@@ -249,7 +283,7 @@ export async function POST(request: NextRequest) {
         email,
         phone,
         address,
-        hourlyRate: parseFloat(hourlyRate),
+        hourlyRate: hourlyValue,
         // ラベル・追加パターン・月額固定（任意）
         wagePatternLabelA,
         wagePatternLabelB,

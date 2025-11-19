@@ -95,9 +95,6 @@ export function WorkerSummary({
                 <span className="text-xl font-bold whitespace-nowrap">
                   ¥{worker.hourlyRate.toLocaleString()}
                 </span>
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary whitespace-nowrap">
-                  デフォルト
-                </span>
               </div>
               {worker.hourlyRateB && (
                 <div className="flex items-baseline gap-2 flex-wrap">

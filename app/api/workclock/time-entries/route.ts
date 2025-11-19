@@ -243,7 +243,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern, countPattern, count } = body
+    const {
+      workerId,
+      date,
+      startTime,
+      endTime,
+      breakMinutes,
+      notes,
+      wagePattern,
+      countPattern,
+      count,
+    } = body
 
     // 必須項目チェック
     if (!workerId || !date || !startTime || !endTime) {
@@ -312,11 +322,17 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        // 時給パターンは常に保存（未指定時はデフォルトA）
-        wagePattern: (body as any).wagePattern ?? 'A',
+        // 時給パターン（'A' | 'B' | 'C' のいずれかの場合のみ保存。それ以外/null/undefinedはそのままnull）
+        wagePattern:
+          wagePattern && ['A', 'B', 'C'].includes(wagePattern)
+            ? wagePattern
+            : null,
         // 回数パターン（指定された場合のみ保存）
-        countPattern: countPattern ?? null,
-        count: count ?? null,
+        countPattern:
+          countPattern && ['A', 'B', 'C'].includes(countPattern)
+            ? countPattern
+            : null,
+        count: typeof count === 'number' ? count : count ? Number(count) : null,
       },
       include: {
         worker: {

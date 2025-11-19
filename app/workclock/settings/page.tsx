@@ -228,6 +228,30 @@ export default function SettingsPage() {
         throw new Error('認証が必要です。ログインしてください。')
       }
 
+      // 報酬設定のバリデーション
+      const hourlyValue =
+        formData.hourlyRate !== '' ? Number(formData.hourlyRate) : 0
+      const countA =
+        formData.countRateA !== '' ? Number(formData.countRateA) : 0
+      const countB =
+        formData.countRateB !== '' ? Number(formData.countRateB) : 0
+      const countC =
+        formData.countRateC !== '' ? Number(formData.countRateC) : 0
+      const monthlyValue =
+        formData.monthlyFixedAmount !== ''
+          ? Number(formData.monthlyFixedAmount)
+          : 0
+
+      const hasHourly = hourlyValue > 0
+      const hasCount = [countA, countB, countC].some((v) => v > 0)
+      const hasMonthly = monthlyValue > 0
+
+      if (!hasHourly && !hasCount && !hasMonthly) {
+        throw new Error(
+          '時給パターン、回数パターン、月額固定のいずれか1つ以上を設定してください。'
+        )
+      }
+
       if (editingWorker) {
         // 特定フィールドの変更確認
         const changedCompanyName =
@@ -255,7 +279,7 @@ export default function SettingsPage() {
             email: formData.email,
             phone: formData.phone || undefined,
             address: formData.address || undefined,
-            hourlyRate: Number(formData.hourlyRate),
+            hourlyRate: hourlyValue,
             // パターン名（ラベル）をDBに保存
             wagePatternLabelA: wageLabels.A,
             wagePatternLabelB: wageLabels.B,
@@ -327,7 +351,7 @@ export default function SettingsPage() {
           email: formData.email,
           phone: formData.phone || undefined,
           address: formData.address || undefined,
-          hourlyRate: Number(formData.hourlyRate),
+          hourlyRate: hourlyValue,
           // パターン名（ラベル）を DB に保存
           wagePatternLabelA: wageLabels.A,
           wagePatternLabelB: wageLabels.B,
@@ -811,13 +835,12 @@ export default function SettingsPage() {
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                          <Label htmlFor="email">メールアドレス *</Label>
+                          <Label htmlFor="email">メールアドレス</Label>
                           <Input
                             id="email"
                             type="email"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            required
                             disabled={!isWorkerEditUnlocked}
                           />
                         </div>
@@ -905,9 +928,6 @@ export default function SettingsPage() {
                                     className="h-8 text-xs"
                                     disabled={!canEditCompValues}
                                   />
-                                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                                    デフォルト
-                                  </span>
                                 </div>
                                 <Input
                                   id="hourlyRate"
@@ -918,7 +938,6 @@ export default function SettingsPage() {
                                     setFormData({ ...formData, hourlyRate: e.target.value })
                                   }
                                   placeholder="1,200"
-                                  required
                                   disabled={!canEditCompValues}
                                 />
                               </div>

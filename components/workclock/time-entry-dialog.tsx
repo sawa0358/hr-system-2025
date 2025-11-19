@@ -78,9 +78,9 @@ export function TimeEntryDialog({
   const [breakMinutes, setBreakMinutes] = useState('0')
   const [notes, setNotes] = useState('')
   const [wagePattern, setWagePattern] = useState<'A' | 'B' | 'C'>('A')
-  const [isCountMode, setIsCountMode] = useState(false) // 回数パターンモードかどうか
   const [countPattern, setCountPattern] = useState<'A' | 'B' | 'C'>('A')
   const [count, setCount] = useState('1')
+  const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
 
   // DB優先でパターン名を取得（localStorage はフォールバック）
   const scopeKey = employeeId || workerId
@@ -95,6 +95,20 @@ export function TimeEntryDialog({
     B: worker?.countPatternLabelB || '回数Bパターン',
     C: worker?.countPatternLabelC || '回数Cパターン',
   }
+
+  const hasHourlyPattern =
+    !!worker &&
+    ((typeof worker.hourlyRate === 'number' && worker.hourlyRate > 0) ||
+      (typeof worker.hourlyRateB === 'number' && worker.hourlyRateB > 0) ||
+      (typeof worker.hourlyRateC === 'number' && worker.hourlyRateC > 0))
+
+  const hasCountPattern =
+    !!worker &&
+    ((typeof worker.countRateA === 'number' && worker.countRateA > 0) ||
+      (typeof worker.countRateB === 'number' && worker.countRateB > 0) ||
+      (typeof worker.countRateC === 'number' && worker.countRateC > 0))
+
+  const hasAnyPattern = hasHourlyPattern || hasCountPattern
 
   const dateStr = `${selectedDate.getFullYear()}-${String(
     selectedDate.getMonth() + 1
@@ -122,10 +136,19 @@ export function TimeEntryDialog({
     }
     setBreakMinutes('0')
     setNotes('')
-    setIsCountMode(false)
     setCountPattern('A')
     setCount('1')
-  }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker])
+    if (hasAnyPattern) {
+      // 両方持っている場合はデフォルトで「時給＋回数」
+      if (hasHourlyPattern && hasCountPattern) {
+        setBillingType('both')
+      } else {
+        setBillingType(hasHourlyPattern ? 'hourly' : 'count')
+      }
+    } else {
+      setBillingType('none')
+    }
+  }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern])
 
   const handleAddEntry = async () => {
     if (!window.confirm('追加しますか？後で変更はできません')) {
@@ -147,14 +170,29 @@ export function TimeEntryDialog({
         endTime,
         breakMinutes: parseInt(breakMinutes) || 0,
         notes,
-        // 時給パターンは常に保存
-        wagePattern,
       }
-      
-      // 回数パターンが選択されている場合は追加
-      if (isCountMode) {
+
+      // 報酬計上方法に応じて保存項目を分岐
+      if (billingType === 'hourly' && hasHourlyPattern) {
+        // 時給パターンで計上（回数は使わない）
+        entryData.wagePattern = wagePattern
+        entryData.countPattern = null
+        entryData.count = null
+      } else if (billingType === 'count' && hasCountPattern) {
+        // 回数パターンで計上（時給パターンは付けない）
+        entryData.wagePattern = null
         entryData.countPattern = countPattern
         entryData.count = parseInt(count) || 1
+      } else if (billingType === 'both' && hasHourlyPattern && hasCountPattern) {
+        // 時給＋回数の両方で計上
+        entryData.wagePattern = wagePattern
+        entryData.countPattern = countPattern
+        entryData.count = parseInt(count) || 1
+      } else {
+        // 月額固定のみ等、パターンを持たない場合はどちらも保存しない
+        entryData.wagePattern = null
+        entryData.countPattern = null
+        entryData.count = null
       }
       
       await addTimeEntry(entryData, currentUser.id)
@@ -165,7 +203,6 @@ export function TimeEntryDialog({
       setBreakMinutes('0')
       setNotes('')
       setWagePattern('A')
-      setIsCountMode(false)
       setCountPattern('A')
       setCount('1')
       onClose()
@@ -270,132 +307,189 @@ export function TimeEntryDialog({
                 新規勤務記録を追加
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-base font-medium">時給パターン</Label>
-                <Select
-                  value={wagePattern}
-                  onValueChange={(value: 'A' | 'B' | 'C') => setWagePattern(value)}
-                >
-                  <SelectTrigger className="bg-white border border-slate-300 rounded-md shadow-sm">
-                    <SelectValue placeholder={`${wageLabels.A}（デフォルト）`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A">
-                      {wageLabels.A}
-                      {worker?.hourlyRate && ` (¥${worker.hourlyRate.toLocaleString()})`}
-                    </SelectItem>
-                    <SelectItem 
-                      value="B" 
-                      disabled={!worker?.hourlyRateB}
-                      className={!worker?.hourlyRateB ? "opacity-50 cursor-not-allowed" : ""}
+              {hasAnyPattern && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium">計上方法</Label>
+                    <Select
+                      value={billingType}
+                      onValueChange={(value: 'hourly' | 'count' | 'both' | 'none') => {
+                        if (value === 'none') {
+                          // UIからは通常選ばれないが型安全のためフォールバック
+                          setBillingType(hasHourlyPattern ? 'hourly' : hasCountPattern ? 'count' : 'none')
+                        } else {
+                          setBillingType(value)
+                        }
+                      }}
                     >
-                      {wageLabels.B}
-                      {worker?.hourlyRateB ? ` (¥${worker.hourlyRateB.toLocaleString()})` : ' (未設定)'}
-                    </SelectItem>
-                    <SelectItem 
-                      value="C" 
-                      disabled={!worker?.hourlyRateC}
-                      className={!worker?.hourlyRateC ? "opacity-50 cursor-not-allowed" : ""}
-                    >
-                      {wageLabels.C}
-                      {worker?.hourlyRateC ? ` (¥${worker.hourlyRateC.toLocaleString()})` : ' (未設定)'}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  時給計算に使用されます。{isCountMode && '（回数パターンと併用可能）'}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-base font-medium">回数パターン（任意）</Label>
-                <Select
-                  value={isCountMode ? countPattern : 'none'}
-                  onValueChange={(value: 'A' | 'B' | 'C' | 'none') => {
-                    if (value === 'none') {
-                      setIsCountMode(false)
-                    } else {
-                      setCountPattern(value)
-                      setIsCountMode(true)
-                    }
-                  }}
-                  disabled={!worker?.countRateA && !worker?.countRateB && !worker?.countRateC}
-                >
-                  <SelectTrigger 
-                    className={`bg-white border border-slate-300 rounded-md shadow-sm ${
-                      !worker?.countRateA && !worker?.countRateB && !worker?.countRateC ? 'opacity-50' : ''
-                    } ${isCountMode ? 'ring-2 ring-primary' : ''}`}
-                  >
-                    <SelectValue placeholder="使用しない" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">使用しない</SelectItem>
-                    <SelectItem 
-                      value="A" 
-                      disabled={!worker?.countRateA}
-                      className={!worker?.countRateA ? "opacity-50 cursor-not-allowed" : ""}
-                    >
-                      {countLabels.A}
-                      {worker?.countRateA ? ` (¥${worker.countRateA.toLocaleString()}/回)` : ' (未設定)'}
-                    </SelectItem>
-                    <SelectItem 
-                      value="B" 
-                      disabled={!worker?.countRateB}
-                      className={!worker?.countRateB ? "opacity-50 cursor-not-allowed" : ""}
-                    >
-                      {countLabels.B}
-                      {worker?.countRateB ? ` (¥${worker.countRateB.toLocaleString()}/回)` : ' (未設定)'}
-                    </SelectItem>
-                    <SelectItem 
-                      value="C" 
-                      disabled={!worker?.countRateC}
-                      className={!worker?.countRateC ? "opacity-50 cursor-not-allowed" : ""}
-                    >
-                      {countLabels.C}
-                      {worker?.countRateC ? ` (¥${worker.countRateC.toLocaleString()}/回)` : ' (未設定)'}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                {isCountMode && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCount(String(Math.max(1, parseInt(count) - 1)))}
-                      className="h-8 w-8"
-                    >
-                      -
-                    </Button>
-                    <Input
-                      type="number"
-                      value={count}
-                      onChange={(e) => setCount(e.target.value)}
-                      min="1"
-                      className="text-center h-8 w-20"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCount(String(parseInt(count) + 1))}
-                      className="h-8 w-8"
-                    >
-                      +
-                    </Button>
-                    <span className="text-sm text-muted-foreground">回</span>
+                      <SelectTrigger className="bg-white border border-slate-300 rounded-md shadow-sm">
+                        <SelectValue placeholder="計上方法を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {hasHourlyPattern && (
+                          <SelectItem value="hourly">時給パターンのみで計上</SelectItem>
+                        )}
+                        {hasCountPattern && (
+                          <SelectItem value="count">回数パターンのみで計上</SelectItem>
+                        )}
+                        {hasHourlyPattern && hasCountPattern && (
+                          <SelectItem value="both">時給＋回数の両方で計上</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      この勤務の報酬計算方法を選択してください（時給／回数／両方）。
+                    </p>
                   </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  {!worker?.countRateA && !worker?.countRateB && !worker?.countRateC
-                    ? 'ワーカー編集で金額を設定してください。'
-                    : isCountMode
-                    ? '時給計算に加算されます。'
-                    : '回数パターンを選択すると時給に加算されます。'}
-                </p>
-              </div>
-              </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {hasHourlyPattern && (
+                      <div className="space-y-2">
+                        <Label className="text-base font-medium">時給パターン</Label>
+                        <Select
+                          value={wagePattern}
+                          onValueChange={(value: 'A' | 'B' | 'C') => setWagePattern(value)}
+                          disabled={
+                            !(billingType === 'hourly' || billingType === 'both')
+                          }
+                        >
+                          <SelectTrigger className="bg-white border border-slate-300 rounded-md shadow-sm">
+                            <SelectValue placeholder={`${wageLabels.A}（デフォルト）`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="A">
+                              {wageLabels.A}
+                              {worker?.hourlyRate && ` (¥${worker.hourlyRate.toLocaleString()})`}
+                            </SelectItem>
+                            <SelectItem
+                              value="B"
+                              disabled={!worker?.hourlyRateB}
+                              className={!worker?.hourlyRateB ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              {wageLabels.B}
+                              {worker?.hourlyRateB
+                                ? ` (¥${worker.hourlyRateB.toLocaleString()})`
+                                : ' (未設定)'}
+                            </SelectItem>
+                            <SelectItem
+                              value="C"
+                              disabled={!worker?.hourlyRateC}
+                              className={!worker?.hourlyRateC ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              {wageLabels.C}
+                              {worker?.hourlyRateC
+                                ? ` (¥${worker.hourlyRateC.toLocaleString()})`
+                                : ' (未設定)'}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          計上方法で「時給パターンで計上」を選んだ場合に使用されます。
+                        </p>
+                      </div>
+                    )}
+
+                    {hasCountPattern && (
+                      <div className="space-y-2">
+                        <Label className="text-base font-medium">回数パターン</Label>
+                        <Select
+                          value={countPattern}
+                          onValueChange={(value: 'A' | 'B' | 'C') => setCountPattern(value)}
+                          disabled={
+                            !hasCountPattern ||
+                            !(billingType === 'count' || billingType === 'both')
+                          }
+                        >
+                          <SelectTrigger
+                            className={`bg-white border border-slate-300 rounded-md shadow-sm ${
+                              !hasCountPattern ? 'opacity-50' : ''
+                            } ${
+                              billingType === 'count' || billingType === 'both'
+                                ? 'ring-2 ring-primary'
+                                : ''
+                            }`}
+                          >
+                            <SelectValue placeholder="回数パターンを選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem
+                              value="A"
+                              disabled={!worker?.countRateA}
+                              className={!worker?.countRateA ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              {countLabels.A}
+                              {worker?.countRateA
+                                ? ` (¥${worker.countRateA.toLocaleString()}/回)`
+                                : ' (未設定)'}
+                            </SelectItem>
+                            <SelectItem
+                              value="B"
+                              disabled={!worker?.countRateB}
+                              className={!worker?.countRateB ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              {countLabels.B}
+                              {worker?.countRateB
+                                ? ` (¥${worker.countRateB.toLocaleString()}/回)`
+                                : ' (未設定)'}
+                            </SelectItem>
+                            <SelectItem
+                              value="C"
+                              disabled={!worker?.countRateC}
+                              className={!worker?.countRateC ? 'opacity-50 cursor-not-allowed' : ''}
+                            >
+                              {countLabels.C}
+                              {worker?.countRateC
+                                ? ` (¥${worker.countRateC.toLocaleString()}/回)`
+                                : ' (未設定)'}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {billingType === 'count' && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                setCount(String(Math.max(1, parseInt(count || '1') - 1)))
+                              }
+                              className="h-8 w-8"
+                            >
+                              -
+                            </Button>
+                            <Input
+                              type="number"
+                              value={count}
+                              onChange={(e) => setCount(e.target.value)}
+                              min="1"
+                              className="text-center h-8 w-20"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() =>
+                                setCount(String((parseInt(count || '1') || 1) + 1))
+                              }
+                              className="h-8 w-8"
+                            >
+                              +
+                            </Button>
+                            <span className="text-sm text-muted-foreground">回</span>
+                          </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {hasCountPattern
+                            ? billingType === 'count'
+                              ? '回数パターンで報酬を計上します。'
+                              : '計上方法で「回数パターンで計上」を選んだ場合に使用されます。'
+                            : 'ワーカー編集で回数パターンの金額を設定してください。'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">

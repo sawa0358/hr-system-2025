@@ -3,6 +3,10 @@
 # Herokuデプロイ後の自動実行スクリプト
 echo "🚀 Herokuデプロイ後の自動セットアップを開始します..."
 
+# PostgreSQL環境用にスキーマを変換
+echo "🔄 PostgreSQL用にスキーマを変換中..."
+node scripts/switch-schema.js prod
+
 # Prismaクライアントの生成
 echo "📦 Prismaクライアントを生成中..."
 npx prisma generate

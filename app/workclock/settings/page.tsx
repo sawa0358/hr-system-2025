@@ -82,6 +82,9 @@ export default function SettingsPage() {
   const [teams, setTeams] = useState<string[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
+  const [filterTeam, setFilterTeam] = useState<string>('all')
+  const [filterEmployment, setFilterEmployment] = useState<string>('all')
+  const [filterRole, setFilterRole] = useState<string>('all')
   // ワーカー編集全体のロック（既存ワーカーは初期ロック、新規はアンロック）
   const [isWorkerEditUnlocked, setIsWorkerEditUnlocked] = useState(false)
   const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
@@ -549,6 +552,26 @@ export default function SettingsPage() {
   // 報酬設定や権限（ワーカー/リーダー）は総務・管理者のみ編集可能
   const canEditCompensation = ['hr', 'admin'].includes(currentUser?.role || '')
   const canEditCompValues = canEditCompensation && isWorkerEditUnlocked
+
+  const filteredWorkers = workers.filter((worker) => {
+    const matchesTeam =
+      filterTeam === 'all' || (worker.teams || []).includes(filterTeam)
+
+    const employmentType = (worker.employeeType || '').toString()
+    const matchesEmployment =
+      filterEmployment === 'all'
+        ? true
+        : employmentType.includes(filterEmployment)
+
+    const matchesRole =
+      filterRole === 'all'
+        ? true
+        : filterRole === 'admin'
+        ? worker.role === 'admin'
+        : worker.role === 'worker'
+
+    return matchesTeam && matchesEmployment && matchesRole
+  })
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
@@ -1207,6 +1230,51 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end">
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">チーム</Label>
+                  <Select value={filterTeam} onValueChange={setFilterTeam}>
+                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      {teams.map((team) => (
+                        <SelectItem key={team} value={team}>
+                          {team}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">雇用形態</Label>
+                  <Select value={filterEmployment} onValueChange={setFilterEmployment}>
+                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="業務委託">業務委託</SelectItem>
+                      <SelectItem value="外注先">外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">権限</Label>
+                  <Select value={filterRole} onValueChange={setFilterRole}>
+                    <SelectTrigger className="h-9 w-full md:w-[200px]">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="admin">リーダー</SelectItem>
+                      <SelectItem value="worker">業務委託・外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1219,7 +1287,7 @@ export default function SettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {workers.map((worker) => (
+                  {filteredWorkers.map((worker) => (
                     <TableRow key={worker.id}>
                       <TableCell className="font-medium">{worker.name}</TableCell>
                       <TableCell>¥{worker.hourlyRate.toLocaleString()}</TableCell>

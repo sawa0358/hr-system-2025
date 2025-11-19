@@ -56,6 +56,7 @@ export function SidebarNav({
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<string>('all')
   const [selectedEmployment, setSelectedEmployment] = useState<string>('all') // 業務委託/外注先
+   const [selectedRole, setSelectedRole] = useState<string>('all') // WorkClock上の権限（リーダー/ワーカー）
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const pathname = usePathname()
@@ -136,9 +137,22 @@ export function SidebarNav({
         return et.includes(selectedEmployment)
       })
     }
+
+    if (selectedRole !== 'all') {
+      filtered = filtered.filter(w => {
+        const role = w.role || 'worker'
+        if (selectedRole === 'admin') {
+          return role === 'admin'
+        }
+        if (selectedRole === 'worker') {
+          return role !== 'admin'
+        }
+        return true
+      })
+    }
     
     return filtered
-  }, [allAvailableWorkers, selectedTeam, selectedEmployment])
+  }, [allAvailableWorkers, selectedTeam, selectedEmployment, selectedRole])
 
   const closeMenuIfMobile = () => {
     if (isMobile) {
@@ -265,6 +279,20 @@ export function SidebarNav({
                       <SelectItem value="all">すべて</SelectItem>
                       <SelectItem value="業務委託">業務委託</SelectItem>
                       <SelectItem value="外注先">外注先</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">権限</label>
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="admin">リーダー</SelectItem>
+                      <SelectItem value="worker">業務委託・外注先</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

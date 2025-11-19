@@ -16,6 +16,11 @@ export interface TimeEntry {
 export interface Worker {
   id: string
   employeeId?: string
+  /**
+   * HRシステム側の雇用形態（例: 業務委託, 外注先 など）
+   * WorkClockWorker.employee とのJOIN結果として付与される
+   */
+  employeeType?: string | null
   name: string
   password?: string
   companyName?: string // 屋号・会社名

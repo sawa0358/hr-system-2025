@@ -389,13 +389,13 @@ export function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
           {!collapsed && (
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
-                <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-slate-500 font-medium">v2.6.2</span>
+              <span className="font-bold text-slate-900">HR System</span>
+              <span className="text-xs text-slate-500 font-medium">v2.7.0</span>
               </div>
-            </div>
+              </div>
           )}
           <Button 
             variant="ghost" 

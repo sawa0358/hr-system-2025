@@ -95,17 +95,37 @@ export async function GET(request: NextRequest) {
           const htmlContent = generatePDFContent(
             {
               id: worker.id,
+              employeeId: worker.employeeId || undefined,
               name: worker.name,
               email: worker.email,
+              // 時給パターン金額
               hourlyRate: worker.hourlyRate,
+              hourlyRateB: worker.hourlyRateB || undefined,
+              hourlyRateC: worker.hourlyRateC || undefined,
+              // 時給パターンラベル
+              wagePatternLabelA: worker.wagePatternLabelA || undefined,
+              wagePatternLabelB: worker.wagePatternLabelB || undefined,
+              wagePatternLabelC: worker.wagePatternLabelC || undefined,
+              // 回数パターンラベル
+              countPatternLabelA: worker.countPatternLabelA || undefined,
+              countPatternLabelB: worker.countPatternLabelB || undefined,
+              countPatternLabelC: worker.countPatternLabelC || undefined,
+              // 回数パターン金額
+              countRateA: worker.countRateA || undefined,
+              countRateB: worker.countRateB || undefined,
+              countRateC: worker.countRateC || undefined,
+              // 月額固定
+              monthlyFixedAmount: worker.monthlyFixedAmount || undefined,
+              monthlyFixedEnabled: worker.monthlyFixedEnabled || undefined,
+              // チーム（JSON文字列→配列）
               teams: worker.teams ? JSON.parse(worker.teams) : [],
               role: worker.role as 'worker' | 'admin',
-              companyName: worker.companyName,
-              qualifiedInvoiceNumber: worker.qualifiedInvoiceNumber,
-              chatworkId: worker.chatworkId,
-              phone: worker.phone,
-              address: worker.address,
-              notes: worker.notes,
+              companyName: worker.companyName || undefined,
+              qualifiedInvoiceNumber: worker.qualifiedInvoiceNumber || undefined,
+              chatworkId: worker.chatworkId || undefined,
+              phone: worker.phone || undefined,
+              address: worker.address || undefined,
+              notes: worker.notes || undefined,
             },
             entries.map((e) => ({
               id: e.id,
@@ -115,6 +135,9 @@ export async function GET(request: NextRequest) {
               endTime: e.endTime,
               breakMinutes: e.breakMinutes,
               notes: e.notes || '',
+              wagePattern: e.wagePattern || undefined,
+              countPattern: e.countPattern || undefined,
+              count: e.count || undefined,
             })),
             lastMonth
           )

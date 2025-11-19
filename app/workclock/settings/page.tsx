@@ -627,7 +627,7 @@ export default function SettingsPage() {
             {isMenuOpen && (
               <>
                 <div className="px-4 py-3 border-b">
-                  <h2 className="text-lg font-semibold text-sidebar-foreground">
+                  <h2 className="text-base font-semibold text-sidebar-foreground break-words">
                     時間管理システム
                   </h2>
                 </div>

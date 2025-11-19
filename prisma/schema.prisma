@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -805,11 +805,10 @@ model WorkClockWorker {
   // 追加の時給パターン金額（任意）
   hourlyRateB            Float?
   hourlyRateC            Float?
-  // 回数パターン名（ラベル）
+  // 回数ベースの支払いパターン（任意）
   countPatternLabelA     String?  @default("回数Aパターン")
   countPatternLabelB     String?  @default("回数Bパターン")
   countPatternLabelC     String?  @default("回数Cパターン")
-  // 回数パターン金額（任意）
   countRateA             Float?
   countRateB             Float?
   countRateC             Float?

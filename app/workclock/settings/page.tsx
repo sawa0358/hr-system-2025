@@ -493,7 +493,10 @@ export default function SettingsPage() {
   const handleDelete = async (workerId: string) => {
     if (confirm('このワーカーを削除してもよろしいですか？')) {
       try {
-        await deleteWorker(workerId)
+        if (!currentUser?.id) {
+          throw new Error('ユーザー情報が取得できません（再ログインしてください）')
+        }
+        await deleteWorker(workerId, currentUser.id)
         await loadWorkers()
         toast({
           title: '削除完了',
@@ -556,7 +559,7 @@ export default function SettingsPage() {
               variant="ghost"
               size="icon"
               className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-              style={{ backgroundColor: '#b4d5e7' }}
+              style={{ backgroundColor: '#f5f4cd' }}
               aria-label="時間管理メニューを開く"
             >
               <Menu className="h-5 w-5" />
@@ -586,7 +589,7 @@ export default function SettingsPage() {
             variant="ghost"
             size="icon"
             className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-            style={{ backgroundColor: '#b4d5e7' }}
+            style={{ backgroundColor: '#f5f4cd' }}
             aria-label="時間管理メニューを開く"
             onClick={() => setIsMenuOpen((open) => !open)}
           >
@@ -768,18 +771,16 @@ export default function SettingsPage() {
                           </div>
                         </div>
                       )}
-                        <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="name">氏名 *</Label>
                           <Input
                             id="name"
                             value={formData.name}
-                            onChange={(e) =>
-                              setFormData({ ...formData, name: e.target.value })
-                            }
+                            readOnly
+                            disabled
                             required
-                            readOnly={!!editingWorker}
-                            className={editingWorker ? 'bg-muted text-muted-foreground' : ''}
+                            className="bg-muted text-muted-foreground"
                           />
                         </div>
                         <div className="grid gap-2">
@@ -788,19 +789,12 @@ export default function SettingsPage() {
                             id="password"
                             type="password"
                             value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            readOnly
+                            disabled
                             required
                             placeholder="ログイン用パスワード"
-                            disabled={!isWorkerEditUnlocked || !canEditPassword}
-                            className={!isWorkerEditUnlocked || !canEditPassword ? "text-[#374151] bg-[#edeaed]" : ""}
+                            className="text-[#374151] bg-[#edeaed]"
                           />
-                          {canEditPassword && !isWorkerEditUnlocked && editingWorker && (
-                            <div className="flex items-center gap-2">
-                              <p className="text-xs text-muted-foreground">
-                                ワーカー編集を有効化すると、パスワードも編集できるようになります
-                              </p>
-                            </div>
-                          )}
                         </div>
                       </div>
 

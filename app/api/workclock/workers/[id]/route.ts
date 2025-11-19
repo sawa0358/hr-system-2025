@@ -181,8 +181,6 @@ export async function PUT(
     const updated = await prisma.workClockWorker.update({
       where: { id: workerId },
       data: {
-        name,
-        password: password !== undefined ? password : undefined,
         companyName,
         qualifiedInvoiceNumber,
         chatworkId,
@@ -263,12 +261,15 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const workerId = params.id as string
+
+    // x-employee-id が無い場合は認証エラー
     const userId = request.headers.get('x-employee-id')
     if (!userId) {
       return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
     }
 
-    // ユーザー情報を取得
+    // ユーザー情報を取得（権限チェック用）
     const user = await prisma.employee.findUnique({
       where: { id: userId },
       select: { role: true },
@@ -284,16 +285,33 @@ export async function DELETE(
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
-    const workerId = params.id as string
-    await prisma.workClockWorker.delete({
+    // 時間記録は外部キー制約の影響を避けるため、先に明示的に削除しておく
+    await (prisma as any).workClockTimeEntry.deleteMany({
+      where: { workerId },
+    })
+
+    // WorkClockWorker 自体も deleteMany で「存在しなくても成功扱い」とする
+    await (prisma as any).workClockWorker.deleteMany({
       where: { id: workerId },
     })
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error('WorkClock worker削除エラー:', error)
+    console.error('エラー詳細:', {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+      name: error?.name,
+    })
+    // ローカル開発用に詳細をレスポンスにも含める
     return NextResponse.json(
-      { error: 'ワーカーの削除に失敗しました' },
+      { 
+        error: 'ワーカーの削除に失敗しました',
+        details: error?.message || 'Unknown error',
+        code: error?.code,
+        name: error?.name,
+      },
       { status: 500 }
     )
   }

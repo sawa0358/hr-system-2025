@@ -132,15 +132,15 @@ export default function AdminPage() {
       {isMobile ? (
         <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-              style={{ backgroundColor: '#b4d5e7' }}
-              aria-label="時間管理メニューを開く"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+            style={{ backgroundColor: '#f5f4cd' }}
+            aria-label="時間管理メニューを開く"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           </SheetTrigger>
           <SheetContent 
             side="top" 
@@ -162,16 +162,16 @@ export default function AdminPage() {
         </Sheet>
       ) : (
         <>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-            style={{ backgroundColor: '#b4d5e7' }}
-            aria-label="時間管理メニューを開く"
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+          style={{ backgroundColor: '#f5f4cd' }}
+          aria-label="時間管理メニューを開く"
+          onClick={() => setIsMenuOpen((open) => !open)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
           <div
             className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
               isMenuOpen ? 'w-72' : 'w-0'

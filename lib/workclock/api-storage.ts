@@ -129,12 +129,17 @@ export async function updateWorker(id: string, updates: Partial<Worker>, userId?
   }
 }
 
-export async function deleteWorker(id: string): Promise<void> {
+export async function deleteWorker(id: string, userId?: string): Promise<void> {
   try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
     const response = await fetch(`${API_BASE}/workers/${id}`, {
       method: 'DELETE',
       headers: {
-        'x-employee-id': getCurrentUserId(),
+        'x-employee-id': finalUserId,
       },
     })
     if (!response.ok) {

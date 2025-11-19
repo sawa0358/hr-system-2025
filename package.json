@@ -19,7 +19,7 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:restart": "docker-compose restart app",
-    "heroku-postbuild": "npm run build",
+    "heroku-postbuild": "node scripts/switch-schema.js prod && npm run build",
     "postdeploy": "node scripts/auto-create-invisible-top.js",
     "schema:dev": "node scripts/switch-schema.js dev",
     "schema:prod": "node scripts/switch-schema.js prod",

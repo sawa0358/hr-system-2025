@@ -120,7 +120,14 @@ export function PayrollUploadDialog({
 
   // 「全員分」自動PDF一覧の取得
   useEffect(() => {
+    // ダイアログが閉じている、または全員分モードでない場合は何もしない
     if (!open || !isAllEmployeesMode) {
+      // クリーンアップ: ダイアログを閉じたら状態をリセット
+      if (!open) {
+        setAllPayrollFiles([])
+        setAllFilesError(null)
+        setIsAllFilesLoading(false)
+      }
       return
     }
 
@@ -140,39 +147,62 @@ export function PayrollUploadDialog({
       return
     }
 
+    let isCancelled = false
+
     const fetchFiles = async () => {
       try {
         setIsAllFilesLoading(true)
         setAllFilesError(null)
 
         const res = await fetch(`/api/payroll/all-pdfs?year=${yearNumber}&month=${monthNumber}`)
+        
+        // コンポーネントがアンマウントされた場合は処理を中断
+        if (isCancelled) return
+
         if (!res.ok) {
           let errorMessage = "全員分PDF一覧の取得に失敗しました"
           try {
             const data = await res.json()
             if (data?.error) {
               errorMessage = data.error
+              // 環境変数未設定エラーの場合は、分かりやすいメッセージに変換
+              if (data.error.includes('PAYROLL_ALL_EMPLOYEE_ID')) {
+                errorMessage = "全員分PDF機能の設定が未完了です。管理者に環境変数 PAYROLL_ALL_EMPLOYEE_ID の設定を依頼してください。"
+              }
             }
           } catch {
             // ignore
           }
-          setAllFilesError(errorMessage)
-          setAllPayrollFiles([])
+          if (!isCancelled) {
+            setAllFilesError(errorMessage)
+            setAllPayrollFiles([])
+          }
           return
         }
 
         const data = await res.json()
-        setAllPayrollFiles(Array.isArray(data.files) ? data.files : [])
+        if (!isCancelled) {
+          setAllPayrollFiles(Array.isArray(data.files) ? data.files : [])
+        }
       } catch (error) {
         console.error("全員分PDF一覧取得エラー:", error)
-        setAllFilesError("全員分PDF一覧の取得に失敗しました")
-        setAllPayrollFiles([])
+        if (!isCancelled) {
+          setAllFilesError("全員分PDF一覧の取得に失敗しました")
+          setAllPayrollFiles([])
+        }
       } finally {
-        setIsAllFilesLoading(false)
+        if (!isCancelled) {
+          setIsAllFilesLoading(false)
+        }
       }
     }
 
     fetchFiles()
+
+    // クリーンアップ関数: コンポーネントがアンマウントされたらフラグを立てる
+    return () => {
+      isCancelled = true
+    }
   }, [open, isAllEmployeesMode, selectedYear, selectedMonth])
 
 

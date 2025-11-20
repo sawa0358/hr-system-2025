@@ -237,6 +237,28 @@ export function PayrollUploadDialog({
   const handleFileUpload = async (folderKey: string, fileName?: string, file?: File) => {
     try {
       if (file) {
+        // 全員分モードの場合、PAYROLL_ALL_EMPLOYEE_IDを取得
+        let employeeIdToUse = employee?.id || ''
+        
+        if (isAllEmployeesMode && !employeeIdToUse) {
+          // 全員分モードで employee.id が無い場合、APIから取得
+          try {
+            const response = await fetch('/api/payroll/all-employee-id')
+            if (response.ok) {
+              const data = await response.json()
+              employeeIdToUse = data.employeeId
+            } else {
+              console.error('全員分用のemployeeID取得に失敗しました')
+              alert('全員分用の設定が未完了です。管理者に連絡してください。')
+              return
+            }
+          } catch (error) {
+            console.error('全員分用のemployeeID取得エラー:', error)
+            alert('全員分用の設定取得に失敗しました')
+            return
+          }
+        }
+        
         // 実際のファイルアップロード処理
         const formData = new FormData()
         formData.append('file', file)
@@ -246,7 +268,7 @@ export function PayrollUploadDialog({
         const response = await fetch('/api/files/upload', {
           method: 'POST',
           headers: {
-            'x-employee-id': employee?.id || '',
+            'x-employee-id': employeeIdToUse,
           },
           body: formData
         })

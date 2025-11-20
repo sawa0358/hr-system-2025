@@ -99,9 +99,9 @@ export function PayrollUploadDialog({
     }
   }, [open])
 
-  // コンポーネント初期化時にファイルデータを読み込み（個別モードのみ使用）
+  // コンポーネント初期化時にファイルデータを読み込み
   useEffect(() => {
-    if (employee && !isAllEmployeesMode) {
+    if (employee || isAllEmployeesMode) {
       const allFolders = [
         ...yearFolders.flatMap(year => [...months, ...yearEndFolders].map(month => `${year}-${month}`)),
         ...otherFolders.map(folder => `other-${folder}`)
@@ -308,12 +308,33 @@ export function PayrollUploadDialog({
     console.log(`Downloading ${fileName} from ${folderKey}`)
     
     try {
+      // 全員分モードの場合、PAYROLL_ALL_EMPLOYEE_IDを取得
+      let employeeIdToUse = employee?.id || ''
+      
+      if (isAllEmployeesMode && !employeeIdToUse) {
+        try {
+          const response = await fetch('/api/payroll/all-employee-id')
+          if (response.ok) {
+            const data = await response.json()
+            employeeIdToUse = data.employeeId
+          } else {
+            console.error('全員分用のemployeeID取得に失敗しました')
+            alert('全員分用の設定が未完了です。管理者に連絡してください。')
+            return
+          }
+        } catch (error) {
+          console.error('全員分用のemployeeID取得エラー:', error)
+          alert('全員分用の設定取得に失敗しました')
+          return
+        }
+      }
+      
       // 給与管理の場合は、実際のファイルシステムからファイルを取得
       // まず、ファイルIDを取得するためにファイル一覧を取得
-      const response = await fetch(`/api/files/employee/${employee?.id}`, {
+      const response = await fetch(`/api/files/employee/${employeeIdToUse}`, {
         method: 'GET',
         headers: {
-          'x-employee-id': employee?.id || '',
+          'x-employee-id': employeeIdToUse,
         },
       })
       
@@ -327,7 +348,7 @@ export function PayrollUploadDialog({
           const downloadResponse = await fetch(`/api/files/${matchingFile.id}/download`, {
             method: 'GET',
             headers: {
-              'x-employee-id': employee?.id || '',
+              'x-employee-id': employeeIdToUse,
             },
           })
           

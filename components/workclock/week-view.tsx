@@ -3,7 +3,7 @@
 import { useState, MouseEvent } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { TimeEntry } from '@/lib/workclock/types'
+import { TimeEntry, Worker } from '@/lib/workclock/types'
 import { calculateDuration } from '@/lib/workclock/time-utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,14 +11,24 @@ import { TimeEntryDialog } from './time-entry-dialog'
 
 interface WeekViewProps {
   workerId: string
+  employeeId?: string | null
+  worker?: Worker | null
   entries: TimeEntry[]
   onEntriesChange: () => void
+  canEditEntries?: boolean
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const HOUR_HEIGHT = 60 // pixels per hour
 
-export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) {
+export function WeekView({
+  workerId,
+  employeeId,
+  worker,
+  entries,
+  onEntriesChange,
+  canEditEntries = true,
+}: WeekViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
@@ -95,6 +105,20 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
     const height = (duration / 60) * HOUR_HEIGHT
 
     return { top, height }
+  }
+
+  const hasEntryInSegment = (date: Date, hour: number, segment: 0 | 1): boolean => {
+    const dayEntries = getEntriesForDate(date)
+    if (dayEntries.length === 0) return false
+
+    const segmentStart = hour * 60 + segment * 30
+    const segmentEnd = segmentStart + 30
+
+    return dayEntries.some((entry) => {
+      const start = timeToMinutes(entry.startTime)
+      const end = timeToMinutes(entry.endTime)
+      return end > segmentStart && start < segmentEnd
+    })
   }
 
   const handleDateClick = (date: Date, hour?: number) => {
@@ -293,6 +317,8 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
                     {HOURS.map((hour) => {
                       const topSelected = isSegmentSelected(date, hour, 0)
                       const bottomSelected = isSegmentSelected(date, hour, 1)
+                      const hasTopEntry = hasEntryInSegment(date, hour, 0)
+                      const hasBottomEntry = hasEntryInSegment(date, hour, 1)
 
                       return (
                         <div
@@ -302,18 +328,20 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
                           onMouseDown={(e) => handleMouseDown(date, hour, e)}
                           onMouseEnter={(e) => handleMouseEnter(date, hour, e)}
                         >
-                          {/* 上半分（00〜30分）の反転 */}
+                          {/* 上半分（00〜30分）の反転（保存済み + ドラッグ選択） */}
                           <div
                             className={cn(
-                              'pointer-events-none absolute inset-x-0 top-0 h-1/2',
-                              topSelected && 'bg-sky-400/40 ring-1 ring-sky-500/60'
+                              'pointer-events-none absolute inset-x-0 top-0 h-1/2 transition-colors',
+                              (hasTopEntry || topSelected) && 'bg-sky-200/60',
+                              topSelected && 'ring-1 ring-sky-500/60'
                             )}
                           />
-                          {/* 下半分（30〜60分）の反転 */}
+                          {/* 下半分（30〜60分）の反転（保存済み + ドラッグ選択） */}
                           <div
                             className={cn(
-                              'pointer-events-none absolute inset-x-0 bottom-0 h-1/2',
-                              bottomSelected && 'bg-sky-400/40 ring-1 ring-sky-500/60'
+                              'pointer-events-none absolute inset-x-0 bottom-0 h-1/2 transition-colors',
+                              (hasBottomEntry || bottomSelected) && 'bg-sky-200/60',
+                              bottomSelected && 'ring-1 ring-sky-500/60'
                             )}
                           />
                           {/* 30分位置の点線 */}
@@ -334,7 +362,7 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
                       return (
                         <div
                           key={entry.id}
-                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-primary/90 p-1.5 text-xs text-primary-foreground shadow-sm ring-2 ring-sky-500/70 transition-all hover:bg-primary hover:shadow-lg"
+                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-sky-200 p-1.5 text-xs text-foreground shadow-sm ring-1 ring-sky-400/80 transition-all hover:bg-sky-300 hover:shadow-lg"
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -354,10 +382,12 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
                             </div>
                           )}
                           {height > 55 && entry.notes && (
-                            <div className={cn(
-                              "mt-1 text-[10px] opacity-80 break-words",
-                              height > 90 ? "line-clamp-3" : "line-clamp-2"
-                            )}>
+                            <div
+                              className={cn(
+                                'mt-1 text-[10px] opacity-80 break-words',
+                                height > 90 ? 'line-clamp-3' : 'line-clamp-2'
+                              )}
+                            >
                               {entry.notes}
                             </div>
                           )}
@@ -377,12 +407,15 @@ export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) 
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           workerId={workerId}
+          employeeId={employeeId}
+          worker={worker}
           selectedDate={selectedDate}
           existingEntries={getEntriesForDate(selectedDate)}
           onClose={handleDialogClose}
           initialHour={selectedHour}
           initialStartTime={dragStartTime}
           initialEndTime={dragEndTime}
+          canEditEntries={canEditEntries}
         />
       )}
     </div>

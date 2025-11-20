@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { TimeEntry } from '@/lib/workclock/types'
-import { getDaysInMonth, calculateDuration, formatDuration } from '@/lib/workclock/time-utils'
+import { TimeEntry, Worker } from '@/lib/workclock/types'
+import { getDaysInMonth, calculateDuration } from '@/lib/workclock/time-utils'
 import { ChevronLeft, ChevronRight, Plus, Calendar, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TimeEntryDialog } from './time-entry-dialog'
@@ -12,12 +12,23 @@ import { WeekView } from './week-view'
 
 interface CalendarViewProps {
   workerId: string
+  employeeId?: string | null
+  worker?: Worker | null
   entries: TimeEntry[]
   onEntriesChange: () => void
   actionButtons?: React.ReactNode
+  canEditEntries?: boolean
 }
 
-export function CalendarView({ workerId, entries, onEntriesChange, actionButtons }: CalendarViewProps) {
+export function CalendarView({
+  workerId,
+  employeeId,
+  worker,
+  entries,
+  onEntriesChange,
+  actionButtons,
+  canEditEntries = true,
+}: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -111,8 +122,11 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
       {viewMode === 'week' ? (
         <WeekView
           workerId={workerId}
+          employeeId={employeeId}
+          worker={worker}
           entries={entries}
           onEntriesChange={onEntriesChange}
+          canEditEntries={canEditEntries}
         />
       ) : (
         <>
@@ -170,23 +184,52 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
                     className={cn(
                       'group relative min-h-[80px] rounded-lg border p-2 text-left transition-all hover:border-primary hover:shadow-sm',
                       isToday && 'border-primary bg-primary/5',
-                      hasEntries && 'bg-accent/50'
+                      hasEntries && 'bg-sky-100 border-sky-300'
                     )}
                   >
                     <div
                       className={cn(
                         'mb-1 text-sm font-medium',
-                        dayOfWeek === 0 ? 'text-red-500' : dayOfWeek === 6 ? 'text-blue-500' : 'text-foreground'
+                        dayOfWeek === 0
+                          ? 'text-red-500'
+                          : dayOfWeek === 6
+                            ? 'text-blue-500'
+                            : 'text-foreground'
                       )}
                     >
                       {date.getDate()}
                     </div>
                     {hasEntries ? (
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-primary">{getDayTotal(date)}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {dayEntries.length}件
-                        </div>
+                      <div className="space-y-0.5">
+                        {/* 各勤務の「◯h ＋ 作業内容」を1行ずつ表示（折り返さず truncate） */}
+                        {dayEntries.map((entry) => {
+                          const duration = calculateDuration(
+                            entry.startTime,
+                            entry.endTime,
+                            entry.breakMinutes
+                          )
+                          const hoursDecimal =
+                            duration.hours + duration.minutes / 60
+                          const hoursLabel = `${hoursDecimal
+                            .toFixed(1)
+                            .replace(/\.0$/, '')}h`
+
+                          return (
+                            <div
+                              key={entry.id}
+                              className="flex items-center gap-1 text-[10px] text-foreground"
+                            >
+                              <span className="flex-shrink-0 font-semibold">
+                                {hoursLabel}
+                              </span>
+                              {entry.notes && (
+                                <span className="truncate max-w-full">
+                                  {entry.notes}
+                                </span>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100">
@@ -204,9 +247,12 @@ export function CalendarView({ workerId, entries, onEntriesChange, actionButtons
               open={isDialogOpen}
               onOpenChange={setIsDialogOpen}
               workerId={workerId}
+              employeeId={employeeId}
+              worker={worker}
               selectedDate={selectedDate}
               existingEntries={getEntriesForDate(selectedDate)}
               onClose={handleDialogClose}
+              canEditEntries={canEditEntries}
             />
           )}
         </>

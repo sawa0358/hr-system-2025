@@ -268,11 +268,19 @@ export function CalendarView({
                       {date.getDate()}
                     </div>
                     {hasEntries ? (
-                      <div className="space-y-1">
-                        <div className="text-xs font-semibold text-primary">{getDayTotal(date)}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {dayEntries.length}件
-                        </div>
+                      <div className="space-y-0.5">
+                        {dayEntries.map((entry) => {
+                          const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
+                          const durationText = `${duration.hours}h${duration.minutes > 0 ? `${duration.minutes}m` : ''}`
+                          return (
+                            <div key={entry.id} className="flex flex-col gap-0.5">
+                              <div className="text-xs font-semibold text-primary">{durationText}</div>
+                              <div className="text-xs text-muted-foreground truncate whitespace-nowrap overflow-hidden">
+                                {entry.notes || '作業内容なし'}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     ) : (
                       <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100">

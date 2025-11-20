@@ -438,60 +438,7 @@ export function PayrollUploadDialog({
           </div>
         </DialogHeader>
 
-        {isAllEmployeesMode && (
-          <div className="mb-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-medium text-blue-900">全員分 自動出力PDF</p>
-                <p className="text-xs text-blue-700">
-                  毎月1日に前月分として自動生成された「全員分」勤務報告書PDFを一覧・ダウンロードできます
-                </p>
-              </div>
-            </div>
-            <div className="mb-3 text-sm text-blue-900">
-              <span className="font-semibold">対象月:</span>{" "}
-              {selectedYear && selectedMonth ? `${selectedYear}${selectedMonth}` : "未選択"}
-            </div>
-            {isAllFilesLoading ? (
-              <p className="text-sm text-blue-700">読み込み中...</p>
-            ) : allFilesError ? (
-              <p className="text-sm text-red-600">{allFilesError}</p>
-            ) : allPayrollFiles.length === 0 ? (
-              <p className="text-sm text-blue-700">この月の全員分PDFはまだ生成されていません。</p>
-            ) : (
-              <div className="space-y-2">
-                {allPayrollFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center justify-between p-2 bg-white rounded border border-blue-200"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-sm text-blue-900 font-medium">
-                        {file.originalName || file.filename}
-                      </span>
-                      {file.folderName && (
-                        <span className="text-xs text-blue-700">{file.folderName}</span>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
-                      onClick={() =>
-                        handleDownloadAllPayrollFile(file.id, file.originalName || file.filename)
-                      }
-                    >
-                      <Download className="w-3 h-3 mr-1" />
-                      DL
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!isAllEmployeesMode && (
+        {/* 上部: 手動アップロード用（個別／全員分共通） */}
         <Tabs defaultValue="year" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="year">年単位フォルダ</TabsTrigger>
@@ -825,6 +772,59 @@ export function PayrollUploadDialog({
             </Tabs>
           </TabsContent>
         </Tabs>
+
+        {/* 下部: 時間管理システム全員分（自動出力PDF） */}
+        {isAllEmployeesMode && (
+          <div className="mt-8 border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-medium text-blue-900">時間管理システム全員分（自動出力PDF）</p>
+                <p className="text-xs text-blue-700">
+                  毎月3日に前月分として時間管理システムから自動保存された全員分勤務報告書PDFを一覧・ダウンロードできます
+                </p>
+              </div>
+            </div>
+            <div className="mb-3 text-sm text-blue-900">
+              <span className="font-semibold">対象月:</span>{" "}
+              {selectedYear && selectedMonth ? `${selectedYear}${selectedMonth}` : "未選択"}
+            </div>
+            {isAllFilesLoading ? (
+              <p className="text-sm text-blue-700">読み込み中...</p>
+            ) : allFilesError ? (
+              <p className="text-sm text-red-600">{allFilesError}</p>
+            ) : allPayrollFiles.length === 0 ? (
+              <p className="text-sm text-blue-700">この月の全員分PDFはまだ生成されていません。</p>
+            ) : (
+              <div className="space-y-2">
+                {allPayrollFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-2 bg-white rounded border border-blue-200"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm text-blue-900 font-medium">
+                        {file.originalName || file.filename}
+                      </span>
+                      {file.folderName && (
+                        <span className="text-xs text-blue-700">{file.folderName}</span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
+                      onClick={() =>
+                        handleDownloadAllPayrollFile(file.id, file.originalName || file.filename)
+                      }
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      DL
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t">

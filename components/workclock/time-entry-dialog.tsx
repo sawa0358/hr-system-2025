@@ -397,7 +397,7 @@ export function TimeEntryDialog({
                           onValueChange={(value: 'A' | 'B' | 'C') => setCountPattern(value)}
                           disabled={
                             !hasCountPattern ||
-                            !(billingType === 'count' || billingType === 'both')
+                          !(billingType === 'count' || billingType === 'both')
                           }
                         >
                           <SelectTrigger
@@ -444,7 +444,8 @@ export function TimeEntryDialog({
                             </SelectItem>
                           </SelectContent>
                         </Select>
-                        {billingType === 'count' && (
+                        {/* 回数パターンのみ／時給＋回数の両方を選んだときは、常に回数入力を表示 */}
+                        {(billingType === 'count' || billingType === 'both') && (
                           <div className="flex items-center gap-2">
                             <Button
                               type="button"
@@ -481,8 +482,10 @@ export function TimeEntryDialog({
                         <p className="text-xs text-muted-foreground">
                           {hasCountPattern
                             ? billingType === 'count'
-                              ? '回数パターンで報酬を計上します。'
-                              : '計上方法で「回数パターンで計上」を選んだ場合に使用されます。'
+                              ? '回数パターンのみで報酬を計上します。'
+                              : billingType === 'both'
+                                ? '時給パターンと回数パターンの両方で報酬を計上します。'
+                                : '計上方法で「回数パターンで計上」を選んだ場合に使用されます。'
                             : 'ワーカー編集で回数パターンの金額を設定してください。'}
                         </p>
                       </div>

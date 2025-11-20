@@ -304,14 +304,14 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
                           <div
                             className={cn(
                               'pointer-events-none absolute inset-x-0 top-0 h-1/2',
-                              topSelected && 'bg-primary/20'
+                              topSelected && 'bg-sky-400/40 ring-2 ring-sky-500/70'
                             )}
                           />
                           {/* 下半分（30〜60分）の反転 */}
                           <div
                             className={cn(
                               'pointer-events-none absolute inset-x-0 bottom-0 h-1/2',
-                              bottomSelected && 'bg-primary/20'
+                              bottomSelected && 'bg-sky-400/40 ring-2 ring-sky-500/70'
                             )}
                           />
                           {/* 30分位置の点線 */}
@@ -332,7 +332,7 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
                       return (
                         <div
                           key={entry.id}
-                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-primary/80 p-1.5 text-xs text-primary-foreground shadow-sm transition-all hover:bg-primary hover:shadow-md"
+                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-sky-500/85 p-1.5 text-xs text-white shadow-md ring-2 ring-sky-600/90 transition-all hover:bg-sky-500"
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,

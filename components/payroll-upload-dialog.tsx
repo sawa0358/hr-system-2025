@@ -44,6 +44,10 @@ export function PayrollUploadDialog({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
+  // 「全員分」自動PDF用
+  const [allPayrollFiles, setAllPayrollFiles] = useState<any[]>([])
+  const [isAllFilesLoading, setIsAllFilesLoading] = useState(false)
+  const [allFilesError, setAllFilesError] = useState<string | null>(null)
 
   // 個人別ファイル管理のためのキー生成
   const getStorageKey = (folderKey: string) => {
@@ -95,9 +99,9 @@ export function PayrollUploadDialog({
     }
   }, [open])
 
-  // コンポーネント初期化時にファイルデータを読み込み
+  // コンポーネント初期化時にファイルデータを読み込み（個別モードのみ使用）
   useEffect(() => {
-    if (employee || isAllEmployeesMode) {
+    if (employee && !isAllEmployeesMode) {
       const allFolders = [
         ...yearFolders.flatMap(year => [...months, ...yearEndFolders].map(month => `${year}-${month}`)),
         ...otherFolders.map(folder => `other-${folder}`)
@@ -113,6 +117,63 @@ export function PayrollUploadDialog({
 
   const months = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
   const yearEndFolders = ["年末調整", "その他"]
+
+  // 「全員分」自動PDF一覧の取得
+  useEffect(() => {
+    if (!open || !isAllEmployeesMode) {
+      return
+    }
+
+    // 数値月でない（年末調整・その他など）の場合は、自動PDFは存在しない前提でリセット
+    if (!selectedYear || !selectedMonth.endsWith("月")) {
+      setAllPayrollFiles([])
+      setAllFilesError(null)
+      return
+    }
+
+    const yearNumber = parseInt(selectedYear.replace("年", ""), 10)
+    const monthNumber = parseInt(selectedMonth.replace("月", ""), 10)
+
+    if (!yearNumber || !monthNumber) {
+      setAllPayrollFiles([])
+      setAllFilesError("対象月の解析に失敗しました")
+      return
+    }
+
+    const fetchFiles = async () => {
+      try {
+        setIsAllFilesLoading(true)
+        setAllFilesError(null)
+
+        const res = await fetch(`/api/payroll/all-pdfs?year=${yearNumber}&month=${monthNumber}`)
+        if (!res.ok) {
+          let errorMessage = "全員分PDF一覧の取得に失敗しました"
+          try {
+            const data = await res.json()
+            if (data?.error) {
+              errorMessage = data.error
+            }
+          } catch {
+            // ignore
+          }
+          setAllFilesError(errorMessage)
+          setAllPayrollFiles([])
+          return
+        }
+
+        const data = await res.json()
+        setAllPayrollFiles(Array.isArray(data.files) ? data.files : [])
+      } catch (error) {
+        console.error("全員分PDF一覧取得エラー:", error)
+        setAllFilesError("全員分PDF一覧の取得に失敗しました")
+        setAllPayrollFiles([])
+      } finally {
+        setIsAllFilesLoading(false)
+      }
+    }
+
+    fetchFiles()
+  }, [open, isAllEmployeesMode, selectedYear, selectedMonth])
 
 
   const addOtherFolder = () => {
@@ -304,6 +365,35 @@ export function PayrollUploadDialog({
     }
   }
 
+  const handleDownloadAllPayrollFile = async (fileId: string, originalName: string) => {
+    try {
+      const response = await fetch(`/api/payroll/all-pdfs/${fileId}/download`)
+      if (!response.ok) {
+        console.error("全員分PDFダウンロードエラー:", response.status, response.statusText)
+        alert("全員分PDFのダウンロードに失敗しました")
+        return
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = originalName
+      document.body.appendChild(link)
+      link.click()
+
+      setTimeout(() => {
+        if (link.parentNode === document.body) {
+          document.body.removeChild(link)
+        }
+        window.URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      console.error("全員分PDFダウンロードエラー:", error)
+      alert("全員分PDFのダウンロードに失敗しました")
+    }
+  }
+
   if (!employee) return null
 
   return (
@@ -318,6 +408,60 @@ export function PayrollUploadDialog({
           </div>
         </DialogHeader>
 
+        {isAllEmployeesMode && (
+          <div className="mb-6 border border-blue-200 rounded-lg p-4 bg-blue-50">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="font-medium text-blue-900">全員分 自動出力PDF</p>
+                <p className="text-xs text-blue-700">
+                  毎月1日に前月分として自動生成された「全員分」勤務報告書PDFを一覧・ダウンロードできます
+                </p>
+              </div>
+            </div>
+            <div className="mb-3 text-sm text-blue-900">
+              <span className="font-semibold">対象月:</span>{" "}
+              {selectedYear && selectedMonth ? `${selectedYear}${selectedMonth}` : "未選択"}
+            </div>
+            {isAllFilesLoading ? (
+              <p className="text-sm text-blue-700">読み込み中...</p>
+            ) : allFilesError ? (
+              <p className="text-sm text-red-600">{allFilesError}</p>
+            ) : allPayrollFiles.length === 0 ? (
+              <p className="text-sm text-blue-700">この月の全員分PDFはまだ生成されていません。</p>
+            ) : (
+              <div className="space-y-2">
+                {allPayrollFiles.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center justify-between p-2 bg-white rounded border border-blue-200"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm text-blue-900 font-medium">
+                        {file.originalName || file.filename}
+                      </span>
+                      {file.folderName && (
+                        <span className="text-xs text-blue-700">{file.folderName}</span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
+                      onClick={() =>
+                        handleDownloadAllPayrollFile(file.id, file.originalName || file.filename)
+                      }
+                    >
+                      <Download className="w-3 h-3 mr-1" />
+                      DL
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isAllEmployeesMode && (
         <Tabs defaultValue="year" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="year">年単位フォルダ</TabsTrigger>
@@ -651,22 +795,25 @@ export function PayrollUploadDialog({
             </Tabs>
           </TabsContent>
         </Tabs>
+        )}
 
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             閉じる
           </Button>
-          <Button 
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => {
-              // ファイル保存処理
-              console.log('保存する:', uploadedFiles)
-              alert('ファイルが保存されました')
-              onOpenChange(false)
-            }}
-          >
-            保存する
-          </Button>
+          {!isAllEmployeesMode && (
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                // ファイル保存処理
+                console.log('保存する:', uploadedFiles)
+                alert('ファイルが保存されました')
+                onOpenChange(false)
+              }}
+            >
+              保存する
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

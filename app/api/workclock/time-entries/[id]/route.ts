@@ -164,7 +164,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { date, startTime, endTime, breakMinutes, notes, wagePattern } = body
+    const { date, startTime, endTime, breakMinutes, notes } = body as any
 
     // ロック対象かどうか判定（body.date があればそれを優先、なければ既存の entry.date）
     try {
@@ -179,6 +179,32 @@ export async function PUT(
       console.warn('[WorkClock API] entryDate parse error (time-entries PUT):', e)
     }
 
+    // 時給パターン／回数パターンの更新値を解釈する
+    const rawWagePattern = (body as any).wagePattern
+    const rawCountPattern = (body as any).countPattern
+    const rawCount = (body as any).count
+
+    let wagePatternUpdate: 'A' | 'B' | 'C' | null | undefined = undefined
+    if (rawWagePattern === null) {
+      wagePatternUpdate = null
+    } else if (rawWagePattern === 'A' || rawWagePattern === 'B' || rawWagePattern === 'C') {
+      wagePatternUpdate = rawWagePattern
+    }
+
+    let countPatternUpdate: 'A' | 'B' | 'C' | null | undefined = undefined
+    if (rawCountPattern === null) {
+      countPatternUpdate = null
+    } else if (rawCountPattern === 'A' || rawCountPattern === 'B' || rawCountPattern === 'C') {
+      countPatternUpdate = rawCountPattern
+    }
+
+    let countUpdate: number | null | undefined = undefined
+    if (rawCount === null) {
+      countUpdate = null
+    } else if (typeof rawCount === 'number' && !Number.isNaN(rawCount)) {
+      countUpdate = rawCount
+    }
+
     const updated = await prisma.workClockTimeEntry.update({
       where: { id: params.id },
       data: {
@@ -186,10 +212,9 @@ export async function PUT(
         startTime,
         endTime,
         breakMinutes,
-        wagePattern:
-          wagePattern && ['A', 'B', 'C'].includes(wagePattern)
-            ? wagePattern
-            : undefined,
+        wagePattern: wagePatternUpdate,
+        countPattern: countPatternUpdate,
+        count: countUpdate,
         notes,
       },
       include: {

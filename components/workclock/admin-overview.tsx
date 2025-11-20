@@ -13,20 +13,29 @@ interface AdminOverviewProps {
 
 // PDF出力と同じロジックで、ワーカー単位の月間コストを算出
 function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
-  if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
+  if (!entries || entries.length === 0) {
+    return typeof worker.monthlyFixedAmount === 'number'
+      ? worker.monthlyFixedAmount || 0
+      : 0
+  }
 
+  // 時給パターンの計算（wagePattern が設定されているエントリのみ対象）
   const entriesByPattern = entries.reduce((acc, entry) => {
-    const pattern = entry.wagePattern || 'A'
+    const pattern = entry.wagePattern
+    if (!pattern) {
+      return acc
+    }
     if (!acc[pattern]) acc[pattern] = []
     acc[pattern].push(entry)
     return acc
   }, {} as Record<string, TimeEntry[]>)
 
-  const patternTotals: Record<'A' | 'B' | 'C', { hours: number; minutes: number; amount: number }> = {
-    A: { hours: 0, minutes: 0, amount: 0 },
-    B: { hours: 0, minutes: 0, amount: 0 },
-    C: { hours: 0, minutes: 0, amount: 0 },
-  }
+  const patternTotals: Record<'A' | 'B' | 'C', { hours: number; minutes: number; amount: number }> =
+    {
+      A: { hours: 0, minutes: 0, amount: 0 },
+      B: { hours: 0, minutes: 0, amount: 0 },
+      C: { hours: 0, minutes: 0, amount: 0 },
+    }
 
   Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
     const total = getMonthlyTotal(patternEntries)
@@ -45,12 +54,34 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
     }
   })
 
+  // 回数パターンの計算（countPatternが設定されているエントリから計算）
+  let countAmount = 0
+  entries.forEach((entry) => {
+    if (entry.countPattern) {
+      const pattern = entry.countPattern
+      const count = entry.count || 1
+      const rate =
+        pattern === 'A'
+          ? worker.countRateA || 0
+          : pattern === 'B'
+          ? worker.countRateB || 0
+          : worker.countRateC || 0
+      countAmount += count * rate
+    }
+  })
+
   const monthlyFixedAmount =
     typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
       ? worker.monthlyFixedAmount
       : 0
 
-  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + monthlyFixedAmount
+  return (
+    patternTotals.A.amount +
+    patternTotals.B.amount +
+    patternTotals.C.amount +
+    countAmount +
+    monthlyFixedAmount
+  )
 }
 
 export function AdminOverview({ workers, allEntries, selectedMonth }: AdminOverviewProps) {

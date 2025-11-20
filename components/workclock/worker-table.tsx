@@ -35,9 +35,12 @@ interface WorkerTableProps {
 function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
   if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
 
-  // 時給パターンの計算（全エントリから時間ベースで計算）
+  // 時給パターンの計算（wagePattern が設定されているエントリのみ対象）
   const entriesByPattern = entries.reduce((acc, entry) => {
-    const pattern = entry.wagePattern || 'A'
+    const pattern = entry.wagePattern
+    if (!pattern) {
+      return acc
+    }
     if (!acc[pattern]) acc[pattern] = []
     acc[pattern].push(entry)
     return acc

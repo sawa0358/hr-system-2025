@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern } = body
+    const { workerId, date, startTime, endTime, breakMinutes, notes } = body as any
 
     // 必須項目チェック
     if (!workerId || !date || !startTime || !endTime) {
@@ -344,6 +344,35 @@ export async function POST(request: NextRequest) {
       console.warn('[WorkClock API] entryDate parse error (time-entries POST):', e)
     }
 
+    // 時給パターン／回数パターンを正しく保存する
+    const rawWagePattern = (body as any).wagePattern
+    const rawCountPattern = (body as any).countPattern
+    const rawCount = (body as any).count
+
+    // wagePattern:
+    //  - フロントから何も送られてこない（undefined）の場合のみ A をデフォルトにする
+    //  - null が明示的に送られてきた場合は「時給なし」として null を保存
+    let wagePatternToSave: 'A' | 'B' | 'C' | null
+    if (rawWagePattern === undefined) {
+      wagePatternToSave = 'A'
+    } else if (rawWagePattern === null) {
+      wagePatternToSave = null
+    } else if (rawWagePattern === 'A' || rawWagePattern === 'B' || rawWagePattern === 'C') {
+      wagePatternToSave = rawWagePattern
+    } else {
+      wagePatternToSave = null
+    }
+
+    // countPattern: A/B/C 以外は無視
+    let countPatternToSave: 'A' | 'B' | 'C' | null = null
+    if (rawCountPattern === 'A' || rawCountPattern === 'B' || rawCountPattern === 'C') {
+      countPatternToSave = rawCountPattern
+    }
+
+    // count: 数値のみ採用（それ以外はnull）
+    const countToSave =
+      typeof rawCount === 'number' && !Number.isNaN(rawCount) ? rawCount : null
+
     const entry = await (prisma as any).workClockTimeEntry.create({
       data: {
         workerId,
@@ -352,8 +381,9 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        // フロントから渡された時給パターンをそのまま使用（未指定時のみデフォルトA）
-        wagePattern: (body as any).wagePattern ?? 'A',
+        wagePattern: wagePatternToSave,
+        countPattern: countPatternToSave,
+        count: countToSave,
       },
       include: {
         worker: {

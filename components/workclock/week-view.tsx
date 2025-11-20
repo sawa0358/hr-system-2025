@@ -3,7 +3,7 @@
 import { useState, MouseEvent } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { TimeEntry, Worker } from '@/lib/workclock/types'
+import { TimeEntry } from '@/lib/workclock/types'
 import { calculateDuration } from '@/lib/workclock/time-utils'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -11,17 +11,14 @@ import { TimeEntryDialog } from './time-entry-dialog'
 
 interface WeekViewProps {
   workerId: string
-  employeeId?: string | null
-  worker?: Worker | null
   entries: TimeEntry[]
   onEntriesChange: () => void
-  canEditEntries?: boolean
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
 const HOUR_HEIGHT = 60 // pixels per hour
 
-export function WeekView({ workerId, employeeId, worker, entries, onEntriesChange, canEditEntries = true }: WeekViewProps) {
+export function WeekView({ workerId, entries, onEntriesChange }: WeekViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
@@ -227,6 +224,11 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
         </div>
       </div>
 
+      {/* 勤務記録ロックに関する注意テキスト */}
+      <p className="text-xs text-blue-600">
+        毎月3日0:00以降は先月末締めの勤務記録は編集できなくなります
+      </p>
+
       <Card className="relative max-h-[calc(100vh-280px)] overflow-auto">
         <div className="flex min-w-max" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
           {/* Time labels */}
@@ -304,14 +306,14 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
                           <div
                             className={cn(
                               'pointer-events-none absolute inset-x-0 top-0 h-1/2',
-                              topSelected && 'bg-sky-400/40 ring-2 ring-sky-500/70'
+                              topSelected && 'bg-sky-400/40 ring-1 ring-sky-500/60'
                             )}
                           />
                           {/* 下半分（30〜60分）の反転 */}
                           <div
                             className={cn(
                               'pointer-events-none absolute inset-x-0 bottom-0 h-1/2',
-                              bottomSelected && 'bg-sky-400/40 ring-2 ring-sky-500/70'
+                              bottomSelected && 'bg-sky-400/40 ring-1 ring-sky-500/60'
                             )}
                           />
                           {/* 30分位置の点線 */}
@@ -332,7 +334,7 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
                       return (
                         <div
                           key={entry.id}
-                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-sky-500/85 p-1.5 text-xs text-white shadow-md ring-2 ring-sky-600/90 transition-all hover:bg-sky-500"
+                          className="absolute left-1 right-1 cursor-pointer overflow-hidden rounded-md bg-primary/90 p-1.5 text-xs text-primary-foreground shadow-sm ring-2 ring-sky-500/70 transition-all hover:bg-primary hover:shadow-lg"
                           style={{
                             top: `${top}px`,
                             height: `${height}px`,
@@ -381,9 +383,6 @@ export function WeekView({ workerId, employeeId, worker, entries, onEntriesChang
           initialHour={selectedHour}
           initialStartTime={dragStartTime}
           initialEndTime={dragEndTime}
-          employeeId={employeeId}
-          worker={worker}
-          canEditEntries={canEditEntries}
         />
       )}
     </div>

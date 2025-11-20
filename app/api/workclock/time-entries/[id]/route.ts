@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 先月以前のレコードがロック対象か判定するヘルパー（list/POST側と同一ロジック）
+function isLockedPastEntry(entryDate: Date, now: Date = new Date()): boolean {
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+
+  const firstOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const thirdOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 3)
+
+  return entryDate < firstOfCurrentMonth && today >= thirdOfCurrentMonth
+}
+
+function ensureCanEditLockedEntry(userRole: string | null | undefined) {
+  const allowedRolesForLocked = ['hr', 'admin']
+  if (!allowedRolesForLocked.includes(userRole || '')) {
+    return NextResponse.json(
+      {
+        error:
+          '先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。',
+      },
+      { status: 403 }
+    )
+  }
+  return null
+}
+
 // GET: 特定の時間記録を取得
 export async function GET(
   request: NextRequest,
@@ -141,6 +166,19 @@ export async function PUT(
     const body = await request.json()
     const { date, startTime, endTime, breakMinutes, notes, wagePattern } = body
 
+    // ロック対象かどうか判定（body.date があればそれを優先、なければ既存の entry.date）
+    try {
+      const targetDate = date ? new Date(date) : entry.date
+      if (isLockedPastEntry(targetDate)) {
+        const lockError = ensureCanEditLockedEntry(user.role)
+        if (lockError) {
+          return lockError
+        }
+      }
+    } catch (e) {
+      console.warn('[WorkClock API] entryDate parse error (time-entries PUT):', e)
+    }
+
     const updated = await prisma.workClockTimeEntry.update({
       where: { id: params.id },
       data: {
@@ -217,6 +255,18 @@ export async function DELETE(
 
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
+    // 先月以前の勤務記録の削除は、当月3日以降は総務・管理者のみ許可
+    try {
+      if (isLockedPastEntry(entry.date)) {
+        const lockError = ensureCanEditLockedEntry(user.role)
+        if (lockError) {
+          return lockError
+        }
+      }
+    } catch (e) {
+      console.warn('[WorkClock API] entryDate parse error (time-entries DELETE):', e)
     }
 
     await prisma.workClockTimeEntry.delete({

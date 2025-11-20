@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 先月以前のレコードがロック対象か判定するヘルパー
+// - 今日が当月3日以降 かつ 対象日が「当月1日より前」の場合 => true
+function isLockedPastEntry(entryDate: Date, now: Date = new Date()): boolean {
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+
+  const firstOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  const thirdOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 3)
+
+  return entryDate < firstOfCurrentMonth && today >= thirdOfCurrentMonth
+}
+
+// ロック対象レコードに対して、HR/管理者以外をブロックする
+function ensureCanEditLockedEntry(userRole: string | null | undefined) {
+  const allowedRolesForLocked = ['hr', 'admin']
+  if (!allowedRolesForLocked.includes(userRole || '')) {
+    return NextResponse.json(
+      {
+        error:
+          '先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。',
+      },
+      { status: 403 }
+    )
+  }
+  return null
+}
+
 // GET: 時間記録一覧を取得
 export async function GET(request: NextRequest) {
   try {
@@ -243,17 +270,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const {
-      workerId,
-      date,
-      startTime,
-      endTime,
-      breakMinutes,
-      notes,
-      wagePattern,
-      countPattern,
-      count,
-    } = body
+    const { workerId, date, startTime, endTime, breakMinutes, notes, wagePattern } = body
 
     // 必須項目チェック
     if (!workerId || !date || !startTime || !endTime) {
@@ -314,6 +331,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'リーダーは勤務記録を追加できません' }, { status: 403 })
     }
 
+    // 先月以前の勤務記録の新規追加は、当月3日以降は総務・管理者のみ許可
+    try {
+      const entryDate = new Date(date)
+      if (isLockedPastEntry(entryDate)) {
+        const lockError = ensureCanEditLockedEntry(user.role)
+        if (lockError) {
+          return lockError
+        }
+      }
+    } catch (e) {
+      console.warn('[WorkClock API] entryDate parse error (time-entries POST):', e)
+    }
+
     const entry = await (prisma as any).workClockTimeEntry.create({
       data: {
         workerId,
@@ -322,17 +352,8 @@ export async function POST(request: NextRequest) {
         endTime,
         breakMinutes: breakMinutes || 0,
         notes,
-        // 時給パターン（'A' | 'B' | 'C' のいずれかの場合のみ保存。それ以外/null/undefinedはそのままnull）
-        wagePattern:
-          wagePattern && ['A', 'B', 'C'].includes(wagePattern)
-            ? wagePattern
-            : null,
-        // 回数パターン（指定された場合のみ保存）
-        countPattern:
-          countPattern && ['A', 'B', 'C'].includes(countPattern)
-            ? countPattern
-            : null,
-        count: typeof count === 'number' ? count : count ? Number(count) : null,
+        // フロントから渡された時給パターンをそのまま使用（未指定時のみデフォルトA）
+        wagePattern: (body as any).wagePattern ?? 'A',
       },
       include: {
         worker: {

@@ -579,7 +579,7 @@ interface WorkerWithEntries {
   entries: TimeEntry[]
 }
 
-function generateCombinedPDFContent(
+export function generateCombinedPDFContent(
   items: WorkerWithEntries[],
   month: Date
 ): string {

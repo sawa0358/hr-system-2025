@@ -257,7 +257,15 @@ export function TimeEntryDialog({
                 </div>
               </div>
               <div className="grid gap-2">
-                {existingEntries.map((entry) => {
+                {existingEntries
+                  .slice()
+                  .sort((a, b) => {
+                    // 登録が古い順（createdAt昇順）に並べる
+                    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+                    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+                    return aTime - bTime
+                  })
+                  .map((entry) => {
                   const entryDuration = calculateDuration(
                     entry.startTime,
                     entry.endTime,

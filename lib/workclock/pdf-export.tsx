@@ -444,7 +444,14 @@ export function generatePDFContent(
       const formattedDate = formatDateLabel(date)
       const dayTotal = getMonthlyTotal(dayEntries)
 
-      dayEntries.forEach((entry, index) => {
+      // 同じ日付内では登録が古い順（createdAt昇順）に並べる
+      const sortedDayEntries = [...dayEntries].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return aTime - bTime
+      })
+
+      sortedDayEntries.forEach((entry, index) => {
         const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
         const pattern = (entry as any).wagePattern as 'A' | 'B' | 'C' | null
 

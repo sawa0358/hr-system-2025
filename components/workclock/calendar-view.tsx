@@ -269,7 +269,15 @@ export function CalendarView({
                     </div>
                     {hasEntries ? (
                       <div className="space-y-0.5">
-                        {dayEntries.map((entry) => {
+                        {dayEntries
+                          .slice()
+                          .sort((a, b) => {
+                            // 登録が古い順（createdAt昇順）に並べる
+                            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+                            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+                            return aTime - bTime
+                          })
+                          .map((entry) => {
                           const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
                           const durationText = `${duration.hours}h${duration.minutes > 0 ? `${duration.minutes}m` : ''}`
                           return (

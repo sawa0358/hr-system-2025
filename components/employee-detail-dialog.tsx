@@ -625,6 +625,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       }
       setFolders(["契約書類", "履歴書等", "その他"])
       setCurrentFolder("契約書類")
+      setFiles([]) // 新規登録時はファイル選択状態をリセット
+      setUploadedFiles([]) // 新規登録時はアップロード済みファイルをリセット
     }
   }, [employee, open])
 

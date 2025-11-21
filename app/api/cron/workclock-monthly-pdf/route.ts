@@ -5,10 +5,11 @@ import puppeteer from 'puppeteer'
 
 /**
  * Cronエンドポイント: 月次自動PDF生成と保存
- * 月替りの翌日0:00に実行して先月の月表示画面をPDFでスクショして、
+ * 月替りの「翌月3日0:00」に実行して先月の月表示画面をPDFでスクショして、
  * 各ワーカー（業務委託or外注先）の「給与or請求管理」の本人のカード内「対象月フォルダ」にも自動保存
  * 
- * 実行タイミング: 毎月1日0:00（UTC）
+ * 実行タイミング想定: 毎月3日0:00（UTC）
+ *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3日0:00 に設定してください
  * 保護: Authorization ヘッダーまたは query parameter でトークン確認
  */
 export async function GET(request: NextRequest) {
@@ -24,6 +25,18 @@ export async function GET(request: NextRequest) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    // 毎月3日のみ実行するためのチェック
+    // Heroku Schedulerは「毎月」の指定ができないため、毎日実行させてここで日付をチェックする
+    if (today.getDate() !== 3) {
+      console.log(`[WorkClock月次PDF] 今日は3日ではないため処理をスキップします（本日は${today.getDate()}日）`)
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: '今日は3日ではないため処理をスキップしました',
+        today: today.toISOString()
+      })
+    }
     
     // 先月を計算
     const lastMonth = new Date(today)

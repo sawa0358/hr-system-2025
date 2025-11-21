@@ -12,7 +12,8 @@ import puppeteer from 'puppeteer'
  *           フォルダ名: `全員分/{YYYY}年{M}月`
  *           所有者社員: 環境変数 PAYROLL_ALL_EMPLOYEE_ID で指定した employee.id
  *
- * 実行タイミングの想定: 毎月1日0:10（UTC）など
+ * 実行タイミングの想定: 毎月3日0:10（UTC）
+ *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3日0:10 に設定してください
  * 保護: Authorization ヘッダー or token クエリパラメータでCRON_SECRET_TOKENを検証
  */
 export async function GET(request: NextRequest) {
@@ -28,6 +29,18 @@ export async function GET(request: NextRequest) {
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
+
+    // 毎月3日のみ実行するためのチェック
+    // Heroku Schedulerは「毎月」の指定ができないため、毎日実行させてここで日付をチェックする
+    if (today.getDate() !== 3) {
+      console.log(`[WorkClock月次PDF(全員分)] 今日は3日ではないため処理をスキップします（本日は${today.getDate()}日）`)
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        message: '今日は3日ではないため処理をスキップしました',
+        today: today.toISOString()
+      })
+    }
 
     // 先月を計算
     const lastMonth = new Date(today)

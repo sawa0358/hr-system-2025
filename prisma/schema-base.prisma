@@ -98,6 +98,8 @@ model Employee {
   privacyMobilePhone    Boolean           @default(true)
   privacyBirthDate      Boolean           @default(false)
   orgChartLabel         String?
+  /// 組織図の同階層内の並び順（左から0,1,2,...）
+  orgChartOrder         Int?
   description           String?
   
   // 有給管理用フィールド

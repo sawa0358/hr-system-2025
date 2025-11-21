@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/table'
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
-import { Plus, Pencil, Trash2, Tags, X, Menu } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -93,6 +93,8 @@ export default function SettingsPage() {
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [viewingWorker, setViewingWorker] = useState<Worker | null>(null)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
   const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
@@ -495,6 +497,11 @@ export default function SettingsPage() {
     setIsDialogOpen(true)
   }
 
+  const handleView = (worker: Worker) => {
+    setViewingWorker(worker)
+    setIsViewDialogOpen(true)
+  }
+
   const handleDelete = async (workerId: string) => {
     if (confirm('このワーカーを削除してもよろしいですか？')) {
       try {
@@ -721,19 +728,21 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
-                setIsTeamDialogOpen(open)
-                if (!open) {
-                  // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                  setTeams(getTeams())
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Tags className="mr-2 h-4 w-4" />
-                    チーム管理
-                  </Button>
-                </DialogTrigger>
+              {/* チーム管理ボタンは総務権限・管理者権限のみ表示 */}
+              {canEditCompensation && (
+                <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                  setIsTeamDialogOpen(open)
+                  if (!open) {
+                    // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
+                    setTeams(getTeams())
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Tags className="mr-2 h-4 w-4" />
+                      チーム管理
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>チーム管理</DialogTitle>
@@ -771,6 +780,7 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              )}
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open)
                 if (open) {
@@ -1284,6 +1294,215 @@ export default function SettingsPage() {
                   </form>
                 </DialogContent>
               </Dialog>
+
+              {/* 閲覧ダイアログ */}
+              {viewingWorker && (
+                <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+                  <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>ワーカー情報閲覧</DialogTitle>
+                      <DialogDescription>
+                        ワーカーの情報を閲覧します（編集不可）
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>氏名</Label>
+                          <Input
+                            value={viewingWorker.name || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>パスワード</Label>
+                          <Input
+                            type="password"
+                            value={viewingWorker.password || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>会社名</Label>
+                          <Input
+                            value={viewingWorker.companyName || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>適格請求書発行事業者番号</Label>
+                          <Input
+                            value={viewingWorker.qualifiedInvoiceNumber || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>Chatwork ID</Label>
+                          <Input
+                            value={viewingWorker.chatworkId || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>メールアドレス</Label>
+                          <Input
+                            value={viewingWorker.email || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>電話番号</Label>
+                          <Input
+                            value={viewingWorker.phone || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>住所</Label>
+                          <Input
+                            value={viewingWorker.address || ''}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>権限</Label>
+                          <Input
+                            value={viewingWorker.role === 'admin' ? 'リーダー' : '業務委託・外注先'}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>時給</Label>
+                          <Input
+                            value={`¥${(viewingWorker.hourlyRate || 0).toLocaleString()}`}
+                            readOnly
+                            className="bg-background"
+                          />
+                        </div>
+                      </div>
+                      {(viewingWorker.hourlyRateB || viewingWorker.hourlyRateC) && (
+                        <div className="grid gap-2">
+                          <Label>時給パターン</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {viewingWorker.hourlyRateB && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  {viewingWorker.wagePatternLabelB || '時給Bパターン'}
+                                </Label>
+                                <Input
+                                  value={`¥${parseInt(String(viewingWorker.hourlyRateB || 0)).toLocaleString()}／時`}
+                                  readOnly
+                                  className="bg-background"
+                                />
+                              </div>
+                            )}
+                            {viewingWorker.hourlyRateC && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  {viewingWorker.wagePatternLabelC || '時給Cパターン'}
+                                </Label>
+                                <Input
+                                  value={`¥${parseInt(String(viewingWorker.hourlyRateC || 0)).toLocaleString()}／時`}
+                                  readOnly
+                                  className="bg-background"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {(viewingWorker.countRateA || viewingWorker.countRateB || viewingWorker.countRateC) && (
+                        <div className="grid gap-2">
+                          <Label>回数パターン</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {viewingWorker.countRateA && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  {viewingWorker.countPatternLabelA || '回数Aパターン'}
+                                </Label>
+                                <Input
+                                  value={`¥${parseInt(String(viewingWorker.countRateA || 0)).toLocaleString()}／回`}
+                                  readOnly
+                                  className="bg-background"
+                                />
+                              </div>
+                            )}
+                            {viewingWorker.countRateB && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  {viewingWorker.countPatternLabelB || '回数Bパターン'}
+                                </Label>
+                                <Input
+                                  value={`¥${parseInt(String(viewingWorker.countRateB || 0)).toLocaleString()}／回`}
+                                  readOnly
+                                  className="bg-background"
+                                />
+                              </div>
+                            )}
+                            {viewingWorker.countRateC && (
+                              <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">
+                                  {viewingWorker.countPatternLabelC || '回数Cパターン'}
+                                </Label>
+                                <Input
+                                  value={`¥${parseInt(String(viewingWorker.countRateC || 0)).toLocaleString()}／回`}
+                                  readOnly
+                                  className="bg-background"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      <div className="grid gap-2">
+                        <Label>チーム</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {viewingWorker.teams && viewingWorker.teams.length > 0 ? (
+                            viewingWorker.teams.map((team) => (
+                              <Badge key={team} variant="outline">
+                                {team}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">未設定</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>備考欄</Label>
+                        <textarea
+                          value={viewingWorker.notes || ''}
+                          readOnly
+                          className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          style={{ resize: 'none' }}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={() => setIsViewDialogOpen(false)}>
+                        閉じる
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
           </div>
 
@@ -1406,17 +1625,28 @@ export default function SettingsPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleEdit(worker)}
+                            onClick={() => handleView(worker)}
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDelete(worker.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {canEditCompensation && (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleEdit(worker)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDelete(worker.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

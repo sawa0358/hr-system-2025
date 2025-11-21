@@ -1,6 +1,7 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { Button } from '@/components/ui/button'
@@ -39,7 +40,7 @@ import {
 } from '@/components/ui/table'
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
-import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -92,8 +93,6 @@ export default function SettingsPage() {
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
-  const [viewingWorker, setViewingWorker] = useState<Worker | null>(null)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
   const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
@@ -424,76 +423,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleView = async (worker: Worker) => {
-    setViewingWorker(worker)
-    // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
-    setTeams(getTeams())
-    // 社員のパスワードを取得（デフォルト値として）
-    let employeePassword = worker.password || ''
-    if (worker.employeeId) {
-      try {
-        const res = await fetch(`/api/employees/${worker.employeeId}`)
-        if (res.ok) {
-          const empData = await res.json()
-          employeePassword = empData.password || worker.password || ''
-        }
-      } catch (e) {
-        console.error('社員パスワードの取得に失敗', e)
-      }
-    }
-    // DB優先でパターン名を取得（localStorage はフォールバック）
-    const wageScopeKey = worker.employeeId || worker.id
-    const baseLabels = getWagePatternLabels(wageScopeKey)
-    const dbLabels = {
-      A: worker.wagePatternLabelA || baseLabels.A,
-      B: worker.wagePatternLabelB || baseLabels.B,
-      C: worker.wagePatternLabelC || baseLabels.C,
-    }
-    setWageLabels(dbLabels)
-    
-    // 回数パターンのラベルも読み込み
-    const dbCountLabels = {
-      A: worker.countPatternLabelA || '回数Aパターン',
-      B: worker.countPatternLabelB || '回数Bパターン',
-      C: worker.countPatternLabelC || '回数Cパターン',
-    }
-    setCountLabels(dbCountLabels)
-
-    const meta = getWorkerBillingMeta(worker.employeeId)
-    const monthlyFixed =
-      worker.monthlyFixedAmount ??
-      (typeof meta.monthlyFixedAmount === 'number' ? meta.monthlyFixedAmount : undefined)
-
-    setFormData({
-      name: worker.name,
-      password: employeePassword, // ユーザー詳細のパスワードをデフォルトに
-      companyName: worker.companyName || '',
-      qualifiedInvoiceNumber: worker.qualifiedInvoiceNumber || '',
-      chatworkId: worker.chatworkId || '',
-      email: worker.email,
-      phone: worker.phone || '',
-      address: worker.address || '',
-      hourlyRate: String(worker.hourlyRate),
-      hourlyRatePatternB:
-        typeof worker.hourlyRateB === 'number' ? String(worker.hourlyRateB) : '',
-      hourlyRatePatternC:
-        typeof worker.hourlyRateC === 'number' ? String(worker.hourlyRateC) : '',
-      countRateA:
-        typeof worker.countRateA === 'number' ? String(worker.countRateA) : '',
-      countRateB:
-        typeof worker.countRateB === 'number' ? String(worker.countRateB) : '',
-      countRateC:
-        typeof worker.countRateC === 'number' ? String(worker.countRateC) : '',
-      monthlyFixedAmount:
-        typeof monthlyFixed === 'number' ? String(monthlyFixed) : '',
-      teams: worker.teams || [],
-      role: worker.role,
-      notes: worker.notes || '',
-      employeeId: worker.employeeId || '',
-    })
-    setIsViewDialogOpen(true)
-  }
-
   const handleEdit = async (worker: Worker) => {
     setEditingWorker(worker)
     // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
@@ -672,21 +601,43 @@ export default function SettingsPage() {
     }
   })
 
+  // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
+  const ownWorker = useMemo(
+    () => workers.find((w) => w.employeeId === currentUser?.id) || null,
+    [workers, currentUser?.id],
+  )
+  const isLeader = ownWorker?.role === 'admin'
+
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
       {isMobile ? (
         <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-              style={{ backgroundColor: '#f5f4cd' }}
-              aria-label="時間管理メニューを開く"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
+          <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                style={{ backgroundColor: '#f5f4cd' }}
+                aria-label="時間管理メニューを開く"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            {isLeader && ownWorker && (
+              <Link href={`/workclock/worker/${ownWorker.id}`}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                  style={{ backgroundColor: '#f5f4cd' }}
+                  aria-label="自分の勤務画面へ移動"
+                >
+                  私
+                </Button>
+              </Link>
+            )}
+          </div>
           <SheetContent 
             side="top" 
             className="p-0 w-full h-auto max-h-[80vh]"
@@ -707,16 +658,31 @@ export default function SettingsPage() {
         </Sheet>
       ) : (
         <>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-            style={{ backgroundColor: '#f5f4cd' }}
-            aria-label="時間管理メニューを開く"
-            onClick={() => setIsMenuOpen((open) => !open)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+          <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+              style={{ backgroundColor: '#f5f4cd' }}
+              aria-label="時間管理メニューを開く"
+              onClick={() => setIsMenuOpen((open) => !open)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            {isLeader && ownWorker && (
+              <Link href={`/workclock/worker/${ownWorker.id}`}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                  style={{ backgroundColor: '#f5f4cd' }}
+                  aria-label="自分の勤務画面へ移動"
+                >
+                  私
+                </Button>
+              </Link>
+            )}
+          </div>
           <div
             className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
               isMenuOpen ? 'w-72' : 'w-0'
@@ -755,21 +721,19 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {/* チーム管理ボタンは総務権限・管理者権限のみ表示 */}
-              {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
-                <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
-                  setIsTeamDialogOpen(open)
-                  if (!open) {
-                    // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                    setTeams(getTeams())
-                  }
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Tags className="mr-2 h-4 w-4" />
-                      チーム管理
-                    </Button>
-                  </DialogTrigger>
+              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                setIsTeamDialogOpen(open)
+                if (!open) {
+                  // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
+                  setTeams(getTeams())
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Tags className="mr-2 h-4 w-4" />
+                    チーム管理
+                  </Button>
+                </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>チーム管理</DialogTitle>
@@ -807,7 +771,6 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
-              )}
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open)
                 if (open) {
@@ -1321,297 +1284,6 @@ export default function SettingsPage() {
                   </form>
                 </DialogContent>
               </Dialog>
-
-              {/* 閲覧専用ダイアログ */}
-              <Dialog open={isViewDialogOpen} onOpenChange={(open) => {
-                setIsViewDialogOpen(open)
-                if (!open) {
-                  resetForm()
-                  setViewingWorker(null)
-                }
-              }}>
-                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>ワーカー情報閲覧</DialogTitle>
-                    <DialogDescription>
-                      ワーカーの情報を閲覧します（編集不可）
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-name">氏名</Label>
-                        <Input
-                          id="view-name"
-                          value={formData.name}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-password">システムパスワード</Label>
-                        <Input
-                          id="view-password"
-                          type="password"
-                          value={formData.password}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-companyName">屋号・会社名</Label>
-                        <Input
-                          id="view-companyName"
-                          value={formData.companyName}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-qualifiedInvoiceNumber">適格証明番号</Label>
-                        <Input
-                          id="view-qualifiedInvoiceNumber"
-                          value={formData.qualifiedInvoiceNumber}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-email">メールアドレス</Label>
-                        <Input
-                          id="view-email"
-                          type="email"
-                          value={formData.email}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="view-phone">電話番号</Label>
-                        <Input
-                          id="view-phone"
-                          type="tel"
-                          value={formData.phone}
-                          readOnly
-                          className="bg-background"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="view-chatworkId">チャットワークID</Label>
-                      <Input
-                        id="view-chatworkId"
-                        value={formData.chatworkId}
-                        readOnly
-                        className="bg-background"
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <Label htmlFor="view-address">住所</Label>
-                      <Input
-                        id="view-address"
-                        value={formData.address}
-                        readOnly
-                        className="bg-background"
-                      />
-                    </div>
-
-                    {/* 報酬設定セクション（閲覧専用） */}
-                    {viewingWorker && (
-                      <Card className="border border-dashed bg-muted/40">
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-base">報酬設定</CardTitle>
-                          <CardDescription className="text-xs">
-                            時給パターン（A/B/C）、回数パターン、月額固定の情報
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {/* 時給パターンの表示 */}
-                          <div className="space-y-2">
-                            <Label className="text-xs font-semibold text-muted-foreground">
-                              時給パターン
-                            </Label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <Input
-                                  type="text"
-                                  value={wageLabels.A}
-                                  readOnly
-                                  className="h-8 text-xs bg-background"
-                                />
-                                <Input
-                                  value={`¥${parseInt(formData.hourlyRate || '0').toLocaleString()}`}
-                                  readOnly
-                                  className="bg-background"
-                                />
-                              </div>
-                              {(formData.hourlyRatePatternB || formData.hourlyRatePatternB === '0') && (
-                                <div className="space-y-1">
-                                  <Input
-                                    type="text"
-                                    value={wageLabels.B}
-                                    readOnly
-                                    className="h-8 text-xs bg-background"
-                                  />
-                                  <Input
-                                    value={`¥${parseInt(formData.hourlyRatePatternB || '0').toLocaleString()}`}
-                                    readOnly
-                                    className="bg-background"
-                                  />
-                                </div>
-                              )}
-                              {(formData.hourlyRatePatternC || formData.hourlyRatePatternC === '0') && (
-                                <div className="space-y-1">
-                                  <Input
-                                    type="text"
-                                    value={wageLabels.C}
-                                    readOnly
-                                    className="h-8 text-xs bg-background"
-                                  />
-                                  <Input
-                                    value={`¥${parseInt(formData.hourlyRatePatternC || '0').toLocaleString()}`}
-                                    readOnly
-                                    className="bg-background"
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* 回数パターンの表示 */}
-                          {(formData.countRateA || formData.countRateB || formData.countRateC) && (
-                            <div className="border-t pt-4 space-y-3">
-                              <Label className="text-xs font-semibold text-muted-foreground">
-                                回数パターン（〇〇円／回orセット）
-                              </Label>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                {(formData.countRateA || formData.countRateA === '0') && (
-                                  <div className="space-y-1">
-                                    <Input
-                                      type="text"
-                                      value={countLabels.A}
-                                      readOnly
-                                      className="h-8 text-xs bg-background"
-                                    />
-                                    <Input
-                                      type="text"
-                                      value={formData.countRateA ? `¥${parseInt(formData.countRateA).toLocaleString()}` : ''}
-                                      readOnly
-                                      className="bg-background"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground">円／回</p>
-                                  </div>
-                                )}
-                                {(formData.countRateB || formData.countRateB === '0') && (
-                                  <div className="space-y-1">
-                                    <Input
-                                      type="text"
-                                      value={countLabels.B}
-                                      readOnly
-                                      className="h-8 text-xs bg-background"
-                                    />
-                                    <Input
-                                      type="text"
-                                      value={formData.countRateB ? `¥${parseInt(formData.countRateB).toLocaleString()}` : ''}
-                                      readOnly
-                                      className="bg-background"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground">円／回</p>
-                                  </div>
-                                )}
-                                {(formData.countRateC || formData.countRateC === '0') && (
-                                  <div className="space-y-1">
-                                    <Input
-                                      type="text"
-                                      value={countLabels.C}
-                                      readOnly
-                                      className="h-8 text-xs bg-background"
-                                    />
-                                    <Input
-                                      type="text"
-                                      value={formData.countRateC ? `¥${parseInt(formData.countRateC).toLocaleString()}` : ''}
-                                      readOnly
-                                      className="bg-background"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground">円／回</p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 月額固定の表示 */}
-                          {(formData.monthlyFixedAmount || formData.monthlyFixedAmount === '0') && (
-                            <div className="space-y-2">
-                              <Label>月額固定金額</Label>
-                              <Input
-                                value={`¥${parseInt(formData.monthlyFixedAmount || '0').toLocaleString()}`}
-                                readOnly
-                                className="bg-background"
-                              />
-                            </div>
-                          )}
-
-                          {/* 権限の表示 */}
-                          <div className="space-y-2">
-                            <Label>権限</Label>
-                            <Input
-                              value={formData.role === 'admin' ? 'リーダー' : '業務委託・外注先'}
-                              readOnly
-                              className="bg-background"
-                            />
-                          </div>
-
-                          {/* チームの表示 */}
-                          {formData.teams && formData.teams.length > 0 && (
-                            <div className="space-y-2">
-                              <Label>チーム</Label>
-                              <div className="flex flex-wrap gap-2">
-                                {formData.teams.map((team) => (
-                                  <Badge key={team} variant="secondary">
-                                    {team}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 備考欄の表示 */}
-                          {formData.notes && (
-                            <div className="space-y-2">
-                              <Label>備考欄</Label>
-                              <div className="p-3 border rounded-md bg-background">
-                                {formData.notes}
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsViewDialogOpen(false)
-                        resetForm()
-                        setViewingWorker(null)
-                      }}
-                    >
-                      閉じる
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
             </div>
           </div>
 
@@ -1731,36 +1403,20 @@ export default function SettingsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          {/* 閲覧アイコン（全員表示） */}
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleView(worker)}
-                            title="閲覧"
+                            onClick={() => handleEdit(worker)}
                           >
-                            <Eye className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
-                          {/* 編集・削除アイコンは総務権限・管理者権限のみ表示 */}
-                          {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
-                            <>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleEdit(worker)}
-                                title="編集"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => handleDelete(worker.id)}
-                                title="削除"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(worker.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

@@ -95,23 +95,15 @@ export function SidebarNav({
   const allowedAdminRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
   const isHrAdmin = hrRole ? allowedAdminRoles.includes(hrRole) : false
 
-  // WorkClock上のroleか、HRシステム上のroleのどちらかが管理者なら、管理メニューを表示
+  // WorkClock上のroleか、HRシステム上のroleのどちらかが管理者なら、管理メニュー（ダッシュボードや絞り込みUI）を表示
   const isAdminView = currentRole === 'admin' || isHrAdmin
+  // 「設定」メニューはHRシステム上の管理ロールのみ表示（WorkClockリーダー単体では非表示）
+  const canViewSettings = isHrAdmin
 
   const teams = useMemo(() => {
     const uniqueTeams = Array.from(new Set(workers.flatMap(w => w.teams || [])))
     return uniqueTeams as string[]
   }, [workers])
-
-  // 現在のユーザーのWorkClockWorkerレコードを取得（リーダー判定用）
-  const currentWorker = useMemo(() => {
-    if (!currentUser?.id) return null
-    return workers.find(w => w.employeeId === currentUser.id)
-  }, [workers, currentUser?.id])
-
-  // リーダーの場合は同じチームのメンバーだけを表示
-  const isCurrentUserLeader = currentWorker?.role === 'admin'
-  const currentUserTeams = currentWorker?.teams || []
 
   // WorkClockWorkerとして登録されているワーカーと、登録されていない業務委託・外注先の社員を統合
   const allAvailableWorkers = useMemo(() => {
@@ -119,7 +111,7 @@ export function SidebarNav({
     const registeredEmployeeIds = new Set(workers.map(w => w.employeeId || w.id))
     
     // 登録されていない業務委託・外注先の社員をWorkClockWorker形式に変換
-    let unregisteredEmployees = allEmployees
+    const unregisteredEmployees = allEmployees
       .filter(emp => !registeredEmployeeIds.has(emp.id))
       .map(emp => ({
         id: emp.id, // 一時的なIDとしてemployee.idを使用
@@ -131,22 +123,9 @@ export function SidebarNav({
         isUnregistered: true, // 未登録フラグ
       }))
     
-    // リーダーの場合は、同じチームに所属するワーカーだけを表示
-    if (isCurrentUserLeader && currentUserTeams.length > 0) {
-      // 既存のワーカーから同じチームのメンバーだけをフィルタリング
-      const filteredWorkers = workers.filter(w => {
-        if (w.id === currentWorker?.id) return true // 自分自身は常に表示
-        const wTeams = w.teams || []
-        return wTeams.some((t) => currentUserTeams.includes(t))
-      })
-      
-      // 未登録の社員は表示しない（リーダーは登録済みのメンバーだけ管理）
-      return filteredWorkers
-    }
-    
     // 既存のワーカーと未登録の社員を統合
     return [...workers, ...unregisteredEmployees]
-  }, [workers, allEmployees, isCurrentUserLeader, currentUserTeams, currentWorker?.id])
+  }, [workers, allEmployees])
 
   const filteredWorkers = useMemo(() => {
     let filtered = allAvailableWorkers
@@ -293,7 +272,7 @@ export function SidebarNav({
             </Link>
           )}
 
-          {isAdminView && (
+          {canViewSettings && (
             <Link href="/workclock/settings">
               <Button
                 variant={pathname === '/workclock/settings' ? 'secondary' : 'ghost'}

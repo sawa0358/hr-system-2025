@@ -1,6 +1,7 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Worker, TimeEntry } from '@/lib/workclock/types'
 import {
@@ -45,6 +46,13 @@ export default function WorkerPage() {
 
   // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
   const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
+
+  // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
+  const ownWorker = useMemo(
+    () => workers.find((w) => w.employeeId === currentUser?.id) || null,
+    [workers, currentUser?.id],
+  )
+  const isLeader = ownWorker?.role === 'admin'
 
   useEffect(() => {
     // currentUserがまだ読み込まれていない場合は何もしない（初期読み込み待ち）
@@ -123,17 +131,32 @@ export default function WorkerPage() {
       {!isWorkerOnly && (
         isMobile ? (
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-              style={{ backgroundColor: '#f5f4cd' }}
-              aria-label="時間管理メニューを開く"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            </SheetTrigger>
+            <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                  style={{ backgroundColor: '#f5f4cd' }}
+                  aria-label="時間管理メニューを開く"
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              {isLeader && ownWorker && (
+                <Link href={`/workclock/worker/${ownWorker.id}`}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                    style={{ backgroundColor: '#f5f4cd' }}
+                    aria-label="自分の勤務画面へ移動"
+                  >
+                    私
+                  </Button>
+                </Link>
+              )}
+            </div>
             <SheetContent 
               side="top" 
               className="p-0 w-full h-auto max-h-[80vh]"
@@ -154,16 +177,31 @@ export default function WorkerPage() {
           </Sheet>
         ) : (
           <>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-              style={{ backgroundColor: '#f5f4cd' }}
-              aria-label="時間管理メニューを開く"
-              onClick={() => setIsMenuOpen((open) => !open)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+            <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                style={{ backgroundColor: '#f5f4cd' }}
+                aria-label="時間管理メニューを開く"
+                onClick={() => setIsMenuOpen((open) => !open)}
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              {isLeader && ownWorker && (
+                <Link href={`/workclock/worker/${ownWorker.id}`}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                    style={{ backgroundColor: '#f5f4cd' }}
+                    aria-label="自分の勤務画面へ移動"
+                  >
+                    私
+                  </Button>
+                </Link>
+              )}
+            </div>
             <div
               className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
                 isMenuOpen ? 'w-72' : 'w-0'

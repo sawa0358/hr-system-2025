@@ -1,6 +1,7 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { Worker, TimeEntry } from '@/lib/workclock/types'
 import { getWorkers, getTimeEntries } from '@/lib/workclock/api-storage'
 import { useAuth } from '@/lib/auth-context'
@@ -26,6 +27,13 @@ export default function AdminPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
+
+  // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
+  const ownWorker = useMemo(
+    () => workers.find((w) => w.employeeId === currentUser?.id) || null,
+    [workers, currentUser?.id],
+  )
+  const isLeader = ownWorker?.role === 'admin'
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -131,17 +139,32 @@ export default function AdminPage() {
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
       {isMobile ? (
         <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-          <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-            style={{ backgroundColor: '#f5f4cd' }}
-            aria-label="時間管理メニューを開く"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          </SheetTrigger>
+          <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                style={{ backgroundColor: '#f5f4cd' }}
+                aria-label="時間管理メニューを開く"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            {isLeader && ownWorker && (
+              <Link href={`/workclock/worker/${ownWorker.id}`}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                  style={{ backgroundColor: '#f5f4cd' }}
+                  aria-label="自分の勤務画面へ移動"
+                >
+                  私
+                </Button>
+              </Link>
+            )}
+          </div>
           <SheetContent 
             side="top" 
             className="p-0 w-full h-auto max-h-[80vh]"
@@ -162,16 +185,31 @@ export default function AdminPage() {
         </Sheet>
       ) : (
         <>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="fixed left-1/2 -translate-x-1/2 top-4 z-50 h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
-          style={{ backgroundColor: '#f5f4cd' }}
-          aria-label="時間管理メニューを開く"
-          onClick={() => setIsMenuOpen((open) => !open)}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+        <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50 flex gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+            style={{ backgroundColor: '#f5f4cd' }}
+            aria-label="時間管理メニューを開く"
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          {isLeader && ownWorker && (
+            <Link href={`/workclock/worker/${ownWorker.id}`}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                style={{ backgroundColor: '#f5f4cd' }}
+                aria-label="自分の勤務画面へ移動"
+              >
+                私
+              </Button>
+            </Link>
+          )}
+        </div>
           <div
             className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
               isMenuOpen ? 'w-72' : 'w-0'

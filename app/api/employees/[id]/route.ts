@@ -117,11 +117,12 @@ export async function PUT(
     }
     
     // メールアドレスの重複チェック（自分以外）
-    // 空文字列やnullの場合はチェックをスキップ
+    // 空文字列やnullの場合はチェックをスキップ（nullは重複を許可）
     if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findFirst({
         where: { 
           email: body.email,
+          email: { not: null }, // nullは重複チェックから除外
           id: { not: params.id }
         }
       });

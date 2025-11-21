@@ -683,19 +683,21 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
-                setIsTeamDialogOpen(open)
-                if (!open) {
-                  // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                  setTeams(getTeams())
-                }
-              }}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Tags className="mr-2 h-4 w-4" />
-                    チーム管理
-                  </Button>
-                </DialogTrigger>
+              {/* チーム管理ボタンは総務権限・管理者権限のみ表示 */}
+              {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                  setIsTeamDialogOpen(open)
+                  if (!open) {
+                    // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
+                    setTeams(getTeams())
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Tags className="mr-2 h-4 w-4" />
+                      チーム管理
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>チーム管理</DialogTitle>
@@ -733,6 +735,7 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              )}
               <Dialog open={isDialogOpen} onOpenChange={(open) => {
                 setIsDialogOpen(open)
                 if (open) {

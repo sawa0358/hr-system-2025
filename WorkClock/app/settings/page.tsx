@@ -43,8 +43,10 @@ import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/multi-select'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
 
 export default function SettingsPage() {
+  const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [teams, setTeams] = useState<string[]>([])
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
@@ -216,13 +218,15 @@ export default function SettingsPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Tags className="mr-2 h-4 w-4" />
-                    チーム管理
-                  </Button>
-                </DialogTrigger>
+              {/* チーム管理ボタンは総務権限・管理者権限のみ表示 */}
+              {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+                <Dialog open={isTeamDialogOpen} onOpenChange={setIsTeamDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Tags className="mr-2 h-4 w-4" />
+                      チーム管理
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle>チーム管理</DialogTitle>
@@ -260,6 +264,7 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+              )}
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button onClick={resetForm}>

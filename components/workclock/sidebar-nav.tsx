@@ -103,13 +103,23 @@ export function SidebarNav({
     return uniqueTeams as string[]
   }, [workers])
 
+  // 現在のユーザーのWorkClockWorkerレコードを取得（リーダー判定用）
+  const currentWorker = useMemo(() => {
+    if (!currentUser?.id) return null
+    return workers.find(w => w.employeeId === currentUser.id)
+  }, [workers, currentUser?.id])
+
+  // リーダーの場合は同じチームのメンバーだけを表示
+  const isCurrentUserLeader = currentWorker?.role === 'admin'
+  const currentUserTeams = currentWorker?.teams || []
+
   // WorkClockWorkerとして登録されているワーカーと、登録されていない業務委託・外注先の社員を統合
   const allAvailableWorkers = useMemo(() => {
     // WorkClockWorkerとして登録されているワーカーのemployeeIdを取得
     const registeredEmployeeIds = new Set(workers.map(w => w.employeeId || w.id))
     
     // 登録されていない業務委託・外注先の社員をWorkClockWorker形式に変換
-    const unregisteredEmployees = allEmployees
+    let unregisteredEmployees = allEmployees
       .filter(emp => !registeredEmployeeIds.has(emp.id))
       .map(emp => ({
         id: emp.id, // 一時的なIDとしてemployee.idを使用
@@ -121,9 +131,22 @@ export function SidebarNav({
         isUnregistered: true, // 未登録フラグ
       }))
     
+    // リーダーの場合は、同じチームに所属するワーカーだけを表示
+    if (isCurrentUserLeader && currentUserTeams.length > 0) {
+      // 既存のワーカーから同じチームのメンバーだけをフィルタリング
+      const filteredWorkers = workers.filter(w => {
+        if (w.id === currentWorker?.id) return true // 自分自身は常に表示
+        const wTeams = w.teams || []
+        return wTeams.some((t) => currentUserTeams.includes(t))
+      })
+      
+      // 未登録の社員は表示しない（リーダーは登録済みのメンバーだけ管理）
+      return filteredWorkers
+    }
+    
     // 既存のワーカーと未登録の社員を統合
     return [...workers, ...unregisteredEmployees]
-  }, [workers, allEmployees])
+  }, [workers, allEmployees, isCurrentUserLeader, currentUserTeams, currentWorker?.id])
 
   const filteredWorkers = useMemo(() => {
     let filtered = allAvailableWorkers

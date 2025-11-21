@@ -12,8 +12,8 @@ import puppeteer from 'puppeteer'
  *           フォルダ名: `全員分/{YYYY}年{M}月`
  *           所有者社員: 環境変数 PAYROLL_ALL_EMPLOYEE_ID で指定した employee.id
  *
- * 実行タイミングの想定: 毎月3日0:10（UTC）
- *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3日0:10 に設定してください
+ * 実行タイミングの想定: 毎月3日15:30（UTC）= 日本時間 翌日0:30
+ *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3:30 PM (UTC) に設定してください
  * 保護: Authorization ヘッダー or token クエリパラメータでCRON_SECRET_TOKENを検証
  */
 export async function GET(request: NextRequest) {

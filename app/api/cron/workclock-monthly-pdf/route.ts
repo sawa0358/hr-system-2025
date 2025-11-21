@@ -8,8 +8,8 @@ import puppeteer from 'puppeteer'
  * 月替りの「翌月3日0:00」に実行して先月の月表示画面をPDFでスクショして、
  * 各ワーカー（業務委託or外注先）の「給与or請求管理」の本人のカード内「対象月フォルダ」にも自動保存
  * 
- * 実行タイミング想定: 毎月3日0:00（UTC）
- *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3日0:00 に設定してください
+ * 実行タイミング想定: 毎月3日15:30（UTC）= 日本時間 翌日0:30
+ *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3:30 PM (UTC) に設定してください
  * 保護: Authorization ヘッダーまたは query parameter でトークン確認
  */
 export async function GET(request: NextRequest) {

@@ -245,12 +245,17 @@ export async function POST(request: NextRequest) {
     }
 
     // メールアドレスの重複チェック
-    // 空文字列やnullの場合はチェックをスキップ（nullは重複を許可）
+    // 空文字列やnullの場合はチェックをスキップ（nullや空文字列は重複を許可）
     if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findFirst({
         where: { 
           email: body.email,
-          email: { not: null } // nullは重複チェックから除外
+          NOT: {
+            OR: [
+              { email: null },
+              { email: '' }
+            ]
+          }
         }
       });
       if (existingEmail) {

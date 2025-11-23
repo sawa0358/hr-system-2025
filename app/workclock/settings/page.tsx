@@ -1632,6 +1632,34 @@ export default function SettingsPage() {
                           style={{ resize: 'none' }}
                         />
                       </div>
+                      {/* 消費税設定の表示 */}
+                      {viewingWorker.billingTaxEnabled && (
+                        <div className="grid gap-2 p-3 bg-blue-50 rounded-md border border-blue-200">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="default" className="bg-blue-600">
+                              消費税課税対象
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 mt-2">
+                            <div className="grid gap-2">
+                              <Label className="text-sm font-semibold">消費税設定</Label>
+                              <Input
+                                value="課税対象"
+                                readOnly
+                                className="bg-white"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label className="text-sm font-semibold">消費税率</Label>
+                              <Input
+                                value={`${viewingWorker.billingTaxRate || 10}%`}
+                                readOnly
+                                className="bg-white"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <DialogFooter>
                       <Button onClick={() => setIsViewDialogOpen(false)}>

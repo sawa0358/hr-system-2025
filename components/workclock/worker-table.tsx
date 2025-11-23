@@ -96,7 +96,8 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
 export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
-  const activeWorkers = workers.filter((w) => w.role === 'worker')
+  // リーダー（role='admin'）も含めて表示
+  const activeWorkers = workers
   const teams = Array.from(
     new Set(
       activeWorkers.flatMap((w) => w.teams || [])

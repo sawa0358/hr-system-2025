@@ -3,16 +3,18 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import {
   getWorkerById,
   getEntriesByWorkerAndMonth,
   getWorkers,
+  getRewardsByWorkerAndMonth,
 } from '@/lib/workclock/api-storage'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { WorkerSummary } from '@/components/workclock/worker-summary'
 import { CalendarView } from '@/components/workclock/calendar-view'
 import { ExportPDFButton } from '@/components/workclock/export-pdf-button'
+import { RewardManagerModal } from '@/components/workclock/reward-manager-modal'
 import { LogOut, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -40,8 +42,10 @@ export default function WorkerPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
+  const [rewards, setRewards] = useState<Reward[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isRewardModalOpen, setIsRewardModalOpen] = useState(false)
   const isMobile = useIsMobile()
 
   // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
@@ -97,6 +101,9 @@ export default function WorkerPage() {
         const month = currentDate.getMonth() + 1
         const monthEntries = await getEntriesByWorkerAndMonth(workerId, year, month, currentUser.id)
         setEntries(monthEntries)
+
+        const monthRewards = await getRewardsByWorkerAndMonth(workerId, year, month, currentUser.id)
+        setRewards(monthRewards)
       }
     } catch (error) {
       console.error('データ読み込みエラー:', error)
@@ -240,6 +247,8 @@ export default function WorkerPage() {
                 monthlyEntries={entries}
                 todayEntries={todayEntries}
                 selectedMonth={currentDate}
+                rewards={rewards}
+                onRewardClick={() => setIsRewardModalOpen(true)}
               />
             </div>
             <div className="flex gap-2 mt-2 self-start">
@@ -247,8 +256,10 @@ export default function WorkerPage() {
                 worker={worker}
                 entries={entries}
                 month={currentDate}
+                rewards={rewards}
                 variant="outline"
               />
+              {/* SpecialRewardButton は WorkerSummary に統合されたため削除 */}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -281,6 +292,16 @@ export default function WorkerPage() {
           />
         </div>
       </main>
+
+      {worker && (
+        <RewardManagerModal
+          worker={worker}
+          month={currentDate}
+          isOpen={isRewardModalOpen}
+          onClose={() => setIsRewardModalOpen(false)}
+          onUpdate={handleEntriesChange}
+        />
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { Worker, TimeEntry } from './types'
+import { Worker, TimeEntry, Reward } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
 import { getWagePatternLabels } from './wage-patterns'
 
@@ -24,7 +24,8 @@ function formatDateLabel(dateStr: string): string {
 export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
-  month: Date
+  month: Date,
+  rewards: Reward[] = []
 ): string {
   const monthName = month.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -96,11 +97,14 @@ export function generatePDFContent(
       ? worker.monthlyFixedAmount
       : null
 
-  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+  // 特別報酬の計算
+  const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+
+  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う
   const totalAmount =
     patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
     countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
-    (monthlyFixedAmount ?? 0)
+    (monthlyFixedAmount ?? 0) + rewardAmount
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -413,6 +417,25 @@ export function generatePDFContent(
               `
               : ''
           }
+          ${
+            rewards.length > 0
+              ? `
+          <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
+                <div style="display: flex; gap: 8px; flex: 1;">
+                    <span class="summary-label">特別報酬:</span>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        ${rewards.map(r => `
+                            <span>${r.description} (¥${r.amount.toLocaleString()})</span>
+                        `).join('')}
+                    </div>
+                </div>
+                <span class="summary-value">¥${rewardAmount.toLocaleString()}</span>
+            </div>
+          </div>
+              `
+              : ''
+          }
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
             <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
@@ -552,8 +575,8 @@ export function generatePDFContent(
   return html
 }
 
-export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date): void {
-  const htmlContent = generatePDFContent(worker, entries, month)
+export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date, rewards: Reward[] = []): void {
+  const htmlContent = generatePDFContent(worker, entries, month, rewards)
   
   // Create a new window for printing
   const printWindow = window.open('', '_blank')

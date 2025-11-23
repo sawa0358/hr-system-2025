@@ -13,6 +13,26 @@ export interface TimeEntry {
   count?: number // 回数
 }
 
+export interface Reward {
+  id: string
+  workerId: string
+  amount: number
+  description: string
+  date: string // ISO date string or YYYY-MM-DD
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface RewardPreset {
+  id: string
+  workerId: string
+  amount: number
+  description: string
+  isEnabled: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Worker {
   id: string
   employeeId?: string

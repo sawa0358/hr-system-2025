@@ -1,9 +1,9 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/workclock/time-utils'
-import { Calendar, Clock, TrendingUp, DollarSign, ToggleRight } from 'lucide-react'
+import { Calendar, Clock, TrendingUp, DollarSign, ToggleRight, Coins, Settings } from 'lucide-react'
 import { getWagePatternLabels } from '@/lib/workclock/wage-patterns'
 
 interface WorkerSummaryProps {
@@ -11,6 +11,8 @@ interface WorkerSummaryProps {
   monthlyEntries: TimeEntry[]
   todayEntries: TimeEntry[]
   selectedMonth: Date
+  rewards?: Reward[]
+  onRewardClick?: () => void
 }
 
 export function WorkerSummary({
@@ -18,6 +20,8 @@ export function WorkerSummary({
   monthlyEntries,
   todayEntries,
   selectedMonth,
+  rewards = [],
+  onRewardClick,
 }: WorkerSummaryProps) {
   const monthlyTotal = getMonthlyTotal(monthlyEntries)
   const todayTotal = getMonthlyTotal(todayEntries)
@@ -61,6 +65,10 @@ export function WorkerSummary({
       monthlyAmount += count * rate
     }
   })
+  
+  // 特別報酬を加算
+  const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+  monthlyAmount += rewardAmount
 
   const monthName = selectedMonth.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -81,6 +89,9 @@ export function WorkerSummary({
       : (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
         ? Number((worker as any).monthlyFixedAmount)
         : null
+  
+  // 5つ目のカードは廃止し、4つに戻す
+  const gridColsClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
 
   return (
     <div className="space-y-4 w-full">
@@ -89,7 +100,7 @@ export function WorkerSummary({
         {worker.team && <p className="text-muted-foreground">{worker.team}</p>}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+      <div className={gridColsClass}>
         <Card className="w-full min-w-0">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium truncate">報酬設定</CardTitle>
@@ -171,15 +182,32 @@ export function WorkerSummary({
           </CardContent>
         </Card>
 
-        <Card className="w-full min-w-0">
+        {/* 報酬見込カードをクリック可能にする */}
+        <Card 
+          className={`w-full min-w-0 ${onRewardClick ? 'cursor-pointer hover:border-primary transition-colors relative group' : ''}`}
+          onClick={onRewardClick}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium truncate">今月の報酬見込</CardTitle>
+            <CardTitle className="text-sm font-medium truncate flex items-center gap-2">
+                今月の報酬見込
+                {onRewardClick && <Settings className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold break-words">¥{Math.floor(monthlyAmount).toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
+            <div className="flex flex-col gap-1">
+                <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
+                {rewardAmount > 0 && (
+                    <p className="text-xs text-primary font-medium truncate">
+                        + 特別報酬 ¥{rewardAmount.toLocaleString()}
+                    </p>
+                )}
+            </div>
           </CardContent>
+          {onRewardClick && (
+             <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl pointer-events-none" />
+          )}
         </Card>
       </div>
     </div>

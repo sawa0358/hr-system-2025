@@ -1,4 +1,4 @@
-import { Worker, TimeEntry } from './types'
+import { Worker, TimeEntry, Reward, RewardPreset } from './types'
 
 // APIベースのストレージ関数（localStorageの代替）
 // 認証情報は自動的にx-employee-idヘッダーに含まれる
@@ -337,6 +337,192 @@ export async function deleteTimeEntry(id: string, userId?: string): Promise<void
   }
 }
 
+// Rewards
+export async function getRewardsByWorkerAndMonth(
+  workerId: string,
+  year: number,
+  month: number,
+  userId?: string
+): Promise<Reward[]> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      return []
+    }
+
+    const response = await fetch(
+      `${API_BASE}/rewards?workerId=${workerId}&year=${year}&month=${month}`,
+      {
+        headers: {
+          'x-employee-id': finalUserId,
+        },
+      }
+    )
+    if (!response.ok) {
+      throw new Error('特別報酬の取得に失敗しました')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('getRewardsByWorkerAndMonth error:', error)
+    return []
+  }
+}
+
+export async function addReward(
+  reward: Omit<Reward, 'id' | 'createdAt' | 'updatedAt'>,
+  userId?: string
+): Promise<Reward> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/rewards`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-employee-id': finalUserId,
+      },
+      body: JSON.stringify(reward),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || '特別報酬の作成に失敗しました')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('addReward error:', error)
+    throw error
+  }
+}
+
+export async function updateReward(
+  id: string,
+  updates: Partial<Reward>,
+  userId?: string
+): Promise<void> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/rewards/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-employee-id': finalUserId,
+      },
+      body: JSON.stringify(updates),
+    })
+    if (!response.ok) {
+      throw new Error('特別報酬の更新に失敗しました')
+    }
+  } catch (error) {
+    console.error('updateReward error:', error)
+    throw error
+  }
+}
+
+export async function deleteReward(id: string, userId?: string): Promise<void> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/rewards/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
+    if (!response.ok) {
+      throw new Error('特別報酬の削除に失敗しました')
+    }
+  } catch (error) {
+    console.error('deleteReward error:', error)
+    throw error
+  }
+}
+
+// Reward Presets
+export async function getRewardPresets(workerId: string, userId?: string): Promise<RewardPreset[]> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      return []
+    }
+
+    const response = await fetch(`${API_BASE}/reward-presets?workerId=${workerId}`, {
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
+    if (!response.ok) {
+      throw new Error('プリセットの取得に失敗しました')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('getRewardPresets error:', error)
+    return []
+  }
+}
+
+export async function addRewardPreset(
+  preset: Omit<RewardPreset, 'id' | 'createdAt' | 'updatedAt' | 'isEnabled'>,
+  userId?: string
+): Promise<RewardPreset> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/reward-presets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-employee-id': finalUserId,
+      },
+      body: JSON.stringify(preset),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'プリセットの作成に失敗しました')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('addRewardPreset error:', error)
+    throw error
+  }
+}
+
+export async function deleteRewardPreset(id: string, userId?: string): Promise<void> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/reward-presets?id=${id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
+    if (!response.ok) {
+      throw new Error('プリセットの削除に失敗しました')
+    }
+  } catch (error) {
+    console.error('deleteRewardPreset error:', error)
+    throw error
+  }
+}
+
 // Teams (localStorageで管理、APIは不要)
 export function getTeams(): string[] {
   if (typeof window === 'undefined') return []
@@ -366,4 +552,3 @@ export function initializeSampleData(): void {
   // API移行後は初期化不要
   console.log('initializeSampleData: API移行後は初期化不要です')
 }
-

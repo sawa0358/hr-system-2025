@@ -56,6 +56,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { Switch } from '@/components/ui/switch'
 
 // getCurrentUserIdをエクスポートする必要があるので、直接実装
 function getCurrentUserId(): string {
@@ -100,6 +101,9 @@ export default function SettingsPage() {
   const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
+  const [standardTaxRate, setStandardTaxRate] = useState<string>('10')
+  const [isLoadingTax, setIsLoadingTax] = useState(false)
+  const [isSavingTax, setIsSavingTax] = useState(false)
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -124,6 +128,9 @@ export default function SettingsPage() {
     teams: [] as string[],
     role: 'worker' as 'admin' | 'worker',
     notes: '',
+    // 消費税設定
+    billingTaxEnabled: false,
+    billingTaxRate: '',
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -155,7 +162,70 @@ export default function SettingsPage() {
         setIsLoadingEmployees(false)
       }
     })()
+    // 標準消費税率の読み込み
+    ;(async () => {
+      try {
+        setIsLoadingTax(true)
+        const res = await fetch('/api/workclock/tax-settings')
+        if (res.ok) {
+          const data = await res.json()
+          if (data && typeof data.rate === 'number') {
+            setStandardTaxRate(String(data.rate))
+          }
+        }
+      } catch (e) {
+        console.error('標準消費税率の取得に失敗:', e)
+      } finally {
+        setIsLoadingTax(false)
+      }
+    })()
   }, [currentUser])
+
+  const handleSaveStandardTaxRate = async () => {
+    try {
+      const rateNumber = Number(standardTaxRate)
+      if (!Number.isFinite(rateNumber) || rateNumber < 0) {
+        toast({
+          title: '入力エラー',
+          description: '有効な消費税率（0以上の数値）を入力してください。',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setIsSavingTax(true)
+      const userId = currentUser?.id
+      const res = await fetch('/api/workclock/tax-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userId ? { 'x-employee-id': userId } : {}),
+        },
+        body: JSON.stringify({ rate: rateNumber }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || '標準消費税率の更新に失敗しました')
+      }
+
+      toast({
+        title: '保存しました',
+        description: '標準消費税率を更新し、課税対象のワーカーに反映しました。',
+      })
+      // 反映後、ワーカー一覧を再取得
+      await loadWorkers()
+    } catch (error: any) {
+      console.error('handleSaveStandardTaxRate error:', error)
+      toast({
+        title: 'エラー',
+        description: error?.message || '標準消費税率の更新に失敗しました',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingTax(false)
+    }
+  }
 
   // モバイル時のスクロールでメニューを閉じる
   useEffect(() => {
@@ -221,6 +291,8 @@ export default function SettingsPage() {
       teams: [],
       role: 'worker',
       notes: '',
+      billingTaxEnabled: false,
+      billingTaxRate: '',
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -248,6 +320,8 @@ export default function SettingsPage() {
         formData.monthlyFixedAmount !== ''
           ? Number(formData.monthlyFixedAmount)
           : 0
+      const taxRateValue =
+        formData.billingTaxRate !== '' ? Number(formData.billingTaxRate) : undefined
 
       const hasHourly = hourlyValue > 0
       const hasCount = [countA, countB, countC].some((v) => v > 0)
@@ -325,6 +399,8 @@ export default function SettingsPage() {
             monthlyFixedEnabled:
               formData.monthlyFixedAmount !== '' &&
               Number(formData.monthlyFixedAmount) > 0,
+            billingTaxEnabled: formData.billingTaxEnabled,
+            billingTaxRate: taxRateValue,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
             notes: formData.notes || undefined,
@@ -394,6 +470,8 @@ export default function SettingsPage() {
           monthlyFixedEnabled:
             formData.monthlyFixedAmount !== '' &&
             Number(formData.monthlyFixedAmount) > 0,
+          billingTaxEnabled: formData.billingTaxEnabled,
+          billingTaxRate: taxRateValue,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
@@ -491,6 +569,11 @@ export default function SettingsPage() {
       role: worker.role,
       notes: worker.notes || '',
       employeeId: worker.employeeId || '',
+      billingTaxEnabled: worker.billingTaxEnabled ?? false,
+      billingTaxRate:
+        typeof worker.billingTaxRate === 'number'
+          ? String(worker.billingTaxRate)
+          : '',
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -973,6 +1056,61 @@ export default function SettingsPage() {
                           placeholder="〒000-0000 東京都..."
                           disabled={!isWorkerEditUnlocked}
                         />
+                      </div>
+
+                      {/* 請求・消費税設定 */}
+                      <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-sm">請求・消費税設定</Label>
+                            <p className="text-xs text-muted-foreground">
+                              このワーカーの請求書に消費税を含めるかどうかを設定します。
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.billingTaxEnabled}
+                              onCheckedChange={(checked) =>
+                                setFormData({
+                                  ...formData,
+                                  billingTaxEnabled: checked,
+                                })
+                              }
+                              disabled={!isWorkerEditUnlocked}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {formData.billingTaxEnabled ? '課税対象' : '非課税'}
+                            </span>
+                          </div>
+                        </div>
+                        {formData.billingTaxEnabled && (
+                          <div className="grid grid-cols-[120px,1fr] items-center gap-3">
+                            <Label
+                              htmlFor="billingTaxRate"
+                              className="text-xs text-muted-foreground"
+                            >
+                              消費税率（%）
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id="billingTaxRate"
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={formData.billingTaxRate}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    billingTaxRate: e.target.value,
+                                  })
+                                }
+                                placeholder="例: 10"
+                                disabled={!isWorkerEditUnlocked}
+                              />
+                              <span className="text-xs text-muted-foreground">%</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <Card className="border border-dashed bg-muted/40">
@@ -1503,6 +1641,38 @@ export default function SettingsPage() {
                   </DialogContent>
                 </Dialog>
               )}
+            </div>
+          </div>
+
+          {/* 全社共通の標準消費税率設定 */}
+          <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">標準消費税率（全社設定）</h2>
+                <p className="text-xs text-slate-500">
+                  ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={standardTaxRate}
+                  onChange={(e) => setStandardTaxRate(e.target.value)}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                  className="w-24"
+                />
+                <span className="text-sm text-slate-600">%</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveStandardTaxRate}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                >
+                  {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
+                </Button>
+              </div>
             </div>
           </div>
 

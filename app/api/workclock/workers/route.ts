@@ -218,6 +218,8 @@ export async function POST(request: NextRequest) {
       teams,
       role,
       notes,
+      billingTaxEnabled,
+      billingTaxRate,
     } = body
 
     // 必須項目チェック（社員・氏名のみ必須）
@@ -303,6 +305,13 @@ export async function POST(request: NextRequest) {
             ? parseInt(monthlyFixedAmount, 10)
             : undefined,
         monthlyFixedEnabled: monthlyFixedEnabled ?? false,
+        billingTaxEnabled: billingTaxEnabled ?? false,
+        billingTaxRate:
+          billingTaxRate !== undefined &&
+          billingTaxRate !== null &&
+          Number.isFinite(Number(billingTaxRate))
+            ? Number(billingTaxRate)
+            : null,
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',
         notes,

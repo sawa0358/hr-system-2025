@@ -176,6 +176,8 @@ export async function PUT(
       teams,
       role,
       notes,
+      billingTaxEnabled,
+      billingTaxRate,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -211,6 +213,15 @@ export async function PUT(
         monthlyFixedEnabled:
           monthlyFixedEnabled !== undefined && monthlyFixedEnabled !== null
             ? Boolean(monthlyFixedEnabled)
+            : undefined,
+        billingTaxEnabled:
+          billingTaxEnabled !== undefined && billingTaxEnabled !== null
+            ? Boolean(billingTaxEnabled)
+            : undefined,
+        billingTaxRate:
+          billingTaxRate !== undefined && billingTaxRate !== null &&
+          Number.isFinite(Number(billingTaxRate))
+            ? Number(billingTaxRate)
             : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,

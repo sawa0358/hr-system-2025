@@ -818,6 +818,9 @@ model WorkClockWorker {
   // 月額固定（金額とON/OFF）
   monthlyFixedAmount     Int?
   monthlyFixedEnabled    Boolean  @default(false)
+  // 消費税設定
+  billingTaxEnabled      Boolean  @default(false) // 消費税を請求に反映するか
+  billingTaxRate         Float?                // 個別の消費税率（例: 10.0）。未設定時は標準税率を使用
   teams                  String?  // JSON文字列（string[]）
   role                   String   @default("worker") // 'worker' | 'admin'
   notes                  String?

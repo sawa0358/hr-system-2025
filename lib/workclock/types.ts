@@ -72,6 +72,9 @@ export interface Worker {
   // 月額固定
   monthlyFixedAmount?: number
   monthlyFixedEnabled?: boolean
+  // 消費税設定
+  billingTaxEnabled?: boolean // 消費税を請求に反映するか
+  billingTaxRate?: number     // 個別税率（例: 10.0）。未設定時は標準税率を使用
 }
 
 export interface WorkSummary {

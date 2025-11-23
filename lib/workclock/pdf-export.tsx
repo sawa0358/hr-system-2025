@@ -100,11 +100,28 @@ export function generatePDFContent(
   // 特別報酬の計算
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
 
-  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う
+  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う（税抜）
   const totalAmount =
     patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
     countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
     (monthlyFixedAmount ?? 0) + rewardAmount
+
+  // 消費税計算用（ワーカーごとの設定）
+  const baseAmount = totalAmount
+  const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false
+  const workerTaxRateRaw = (worker as any).billingTaxRate
+  // 税率は「10.0」などの百分率で保存する想定。未設定の場合はデフォルト10%を使用
+  const effectiveTaxRatePercent: number =
+    billingTaxEnabled && typeof workerTaxRateRaw === 'number'
+      ? workerTaxRateRaw
+      : billingTaxEnabled
+      ? 10
+      : 0
+  const taxAmount: number =
+    billingTaxEnabled && effectiveTaxRatePercent > 0
+      ? Math.floor(baseAmount * (effectiveTaxRatePercent / 100))
+      : 0
+  const totalWithTax: number = baseAmount + taxAmount
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -143,7 +160,7 @@ export function generatePDFContent(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>勤務報告書 - ${worker.name} - ${monthName}</title>
+      <title>勤務報告書 / 請求書 - ${worker.name} - ${monthName}</title>
       <style>
         @media print {
           @page { margin: 2cm; }
@@ -328,7 +345,7 @@ export function generatePDFContent(
     </head>
     <body>
       <div class="header">
-        <h1>勤務報告書</h1>
+        <h1>勤務報告書 / 請求書</h1>
         <div class="header-info">
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>
@@ -436,10 +453,29 @@ export function generatePDFContent(
               `
               : ''
           }
+          ${
+            billingTaxEnabled
+              ? `
+          <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
+            <span class="summary-label">税抜小計</span>
+            <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">消費税（${effectiveTaxRatePercent}%）</span>
+            <span class="summary-value">¥${taxAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item total-amount">
+            <span class="summary-label">税込合計</span>
+            <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
+          </div>
+              `
+              : `
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
-            <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
+            <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
           </div>
+              `
+          }
         </div>
       </div>
   `
@@ -617,7 +653,7 @@ export function generateCombinedPDFContent(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>勤務報告書（複数人） - ${monthName}</title>
+      <title>勤務報告書 / 請求書（複数人） - ${monthName}</title>
       <style>
         @media print {
           @page { margin: 2cm; }
@@ -881,11 +917,27 @@ export function generateCombinedPDFContent(
         ? worker.monthlyFixedAmount
         : null
 
-    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う
+    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う（税抜）
     const totalAmount =
       patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
       countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
       (monthlyFixedAmount ?? 0)
+
+    // 消費税計算（ワーカーごと）
+    const baseAmount = totalAmount
+    const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false
+    const workerTaxRateRaw = (worker as any).billingTaxRate
+    const effectiveTaxRatePercent: number =
+      billingTaxEnabled && typeof workerTaxRateRaw === 'number'
+        ? workerTaxRateRaw
+        : billingTaxEnabled
+        ? 10
+        : 0
+    const taxAmount: number =
+      billingTaxEnabled && effectiveTaxRatePercent > 0
+        ? Math.floor(baseAmount * (effectiveTaxRatePercent / 100))
+        : 0
+    const totalWithTax: number = baseAmount + taxAmount
     
     // DB優先でパターン名を取得
     const scopeKey = (worker as any).employeeId || worker.id
@@ -914,7 +966,7 @@ export function generateCombinedPDFContent(
     html += `
       <div class="worker-section">
         <div class="header">
-          <h1>勤務報告書（${worker.name}）</h1>
+          <h1>勤務報告書 / 請求書（${worker.name}）</h1>
           <div class="header-info">
             <div class="worker-info">
               <p><strong>氏名:</strong> ${worker.name}</p>
@@ -1006,10 +1058,29 @@ export function generateCombinedPDFContent(
                 `
                 : ''
             }
+            ${
+              billingTaxEnabled
+                ? `
+            <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
+              <span class="summary-label">税抜小計</span>
+              <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">消費税（${effectiveTaxRatePercent}%）</span>
+              <span class="summary-value">¥${taxAmount.toLocaleString()}</span>
+            </div>
+            <div class="summary-item total-amount">
+              <span class="summary-label">税込合計</span>
+              <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
+            </div>
+                `
+                : `
             <div class="summary-item total-amount">
               <span class="summary-label">報酬合計</span>
-              <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
+              <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
             </div>
+                `
+            }
           </div>
         </div>
     `

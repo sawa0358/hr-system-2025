@@ -636,6 +636,7 @@ export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date, r
 interface WorkerWithEntries {
   worker: Worker
   entries: TimeEntry[]
+  rewards?: Reward[]
 }
 
 export function generateCombinedPDFContent(
@@ -848,7 +849,7 @@ export function generateCombinedPDFContent(
     <body>
   `
 
-  items.forEach(({ worker, entries }) => {
+  items.forEach(({ worker, entries, rewards = [] }) => {
     const teamsText =
       Array.isArray(worker.teams) && worker.teams.length > 0
         ? worker.teams.join(', ')
@@ -917,11 +918,14 @@ export function generateCombinedPDFContent(
         ? worker.monthlyFixedAmount
         : null
 
-    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う（税抜）
+    // 特別報酬の計算
+    const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+
+    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う（税抜）
     const totalAmount =
       patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
       countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
-      (monthlyFixedAmount ?? 0)
+      (monthlyFixedAmount ?? 0) + rewardAmount
 
     // 消費税計算（ワーカーごと）
     const baseAmount = totalAmount
@@ -1053,6 +1057,25 @@ export function generateCombinedPDFContent(
                     <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
                   </div>
                 ` : ''}
+              </div>
+            </div>
+                `
+                : ''
+            }
+            ${
+              rewards.length > 0
+                ? `
+            <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
+              <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
+                  <div style="display: flex; gap: 8px; flex: 1;">
+                      <span class="summary-label">特別報酬・経費:</span>
+                      <div style="display: flex; flex-direction: column; gap: 2px;">
+                          ${rewards.map(r => `
+                              <span>${r.description} (¥${r.amount.toLocaleString()})</span>
+                          `).join('')}
+                      </div>
+                  </div>
+                  <span class="summary-value">¥${rewardAmount.toLocaleString()}</span>
               </div>
             </div>
                 `

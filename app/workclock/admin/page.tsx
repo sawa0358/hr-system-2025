@@ -113,8 +113,9 @@ export default function AdminPage() {
       }
 
       const workerEntries = allEntries.filter((e) => e.workerId === workerId)
+      const workerRewards = allRewards.filter((r) => r.workerId === workerId)
 
-      downloadPDF(worker, workerEntries, currentDate)
+      downloadPDF(worker, workerEntries, currentDate, workerRewards)
     } catch (error) {
       console.error('PDFエクスポートエラー:', error)
       alert('PDFエクスポートに失敗しました')
@@ -128,9 +129,10 @@ export default function AdminPage() {
           const worker = workers.find((w) => w.id === id)
           if (!worker) return null
           const entries = allEntries.filter((e) => e.workerId === id)
-          return { worker, entries }
+          const rewards = allRewards.filter((r) => r.workerId === id)
+          return { worker, entries, rewards }
         })
-        .filter((item): item is { worker: Worker; entries: TimeEntry[] } => item !== null)
+        .filter((item): item is { worker: Worker; entries: TimeEntry[]; rewards: Reward[] } => item !== null)
 
       if (items.length === 0) {
         alert('PDF出力対象のワーカーが見つかりません')

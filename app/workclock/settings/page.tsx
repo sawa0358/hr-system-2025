@@ -91,6 +91,9 @@ export default function SettingsPage() {
   // ワーカー編集全体のロック（既存ワーカーは初期ロック、新規はアンロック）
   const [isWorkerEditUnlocked, setIsWorkerEditUnlocked] = useState(false)
   const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
+  // 標準消費税率編集のロック
+  const [isTaxRateEditUnlocked, setIsTaxRateEditUnlocked] = useState(false)
+  const [isTaxRatePasswordDialogOpen, setIsTaxRatePasswordDialogOpen] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -182,6 +185,12 @@ export default function SettingsPage() {
   }, [currentUser])
 
   const handleSaveStandardTaxRate = async () => {
+    // パスワード認証が必要
+    if (!isTaxRateEditUnlocked) {
+      setIsTaxRatePasswordDialogOpen(true)
+      return
+    }
+
     try {
       const rateNumber = Number(standardTaxRate)
       if (!Number.isFinite(rateNumber) || rateNumber < 0) {
@@ -215,6 +224,8 @@ export default function SettingsPage() {
       })
       // 反映後、ワーカー一覧を再取得
       await loadWorkers()
+      // 保存後はロックを再度かける
+      setIsTaxRateEditUnlocked(false)
     } catch (error: any) {
       console.error('handleSaveStandardTaxRate error:', error)
       toast({
@@ -637,6 +648,11 @@ export default function SettingsPage() {
   // パスワード認証成功時のコールバック（ワーカー編集全体をアンロック）
   const handleWorkerEditVerified = () => {
     setIsWorkerEditUnlocked(true)
+  }
+
+  // パスワード認証成功時のコールバック（標準消費税率編集をアンロック）
+  const handleTaxRateEditVerified = () => {
+    setIsTaxRateEditUnlocked(true)
   }
 
   // 店長・総務・管理者の権限チェック（システムパスワード編集は従来通り）
@@ -1672,13 +1688,15 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 全社共通の標準消費税率設定 */}
+          {/* 全社共通の標準消費税率設定 - hr/adminのみ表示 */}
+          {canEditCompensation && (
           <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">標準消費税率（全社設定）</h2>
                 <p className="text-xs text-slate-500">
                   ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
+                  変更にはパスワード認証が必要です。
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1688,7 +1706,7 @@ export default function SettingsPage() {
                   step={0.1}
                   value={standardTaxRate}
                   onChange={(e) => setStandardTaxRate(e.target.value)}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                  disabled={isLoadingTax || isSavingTax}
                   className="w-24"
                 />
                 <span className="text-sm text-slate-600">%</span>
@@ -1696,13 +1714,23 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleSaveStandardTaxRate}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                  disabled={isLoadingTax || isSavingTax}
                 >
-                  {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
+                  {isSavingTax ? '保存中...' : isTaxRateEditUnlocked ? '保存して全ワーカーに反映' : '編集を有効化'}
                 </Button>
               </div>
             </div>
+            <PasswordVerificationDialog
+              open={isTaxRatePasswordDialogOpen}
+              onOpenChange={(open) => {
+                setIsTaxRatePasswordDialogOpen(open)
+              }}
+              onVerified={handleTaxRateEditVerified}
+              currentUser={currentUser}
+              actionType="workclock-tax-rate"
+            />
           </div>
+          )}
 
           <Card>
             <CardHeader>

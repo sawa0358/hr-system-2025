@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/workclock/time-utils'
 import { ExternalLink, FileText } from 'lucide-react'
 import {
@@ -27,13 +27,18 @@ import {
 interface WorkerTableProps {
   workers: Worker[]
   allEntries: TimeEntry[]
+  allRewards: Reward[]
   onExportPDF: (workerId: string) => void
   onExportAllPDF: (workerIds: string[]) => void
 }
 
 // PDFと同じロジックで、ワーカー単位の月間コストを算出
-function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): number {
-  if (!entries || entries.length === 0) return typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
+function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[], rewards: Reward[]): number {
+  if (!entries || entries.length === 0) {
+    const fixedAmount = typeof worker.monthlyFixedAmount === 'number' ? worker.monthlyFixedAmount || 0 : 0
+    const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+    return fixedAmount + rewardAmount
+  }
 
   // 時給パターンの計算（wagePattern が設定されているエントリのみ対象）
   const entriesByPattern = entries.reduce((acc, entry) => {
@@ -90,10 +95,13 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
       ? worker.monthlyFixedAmount
       : 0
 
-  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + countAmount + monthlyFixedAmount
+  // 特別報酬の計算
+  const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+
+  return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + countAmount + monthlyFixedAmount + rewardAmount
 }
 
-export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }: WorkerTableProps) {
+export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
   // リーダー（role='admin'）も含めて表示
@@ -111,8 +119,9 @@ export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }
 
   const workerStats = filteredWorkers.map((worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
+    const workerRewards = allRewards.filter((r) => r.workerId === worker.id)
     const total = getMonthlyTotal(workerEntries)
-    const totalAmount = calculateWorkerMonthlyCost(worker, workerEntries)
+    const totalAmount = calculateWorkerMonthlyCost(worker, workerEntries, workerRewards)
 
     return {
       ...worker,
@@ -133,7 +142,8 @@ export function WorkerTable({ workers, allEntries, onExportPDF, onExportAllPDF }
     
     const teamCost = teamWorkers.reduce((sum, worker) => {
       const workerEntries = teamEntries.filter((e) => e.workerId === worker.id)
-      return sum + calculateWorkerMonthlyCost(worker, workerEntries)
+      const workerRewards = allRewards.filter((r) => r.workerId === worker.id)
+      return sum + calculateWorkerMonthlyCost(worker, workerEntries, workerRewards)
     }, 0)
 
     return {

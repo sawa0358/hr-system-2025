@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
-import { getWorkers, getTimeEntries } from '@/lib/workclock/api-storage'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
+import { getWorkers, getTimeEntries, getRewardsByWorkerAndMonth } from '@/lib/workclock/api-storage'
 import { useAuth } from '@/lib/auth-context'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { AdminOverview } from '@/components/workclock/admin-overview'
@@ -24,6 +24,7 @@ export default function AdminPage() {
   const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
+  const [allRewards, setAllRewards] = useState<Reward[]>([])
   const [currentDate, setCurrentDate] = useState(new Date())
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
@@ -78,6 +79,14 @@ export default function AdminPage() {
       })
       
       setAllEntries(entries)
+
+      // 全ワーカーの特別報酬を取得
+      const rewardsPromises = loadedWorkers.map(worker => 
+        getRewardsByWorkerAndMonth(worker.id, year, month, currentUser.id)
+      )
+      const rewardsArrays = await Promise.all(rewardsPromises)
+      const allRewards = rewardsArrays.flat()
+      setAllRewards(allRewards)
     } catch (error) {
       console.error('データ読み込みエラー:', error)
     }
@@ -264,6 +273,7 @@ export default function AdminPage() {
           <WorkerTable
             workers={workers}
             allEntries={allEntries}
+            allRewards={allRewards}
             onExportPDF={handleExportPDF}
             onExportAllPDF={handleExportAllPDF}
           />

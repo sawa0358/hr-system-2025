@@ -70,19 +70,19 @@ export default function AdminPage() {
       setWorkers(loadedWorkers)
 
       const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      
+      const monthIndex = currentDate.getMonth()
+      const apiMonth = monthIndex + 1
       const allEntries = await getTimeEntries(currentUser.id)
       const entries = allEntries.filter((entry) => {
         const entryDate = new Date(entry.date)
-        return entryDate.getFullYear() === year && entryDate.getMonth() === month
+        return entryDate.getFullYear() === year && entryDate.getMonth() === monthIndex
       })
       
       setAllEntries(entries)
 
       // 全ワーカーの特別報酬を取得
       const rewardsPromises = loadedWorkers.map(worker => 
-        getRewardsByWorkerAndMonth(worker.id, year, month, currentUser.id)
+        getRewardsByWorkerAndMonth(worker.id, year, apiMonth, currentUser.id)
       )
       const rewardsArrays = await Promise.all(rewardsPromises)
       const allRewards = rewardsArrays.flat()

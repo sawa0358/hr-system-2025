@@ -58,6 +58,13 @@ export default function WorkerPage() {
   )
   const isLeader = ownWorker?.role === 'admin'
 
+  // 「今月の報酬見込」のサマリーをクリックできる権限チェック（店長・マネージャー・総務・管理者のみ）
+  const canClickRewardSummary = useMemo(() => {
+    if (!currentUser?.role) return false
+    const allowedRoles = ['store_manager', 'manager', 'hr', 'admin']
+    return allowedRoles.includes(currentUser.role)
+  }, [currentUser?.role])
+
   useEffect(() => {
     // currentUserがまだ読み込まれていない場合は何もしない（初期読み込み待ち）
     if (!currentUser?.id) {
@@ -248,7 +255,7 @@ export default function WorkerPage() {
                 todayEntries={todayEntries}
                 selectedMonth={currentDate}
                 rewards={rewards}
-                onRewardClick={() => setIsRewardModalOpen(true)}
+                onRewardClick={canClickRewardSummary ? () => setIsRewardModalOpen(true) : undefined}
               />
             </div>
             <div className="flex gap-2 mt-2 self-start">

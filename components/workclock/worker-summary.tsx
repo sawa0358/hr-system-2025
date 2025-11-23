@@ -200,7 +200,7 @@ export function WorkerSummary({
                 <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
                 {rewardAmount > 0 && (
                     <p className="text-xs text-primary font-medium truncate">
-                        + 特別報酬 ¥{rewardAmount.toLocaleString()}
+                        + 特別報酬・経費 ¥{rewardAmount.toLocaleString()}
                     </p>
                 )}
             </div>

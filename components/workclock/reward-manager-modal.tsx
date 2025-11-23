@@ -19,10 +19,12 @@ import {
   getRewardPresets,
   addRewardPreset,
   deleteRewardPreset,
+  updateRewardPreset,
 } from '@/lib/workclock/api-storage'
 import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 
 interface RewardManagerModalProps {
   worker: Worker
@@ -84,6 +86,55 @@ export function RewardManagerModal({
       ])
       setRewards(rewardsData)
       setPresets(presetsData)
+
+      // 自動反映: isEnabledがtrueの固定項目を今月の報酬一覧に自動反映
+      const now = new Date()
+      const isCurrentMonth = now.getMonth() === month.getMonth() && now.getFullYear() === month.getFullYear()
+
+      if (isCurrentMonth && presetsData.length > 0) {
+        // 有効な固定項目（isEnabled=true）を取得
+        const enabledPresets = presetsData.filter(p => p.isEnabled)
+        
+        if (enabledPresets.length > 0) {
+          // 今月の報酬一覧に既に反映されているかチェック
+          const existingRewardDescriptions = rewardsData.map(r => r.description)
+          const monthFirstDay = formatDate(new Date(month.getFullYear(), month.getMonth(), 1))
+          
+          // まだ反映されていない固定項目を自動反映
+          const presetsToApply = enabledPresets.filter(preset => 
+            !existingRewardDescriptions.includes(preset.description)
+          )
+
+          if (presetsToApply.length > 0) {
+            try {
+              // 並列で自動反映
+              await Promise.all(presetsToApply.map(preset => 
+                addReward({
+                  workerId: worker.id,
+                  amount: preset.amount,
+                  description: preset.description,
+                  date: monthFirstDay
+                })
+              ))
+              
+              // 反映後に報酬一覧を再取得
+              const updatedRewards = await getRewardsByWorkerAndMonth(
+                worker.id,
+                month.getFullYear(),
+                month.getMonth() + 1
+              )
+              setRewards(updatedRewards)
+              onUpdate?.()
+              
+              // 自動反映の通知（静かに処理）
+              console.log(`${presetsToApply.length}件の固定項目を自動反映しました`)
+            } catch (error) {
+              console.error('固定項目の自動反映エラー:', error)
+              // エラーは静かに処理（ユーザーに通知しない）
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error(error)
       toast.error('データの読み込みに失敗しました')
@@ -107,7 +158,7 @@ export function RewardManagerModal({
       
       setAmount('')
       setDescription('')
-      toast.success('特別報酬を追加しました')
+      toast.success('特別報酬・経費を追加しました')
       
       // 更新
       const rewardsData = await getRewardsByWorkerAndMonth(
@@ -188,6 +239,22 @@ export function RewardManagerModal({
       } catch (error) {
           console.error(error)
           toast.error('削除に失敗しました')
+      } finally {
+          setIsLoading(false)
+      }
+  }
+
+  const handleTogglePresetEnabled = async (preset: RewardPreset) => {
+      try {
+          setIsLoading(true)
+          await updateRewardPreset(preset.id, { isEnabled: !preset.isEnabled })
+          toast.success(preset.isEnabled ? '自動反映をOFFにしました' : '自動反映をONにしました')
+
+          const presetsData = await getRewardPresets(worker.id)
+          setPresets(presetsData)
+      } catch (error) {
+          console.error(error)
+          toast.error('更新に失敗しました')
       } finally {
           setIsLoading(false)
       }
@@ -375,7 +442,7 @@ export function RewardManagerModal({
             <TabsContent value="presets" className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
                 <div className="space-y-4 border-b pb-4 shrink-0">
                     <div className="text-sm text-muted-foreground">
-                        毎月発生する交通費などの固定項目を登録しておくと、簡単に呼び出すことができます。
+                        毎月発生する交通費などの固定項目を登録しておくと、簡単に呼び出すことができます。自動反映をONにすると、毎月初に自動で「今月の報酬一覧」に反映されます。
                     </div>
                     <form onSubmit={handleAddPreset} className="grid gap-4">
                         <div className="grid grid-cols-[1fr,120px,auto] gap-2 items-end">
@@ -423,6 +490,17 @@ export function RewardManagerModal({
                                 <div key={preset.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
                                     <div className="min-w-0 flex-1 mr-4">
                                         <div className="text-sm font-medium truncate">{preset.description}</div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Switch
+                                                checked={preset.isEnabled}
+                                                onCheckedChange={() => handleTogglePresetEnabled(preset)}
+                                                disabled={isLoading}
+                                                className="scale-75"
+                                            />
+                                            <span className="text-xs text-muted-foreground">
+                                                {preset.isEnabled ? '自動反映ON' : '自動反映OFF'}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="font-bold text-sm mr-2">¥{preset.amount.toLocaleString()}</span>

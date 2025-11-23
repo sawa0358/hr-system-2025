@@ -360,7 +360,7 @@ export async function getRewardsByWorkerAndMonth(
       }
     )
     if (!response.ok) {
-      throw new Error('特別報酬の取得に失敗しました')
+      throw new Error('特別報酬・経費の取得に失敗しました')
     }
     return await response.json()
   } catch (error) {
@@ -389,7 +389,7 @@ export async function addReward(
     })
     if (!response.ok) {
       const error = await response.json().catch(() => ({}))
-      throw new Error(error.error || '特別報酬の作成に失敗しました')
+      throw new Error(error.error || '特別報酬・経費の作成に失敗しました')
     }
     return await response.json()
   } catch (error) {
@@ -418,7 +418,7 @@ export async function updateReward(
       body: JSON.stringify(updates),
     })
     if (!response.ok) {
-      throw new Error('特別報酬の更新に失敗しました')
+      throw new Error('特別報酬・経費の更新に失敗しました')
     }
   } catch (error) {
     console.error('updateReward error:', error)
@@ -440,7 +440,7 @@ export async function deleteReward(id: string, userId?: string): Promise<void> {
       },
     })
     if (!response.ok) {
-      throw new Error('特別報酬の削除に失敗しました')
+      throw new Error('特別報酬・経費の削除に失敗しました')
     }
   } catch (error) {
     console.error('deleteReward error:', error)
@@ -497,6 +497,36 @@ export async function addRewardPreset(
     return await response.json()
   } catch (error) {
     console.error('addRewardPreset error:', error)
+    throw error
+  }
+}
+
+export async function updateRewardPreset(
+  id: string,
+  updates: { isEnabled?: boolean },
+  userId?: string
+): Promise<RewardPreset> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/reward-presets`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-employee-id': finalUserId,
+      },
+      body: JSON.stringify({ id, ...updates }),
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'プリセットの更新に失敗しました')
+    }
+    return await response.json()
+  } catch (error) {
+    console.error('updateRewardPreset error:', error)
     throw error
   }
 }

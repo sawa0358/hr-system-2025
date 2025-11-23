@@ -128,6 +128,69 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT: プリセットを更新（isEnabledの更新など）
+export async function PUT(request: NextRequest) {
+  try {
+    const userId = request.headers.get('x-employee-id')
+    if (!userId) {
+      return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, isEnabled } = body
+
+    if (!id || isEnabled === undefined) {
+      return NextResponse.json(
+        { error: '必須項目が不足しています' },
+        { status: 400 }
+      )
+    }
+
+    // Prisma Clientの確認
+    if (!(prisma as any).workClockRewardPreset) {
+      console.error('[WorkClock API] WorkClockRewardPresetモデルがPrismaClientに存在しません。サーバー再起動が必要です。')
+      return NextResponse.json(
+        { error: 'システムエラー: データベースモデルが読み込まれていません。開発サーバーを再起動してください。' },
+        { status: 503 }
+      )
+    }
+
+    const preset = await (prisma as any).workClockRewardPreset.findUnique({
+      where: { id },
+      include: { worker: true }
+    })
+
+    if (!preset) {
+      return NextResponse.json({ error: 'プリセットが見つかりません' }, { status: 404 })
+    }
+
+    const isOwner = preset.worker.employeeId === userId
+    const user = await prisma.employee.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    })
+    const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
+    const hasPermission = allowedRoles.includes(user?.role || '')
+
+    if (!isOwner && !hasPermission) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
+    const updatedPreset = await (prisma as any).workClockRewardPreset.update({
+      where: { id },
+      data: { isEnabled },
+    })
+
+    return NextResponse.json(updatedPreset)
+  } catch (error: any) {
+    console.error('WorkClock preset更新エラー:', error)
+    return NextResponse.json(
+      { error: 'プリセットの更新に失敗しました' },
+      { status: 500 }
+    )
+  }
+}
+
 // DELETE: プリセットを削除
 export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url)

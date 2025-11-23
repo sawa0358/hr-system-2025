@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// DELETE: 特別報酬を削除
+// DELETE: 特別報酬・経費を削除
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -28,7 +28,7 @@ export async function DELETE(
     })
 
     if (!reward) {
-      return NextResponse.json({ error: '特別報酬が見つかりません' }, { status: 404 })
+      return NextResponse.json({ error: '特別報酬・経費が見つかりません' }, { status: 404 })
     }
 
     // 権限チェック
@@ -48,13 +48,13 @@ export async function DELETE(
   } catch (error: any) {
     console.error('WorkClock reward削除エラー:', error)
     return NextResponse.json(
-      { error: '特別報酬の削除に失敗しました' },
+      { error: '特別報酬・経費の削除に失敗しました' },
       { status: 500 }
     )
   }
 }
 
-// PUT: 特別報酬を更新
+// PUT: 特別報酬・経費を更新
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -84,7 +84,7 @@ export async function PUT(
     })
 
     if (!reward) {
-      return NextResponse.json({ error: '特別報酬が見つかりません' }, { status: 404 })
+      return NextResponse.json({ error: '特別報酬・経費が見つかりません' }, { status: 404 })
     }
 
     // 権限チェック
@@ -109,7 +109,7 @@ export async function PUT(
   } catch (error: any) {
     console.error('WorkClock reward更新エラー:', error)
     return NextResponse.json(
-      { error: '特別報酬の更新に失敗しました' },
+      { error: '特別報酬・経費の更新に失敗しました' },
       { status: 500 }
     )
   }

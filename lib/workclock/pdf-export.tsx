@@ -423,7 +423,7 @@ export function generatePDFContent(
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
             <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
                 <div style="display: flex; gap: 8px; flex: 1;">
-                    <span class="summary-label">特別報酬:</span>
+                    <span class="summary-label">特別報酬・経費:</span>
                     <div style="display: flex; flex-direction: column; gap: 2px;">
                         ${rewards.map(r => `
                             <span>${r.description} (¥${r.amount.toLocaleString()})</span>

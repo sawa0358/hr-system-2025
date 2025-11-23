@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// GET: 特別報酬一覧を取得
+// GET: 特別報酬・経費一覧を取得
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get('x-employee-id')
@@ -81,13 +81,13 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('WorkClock rewards取得エラー:', error)
     return NextResponse.json(
-      { error: '特別報酬の取得に失敗しました' },
+      { error: '特別報酬・経費の取得に失敗しました' },
       { status: 500 }
     )
   }
 }
 
-// POST: 新しい特別報酬を作成
+// POST: 新しい特別報酬・経費を作成
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-employee-id')
@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
     if (error.code) console.error('Prisma Error Code:', error.code)
     
     return NextResponse.json(
-      { error: '特別報酬の作成に失敗しました: ' + (error.message || '不明なエラー') },
+      { error: '特別報酬・経費の作成に失敗しました: ' + (error.message || '不明なエラー') },
       { status: 500 }
     )
   }

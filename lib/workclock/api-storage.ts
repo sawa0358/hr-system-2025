@@ -360,11 +360,14 @@ export async function getRewardsByWorkerAndMonth(
       }
     )
     if (!response.ok) {
-      throw new Error('特別報酬・経費の取得に失敗しました')
+      // 権限不足やデータなしの場合は空配列を返して処理続行（エラーログは警告レベルに）
+      console.warn(`[WorkClock] 特別報酬・経費の取得に失敗しました (workerId: ${workerId}, ${year}年${month}月) - status: ${response.status}`)
+      return []
     }
     return await response.json()
   } catch (error) {
-    console.error('getRewardsByWorkerAndMonth error:', error)
+    // ネットワークエラー等の場合も空配列を返して処理続行
+    console.warn('[WorkClock] getRewardsByWorkerAndMonth error:', error)
     return []
   }
 }

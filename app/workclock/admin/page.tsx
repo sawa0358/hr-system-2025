@@ -279,6 +279,7 @@ export default function AdminPage() {
             allRewards={allRewards}
             onExportPDF={handleExportPDF}
             onExportAllPDF={handleExportAllPDF}
+            currentUserWorker={ownWorker}
           />
         </div>
       </main>

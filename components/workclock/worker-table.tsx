@@ -31,16 +31,24 @@ interface WorkerTableProps {
   allRewards: Reward[]
   onExportPDF: (workerId: string) => void
   onExportAllPDF: (workerIds: string[]) => void
+  currentUserWorker?: Worker | null // リーダー判定用に追加
 }
 
-export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF }: WorkerTableProps) {
+export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, currentUserWorker }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
   // リーダー（role='admin'）も含めて表示
   const activeWorkers = workers
+  
+  // リーダーの場合は自分の所属チームのみ表示、それ以外（HR/admin等）は全チーム表示
+  const isLeader = currentUserWorker?.role === 'admin'
+  const leaderTeams = isLeader && currentUserWorker ? (currentUserWorker.teams || []) : []
+  
   const teams = Array.from(
     new Set(
-      activeWorkers.flatMap((w) => w.teams || [])
+      isLeader && leaderTeams.length > 0
+        ? activeWorkers.flatMap((w) => (w.teams || []).filter(t => leaderTeams.includes(t)))
+        : activeWorkers.flatMap((w) => w.teams || [])
     )
   ) as string[]
 

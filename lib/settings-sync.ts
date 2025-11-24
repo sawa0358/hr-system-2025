@@ -4,6 +4,7 @@ import { uploadFileToS3, getSignedDownloadUrl } from './s3-client'
 declare global {
   interface Window {
     _isApplyingSettings?: boolean
+    _disableSettingsSync?: boolean
   }
 }
 
@@ -87,6 +88,12 @@ export async function saveUserSettingsToS3(
   settings: UserSettings
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // 以前の保存でエラーが発生して同期が無効化されている場合は何もしない
+    if (typeof window !== 'undefined' && window._disableSettingsSync) {
+      console.log('ユーザー設定の同期は一時的に無効化されています（前回のエラーのため）')
+      return { success: false, error: '設定同期は無効化されています' }
+    }
+
     const response = await fetch('/api/user-settings', {
       method: 'POST',
       headers: {
@@ -98,6 +105,10 @@ export async function saveUserSettingsToS3(
 
     if (!response.ok) {
       const errorData = await response.json()
+      // 連続エラーを防ぐため、このセッションでは以降の同期を無効化
+      if (typeof window !== 'undefined') {
+        window._disableSettingsSync = true
+      }
       return { success: false, error: errorData.error || '設定の保存に失敗しました' }
     }
 
@@ -106,6 +117,10 @@ export async function saveUserSettingsToS3(
     return { success: true }
   } catch (error) {
     console.error('設定保存エラー:', error)
+    // ネットワークエラーなどが発生した場合も以降の同期を無効化
+    if (typeof window !== 'undefined') {
+      window._disableSettingsSync = true
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : '設定保存に失敗しました'

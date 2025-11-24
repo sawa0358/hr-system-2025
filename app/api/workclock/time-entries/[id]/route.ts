@@ -141,7 +141,7 @@ export async function PUT(
     const isOwner = entry.worker.employeeId === userId
     const hasPermission = allowedRoles.includes(user.role || '')
 
-    // WorkClockリーダー（role === 'admin'）は閲覧のみ許可し、削除は不可
+    // WorkClockリーダー（role === 'admin'）は、他人の勤務記録は更新不可（自分の分は更新可能）
     let isLeader = false
     if (!hasPermission) {
       try {
@@ -152,15 +152,16 @@ export async function PUT(
           isLeader = true
         }
       } catch (e) {
-        console.warn('[WorkClock API] leader check failed (time-entries DELETE):', e)
+        console.warn('[WorkClock API] leader check failed (time-entries PUT):', e)
       }
     }
 
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
-    if (isLeader) {
-      return NextResponse.json({ error: 'リーダーは勤務記録を削除できません' }, { status: 403 })
+    // リーダーでも「自分の勤務記録」であれば更新を許可する
+    if (isLeader && !isOwner) {
+      return NextResponse.json({ error: 'リーダーは他人の勤務記録を更新できません' }, { status: 403 })
     }
 
     const body = await request.json()

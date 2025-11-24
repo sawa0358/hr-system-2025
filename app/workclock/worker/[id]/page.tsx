@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/sheet'
 import { useAuth } from '@/lib/auth-context'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { Input } from '@/components/ui/input'
 
 export default function WorkerPage() {
   const params = useParams()
@@ -97,7 +98,7 @@ export default function WorkerPage() {
         return
       }
 
-      const foundWorker = await getWorkerById(workerId, currentUser.id)
+          const foundWorker = await getWorkerById(workerId, currentUser.id)
       setWorker(foundWorker || null)
 
       const allWorkers = await getWorkers(currentUser.id)
@@ -121,6 +122,35 @@ export default function WorkerPage() {
     setRefreshKey((prev) => prev + 1)
   }
 
+  // 本日分のエントリを計算（workerの有無に関わらず毎レンダー同じ順序で呼ぶ）
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
+    2,
+    '0'
+  )}-${String(today.getDate()).padStart(2, '0')}`
+  const todayEntries = entries.filter((e) => e.date === todayStr)
+
+  // 勤務記録の編集可否（3日ロック + 権限）をフロント側でも判定
+  const canEditEntries = useMemo(() => {
+    const role = currentUser?.role
+    // 総務・管理者は常に編集可能（サーバー側ロジックと合わせる）
+    if (role === 'hr' || role === 'admin') {
+      return true
+    }
+
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const firstOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const thirdOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 3)
+
+    // 表示中の月の1日を対象日とみなしてロック判定
+    const entryDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+    const isLockedMonth = entryDate < firstOfCurrentMonth && now >= thirdOfCurrentMonth
+
+    return !isLockedMonth
+  }, [currentDate, currentUser?.role])
+
   if (!worker) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -131,14 +161,6 @@ export default function WorkerPage() {
       </div>
     )
   }
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(
-    2,
-    '0'
-  )}-${String(today.getDate()).padStart(2, '0')}`
-  const todayEntries = entries.filter((e) => e.date === todayStr)
 
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
@@ -290,12 +312,74 @@ export default function WorkerPage() {
             </div>
           </div>
 
+          {/* 年月指定（過去記録遡り用） */}
+          <div className="mt-2 mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-700">表示年月:</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  className="w-24 h-8"
+                  value={currentDate.getFullYear()}
+                  onChange={(e) => {
+                    const year = Number(e.target.value) || currentDate.getFullYear()
+                    const next = new Date(year, currentDate.getMonth(), 1)
+                    setCurrentDate(next)
+                  }}
+                />
+                <span className="text-sm">年</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  className="w-16 h-8"
+                  value={currentDate.getMonth() + 1}
+                  onChange={(e) => {
+                    let month = Number(e.target.value) || currentDate.getMonth() + 1
+                    if (month < 1) month = 1
+                    if (month > 12) month = 12
+                    const next = new Date(currentDate.getFullYear(), month - 1, 1)
+                    setCurrentDate(next)
+                  }}
+                />
+                <span className="text-sm">月</span>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const now = new Date()
+                  const next = new Date(now.getFullYear(), now.getMonth(), 1)
+                  setCurrentDate(next)
+                }}
+              >
+                今月へ
+              </Button>
+            </div>
+          </div>
+
+          {/* ロック中の月の場合の説明テキスト（サーバー側エラーメッセージと同じ内容） */}
+          {!canEditEntries && (
+            <p className="mb-2 text-xs text-red-600">
+              先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。
+            </p>
+          )}
+
           <CalendarView
             workerId={workerId}
             employeeId={worker?.employeeId || workerId}
             worker={worker}
             entries={entries}
             onEntriesChange={handleEntriesChange}
+            selectedMonth={currentDate}
+            onMonthChange={(next) => {
+              // カレンダー側の月変更を親に反映
+              setCurrentDate(next)
+            }}
+            canEditEntries={canEditEntries}
           />
         </div>
       </main>

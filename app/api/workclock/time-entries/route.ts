@@ -309,7 +309,7 @@ export async function POST(request: NextRequest) {
     const isOwner = worker.employeeId === userId
     const hasPermission = allowedRoles.includes(user.role || '')
 
-    // WorkClock上のリーダー（role === 'admin'）は、閲覧のみ許可し、追加は不可
+    // WorkClock上のリーダー（role === 'admin'）は、他人の勤務記録は追加不可（自分の分は追加可能）
     let isLeader = false
     if (!hasPermission) {
       try {
@@ -327,8 +327,9 @@ export async function POST(request: NextRequest) {
     if (!isOwner && !hasPermission) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
-    if (isLeader) {
-      return NextResponse.json({ error: 'リーダーは勤務記録を追加できません' }, { status: 403 })
+    // リーダーでも「自分の勤務記録」であれば追加を許可する
+    if (isLeader && !isOwner) {
+      return NextResponse.json({ error: 'リーダーは他人の勤務記録を追加できません' }, { status: 403 })
     }
 
     // 先月以前の勤務記録の新規追加は、当月3日以降は総務・管理者のみ許可

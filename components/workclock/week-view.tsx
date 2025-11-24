@@ -16,6 +16,15 @@ interface WeekViewProps {
   entries: TimeEntry[]
   onEntriesChange: () => void
   canEditEntries?: boolean
+  /**
+   * 親コンポーネント側で選択している基準日（週）
+   * - 未指定の場合は内部stateで「今週」を使用
+   */
+  selectedWeekDate?: Date
+  /**
+   * 週が変更されたときに親へ通知
+   */
+  onDateChange?: (next: Date) => void
 }
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i)
@@ -28,8 +37,11 @@ export function WeekView({
   entries,
   onEntriesChange,
   canEditEntries = true,
+  selectedWeekDate,
+  onDateChange,
 }: WeekViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  const [internalDate, setInternalDate] = useState(new Date())
+  const currentDate = selectedWeekDate || internalDate
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -59,13 +71,21 @@ export function WeekView({
   const goToPreviousWeek = () => {
     const newDate = new Date(currentDate)
     newDate.setDate(newDate.getDate() - 7)
-    setCurrentDate(newDate)
+    if (onDateChange) {
+      onDateChange(newDate)
+    } else {
+      setInternalDate(newDate)
+    }
   }
 
   const goToNextWeek = () => {
     const newDate = new Date(currentDate)
     newDate.setDate(newDate.getDate() + 7)
-    setCurrentDate(newDate)
+    if (onDateChange) {
+      onDateChange(newDate)
+    } else {
+      setInternalDate(newDate)
+    }
   }
 
   const getEntriesForDate = (date: Date): TimeEntry[] => {
@@ -128,6 +148,7 @@ export function WeekView({
   }
 
   const handleMouseDown = (date: Date, hour: number, event: MouseEvent<HTMLDivElement>) => {
+    if (!canEditEntries) return
     setIsDragging(true)
 
     const totalMinutesBase = hour * 60
@@ -144,6 +165,7 @@ export function WeekView({
   }
 
   const handleMouseEnter = (date: Date, hour: number, event: MouseEvent<HTMLDivElement>) => {
+    if (!canEditEntries) return
     if (isDragging && dragStart) {
       // 同じ日付内でのみドラッグを許可
       if (date.toDateString() === dragStart.date.toDateString()) {
@@ -162,6 +184,13 @@ export function WeekView({
   }
 
   const handleMouseUp = () => {
+    if (!canEditEntries) {
+      // 編集不可の場合はドラッグ選択ロジックをスキップ
+      setIsDragging(false)
+      setDragStart(null)
+      setDragEnd(null)
+      return
+    }
     if (isDragging && dragStart && dragEnd) {
       const minMinutes = Math.min(dragStart.minutes, dragEnd.minutes)
       let maxMinutes = Math.max(dragStart.minutes, dragEnd.minutes)
@@ -238,7 +267,15 @@ export function WeekView({
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCurrentDate(new Date())}
+            onClick={() => {
+              const now = new Date()
+              const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+              if (onDateChange) {
+                onDateChange(today)
+              } else {
+                setInternalDate(today)
+              }
+            }}
           >
             今週
           </Button>
@@ -323,7 +360,10 @@ export function WeekView({
                       return (
                         <div
                           key={hour}
-                          className="relative cursor-pointer border-b transition-colors hover:bg-accent/30"
+                          className={cn(
+                            'relative border-b transition-colors',
+                            canEditEntries && 'cursor-pointer hover:bg-accent/30'
+                          )}
                           style={{ height: `${HOUR_HEIGHT}px` }}
                           onMouseDown={(e) => handleMouseDown(date, hour, e)}
                           onMouseEnter={(e) => handleMouseEnter(date, hour, e)}

@@ -18,6 +18,17 @@ interface CalendarViewProps {
   onEntriesChange: () => void
   actionButtons?: React.ReactNode
   canEditEntries?: boolean
+  /**
+   * 親コンポーネント側で選択している年月
+   * - 未指定の場合は内部state（従来どおり「今月」）を使用
+   */
+  selectedMonth?: Date
+  /**
+   * 月が変更されたときに親へ通知
+   * - 指定されている場合、前月/翌月/今月ボタンはこのコールバックを呼び出す
+   * - 指定されていない場合、内部stateのみ更新する
+   */
+  onMonthChange?: (next: Date) => void
 }
 
 export function CalendarView({
@@ -28,9 +39,13 @@ export function CalendarView({
   onEntriesChange,
   actionButtons,
   canEditEntries = true,
+  selectedMonth,
+  onMonthChange,
 }: CalendarViewProps) {
   const [viewMode, setViewMode] = useState<'month' | 'week'>('month')
-  const [currentDate, setCurrentDate] = useState(new Date())
+  // 親からselectedMonthが渡されている場合はそれを優先し、無い場合は従来どおり内部stateを使用
+  const [internalDate, setInternalDate] = useState(new Date())
+  const currentDate = selectedMonth || internalDate
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
@@ -39,11 +54,21 @@ export function CalendarView({
   const days = getDaysInMonth(year, month)
 
   const goToPreviousMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1))
+    const next = new Date(year, month - 1, 1)
+    if (onMonthChange) {
+      onMonthChange(next)
+    } else {
+      setInternalDate(next)
+    }
   }
 
   const goToNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1))
+    const next = new Date(year, month + 1, 1)
+    if (onMonthChange) {
+      onMonthChange(next)
+    } else {
+      setInternalDate(next)
+    }
   }
 
   const getEntriesForDate = (date: Date): TimeEntry[] => {
@@ -70,6 +95,11 @@ export function CalendarView({
   }
 
   const handleDateClick = (date: Date) => {
+    const dayEntries = getEntriesForDate(date)
+    // ロック中かつ記録がない日は編集ダイアログを開かない
+    if (!canEditEntries && dayEntries.length === 0) {
+      return
+    }
     setSelectedDate(date)
     setIsDialogOpen(true)
   }
@@ -127,6 +157,16 @@ export function CalendarView({
           entries={entries}
           onEntriesChange={onEntriesChange}
           canEditEntries={canEditEntries}
+          selectedWeekDate={currentDate}
+          onDateChange={(next) => {
+            // 週ビュー側から渡された日付をそのまま現在日付として採用
+            // （親は year/month だけを見てAPIを呼ぶため、日付部分はそのままで問題ない）
+            if (onMonthChange) {
+              onMonthChange(next)
+            } else {
+              setInternalDate(next)
+            }
+          }}
         />
       ) : (
         <>
@@ -138,7 +178,15 @@ export function CalendarView({
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setCurrentDate(new Date())}
+                onClick={() => {
+                  const now = new Date()
+                  const next = new Date(now.getFullYear(), now.getMonth(), 1)
+                  if (onMonthChange) {
+                    onMonthChange(next)
+                  } else {
+                    setInternalDate(next)
+                  }
+                }}
               >
                 今月
               </Button>
@@ -176,15 +224,19 @@ export function CalendarView({
                 const hasEntries = dayEntries.length > 0
                 const isToday = date.getTime() === today.getTime()
                 const dayOfWeek = date.getDay()
+                const isLockedEmptyDay = !canEditEntries && !hasEntries
 
                 return (
                   <button
                     key={date.toISOString()}
+                    type="button"
+                    disabled={isLockedEmptyDay}
                     onClick={() => handleDateClick(date)}
                     className={cn(
                       'group relative min-h-[80px] rounded-lg border p-2 text-left transition-all hover:border-primary hover:shadow-sm',
                       isToday && 'border-primary bg-primary/5',
-                      hasEntries && 'bg-sky-100 border-sky-300'
+                      hasEntries && 'bg-sky-100 border-sky-300',
+                      isLockedEmptyDay && 'cursor-default hover:border-muted hover:shadow-none'
                     )}
                   >
                     <div
@@ -232,8 +284,13 @@ export function CalendarView({
                         })}
                       </div>
                     ) : (
-                      <div className="flex h-full items-center justify-center opacity-0 group-hover:opacity-100">
-                        <Plus className="h-4 w-4 text-muted-foreground" />
+                      <div
+                        className={cn(
+                          'flex h-full items-center justify-center opacity-0 group-hover:opacity-100',
+                          !canEditEntries && 'opacity-0 group-hover:opacity-0'
+                        )}
+                      >
+                        {canEditEntries && <Plus className="h-4 w-4 text-muted-foreground" />}
                       </div>
                     )}
                   </button>

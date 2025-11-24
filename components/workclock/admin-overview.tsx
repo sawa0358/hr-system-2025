@@ -14,7 +14,8 @@ interface AdminOverviewProps {
 }
 
 export function AdminOverview({ workers, allEntries, allRewards, selectedMonth }: AdminOverviewProps) {
-  const activeWorkers = workers.filter((w) => w.role === 'worker')
+  // リーダー（role='admin'）も含めて表示（WorkerTableと同じロジック）
+  const activeWorkers = workers
   
   const totalHoursAndMinutes = getMonthlyTotal(allEntries)
   const totalHours = totalHoursAndMinutes.hours + totalHoursAndMinutes.minutes / 60

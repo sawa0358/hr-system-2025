@@ -1,13 +1,14 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal } from '@/lib/workclock/time-utils'
 import { Users, Clock, DollarSign, TrendingUp } from 'lucide-react'
 
 interface AdminOverviewProps {
   workers: Worker[]
   allEntries: TimeEntry[]
+  allRewards: Reward[]
   selectedMonth: Date
 }
 
@@ -84,7 +85,7 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
   )
 }
 
-export function AdminOverview({ workers, allEntries, selectedMonth }: AdminOverviewProps) {
+export function AdminOverview({ workers, allEntries, allRewards, selectedMonth }: AdminOverviewProps) {
   const activeWorkers = workers.filter((w) => w.role === 'worker')
   
   const totalHoursAndMinutes = getMonthlyTotal(allEntries)
@@ -92,7 +93,9 @@ export function AdminOverview({ workers, allEntries, selectedMonth }: AdminOverv
 
   const totalCost = activeWorkers.reduce((sum, worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
-    return sum + calculateWorkerMonthlyCost(worker, workerEntries)
+    const workerRewards = allRewards.filter((r) => r.workerId === worker.id)
+    const rewardAmount = workerRewards.reduce((acc, r) => acc + r.amount, 0)
+    return sum + calculateWorkerMonthlyCost(worker, workerEntries) + rewardAmount
   }, 0)
 
   const avgHoursPerWorker = activeWorkers.length > 0 ? totalHours / activeWorkers.length : 0

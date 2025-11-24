@@ -269,6 +269,7 @@ export default function AdminPage() {
           <AdminOverview
             workers={workers}
             allEntries={allEntries}
+            allRewards={allRewards}
             selectedMonth={currentDate}
           />
 

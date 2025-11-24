@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/workclock/time-utils'
+import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
 import { Calendar, Clock, TrendingUp, DollarSign, ToggleRight, Coins, Settings } from 'lucide-react'
 import { getWagePatternLabels } from '@/lib/workclock/wage-patterns'
 
@@ -26,47 +27,10 @@ export function WorkerSummary({
   const monthlyTotal = getMonthlyTotal(monthlyEntries)
   const todayTotal = getMonthlyTotal(todayEntries)
   
-  // 時給パターン別の集計（wagePattern が設定されているエントリのみ対象）
-  const entriesByPattern = monthlyEntries.reduce((acc, entry) => {
-    const pattern = entry.wagePattern
-    if (!pattern) {
-      return acc
-    }
-    if (!acc[pattern]) acc[pattern] = []
-    acc[pattern].push(entry)
-    return acc
-  }, {} as Record<string, TimeEntry[]>)
-
-  // 時給パターン別の金額を計算
-  let monthlyAmount = 0
-  Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
-    const total = getMonthlyTotal(patternEntries)
-    const hours = total.hours + total.minutes / 60
-    const rate =
-      pattern === 'A'
-        ? worker.hourlyRate
-        : pattern === 'B'
-        ? worker.hourlyRateB || worker.hourlyRate
-        : worker.hourlyRateC || worker.hourlyRate
-    monthlyAmount += hours * rate
-  })
-
-  // 回数パターンの金額を計算（countPatternが設定されているエントリから計算）
-  monthlyEntries.forEach((entry) => {
-    if (entry.countPattern) {
-      const pattern = entry.countPattern
-      const count = entry.count || 1
-      const rate =
-        pattern === 'A'
-          ? worker.countRateA || 0
-          : pattern === 'B'
-          ? worker.countRateB || 0
-          : worker.countRateC || 0
-      monthlyAmount += count * rate
-    }
-  })
-
-  // 月額固定を取得
+  // 共通の計算関数を使用（時給パターン + 回数パターン + 月額固定 + 特別報酬・経費）
+  const monthlyAmount = calculateWorkerMonthlyCost(worker, monthlyEntries, rewards)
+  
+  // 月額固定を取得（表示用）
   const monthlyFixedAmount =
     typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
       ? worker.monthlyFixedAmount
@@ -74,14 +38,8 @@ export function WorkerSummary({
         ? Number((worker as any).monthlyFixedAmount)
         : null
   
-  // 月額固定を加算
-  if (monthlyFixedAmount) {
-    monthlyAmount += monthlyFixedAmount
-  }
-  
-  // 特別報酬を加算
+  // 特別報酬を取得（表示用）
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
-  monthlyAmount += rewardAmount
 
   const monthName = selectedMonth.toLocaleDateString('ja-JP', {
     year: 'numeric',

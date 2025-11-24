@@ -65,6 +65,19 @@ export function WorkerSummary({
       monthlyAmount += count * rate
     }
   })
+
+  // 月額固定を取得
+  const monthlyFixedAmount =
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
+        ? Number((worker as any).monthlyFixedAmount)
+        : null
+  
+  // 月額固定を加算
+  if (monthlyFixedAmount) {
+    monthlyAmount += monthlyFixedAmount
+  }
   
   // 特別報酬を加算
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
@@ -82,13 +95,6 @@ export function WorkerSummary({
     B: worker.wagePatternLabelB || baseLabels.B,
     C: worker.wagePatternLabelC || baseLabels.C,
   }
-
-  const monthlyFixedAmount =
-    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
-      ? worker.monthlyFixedAmount
-      : (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
-        ? Number((worker as any).monthlyFixedAmount)
-        : null
   
   // 5つ目のカードは廃止し、4つに戻す
   const gridColsClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
@@ -198,6 +204,11 @@ export function WorkerSummary({
             <div className="text-2xl font-bold break-words">¥{Math.floor(monthlyAmount).toLocaleString()}</div>
             <div className="flex flex-col gap-1">
                 <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
+                {monthlyFixedAmount && (
+                    <p className="text-xs text-primary font-medium truncate">
+                        + 月額固定 ¥{monthlyFixedAmount.toLocaleString()}
+                    </p>
+                )}
                 {rewardAmount > 0 && (
                     <p className="text-xs text-primary font-medium truncate">
                         + 特別報酬・経費 ¥{rewardAmount.toLocaleString()}

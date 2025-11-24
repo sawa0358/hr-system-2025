@@ -100,11 +100,15 @@ export function generatePDFContent(
   // 特別報酬の計算
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
 
+  // パターン別金額の小計（PDF表示・合計計算の両方で利用）
+  const hourlyPatternTotalAmount =
+    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount
+  const countPatternTotalAmount =
+    countTotals.A.amount + countTotals.B.amount + countTotals.C.amount
+
   // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う（税抜）
   const totalAmount =
-    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
-    countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
-    (monthlyFixedAmount ?? 0) + rewardAmount
+    hourlyPatternTotalAmount + countPatternTotalAmount + (monthlyFixedAmount ?? 0) + rewardAmount
 
   // 消費税計算用（ワーカーごとの設定）
   const baseAmount = totalAmount
@@ -382,25 +386,28 @@ export function generatePDFContent(
             patternTotals.C.hours + patternTotals.C.minutes > 0
               ? `
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 8px; border-top: 1px solid #ddd;">
-            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-              ${patternTotals.A.hours + patternTotals.A.minutes > 0 ? `
-                <div>
-                  <span class="summary-label">${wageLabels.A}:</span>
-                  <span class="summary-value">${formatDuration(patternTotals.A.hours, patternTotals.A.minutes)} × ¥${worker.hourlyRate.toLocaleString()} = ¥${Math.floor(patternTotals.A.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
-              ${patternTotals.B.hours + patternTotals.B.minutes > 0 && worker.hourlyRateB ? `
-                <div>
-                  <span class="summary-label">${wageLabels.B}:</span>
-                  <span class="summary-value">${formatDuration(patternTotals.B.hours, patternTotals.B.minutes)} × ¥${worker.hourlyRateB.toLocaleString()} = ¥${Math.floor(patternTotals.B.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
-              ${patternTotals.C.hours + patternTotals.C.minutes > 0 && worker.hourlyRateC ? `
-                <div>
-                  <span class="summary-label">${wageLabels.C}:</span>
-                  <span class="summary-value">${formatDuration(patternTotals.C.hours, patternTotals.C.minutes)} × ¥${worker.hourlyRateC.toLocaleString()} = ¥${Math.floor(patternTotals.C.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
+              <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
+                ${patternTotals.A.hours + patternTotals.A.minutes > 0 ? `
+                  <div>
+                    <span class="summary-label">${wageLabels.A}:</span>
+                    <span class="summary-value">${formatDuration(patternTotals.A.hours, patternTotals.A.minutes)} × ¥${worker.hourlyRate.toLocaleString()} = ¥${Math.floor(patternTotals.A.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${patternTotals.B.hours + patternTotals.B.minutes > 0 && worker.hourlyRateB ? `
+                  <div>
+                    <span class="summary-label">${wageLabels.B}:</span>
+                    <span class="summary-value">${formatDuration(patternTotals.B.hours, patternTotals.B.minutes)} × ¥${worker.hourlyRateB.toLocaleString()} = ¥${Math.floor(patternTotals.B.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${patternTotals.C.hours + patternTotals.C.minutes > 0 && worker.hourlyRateC ? `
+                  <div>
+                    <span class="summary-label">${wageLabels.C}:</span>
+                    <span class="summary-value">${formatDuration(patternTotals.C.hours, patternTotals.C.minutes)} × ¥${worker.hourlyRateC.toLocaleString()} = ¥${Math.floor(patternTotals.C.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+              </div>
+              <span class="summary-value">¥${Math.floor(hourlyPatternTotalAmount).toLocaleString()}</span>
             </div>
           </div>
               `
@@ -410,25 +417,28 @@ export function generatePDFContent(
             countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
               ? `
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
-            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-              ${countTotals.A.count > 0 && worker.countRateA ? `
-                <div>
-                  <span class="summary-label">${countLabels.A}:</span>
-                  <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
-              ${countTotals.B.count > 0 && worker.countRateB ? `
-                <div>
-                  <span class="summary-label">${countLabels.B}:</span>
-                  <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
-              ${countTotals.C.count > 0 && worker.countRateC ? `
-                <div>
-                  <span class="summary-label">${countLabels.C}:</span>
-                  <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
-                </div>
-              ` : ''}
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
+              <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
+                ${countTotals.A.count > 0 && worker.countRateA ? `
+                  <div>
+                    <span class="summary-label">${countLabels.A}:</span>
+                    <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${countTotals.B.count > 0 && worker.countRateB ? `
+                  <div>
+                    <span class="summary-label">${countLabels.B}:</span>
+                    <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+                ${countTotals.C.count > 0 && worker.countRateC ? `
+                  <div>
+                    <span class="summary-label">${countLabels.C}:</span>
+                    <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
+                  </div>
+                ` : ''}
+              </div>
+              <span class="summary-value">¥${Math.floor(countPatternTotalAmount).toLocaleString()}</span>
             </div>
           </div>
               `
@@ -517,6 +527,7 @@ export function generatePDFContent(
         // 時給パターンによる金額
         let hourlyAmount = 0
         let hourlyLabel = ''
+        let hourlyInfo = ''
         if (pattern === 'A' || pattern === 'B' || pattern === 'C') {
           const rate =
             pattern === 'A'
@@ -528,6 +539,9 @@ export function generatePDFContent(
           hourlyAmount = Math.floor(hours * rate)
           hourlyLabel =
             pattern === 'A' ? wageLabels.A : pattern === 'B' ? wageLabels.B : wageLabels.C
+          const durationText = formatDuration(duration.hours, duration.minutes)
+          // 例: 「1時間0分／Bパターン（¥1,500）」のように表示
+          hourlyInfo = `${durationText}／${hourlyLabel}（¥${rate.toLocaleString()}）`
         }
 
         // 回数パターンの金額（あれば加算）
@@ -554,12 +568,14 @@ export function generatePDFContent(
 
         const subtotal = hourlyAmount + countAmount
 
+        const hourlyDisplay = hourlyInfo || hourlyLabel
+
         let patternLabel = '-'
-        if (hourlyLabel && countInfo) {
+        if (hourlyDisplay && countInfo) {
           // 両方ある場合は「時給／回数」の2行表示
-          patternLabel = `${hourlyLabel}<br/><span style="font-size: 10px; color: #555;">＋ ${countInfo}</span>`
-        } else if (hourlyLabel) {
-          patternLabel = hourlyLabel
+          patternLabel = `${hourlyDisplay}<br/><span style="font-size: 10px; color: #555;">＋ ${countInfo}</span>`
+        } else if (hourlyDisplay) {
+          patternLabel = hourlyDisplay
         } else if (countInfo) {
           patternLabel = countInfo
         }
@@ -636,7 +652,6 @@ export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date, r
 interface WorkerWithEntries {
   worker: Worker
   entries: TimeEntry[]
-  rewards?: Reward[]
 }
 
 export function generateCombinedPDFContent(
@@ -849,7 +864,7 @@ export function generateCombinedPDFContent(
     <body>
   `
 
-  items.forEach(({ worker, entries, rewards = [] }) => {
+  items.forEach(({ worker, entries }) => {
     const teamsText =
       Array.isArray(worker.teams) && worker.teams.length > 0
         ? worker.teams.join(', ')
@@ -917,15 +932,16 @@ export function generateCombinedPDFContent(
       typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
         ? worker.monthlyFixedAmount
         : null
-
-    // 特別報酬の計算
-    const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
-
-    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う（税抜）
+    
+    // パターン別金額の小計（PDF表示・合計計算の両方で利用）
+    const hourlyPatternTotalAmount =
+      patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount
+    const countPatternTotalAmount =
+      countTotals.A.amount + countTotals.B.amount + countTotals.C.amount
+    
+    // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 を「報酬合計」として扱う（税抜）
     const totalAmount =
-      patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + 
-      countTotals.A.amount + countTotals.B.amount + countTotals.C.amount + 
-      (monthlyFixedAmount ?? 0) + rewardAmount
+      hourlyPatternTotalAmount + countPatternTotalAmount + (monthlyFixedAmount ?? 0)
 
     // 消費税計算（ワーカーごと）
     const baseAmount = totalAmount
@@ -1010,25 +1026,28 @@ export function generateCombinedPDFContent(
               patternTotals.C.hours + patternTotals.C.minutes > 0
                 ? `
             <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 8px; border-top: 1px solid #ddd;">
-              <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                ${patternTotals.A.hours + patternTotals.A.minutes > 0 ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.A}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.A.hours, patternTotals.A.minutes)} × ¥${worker.hourlyRate.toLocaleString()} = ¥${Math.floor(patternTotals.A.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${patternTotals.B.hours + patternTotals.B.minutes > 0 && worker.hourlyRateB ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.B}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.B.hours, patternTotals.B.minutes)} × ¥${worker.hourlyRateB.toLocaleString()} = ¥${Math.floor(patternTotals.B.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${patternTotals.C.hours + patternTotals.C.minutes > 0 && worker.hourlyRateC ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.C}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.C.hours, patternTotals.C.minutes)} × ¥${worker.hourlyRateC.toLocaleString()} = ¥${Math.floor(patternTotals.C.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
+              <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
+                  ${patternTotals.A.hours + patternTotals.A.minutes > 0 ? `
+                    <div>
+                      <span class="summary-label">${wageLabels.A}:</span>
+                      <span class="summary-value">${formatDuration(patternTotals.A.hours, patternTotals.A.minutes)} × ¥${worker.hourlyRate.toLocaleString()} = ¥${Math.floor(patternTotals.A.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                  ${patternTotals.B.hours + patternTotals.B.minutes > 0 && worker.hourlyRateB ? `
+                    <div>
+                      <span class="summary-label">${wageLabels.B}:</span>
+                      <span class="summary-value">${formatDuration(patternTotals.B.hours, patternTotals.B.minutes)} × ¥${worker.hourlyRateB.toLocaleString()} = ¥${Math.floor(patternTotals.B.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                  ${patternTotals.C.hours + patternTotals.C.minutes > 0 && worker.hourlyRateC ? `
+                    <div>
+                      <span class="summary-label">${wageLabels.C}:</span>
+                      <span class="summary-value">${formatDuration(patternTotals.C.hours, patternTotals.C.minutes)} × ¥${worker.hourlyRateC.toLocaleString()} = ¥${Math.floor(patternTotals.C.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                </div>
+                <span class="summary-value">¥${Math.floor(hourlyPatternTotalAmount).toLocaleString()}</span>
               </div>
             </div>
                 `
@@ -1038,44 +1057,28 @@ export function generateCombinedPDFContent(
               countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
                 ? `
             <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
-              <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                ${countTotals.A.count > 0 && worker.countRateA ? `
-                  <div>
-                    <span class="summary-label">${countLabels.A}:</span>
-                    <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${countTotals.B.count > 0 && worker.countRateB ? `
-                  <div>
-                    <span class="summary-label">${countLabels.B}:</span>
-                    <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${countTotals.C.count > 0 && worker.countRateC ? `
-                  <div>
-                    <span class="summary-label">${countLabels.C}:</span>
-                    <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-              </div>
-            </div>
-                `
-                : ''
-            }
-            ${
-              rewards.length > 0
-                ? `
-            <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
               <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
-                  <div style="display: flex; gap: 8px; flex: 1;">
-                      <span class="summary-label">特別報酬・経費:</span>
-                      <div style="display: flex; flex-direction: column; gap: 2px;">
-                          ${rewards.map(r => `
-                              <span>${r.description} (¥${r.amount.toLocaleString()})</span>
-                          `).join('')}
-                      </div>
-                  </div>
-                  <span class="summary-value">¥${rewardAmount.toLocaleString()}</span>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
+                  ${countTotals.A.count > 0 && worker.countRateA ? `
+                    <div>
+                      <span class="summary-label">${countLabels.A}:</span>
+                      <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                  ${countTotals.B.count > 0 && worker.countRateB ? `
+                    <div>
+                      <span class="summary-label">${countLabels.B}:</span>
+                      <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                  ${countTotals.C.count > 0 && worker.countRateC ? `
+                    <div>
+                      <span class="summary-label">${countLabels.C}:</span>
+                      <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
+                    </div>
+                  ` : ''}
+                </div>
+                <span class="summary-value">¥${Math.floor(countPatternTotalAmount).toLocaleString()}</span>
               </div>
             </div>
                 `
@@ -1143,6 +1146,7 @@ export function generateCombinedPDFContent(
           // 時給パターンによる金額
           let hourlyAmount = 0
           let hourlyLabel = ''
+          let hourlyInfo = ''
           if (pattern === 'A' || pattern === 'B' || pattern === 'C') {
             const rate =
               pattern === 'A'
@@ -1154,6 +1158,9 @@ export function generateCombinedPDFContent(
             hourlyAmount = Math.floor(hours * rate)
             hourlyLabel =
               pattern === 'A' ? wageLabels.A : pattern === 'B' ? wageLabels.B : wageLabels.C
+            const durationText = formatDuration(duration.hours, duration.minutes)
+            // 例: 「1時間0分／Bパターン（¥1,500）」のように表示
+            hourlyInfo = `${durationText}／${hourlyLabel}（¥${rate.toLocaleString()}）`
           }
 
           // 回数パターンの金額（あれば加算）
@@ -1180,11 +1187,13 @@ export function generateCombinedPDFContent(
 
           const subtotal = hourlyAmount + countAmount
 
+          const hourlyDisplay = hourlyInfo || hourlyLabel
+
           let patternLabel = '-'
-          if (hourlyLabel && countInfo) {
-            patternLabel = `${hourlyLabel}<br/><span style="font-size: 10px; color: #555;">＋ ${countInfo}</span>`
-          } else if (hourlyLabel) {
-            patternLabel = hourlyLabel
+          if (hourlyDisplay && countInfo) {
+            patternLabel = `${hourlyDisplay}<br/><span style="font-size: 10px; color: #555;">＋ ${countInfo}</span>`
+          } else if (hourlyDisplay) {
+            patternLabel = hourlyDisplay
           } else if (countInfo) {
             patternLabel = countInfo
           }

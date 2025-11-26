@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, saveTeams, addTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -91,9 +91,6 @@ export default function SettingsPage() {
   // ワーカー編集全体のロック（既存ワーカーは初期ロック、新規はアンロック）
   const [isWorkerEditUnlocked, setIsWorkerEditUnlocked] = useState(false)
   const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
-  // 標準消費税率編集のロック
-  const [isTaxRateEditUnlocked, setIsTaxRateEditUnlocked] = useState(false)
-  const [isTaxRatePasswordDialogOpen, setIsTaxRatePasswordDialogOpen] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -141,32 +138,28 @@ export default function SettingsPage() {
   useEffect(() => {
     if (currentUser?.id) {
       loadWorkers()
-      // チーム一覧をAPIから取得
-      ;(async () => {
-        try {
-          const loadedTeams = await getTeams(currentUser.id)
-          if (loadedTeams.length === 0) {
-            // デフォルトチームを設定（APIに登録）
-            const defaultTeams = ['チームA', 'チームB', 'チームC']
-            for (const teamName of defaultTeams) {
-              try {
-                await addTeam(teamName, currentUser.id)
-              } catch (e) {
-                console.error(`チーム「${teamName}」の登録に失敗:`, e)
-              }
-            }
-            // 再取得
-            const reloadedTeams = await getTeams(currentUser.id)
-            setTeams(reloadedTeams)
-          } else {
-            setTeams(loadedTeams)
-          }
-        } catch (e) {
-          console.error('チーム一覧の取得に失敗', e)
-          setTeams(['チームA', 'チームB', 'チームC']) // フォールバック
-        }
-      })()
     }
+    
+    // チーム一覧を初期化
+    const fetchTeams = async () => {
+      try {
+        const initialTeams = await getTeams(currentUser?.id)
+        if (initialTeams.length === 0) {
+          // デフォルトチームを設定（APIには保存せず、UI表示のみ）
+          // 必要ならAPI経由で保存するロジックを追加
+          const defaultTeams = ['チームA', 'チームB', 'チームC']
+          setTeams(defaultTeams)
+        } else {
+          setTeams(initialTeams)
+        }
+      } catch (error) {
+        console.error('チーム一覧の取得に失敗', error)
+        // フォールバック
+        setTeams(['チームA', 'チームB', 'チームC'])
+      }
+    }
+    fetchTeams()
+
     // 初回ロードで社員一覧も取得
     ;(async () => {
       try {
@@ -200,12 +193,6 @@ export default function SettingsPage() {
   }, [currentUser])
 
   const handleSaveStandardTaxRate = async () => {
-    // パスワード認証が必要
-    if (!isTaxRateEditUnlocked) {
-      setIsTaxRatePasswordDialogOpen(true)
-      return
-    }
-
     try {
       const rateNumber = Number(standardTaxRate)
       if (!Number.isFinite(rateNumber) || rateNumber < 0) {
@@ -239,8 +226,6 @@ export default function SettingsPage() {
       })
       // 反映後、ワーカー一覧を再取得
       await loadWorkers()
-      // 保存後はロックを再度かける
-      setIsTaxRateEditUnlocked(false)
     } catch (error: any) {
       console.error('handleSaveStandardTaxRate error:', error)
       toast({
@@ -532,14 +517,9 @@ export default function SettingsPage() {
   const handleEdit = async (worker: Worker) => {
     setEditingWorker(worker)
     // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
-    if (currentUser?.id) {
-      try {
-        const latestTeams = await getTeams(currentUser.id)
-        setTeams(latestTeams)
-      } catch (e) {
-        console.error('チーム一覧の取得に失敗', e)
-      }
-    }
+    const latestTeams = await getTeams(currentUser?.id)
+    setTeams(latestTeams)
+    
     // 社員のパスワードを取得（デフォルト値として）
     let employeePassword = worker.password || ''
     if (worker.employeeId) {
@@ -643,21 +623,22 @@ export default function SettingsPage() {
 
   const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newTeamName.trim() && currentUser?.id) {
+    if (newTeamName.trim()) {
       try {
-        await addTeam(newTeamName.trim(), currentUser.id)
-        const updatedTeams = await getTeams(currentUser.id)
-        setTeams(updatedTeams)
+        await addTeam(newTeamName.trim(), currentUser?.id)
+        const updatedTeams = await getTeams(currentUser?.id)
+        setTeams(updatedTeams) // チーム管理と連動
         setNewTeamName('')
-        setIsTeamDialogOpen(false)
+        // setIsTeamDialogOpen(false) // 続けて入力できるように閉じない
         toast({
           title: 'チーム追加完了',
           description: `${newTeamName}を追加しました`,
         })
-      } catch (error: any) {
+      } catch (error) {
+        console.error('チーム追加エラー:', error)
         toast({
           title: 'エラー',
-          description: error.message || 'チームの追加に失敗しました',
+          description: 'チームの追加に失敗しました',
           variant: 'destructive',
         })
       }
@@ -665,19 +646,20 @@ export default function SettingsPage() {
   }
 
   const handleDeleteTeam = async (teamName: string) => {
-    if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`) && currentUser?.id) {
+    if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`)) {
       try {
-        await deleteTeam(teamName, currentUser.id)
-        const updatedTeams = await getTeams(currentUser.id)
-        setTeams(updatedTeams)
+        await deleteTeam(teamName, currentUser?.id)
+        const updatedTeams = await getTeams(currentUser?.id)
+        setTeams(updatedTeams) // チーム管理と連動
         toast({
           title: 'チーム削除完了',
           description: `${teamName}を削除しました`,
         })
-      } catch (error: any) {
+      } catch (error) {
+        console.error('チーム削除エラー:', error)
         toast({
           title: 'エラー',
-          description: error.message || 'チームの削除に失敗しました',
+          description: 'チームの削除に失敗しました',
           variant: 'destructive',
         })
       }
@@ -687,11 +669,6 @@ export default function SettingsPage() {
   // パスワード認証成功時のコールバック（ワーカー編集全体をアンロック）
   const handleWorkerEditVerified = () => {
     setIsWorkerEditUnlocked(true)
-  }
-
-  // パスワード認証成功時のコールバック（標準消費税率編集をアンロック）
-  const handleTaxRateEditVerified = () => {
-    setIsTaxRateEditUnlocked(true)
   }
 
   // 店長・総務・管理者の権限チェック（システムパスワード編集は従来通り）
@@ -870,14 +847,10 @@ export default function SettingsPage() {
               {canEditCompensation && (
                 <Dialog open={isTeamDialogOpen} onOpenChange={async (open) => {
                   setIsTeamDialogOpen(open)
-                  if (!open && currentUser?.id) {
+                  if (!open) {
                     // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                    try {
-                      const updatedTeams = await getTeams(currentUser.id)
-                      setTeams(updatedTeams)
-                    } catch (e) {
-                      console.error('チーム一覧の更新に失敗', e)
-                    }
+                    const updatedTeams = await getTeams(currentUser?.id)
+                    setTeams(updatedTeams)
                   }
                 }}>
                   <DialogTrigger asChild>
@@ -926,14 +899,10 @@ export default function SettingsPage() {
               )}
               <Dialog open={isDialogOpen} onOpenChange={async (open) => {
                 setIsDialogOpen(open)
-                if (open && currentUser?.id) {
+                if (open) {
                   // ダイアログを開いた時に最新のチーム一覧を取得
-                  try {
-                    const latestTeams = await getTeams(currentUser.id)
-                    setTeams(latestTeams)
-                  } catch (e) {
-                    console.error('チーム一覧の取得に失敗', e)
-                  }
+                  const updatedTeams = await getTeams(currentUser?.id)
+                  setTeams(updatedTeams)
                 } else {
                   resetForm()
                   setIsWorkerEditUnlocked(false)
@@ -1697,34 +1666,6 @@ export default function SettingsPage() {
                           style={{ resize: 'none' }}
                         />
                       </div>
-                      {/* 消費税設定の表示 */}
-                      {viewingWorker.billingTaxEnabled && (
-                        <div className="grid gap-2 p-3 bg-blue-50 rounded-md border border-blue-200">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="default" className="bg-blue-600">
-                              消費税課税対象
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 mt-2">
-                            <div className="grid gap-2">
-                              <Label className="text-sm font-semibold">消費税設定</Label>
-                              <Input
-                                value="課税対象"
-                                readOnly
-                                className="bg-white"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label className="text-sm font-semibold">消費税率</Label>
-                              <Input
-                                value={`${viewingWorker.billingTaxRate || 10}%`}
-                                readOnly
-                                className="bg-white"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <DialogFooter>
                       <Button onClick={() => setIsViewDialogOpen(false)}>
@@ -1737,15 +1678,13 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 全社共通の標準消費税率設定 - hr/adminのみ表示 */}
-          {canEditCompensation && (
+          {/* 全社共通の標準消費税率設定 */}
           <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-slate-900">標準消費税率（全社設定）</h2>
                 <p className="text-xs text-slate-500">
                   ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
-                  変更にはパスワード認証が必要です。
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1755,7 +1694,7 @@ export default function SettingsPage() {
                   step={0.1}
                   value={standardTaxRate}
                   onChange={(e) => setStandardTaxRate(e.target.value)}
-                  disabled={isLoadingTax || isSavingTax}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
                   className="w-24"
                 />
                 <span className="text-sm text-slate-600">%</span>
@@ -1763,23 +1702,13 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleSaveStandardTaxRate}
-                  disabled={isLoadingTax || isSavingTax}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
                 >
-                  {isSavingTax ? '保存中...' : isTaxRateEditUnlocked ? '保存して全ワーカーに反映' : '編集を有効化'}
+                  {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
                 </Button>
               </div>
             </div>
-            <PasswordVerificationDialog
-              open={isTaxRatePasswordDialogOpen}
-              onOpenChange={(open) => {
-                setIsTaxRatePasswordDialogOpen(open)
-              }}
-              onVerified={handleTaxRateEditVerified}
-              currentUser={currentUser}
-              actionType="workclock-tax-rate"
-            />
           </div>
-          )}
 
           <Card>
             <CardHeader>

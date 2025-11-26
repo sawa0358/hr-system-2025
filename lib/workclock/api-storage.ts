@@ -582,9 +582,9 @@ export async function getTeams(userId?: string): Promise<string[]> {
       return ['チームA', 'チームB', 'チームC']
     }
 
-    const teams = await response.json()
-    // APIから取得したチームの名前だけを配列で返す
-    return teams.map((t: any) => t.name)
+    const data = await response.json()
+    // APIからは { teams: string[] } の形式で返ってくる
+    return data.teams || []
   } catch (error) {
     console.error('[WorkClock] getTeams error:', error)
     // エラーの場合はローカルストレージにフォールバック

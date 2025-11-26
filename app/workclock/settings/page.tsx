@@ -141,16 +141,31 @@ export default function SettingsPage() {
   useEffect(() => {
     if (currentUser?.id) {
       loadWorkers()
-    }
-    // チーム一覧を初期化（localStorageから取得、なければデフォルト値）
-    const initialTeams = getTeams()
-    if (initialTeams.length === 0) {
-      // デフォルトチームを設定
-      const defaultTeams = ['チームA', 'チームB', 'チームC']
-      saveTeams(defaultTeams)
-      setTeams(defaultTeams)
-    } else {
-      setTeams(initialTeams)
+      // チーム一覧をAPIから取得
+      ;(async () => {
+        try {
+          const loadedTeams = await getTeams(currentUser.id)
+          if (loadedTeams.length === 0) {
+            // デフォルトチームを設定（APIに登録）
+            const defaultTeams = ['チームA', 'チームB', 'チームC']
+            for (const teamName of defaultTeams) {
+              try {
+                await addTeam(teamName, currentUser.id)
+              } catch (e) {
+                console.error(`チーム「${teamName}」の登録に失敗:`, e)
+              }
+            }
+            // 再取得
+            const reloadedTeams = await getTeams(currentUser.id)
+            setTeams(reloadedTeams)
+          } else {
+            setTeams(loadedTeams)
+          }
+        } catch (e) {
+          console.error('チーム一覧の取得に失敗', e)
+          setTeams(['チームA', 'チームB', 'チームC']) // フォールバック
+        }
+      })()
     }
     // 初回ロードで社員一覧も取得
     ;(async () => {
@@ -517,7 +532,14 @@ export default function SettingsPage() {
   const handleEdit = async (worker: Worker) => {
     setEditingWorker(worker)
     // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
-    setTeams(getTeams())
+    if (currentUser?.id) {
+      try {
+        const latestTeams = await getTeams(currentUser.id)
+        setTeams(latestTeams)
+      } catch (e) {
+        console.error('チーム一覧の取得に失敗', e)
+      }
+    }
     // 社員のパスワードを取得（デフォルト値として）
     let employeePassword = worker.password || ''
     if (worker.employeeId) {
@@ -619,29 +641,46 @@ export default function SettingsPage() {
     }
   }
 
-  const handleAddTeam = (e: React.FormEvent) => {
+  const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newTeamName.trim()) {
-      addTeam(newTeamName.trim())
-      setTeams(getTeams()) // チーム管理と連動
-      setNewTeamName('')
-      setIsTeamDialogOpen(false)
-      toast({
-        title: 'チーム追加完了',
-        description: `${newTeamName}を追加しました`,
-      })
+    if (newTeamName.trim() && currentUser?.id) {
+      try {
+        await addTeam(newTeamName.trim(), currentUser.id)
+        const updatedTeams = await getTeams(currentUser.id)
+        setTeams(updatedTeams)
+        setNewTeamName('')
+        setIsTeamDialogOpen(false)
+        toast({
+          title: 'チーム追加完了',
+          description: `${newTeamName}を追加しました`,
+        })
+      } catch (error: any) {
+        toast({
+          title: 'エラー',
+          description: error.message || 'チームの追加に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
-  const handleDeleteTeam = (teamName: string) => {
-    if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`)) {
-      const updatedTeams = teams.filter(t => t !== teamName)
-      saveTeams(updatedTeams)
-      setTeams(getTeams()) // チーム管理と連動
-      toast({
-        title: 'チーム削除完了',
-        description: `${teamName}を削除しました`,
-      })
+  const handleDeleteTeam = async (teamName: string) => {
+    if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`) && currentUser?.id) {
+      try {
+        await deleteTeam(teamName, currentUser.id)
+        const updatedTeams = await getTeams(currentUser.id)
+        setTeams(updatedTeams)
+        toast({
+          title: 'チーム削除完了',
+          description: `${teamName}を削除しました`,
+        })
+      } catch (error: any) {
+        toast({
+          title: 'エラー',
+          description: error.message || 'チームの削除に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
@@ -829,11 +868,16 @@ export default function SettingsPage() {
             <div className="flex flex-wrap gap-2">
               {/* チーム管理ボタンは総務権限・管理者権限のみ表示 */}
               {canEditCompensation && (
-                <Dialog open={isTeamDialogOpen} onOpenChange={(open) => {
+                <Dialog open={isTeamDialogOpen} onOpenChange={async (open) => {
                   setIsTeamDialogOpen(open)
-                  if (!open) {
+                  if (!open && currentUser?.id) {
                     // ダイアログを閉じた際にチーム一覧を更新（チーム管理と連動）
-                    setTeams(getTeams())
+                    try {
+                      const updatedTeams = await getTeams(currentUser.id)
+                      setTeams(updatedTeams)
+                    } catch (e) {
+                      console.error('チーム一覧の更新に失敗', e)
+                    }
                   }
                 }}>
                   <DialogTrigger asChild>
@@ -880,11 +924,16 @@ export default function SettingsPage() {
                 </DialogContent>
               </Dialog>
               )}
-              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              <Dialog open={isDialogOpen} onOpenChange={async (open) => {
                 setIsDialogOpen(open)
-                if (open) {
+                if (open && currentUser?.id) {
                   // ダイアログを開いた時に最新のチーム一覧を取得
-                  setTeams(getTeams())
+                  try {
+                    const latestTeams = await getTeams(currentUser.id)
+                    setTeams(latestTeams)
+                  } catch (e) {
+                    console.error('チーム一覧の取得に失敗', e)
+                  }
                 } else {
                   resetForm()
                   setIsWorkerEditUnlocked(false)

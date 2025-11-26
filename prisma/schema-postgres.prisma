@@ -828,6 +828,8 @@ model WorkClockWorker {
   updatedAt              DateTime @updatedAt
 
   timeEntries            WorkClockTimeEntry[]
+  rewards                WorkClockReward[]
+  rewardPresets          WorkClockRewardPreset[]
 
   @@map("workclock_workers")
 }
@@ -850,4 +852,41 @@ model WorkClockTimeEntry {
 
   @@index([workerId, date])
   @@map("workclock_time_entries")
+}
+
+model WorkClockReward {
+  id          String          @id @default(cuid())
+  workerId    String
+  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  amount      Int
+  description String
+  date        DateTime
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([workerId, date])
+  @@map("workclock_rewards")
+}
+
+model WorkClockRewardPreset {
+  id          String          @id @default(cuid())
+  workerId    String
+  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  amount      Int
+  description String
+  isEnabled   Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([workerId])
+  @@map("workclock_reward_presets")
+}
+
+model WorkClockTeam {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("workclock_teams")
 }

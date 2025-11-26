@@ -556,28 +556,119 @@ export async function deleteRewardPreset(id: string, userId?: string): Promise<v
   }
 }
 
-// Teams (localStorageで管理、APIは不要)
-export function getTeams(): string[] {
-  if (typeof window === 'undefined') return []
-  const data = localStorage.getItem('timesheet_teams')
-  return data ? JSON.parse(data) : ['チームA', 'チームB', 'チームC']
-}
+// Teams (PostgreSQLで管理、API経由でアクセス)
+export async function getTeams(userId?: string): Promise<string[]> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      // 認証エラーの場合は空配列を返す（デフォルトチームも返さない）
+      return []
+    }
 
-export function saveTeams(teams: string[]): void {
-  localStorage.setItem('timesheet_teams', JSON.stringify(teams))
-}
+    const response = await fetch(`${API_BASE}/teams`, {
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
 
-export function addTeam(teamName: string): void {
-  const teams = getTeams()
-  if (!teams.includes(teamName)) {
-    teams.push(teamName)
-    saveTeams(teams)
+    if (!response.ok) {
+      console.warn('[WorkClock] チーム一覧の取得に失敗しました - status:', response.status)
+      // エラーの場合はローカルストレージにフォールバック
+      if (typeof window !== 'undefined') {
+        const data = localStorage.getItem('timesheet_teams')
+        return data ? JSON.parse(data) : ['チームA', 'チームB', 'チームC']
+      }
+      return ['チームA', 'チームB', 'チームC']
+    }
+
+    const teams = await response.json()
+    // APIから取得したチームの名前だけを配列で返す
+    return teams.map((t: any) => t.name)
+  } catch (error) {
+    console.error('[WorkClock] getTeams error:', error)
+    // エラーの場合はローカルストレージにフォールバック
+    if (typeof window !== 'undefined') {
+      const data = localStorage.getItem('timesheet_teams')
+      return data ? JSON.parse(data) : ['チームA', 'チームB', 'チームC']
+    }
+    return ['チームA', 'チームB', 'チームC']
   }
 }
 
-export function deleteTeam(teamName: string): void {
-  const teams = getTeams()
-  saveTeams(teams.filter(t => t !== teamName))
+export async function saveTeams(teams: string[], userId?: string): Promise<void> {
+  // この関数は互換性のため残すが、実際には個別にaddTeam/deleteTeamを使う
+  console.warn('saveTeams: 一括保存は非推奨です。addTeam/deleteTeamを使用してください。')
+  // ローカルストレージにも保存（フォールバック用）
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('timesheet_teams', JSON.stringify(teams))
+  }
+}
+
+export async function addTeam(teamName: string, userId?: string): Promise<void> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/teams`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-employee-id': finalUserId,
+      },
+      body: JSON.stringify({ name: teamName }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'チームの追加に失敗しました')
+    }
+
+    // ローカルストレージにも保存（フォールバック用）
+    if (typeof window !== 'undefined') {
+      const teams = await getTeams(finalUserId)
+      if (!teams.includes(teamName)) {
+        teams.push(teamName)
+        localStorage.setItem('timesheet_teams', JSON.stringify(teams))
+      }
+    }
+  } catch (error) {
+    console.error('addTeam error:', error)
+    throw error
+  }
+}
+
+export async function deleteTeam(teamName: string, userId?: string): Promise<void> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      throw new Error('認証が必要です。ログインしてください。')
+    }
+
+    const response = await fetch(`${API_BASE}/teams?name=${encodeURIComponent(teamName)}`, {
+      method: 'DELETE',
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}))
+      throw new Error(error.error || 'チームの削除に失敗しました')
+    }
+
+    // ローカルストレージからも削除（フォールバック用）
+    if (typeof window !== 'undefined') {
+      const teams = await getTeams(finalUserId)
+      const updatedTeams = teams.filter(t => t !== teamName)
+      localStorage.setItem('timesheet_teams', JSON.stringify(updatedTeams))
+    }
+  } catch (error) {
+    console.error('deleteTeam error:', error)
+    throw error
+  }
 }
 
 // Initialize with sample data if empty (API移行後は不要)

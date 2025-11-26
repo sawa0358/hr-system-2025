@@ -83,7 +83,9 @@ export default function SettingsPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
   const [teams, setTeams] = useState<string[]>([])
   const [employees, setEmployees] = useState<any[]>([])
+  const [workerCandidates, setWorkerCandidates] = useState<any[]>([])
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false)
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false)
   const [filterTeam, setFilterTeam] = useState<string>('all')
   const [filterEmployment, setFilterEmployment] = useState<string>('all')
   const [filterRole, setFilterRole] = useState<string>('all')
@@ -910,10 +912,31 @@ export default function SettingsPage() {
               }}>
                 <DialogTrigger asChild>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     resetForm()
                     // 新規ワーカー登録時は報酬設定の編集を最初から有効化
                     setIsWorkerEditUnlocked(true)
+                    // ワーカー候補（未登録の従業員）を取得
+                    try {
+                      setIsLoadingCandidates(true)
+                      const res = await fetch('/api/workclock/workers/candidates', {
+                        headers: {
+                          'x-employee-id': currentUser?.id || '',
+                        },
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setWorkerCandidates(data.candidates || [])
+                      } else {
+                        console.error('ワーカー候補の取得に失敗:', res.status)
+                        setWorkerCandidates([])
+                      }
+                    } catch (e) {
+                      console.error('ワーカー候補の取得エラー:', e)
+                      setWorkerCandidates([])
+                    } finally {
+                      setIsLoadingCandidates(false)
+                    }
                   }}
                 >
                     <Plus className="mr-2 h-4 w-4" />
@@ -937,11 +960,11 @@ export default function SettingsPage() {
                           <Select
                             value={formData.employeeId || 'none'}
                             onValueChange={async (value) => {
-                              if (value === 'none') {
+                              if (value === 'none' || value === '__no_candidates__') {
                                 setFormData({ ...formData, employeeId: '' })
                                 return
                               }
-                              const emp = employees.find((e) => e.id === value)
+                              const emp = workerCandidates.find((e) => e.id === value)
                               // 社員のパスワードを取得
                               let employeePassword = ''
                               if (emp?.id) {
@@ -967,22 +990,29 @@ export default function SettingsPage() {
                             }}
                           >
                             <SelectTrigger>
-                              <SelectValue placeholder={isLoadingEmployees ? '読み込み中...' : '社員を選択'} />
+                              <SelectValue placeholder={isLoadingCandidates ? '読み込み中...' : '社員を選択'} />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none" disabled>選択してください</SelectItem>
-                              {employees
-                                .filter((e) => (e.employeeType || '').includes('業務委託') || (e.employeeType || '').includes('外注先'))
-                                .filter((e) => !workers.find((w) => (w as any).employee?.id === e.id || (w as any).employeeId === e.id))
-                                .map((e) => (
-                                  <SelectItem key={e.id} value={e.id}>
-                                    {e.name}（{e.employeeType || '種別未設定'}）
-                                  </SelectItem>
-                                ))}
+                              {workerCandidates.length === 0 && !isLoadingCandidates ? (
+                                <SelectItem value="__no_candidates__" disabled>
+                                  登録可能な従業員がいません
+                                </SelectItem>
+                              ) : (
+                                workerCandidates
+                                  .filter((e) => (e.employeeType || '').includes('業務委託') || (e.employeeType || '').includes('外注先'))
+                                  .map((e) => (
+                                    <SelectItem key={e.id} value={e.id}>
+                                      {e.name}（{e.employeeType || '種別未設定'}）
+                                    </SelectItem>
+                                  ))
+                              )}
                             </SelectContent>
                           </Select>
                           <div className="text-xs text-muted-foreground">
                             社員情報から氏名・メールを自動入力します
+                            <br />
+                            ※ すでにワーカー登録されている従業員は表示されません
                           </div>
                         </div>
                       )}

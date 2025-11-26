@@ -293,8 +293,12 @@ export default function SettingsPage() {
                           <Badge key={team} variant="secondary" className="text-sm">
                             {team}
                             <button
-                              className="ml-2 rounded-full outline-none"
-                              onClick={() => handleDeleteTeam(team)}
+                              type="button"
+                              className="ml-2 rounded-full outline-none hover:bg-secondary-foreground/10 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteTeam(team)
+                              }}
                             >
                               <X className="h-3 w-3" />
                             </button>

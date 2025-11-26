@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam } from '@/lib/storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, getWorkerCandidates, WorkerCandidate } from '@/lib/storage'
 import { Worker } from '@/lib/types'
 import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -49,11 +49,14 @@ export default function SettingsPage() {
   const { currentUser } = useAuth()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [teams, setTeams] = useState<string[]>([])
+  const [candidates, setCandidates] = useState<WorkerCandidate[]>([])
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
   const [formData, setFormData] = useState({
+    employeeId: '',
     name: '',
     password: '',
     companyName: '',
@@ -86,6 +89,7 @@ export default function SettingsPage() {
 
   const resetForm = () => {
     setFormData({
+      employeeId: '',
       name: '',
       password: '',
       companyName: '',
@@ -99,7 +103,34 @@ export default function SettingsPage() {
       role: 'worker',
       notes: '',
     })
+    setSelectedEmployeeId('')
     setEditingWorker(null)
+  }
+
+  // 候補従業員を読み込む
+  const loadCandidates = async () => {
+    try {
+      const candidatesData = await getWorkerCandidates()
+      setCandidates(candidatesData)
+    } catch (error) {
+      console.error('候補従業員の読み込みに失敗しました:', error)
+    }
+  }
+
+  // 従業員を選択した時の処理
+  const handleSelectEmployee = (employeeId: string) => {
+    setSelectedEmployeeId(employeeId)
+    const employee = candidates.find(c => c.id === employeeId)
+    if (employee) {
+      setFormData({
+        ...formData,
+        employeeId: employee.id,
+        name: employee.name,
+        email: employee.email || '',
+        phone: employee.phone || '',
+        address: employee.address || '',
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,7 +159,17 @@ export default function SettingsPage() {
           description: 'ワーカー情報を更新しました',
         })
       } else {
+        // 新規登録時は従業員選択が必須
+        if (!formData.employeeId) {
+          toast({
+            title: 'エラー',
+            description: '従業員を選択してください',
+            variant: 'destructive',
+          })
+          return
+        }
         const newWorker = await addWorker({
+          employeeId: formData.employeeId,
           name: formData.name,
           password: formData.password,
           companyName: formData.companyName,
@@ -143,6 +184,8 @@ export default function SettingsPage() {
           notes: formData.notes,
         })
         setWorkers([...workers, newWorker])
+        // 候補リストを更新（登録された従業員を除外）
+        await loadCandidates()
         toast({
           title: '登録完了',
           description: '新しいワーカーを登録しました',
@@ -151,11 +194,11 @@ export default function SettingsPage() {
 
       setIsDialogOpen(false)
       resetForm()
-    } catch (error) {
+    } catch (error: any) {
       console.error('保存に失敗しました:', error)
       toast({
         title: 'エラー',
-        description: 'ワーカー情報の保存に失敗しました',
+        description: error?.message || 'ワーカー情報の保存に失敗しました',
         variant: 'destructive',
       })
     }
@@ -164,6 +207,7 @@ export default function SettingsPage() {
   const handleEdit = (worker: Worker) => {
     setEditingWorker(worker)
     setFormData({
+      employeeId: worker.employeeId || '',
       name: worker.name,
       password: worker.password || '',
       companyName: worker.companyName || '',
@@ -177,6 +221,7 @@ export default function SettingsPage() {
       role: worker.role,
       notes: worker.notes || '',
     })
+    setSelectedEmployeeId(worker.employeeId || '')
     setIsDialogOpen(true)
   }
 
@@ -312,7 +357,10 @@ export default function SettingsPage() {
               )}
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button onClick={resetForm}>
+                  <Button onClick={() => {
+                    resetForm()
+                    loadCandidates()
+                  }}>
                     <Plus className="mr-2 h-4 w-4" />
                     新規ワーカー登録
                   </Button>
@@ -328,6 +376,38 @@ export default function SettingsPage() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
+                      {/* 新規登録時のみ従業員選択を表示 */}
+                      {!editingWorker && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="employee">従業員を選択 *</Label>
+                          <Select
+                            value={selectedEmployeeId}
+                            onValueChange={handleSelectEmployee}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="従業員を選択してください" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {candidates.length === 0 ? (
+                                <SelectItem value="__no_candidates__" disabled>
+                                  登録可能な従業員がいません
+                                </SelectItem>
+                              ) : (
+                                candidates.map((candidate) => (
+                                  <SelectItem key={candidate.id} value={candidate.id}>
+                                    {candidate.name}
+                                    {candidate.employeeType && ` (${candidate.employeeType})`}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            ※ すでにワーカー登録されている従業員は表示されません
+                          </p>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                           <Label htmlFor="name">氏名 *</Label>
@@ -338,6 +418,7 @@ export default function SettingsPage() {
                               setFormData({ ...formData, name: e.target.value })
                             }
                             required
+                            disabled={!editingWorker && !!selectedEmployeeId}
                           />
                         </div>
                         <div className="grid gap-2">

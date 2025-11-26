@@ -64,6 +64,27 @@ export async function addWorker(worker: Omit<Worker, 'id'>): Promise<Worker> {
   }
 }
 
+// ワーカー候補（未登録の従業員）を取得
+export interface WorkerCandidate {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  employeeType: string | null
+  furigana: string | null
+  address: string | null
+}
+
+export async function getWorkerCandidates(): Promise<WorkerCandidate[]> {
+  try {
+    const response = await api.workers.getCandidates()
+    return response.candidates || []
+  } catch (error) {
+    console.error('[getWorkerCandidates] API error:', error)
+    return []
+  }
+}
+
 // Time Entries
 export async function getTimeEntries(): Promise<TimeEntry[]> {
   if (typeof window === 'undefined') return []

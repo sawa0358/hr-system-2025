@@ -58,6 +58,15 @@ export const api = {
       return handleResponse(response)
     },
 
+    // ワーカー登録候補の従業員一覧を取得（既存ワーカーを除外）
+    getCandidates: async () => {
+      const response = await fetch(`${API_BASE}/workers/candidates`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      })
+      return handleResponse(response)
+    },
+
     create: async (data: any) => {
       const response = await fetch(`${API_BASE}/workers`, {
         method: 'POST',

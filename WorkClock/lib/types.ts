@@ -10,6 +10,7 @@ export interface TimeEntry {
 
 export interface Worker {
   id: string
+  employeeId?: string // HR システムの従業員ID
   name: string
   password?: string
   companyName?: string // 屋号・会社名

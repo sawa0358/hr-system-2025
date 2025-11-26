@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { useAuth } from '@/lib/auth-context'
 
 interface RewardManagerModalProps {
   worker: Worker
@@ -41,6 +42,7 @@ export function RewardManagerModal({
   onClose,
   onUpdate,
 }: RewardManagerModalProps) {
+  const { currentUser } = useAuth()
   const [rewards, setRewards] = useState<Reward[]>([])
   const [presets, setPresets] = useState<RewardPreset[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -56,7 +58,7 @@ export function RewardManagerModal({
   const [presetDescription, setPresetDescription] = useState('')
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && currentUser?.id) {
       loadData()
       // デフォルト日付を今月の1日に設定、または今日が今月なら今日
       const now = new Date()
@@ -68,7 +70,7 @@ export function RewardManagerModal({
         setDate(formatDate(firstDay))
       }
     }
-  }, [isOpen, month, worker.id])
+  }, [isOpen, month, worker.id, currentUser?.id])
 
   const formatDate = (d: Date) => {
     const year = d.getFullYear()
@@ -79,10 +81,16 @@ export function RewardManagerModal({
 
   const loadData = async () => {
     try {
+      if (!currentUser?.id) {
+        console.error('WorkClock: ユーザーIDが取得できません')
+        toast.error('ログインが必要です。再度ログインしてください。')
+        return
+      }
+      
       setIsLoading(true)
       const [rewardsData, presetsData] = await Promise.all([
-        getRewardsByWorkerAndMonth(worker.id, month.getFullYear(), month.getMonth() + 1),
-        getRewardPresets(worker.id)
+        getRewardsByWorkerAndMonth(worker.id, month.getFullYear(), month.getMonth() + 1, currentUser.id),
+        getRewardPresets(worker.id, currentUser.id)
       ])
       setRewards(rewardsData)
       setPresets(presetsData)
@@ -114,14 +122,15 @@ export function RewardManagerModal({
                   amount: preset.amount,
                   description: preset.description,
                   date: monthFirstDay
-                })
+                }, currentUser.id)
               ))
               
               // 反映後に報酬一覧を再取得
               const updatedRewards = await getRewardsByWorkerAndMonth(
                 worker.id,
                 month.getFullYear(),
-                month.getMonth() + 1
+                month.getMonth() + 1,
+                currentUser.id
               )
               setRewards(updatedRewards)
               onUpdate?.()
@@ -147,6 +156,11 @@ export function RewardManagerModal({
     e.preventDefault()
     if (!amount || !description || !date) return
 
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
+
     try {
       setIsLoading(true)
       await addReward({
@@ -154,7 +168,7 @@ export function RewardManagerModal({
         amount: parseInt(amount),
         description,
         date: date,
-      })
+      }, currentUser.id)
       
       setAmount('')
       setDescription('')
@@ -164,7 +178,8 @@ export function RewardManagerModal({
       const rewardsData = await getRewardsByWorkerAndMonth(
         worker.id,
         month.getFullYear(),
-        month.getMonth() + 1
+        month.getMonth() + 1,
+        currentUser.id
       )
       setRewards(rewardsData)
       onUpdate?.()
@@ -179,16 +194,22 @@ export function RewardManagerModal({
   const handleDeleteReward = async (id: string) => {
     if (!confirm('この報酬を削除してもよろしいですか？')) return
 
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
+
     try {
       setIsLoading(true)
-      await deleteReward(id)
+      await deleteReward(id, currentUser.id)
       toast.success('削除しました')
       
       // 更新
       const rewardsData = await getRewardsByWorkerAndMonth(
         worker.id,
         month.getFullYear(),
-        month.getMonth() + 1
+        month.getMonth() + 1,
+        currentUser.id
       )
       setRewards(rewardsData)
       onUpdate?.()
@@ -204,19 +225,24 @@ export function RewardManagerModal({
     e.preventDefault()
     if (!presetAmount || !presetDescription) return
 
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
+
     try {
       setIsLoading(true)
       await addRewardPreset({
         workerId: worker.id,
         amount: parseInt(presetAmount),
         description: presetDescription,
-      })
+      }, currentUser.id)
 
       setPresetAmount('')
       setPresetDescription('')
       toast.success('固定項目プリセットを追加しました')
       
-      const presetsData = await getRewardPresets(worker.id)
+      const presetsData = await getRewardPresets(worker.id, currentUser.id)
       setPresets(presetsData)
     } catch (error) {
       console.error(error)
@@ -229,12 +255,17 @@ export function RewardManagerModal({
   const handleDeletePreset = async (id: string) => {
       if(!confirm('このプリセットを削除してもよろしいですか？')) return
 
+      if (!currentUser?.id) {
+        toast.error('ログインが必要です。再度ログインしてください。')
+        return
+      }
+
       try {
           setIsLoading(true)
-          await deleteRewardPreset(id)
+          await deleteRewardPreset(id, currentUser.id)
           toast.success('プリセットを削除しました')
 
-          const presetsData = await getRewardPresets(worker.id)
+          const presetsData = await getRewardPresets(worker.id, currentUser.id)
           setPresets(presetsData)
       } catch (error) {
           console.error(error)
@@ -245,12 +276,17 @@ export function RewardManagerModal({
   }
 
   const handleTogglePresetEnabled = async (preset: RewardPreset) => {
+      if (!currentUser?.id) {
+        toast.error('ログインが必要です。再度ログインしてください。')
+        return
+      }
+
       try {
           setIsLoading(true)
-          await updateRewardPreset(preset.id, { isEnabled: !preset.isEnabled })
+          await updateRewardPreset(preset.id, { isEnabled: !preset.isEnabled }, currentUser.id)
           toast.success(preset.isEnabled ? '自動反映をOFFにしました' : '自動反映をONにしました')
 
-          const presetsData = await getRewardPresets(worker.id)
+          const presetsData = await getRewardPresets(worker.id, currentUser.id)
           setPresets(presetsData)
       } catch (error) {
           console.error(error)
@@ -263,6 +299,11 @@ export function RewardManagerModal({
   const handleApplyPreset = async (preset: RewardPreset) => {
       if (!confirm(`「${preset.description}」(¥${preset.amount.toLocaleString()}) を今月の報酬に追加しますか？`)) return
 
+      if (!currentUser?.id) {
+        toast.error('ログインが必要です。再度ログインしてください。')
+        return
+      }
+
       try {
           setIsLoading(true)
           // デフォルト日付（基本は月初または今日）
@@ -271,14 +312,15 @@ export function RewardManagerModal({
               amount: preset.amount,
               description: preset.description,
               date: date // 現在選択されている日付を使用
-          })
+          }, currentUser.id)
 
           toast.success('固定項目を反映しました')
           
           const rewardsData = await getRewardsByWorkerAndMonth(
               worker.id,
               month.getFullYear(),
-              month.getMonth() + 1
+              month.getMonth() + 1,
+              currentUser.id
           )
           setRewards(rewardsData)
           onUpdate?.()
@@ -297,6 +339,11 @@ export function RewardManagerModal({
       if (presets.length === 0) return
       if (!confirm(`${presets.length}件の固定項目をすべて今月の報酬に追加しますか？`)) return
       
+      if (!currentUser?.id) {
+        toast.error('ログインが必要です。再度ログインしてください。')
+        return
+      }
+
       try {
           setIsLoading(true)
           
@@ -307,7 +354,7 @@ export function RewardManagerModal({
                  amount: preset.amount,
                  description: preset.description,
                  date: date
-             })
+             }, currentUser.id)
           ))
           
           toast.success('すべての固定項目を反映しました')
@@ -315,7 +362,8 @@ export function RewardManagerModal({
           const rewardsData = await getRewardsByWorkerAndMonth(
               worker.id,
               month.getFullYear(),
-              month.getMonth() + 1
+              month.getMonth() + 1,
+              currentUser.id
           )
           setRewards(rewardsData)
           onUpdate?.()

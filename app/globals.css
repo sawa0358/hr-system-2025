@@ -109,3 +109,47 @@
     filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3));
   }
 }
+
+/* ============================
+   カスタムモーダル用 背景色と入力欄スタイル
+   ============================ */
+
+/* ユーザー詳細モーダル & 時間管理システムのワーカー関連モーダル（青系背景） */
+.user-detail-dialog,
+.workclock-worker-dialog,
+.workclock-worker-view-dialog {
+  background-color: #b4d5e7;
+}
+
+.user-detail-dialog [data-slot='input'],
+.user-detail-dialog textarea,
+.workclock-worker-dialog [data-slot='input'],
+.workclock-worker-dialog textarea,
+.workclock-worker-view-dialog [data-slot='input'],
+.workclock-worker-view-dialog textarea {
+  background-color: #ffffff;
+}
+
+/* 勤怠データアップロード / 給与or請求明細モーダル（緑系背景） */
+.attendance-upload-dialog,
+.payroll-upload-dialog {
+  background-color: #adceba;
+}
+
+.attendance-upload-dialog [data-slot='input'],
+.attendance-upload-dialog textarea,
+.payroll-upload-dialog [data-slot='input'],
+.payroll-upload-dialog textarea {
+  background-color: #ffffff;
+}
+
+/* 勤怠管理ページでアップロードダイアログが開いている間は、
+   Radix Dialog のコンテンツに直接背景色と入力欄の白背景を適用する */
+body[data-attendance-dialog-open='true'] [data-slot='dialog-content'] {
+  background-color: #adceba;
+}
+
+body[data-attendance-dialog-open='true'] [data-slot='input'],
+body[data-attendance-dialog-open='true'] textarea {
+  background-color: #ffffff;
+}

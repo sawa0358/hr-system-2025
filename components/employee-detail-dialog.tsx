@@ -1611,7 +1611,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={`max-w-5xl max-h-[90vh] overflow-y-auto ${isCopyEmployee ? 'bg-slate-50' : ''}`}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto user-detail-dialog">
           
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-3">

@@ -322,6 +322,21 @@ export default function AttendancePage() {
   // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
+  // 勤怠アップロードダイアログの開閉状態に応じて body にフラグを付与
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+
+    if (isUploadDialogOpen) {
+      document.body.setAttribute('data-attendance-dialog-open', 'true')
+    } else {
+      document.body.removeAttribute('data-attendance-dialog-open')
+    }
+
+    return () => {
+      document.body.removeAttribute('data-attendance-dialog-open')
+    }
+  }, [isUploadDialogOpen])
+
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
     const filterDescriptions = []
@@ -364,7 +379,7 @@ ${isAdminOrHR ? `- 勤怠データのアップロード（個別/一括）
   }
 
   return (
-    <main className="overflow-y-auto">
+    <main className="overflow-y-auto attendance-upload-dialog">
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>

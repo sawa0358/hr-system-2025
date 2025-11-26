@@ -920,7 +920,7 @@ export default function SettingsPage() {
                     新規ワーカー登録
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto workclock-worker-dialog">
                   <form onSubmit={handleSubmit}>
                     <DialogHeader>
                       <DialogTitle>
@@ -1470,7 +1470,7 @@ export default function SettingsPage() {
               {/* 閲覧ダイアログ */}
               {viewingWorker && (
                 <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-                  <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto workclock-worker-view-dialog">
                     <DialogHeader>
                       <DialogTitle>ワーカー情報閲覧</DialogTitle>
                       <DialogDescription>

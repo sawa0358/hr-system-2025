@@ -213,7 +213,7 @@ ${isAdminOrHR ? `- 給与or請求明細のアップロード（個別/一括）
 
   return (
     <main className="overflow-y-auto">
-      <div className="p-8">
+      <div className="p-8" style={{ backgroundColor: '#e8dcbe' }}>
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">給与or請求管理</h1>

@@ -218,7 +218,6 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const { currentUser } = useAuth()
   
   // カード権限をチェック（総務・管理者は全てのカードを開くことができる）
-  const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const cardPermissions = task && currentUser ? checkCardPermissions(
     currentUser.role as any,
     currentUser.id,
@@ -226,11 +225,14 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     task.members?.map((m: any) => m.id) || []
   ) : null
   
-  // 総務・管理者の場合は権限を強制的にtrueに設定
-  if (isAdminOrHr && cardPermissions) {
-    cardPermissions.canOpen = true
-    cardPermissions.canEdit = true
-  }
+  // デバッグ: 権限情報をログ出力
+  useEffect(() => {
+    if (open && currentUser && cardPermissions) {
+      console.log('TaskDetailDialog - Current User Role:', currentUser.role)
+      console.log('TaskDetailDialog - Card Permissions:', cardPermissions)
+      console.log('TaskDetailDialog - Can Add Members:', cardPermissions.canAddMembers)
+    }
+  }, [open, currentUser, cardPermissions])
   
   // 実際の社員データを取得（ワークスペースメンバーのみ）
   const [employees, setEmployees] = useState<any[]>([])

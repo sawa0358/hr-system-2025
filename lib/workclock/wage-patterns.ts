@@ -6,7 +6,11 @@ export interface WagePatternLabels {
   C: string
 }
 
-const STORAGE_KEY = 'workclock_wage_pattern_labels'
+// NOTE:
+//  - v2 以降は WorkClockWorker テーブルに
+//    wagePatternLabelA / wagePatternLabelB / wagePatternLabelC を直接保存するため、
+//    ここでは「DBから既に値が入っている前提でのデフォルト値」のみを提供する。
+//  - 以前の localStorage ベースの実装は完全に廃止する。
 
 const DEFAULT_LABELS: WagePatternLabels = {
   A: 'Aパターン',
@@ -14,39 +18,24 @@ const DEFAULT_LABELS: WagePatternLabels = {
   C: 'Cパターン',
 }
 
-function resolveStorageKey(scopeKey?: string) {
-  if (!scopeKey) return STORAGE_KEY
-  return `${STORAGE_KEY}:${scopeKey}`
+/**
+ * 旧実装との互換用ヘルパー。
+ * 現在は DB 優先のため、scopeKey は無視し単なるデフォルトラベルを返す。
+ *
+ * 呼び出し側では必ず
+ *   worker.wagePatternLabelA || baseLabels.A
+ * のように「DB値を優先・なければこのデフォルト」を使う。
+ */
+export function getWagePatternLabels(_scopeKey?: string): WagePatternLabels {
+  return DEFAULT_LABELS
 }
 
-export function getWagePatternLabels(scopeKey?: string): WagePatternLabels {
-  if (typeof window === 'undefined') {
-    return DEFAULT_LABELS
-  }
-
-  try {
-    const raw = window.localStorage.getItem(resolveStorageKey(scopeKey))
-    if (!raw) return DEFAULT_LABELS
-
-    const parsed = JSON.parse(raw) as Partial<WagePatternLabels>
-    return {
-      A: parsed.A || DEFAULT_LABELS.A,
-      B: parsed.B || DEFAULT_LABELS.B,
-      C: parsed.C || DEFAULT_LABELS.C,
-    }
-  } catch (error) {
-    console.warn('[WorkClock] 時給パターン名の読み込みに失敗しました:', error)
-    return DEFAULT_LABELS
-  }
+/**
+ * 以前は localStorage に時給パターン名を保存していたが、
+ * 現在は WorkClockWorker テーブルに直接保存するため、何もしない空実装にする。
+ * （互換性維持のため関数自体は残す）
+ */
+export function saveWagePatternLabels(_labels: WagePatternLabels, _scopeKey?: string) {
+  // no-op: パターン名は全て DB 側に保存される
 }
-
-export function saveWagePatternLabels(labels: WagePatternLabels, scopeKey?: string) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(resolveStorageKey(scopeKey), JSON.stringify(labels))
-  } catch (error) {
-    console.warn('[WorkClock] 時給パターン名の保存に失敗しました:', error)
-  }
-}
-
 

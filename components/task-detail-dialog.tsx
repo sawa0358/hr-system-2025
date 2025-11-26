@@ -325,6 +325,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [selectedLabels, setSelectedLabels] = useState<Label[]>([])
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [members, setMembers] = useState<Member[]>([])
+  const [memberToRemove, setMemberToRemove] = useState<Member | null>(null) // メンバー削除確認用
   const [cardColor, setCardColor] = useState("")
   const [showLabelManager, setShowLabelManager] = useState(false)
   const [showLabelSelector, setShowLabelSelector] = useState(false)
@@ -930,11 +931,23 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const handleRemoveMember = (memberId: string) => {
     // メンバー追加権限をチェック
     if (cardPermissions && !cardPermissions.canAddMembers) {
-      alert(getPermissionErrorMessage("店長"))
+      alert(getPermissionErrorMessage("サブマネージャー"))
       return
     }
     
-    setMembers(members.filter((m) => m.id !== memberId))
+    // 削除対象のメンバーを取得して確認モーダルを表示
+    const member = members.find((m) => m.id === memberId)
+    if (member) {
+      setMemberToRemove(member)
+    }
+  }
+
+  // メンバー削除を確定
+  const confirmRemoveMember = () => {
+    if (memberToRemove) {
+      setMembers(members.filter((m) => m.id !== memberToRemove.id))
+      setMemberToRemove(null)
+    }
   }
 
   const handleAddFileFolder = () => {
@@ -2748,6 +2761,26 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             キャンセル
           </AlertDialogCancel>
           <AlertDialogAction onClick={handleConfirmDeleteFile} className="bg-red-600 hover:bg-red-700">
+            削除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* メンバー削除確認ダイアログ */}
+    <AlertDialog open={memberToRemove !== null} onOpenChange={(open) => !open && setMemberToRemove(null)}>
+      <AlertDialogContent className="!z-[9999]" style={{ zIndex: 9999 }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>メンバーを削除しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            「{memberToRemove?.name}」をこのタスクのメンバーから削除します。この操作は取り消せません。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setMemberToRemove(null)}>
+            キャンセル
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={confirmRemoveMember} className="bg-red-600 hover:bg-red-700">
             削除
           </AlertDialogAction>
         </AlertDialogFooter>

@@ -68,27 +68,37 @@ export function TimeEntryDialog({
     weekday: 'long',
   })
 
-  const handleAddEntry = () => {
-    addTimeEntry({
-      workerId,
-      date: dateStr,
-      startTime,
-      endTime,
-      breakMinutes: parseInt(breakMinutes) || 0,
-      notes,
-    })
-    
-    // Reset form
-    setStartTime('09:00')
-    setEndTime('18:00')
-    setBreakMinutes('60')
-    setNotes('')
-    onClose()
+  const handleAddEntry = async () => {
+    try {
+      await addTimeEntry({
+        workerId,
+        date: dateStr,
+        startTime,
+        endTime,
+        breakMinutes: parseInt(breakMinutes) || 0,
+        notes,
+      })
+      
+      // Reset form
+      setStartTime('09:00')
+      setEndTime('18:00')
+      setBreakMinutes('60')
+      setNotes('')
+      onClose()
+    } catch (error) {
+      console.error('時間記録の追加に失敗しました:', error)
+      alert('時間記録の追加に失敗しました。もう一度お試しください。')
+    }
   }
 
-  const handleDeleteEntry = (id: string) => {
-    deleteTimeEntry(id)
-    onClose()
+  const handleDeleteEntry = async (id: string) => {
+    try {
+      await deleteTimeEntry(id)
+      onClose()
+    } catch (error) {
+      console.error('時間記録の削除に失敗しました:', error)
+      alert('時間記録の削除に失敗しました。もう一度お試しください。')
+    }
   }
 
   const duration = calculateDuration(startTime, endTime, parseInt(breakMinutes) || 0)

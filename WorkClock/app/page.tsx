@@ -8,13 +8,21 @@ export default function HomePage() {
   const router = useRouter()
 
   useEffect(() => {
-    initializeSampleData()
-    const workers = getWorkers()
-    
-    // Redirect to first worker's page
-    if (workers.length > 0) {
-      router.push(`/worker/${workers[0].id}`)
+    const loadData = async () => {
+      try {
+        await initializeSampleData()
+        const workers = await getWorkers()
+        
+        // Redirect to first worker's page
+        if (workers.length > 0) {
+          router.push(`/worker/${workers[0].id}`)
+        }
+      } catch (error) {
+        console.error('データの読み込みに失敗しました:', error)
+      }
     }
+    
+    loadData()
   }, [router])
 
   return (

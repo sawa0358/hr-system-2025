@@ -37,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, saveWorkers, getTeams, saveTeams, addTeam } from '@/lib/storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam } from '@/lib/storage'
 import { Worker } from '@/lib/types'
 import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -71,8 +71,17 @@ export default function SettingsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    setWorkers(getWorkers())
-    setTeams(getTeams())
+    const loadData = async () => {
+      try {
+        const workersData = await getWorkers()
+        const teamsData = await getTeams()
+        setWorkers(workersData)
+        setTeams(teamsData)
+      } catch (error) {
+        console.error('データの読み込みに失敗しました:', error)
+      }
+    }
+    loadData()
   }, [])
 
   const resetForm = () => {
@@ -93,59 +102,63 @@ export default function SettingsPage() {
     setEditingWorker(null)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (editingWorker) {
-      const updatedWorkers = workers.map((w) =>
-        w.id === editingWorker.id
-          ? {
-              ...w,
-              name: formData.name,
-              password: formData.password,
-              companyName: formData.companyName,
-              qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
-              chatworkId: formData.chatworkId,
-              email: formData.email,
-              phone: formData.phone,
-              address: formData.address,
-              hourlyRate: Number(formData.hourlyRate),
-              teams: formData.teams,
-              role: formData.role,
-              notes: formData.notes,
-            }
-          : w
-      )
-      saveWorkers(updatedWorkers)
-      setWorkers(updatedWorkers)
+    try {
+      if (editingWorker) {
+        await updateWorker(editingWorker.id, {
+          name: formData.name,
+          password: formData.password,
+          companyName: formData.companyName,
+          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
+          chatworkId: formData.chatworkId,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          hourlyRate: Number(formData.hourlyRate),
+          teams: formData.teams,
+          role: formData.role,
+          notes: formData.notes,
+        })
+        const updatedWorkers = await getWorkers()
+        setWorkers(updatedWorkers)
+        toast({
+          title: '更新完了',
+          description: 'ワーカー情報を更新しました',
+        })
+      } else {
+        const newWorker = await addWorker({
+          name: formData.name,
+          password: formData.password,
+          companyName: formData.companyName,
+          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
+          chatworkId: formData.chatworkId,
+          email: formData.email,
+          phone: formData.phone,
+          address: formData.address,
+          hourlyRate: Number(formData.hourlyRate),
+          teams: formData.teams,
+          role: formData.role,
+          notes: formData.notes,
+        })
+        setWorkers([...workers, newWorker])
+        toast({
+          title: '登録完了',
+          description: '新しいワーカーを登録しました',
+        })
+      }
+
+      setIsDialogOpen(false)
+      resetForm()
+    } catch (error) {
+      console.error('保存に失敗しました:', error)
       toast({
-        title: '更新完了',
-        description: 'ワーカー情報を更新しました',
-      })
-    } else {
-      const newWorker = addWorker({
-        name: formData.name,
-        password: formData.password,
-        companyName: formData.companyName,
-        qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
-        chatworkId: formData.chatworkId,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        hourlyRate: Number(formData.hourlyRate),
-        teams: formData.teams,
-        role: formData.role,
-        notes: formData.notes,
-      })
-      setWorkers([...workers, newWorker])
-      toast({
-        title: '登録完了',
-        description: '新しいワーカーを登録しました',
+        title: 'エラー',
+        description: 'ワーカー情報の保存に失敗しました',
+        variant: 'destructive',
       })
     }
-
-    setIsDialogOpen(false)
-    resetForm()
   }
 
   const handleEdit = (worker: Worker) => {
@@ -167,40 +180,68 @@ export default function SettingsPage() {
     setIsDialogOpen(true)
   }
 
-  const handleDelete = (workerId: string) => {
+  const handleDelete = async (workerId: string) => {
     if (confirm('このワーカーを削除してもよろしいですか？')) {
-      const updatedWorkers = workers.filter((w) => w.id !== workerId)
-      saveWorkers(updatedWorkers)
-      setWorkers(updatedWorkers)
-      toast({
-        title: '削除完了',
-        description: 'ワーカーを削除しました',
-      })
+      try {
+        await deleteWorker(workerId)
+        const updatedWorkers = await getWorkers()
+        setWorkers(updatedWorkers)
+        toast({
+          title: '削除完了',
+          description: 'ワーカーを削除しました',
+        })
+      } catch (error) {
+        console.error('削除に失敗しました:', error)
+        toast({
+          title: 'エラー',
+          description: 'ワーカーの削除に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
-  const handleAddTeam = (e: React.FormEvent) => {
+  const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault()
     if (newTeamName.trim()) {
-      addTeam(newTeamName.trim())
-      setTeams([...teams, newTeamName.trim()])
-      setNewTeamName('')
-      toast({
-        title: 'チーム追加完了',
-        description: `${newTeamName}を追加しました`,
-      })
+      try {
+        await addTeam(newTeamName.trim())
+        const updatedTeams = await getTeams()
+        setTeams(updatedTeams)
+        setNewTeamName('')
+        toast({
+          title: 'チーム追加完了',
+          description: `${newTeamName}を追加しました`,
+        })
+      } catch (error) {
+        console.error('チーム追加に失敗しました:', error)
+        toast({
+          title: 'エラー',
+          description: 'チームの追加に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
-  const handleDeleteTeam = (teamName: string) => {
+  const handleDeleteTeam = async (teamName: string) => {
     if (confirm(`チーム「${teamName}」を削除してもよろしいですか？`)) {
-      const updatedTeams = teams.filter(t => t !== teamName)
-      saveTeams(updatedTeams)
-      setTeams(updatedTeams)
-      toast({
-        title: 'チーム削除完了',
-        description: `${teamName}を削除しました`,
-      })
+      try {
+        await deleteTeam(teamName)
+        const updatedTeams = await getTeams()
+        setTeams(updatedTeams)
+        toast({
+          title: 'チーム削除完了',
+          description: `${teamName}を削除しました`,
+        })
+      } catch (error) {
+        console.error('チーム削除に失敗しました:', error)
+        toast({
+          title: 'エラー',
+          description: 'チームの削除に失敗しました',
+          variant: 'destructive',
+        })
+      }
     }
   }
 

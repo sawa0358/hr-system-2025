@@ -1,128 +1,195 @@
 import { Worker, TimeEntry } from './types'
+import { api } from './api'
 
 const WORKERS_KEY = 'timesheet_workers'
 const ENTRIES_KEY = 'timesheet_entries'
 const TEAMS_KEY = 'timesheet_teams'
 
 // Workers
-export function getWorkers(): Worker[] {
+export async function getWorkers(): Promise<Worker[]> {
   if (typeof window === 'undefined') return []
-  const data = localStorage.getItem(WORKERS_KEY)
-  return data ? JSON.parse(data) : []
+  
+  try {
+    const response = await api.workers.getAll()
+    return response.workers || []
+  } catch (error) {
+    console.error('[getWorkers] API error:', error)
+    // フォールバック: localStorageから取得
+    const data = localStorage.getItem(WORKERS_KEY)
+    return data ? JSON.parse(data) : []
+  }
 }
 
 export function saveWorkers(workers: Worker[]): void {
   localStorage.setItem(WORKERS_KEY, JSON.stringify(workers))
 }
 
-export function getWorkerById(id: string): Worker | undefined {
-  return getWorkers().find((w) => w.id === id)
-}
-
-export function updateWorker(id: string, updates: Partial<Worker>): void {
-  const workers = getWorkers()
-  const index = workers.findIndex((w) => w.id === id)
-  if (index !== -1) {
-    workers[index] = { ...workers[index], ...updates }
-    saveWorkers(workers)
+export async function getWorkerById(id: string): Promise<Worker | undefined> {
+  try {
+    const response = await api.workers.getById(id)
+    return response.worker
+  } catch (error) {
+    console.error('[getWorkerById] API error:', error)
+    // フォールバック: localStorageから取得
+    const workers = await getWorkers()
+    return workers.find((w) => w.id === id)
   }
 }
 
-export function deleteWorker(id: string): void {
-  const workers = getWorkers()
-  saveWorkers(workers.filter((w) => w.id !== id))
+export async function updateWorker(id: string, updates: Partial<Worker>): Promise<void> {
+  try {
+    await api.workers.update(id, updates)
+  } catch (error) {
+    console.error('[updateWorker] API error:', error)
+    throw error
+  }
 }
 
-export function addWorker(worker: Omit<Worker, 'id'>): Worker {
-  const workers = getWorkers()
-  const newWorker = { ...worker, id: crypto.randomUUID() }
-  workers.push(newWorker)
-  saveWorkers(workers)
-  return newWorker
+export async function deleteWorker(id: string): Promise<void> {
+  try {
+    await api.workers.delete(id)
+  } catch (error) {
+    console.error('[deleteWorker] API error:', error)
+    throw error
+  }
+}
+
+export async function addWorker(worker: Omit<Worker, 'id'>): Promise<Worker> {
+  try {
+    const response = await api.workers.create(worker)
+    return response.worker
+  } catch (error) {
+    console.error('[addWorker] API error:', error)
+    throw error
+  }
 }
 
 // Time Entries
-export function getTimeEntries(): TimeEntry[] {
+export async function getTimeEntries(): Promise<TimeEntry[]> {
   if (typeof window === 'undefined') return []
-  const data = localStorage.getItem(ENTRIES_KEY)
-  return data ? JSON.parse(data) : []
+  
+  try {
+    const response = await api.timeEntries.getAll()
+    return response.entries || []
+  } catch (error) {
+    console.error('[getTimeEntries] API error:', error)
+    // フォールバック: localStorageから取得
+    const data = localStorage.getItem(ENTRIES_KEY)
+    return data ? JSON.parse(data) : []
+  }
 }
 
 export function saveTimeEntries(entries: TimeEntry[]): void {
   localStorage.setItem(ENTRIES_KEY, JSON.stringify(entries))
 }
 
-export function getEntriesByWorker(workerId: string): TimeEntry[] {
-  return getTimeEntries().filter((e) => e.workerId === workerId)
-}
-
-export function getEntriesByWorkerAndMonth(
-  workerId: string,
-  year: number,
-  month: number
-): TimeEntry[] {
-  return getTimeEntries().filter((e) => {
-    if (e.workerId !== workerId) return false
-    const entryDate = new Date(e.date)
-    return entryDate.getFullYear() === year && entryDate.getMonth() === month
-  })
-}
-
-export function addTimeEntry(entry: Omit<TimeEntry, 'id'>): TimeEntry {
-  const entries = getTimeEntries()
-  const newEntry = { ...entry, id: crypto.randomUUID() }
-  entries.push(newEntry)
-  saveTimeEntries(entries)
-  return newEntry
-}
-
-export function updateTimeEntry(id: string, updates: Partial<TimeEntry>): void {
-  const entries = getTimeEntries()
-  const index = entries.findIndex((e) => e.id === id)
-  if (index !== -1) {
-    entries[index] = { ...entries[index], ...updates }
-    saveTimeEntries(entries)
+export async function getEntriesByWorker(workerId: string): Promise<TimeEntry[]> {
+  try {
+    const response = await api.timeEntries.getAll({ workerId })
+    return response.entries || []
+  } catch (error) {
+    console.error('[getEntriesByWorker] API error:', error)
+    const entries = await getTimeEntries()
+    return entries.filter((e) => e.workerId === workerId)
   }
 }
 
-export function deleteTimeEntry(id: string): void {
-  const entries = getTimeEntries()
-  saveTimeEntries(entries.filter((e) => e.id !== id))
+export async function getEntriesByWorkerAndMonth(
+  workerId: string,
+  year: number,
+  month: number
+): Promise<TimeEntry[]> {
+  try {
+    const response = await api.timeEntries.getAll({ workerId, year, month })
+    return response.entries || []
+  } catch (error) {
+    console.error('[getEntriesByWorkerAndMonth] API error:', error)
+    const entries = await getTimeEntries()
+    return entries.filter((e) => {
+      if (e.workerId !== workerId) return false
+      const entryDate = new Date(e.date)
+      return entryDate.getFullYear() === year && entryDate.getMonth() === month
+    })
+  }
+}
+
+export async function addTimeEntry(entry: Omit<TimeEntry, 'id'>): Promise<TimeEntry> {
+  try {
+    const response = await api.timeEntries.create(entry)
+    return response.entry
+  } catch (error) {
+    console.error('[addTimeEntry] API error:', error)
+    throw error
+  }
+}
+
+export async function updateTimeEntry(id: string, updates: Partial<TimeEntry>): Promise<void> {
+  try {
+    await api.timeEntries.update(id, updates)
+  } catch (error) {
+    console.error('[updateTimeEntry] API error:', error)
+    throw error
+  }
+}
+
+export async function deleteTimeEntry(id: string): Promise<void> {
+  try {
+    await api.timeEntries.delete(id)
+  } catch (error) {
+    console.error('[deleteTimeEntry] API error:', error)
+    throw error
+  }
 }
 
 // Teams
-export function getTeams(): string[] {
+export async function getTeams(): Promise<string[]> {
   if (typeof window === 'undefined') return []
-  const data = localStorage.getItem(TEAMS_KEY)
-  return data ? JSON.parse(data) : ['チームA', 'チームB', 'チームC']
+  
+  try {
+    const response = await api.teams.getAll()
+    return response.teams || []
+  } catch (error) {
+    console.error('[getTeams] API error:', error)
+    // フォールバック: localStorageから取得
+    const data = localStorage.getItem(TEAMS_KEY)
+    return data ? JSON.parse(data) : ['チームA', 'チームB', 'チームC']
+  }
 }
 
 export function saveTeams(teams: string[]): void {
   localStorage.setItem(TEAMS_KEY, JSON.stringify(teams))
 }
 
-export function addTeam(teamName: string): void {
-  const teams = getTeams()
-  if (!teams.includes(teamName)) {
-    teams.push(teamName)
-    saveTeams(teams)
+export async function addTeam(teamName: string): Promise<void> {
+  try {
+    await api.teams.create(teamName)
+  } catch (error) {
+    console.error('[addTeam] API error:', error)
+    throw error
   }
 }
 
-export function deleteTeam(teamName: string): void {
-  const teams = getTeams()
-  saveTeams(teams.filter(t => t !== teamName))
+export async function deleteTeam(teamName: string): Promise<void> {
+  try {
+    await api.teams.delete(teamName)
+  } catch (error) {
+    console.error('[deleteTeam] API error:', error)
+    throw error
+  }
 }
 
 // Initialize with sample data if empty
-export function initializeSampleData(): void {
-  if (getWorkers().length === 0) {
+export async function initializeSampleData(): Promise<void> {
+  const workers = await getWorkers()
+  if (workers.length === 0) {
     const sampleWorkers: Omit<Worker, 'id'>[] = [
       { name: '山田太郎', email: 'yamada@example.com', hourlyRate: 2500, teams: ['チームA'], role: 'worker' },
       { name: '佐藤花子', email: 'sato@example.com', hourlyRate: 3000, teams: ['チームA', 'チームB'], role: 'worker' },
       { name: '鈴木一郎', email: 'suzuki@example.com', hourlyRate: 2800, teams: ['チームB'], role: 'worker' },
       { name: '管理者', email: 'admin@example.com', hourlyRate: 0, role: 'admin' },
     ]
-    sampleWorkers.forEach(addWorker)
+    for (const worker of sampleWorkers) {
+      await addWorker(worker)
+    }
   }
 }

@@ -16,23 +16,30 @@ export default function AdminPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   useEffect(() => {
-    initializeSampleData()
-    loadData()
+    const initialize = async () => {
+      await initializeSampleData()
+      await loadData()
+    }
+    initialize()
   }, [currentDate])
 
-  const loadData = () => {
-    const loadedWorkers = getWorkers()
-    setWorkers(loadedWorkers)
+  const loadData = async () => {
+    try {
+      const loadedWorkers = await getWorkers()
+      setWorkers(loadedWorkers)
 
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    
-    const entries = getTimeEntries().filter((entry) => {
-      const entryDate = new Date(entry.date)
-      return entryDate.getFullYear() === year && entryDate.getMonth() === month
-    })
-    
-    setAllEntries(entries)
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      
+      const entries = (await getTimeEntries()).filter((entry) => {
+        const entryDate = new Date(entry.date)
+        return entryDate.getFullYear() === year && entryDate.getMonth() === month
+      })
+      
+      setAllEntries(entries)
+    } catch (error) {
+      console.error('データの読み込みに失敗しました:', error)
+    }
   }
 
   const goToPreviousMonth = () => {
@@ -47,18 +54,23 @@ export default function AdminPage() {
     setCurrentDate(new Date(year, month + 1, 1))
   }
 
-  const handleExportPDF = (workerId: string) => {
-    const worker = getWorkerById(workerId)
-    if (!worker) {
-      alert('ワーカー情報が見つかりません')
-      return
-    }
+  const handleExportPDF = async (workerId: string) => {
+    try {
+      const worker = await getWorkerById(workerId)
+      if (!worker) {
+        alert('ワーカー情報が見つかりません')
+        return
+      }
 
-    const year = currentDate.getFullYear()
-    const month = currentDate.getMonth()
-    const workerEntries = getEntriesByWorkerAndMonth(workerId, year, month)
-    
-    downloadPDF(worker, workerEntries, currentDate)
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth()
+      const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+      
+      downloadPDF(worker, workerEntries, currentDate)
+    } catch (error) {
+      console.error('PDFエクスポートに失敗しました:', error)
+      alert('PDFエクスポートに失敗しました。もう一度お試しください。')
+    }
   }
 
   const adminWorker = workers.find((w) => w.role === 'admin') || {

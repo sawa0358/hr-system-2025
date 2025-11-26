@@ -33,22 +33,29 @@ export default function WorkerPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    initializeSampleData()
-    loadData()
+    const initialize = async () => {
+      await initializeSampleData()
+      await loadData()
+    }
+    initialize()
   }, [workerId, currentDate, refreshKey])
 
-  const loadData = () => {
-    const foundWorker = getWorkerById(workerId)
-    setWorker(foundWorker || null)
+  const loadData = async () => {
+    try {
+      const foundWorker = await getWorkerById(workerId)
+      setWorker(foundWorker || null)
 
-    const allWorkers = getWorkers()
-    setWorkers(allWorkers)
+      const allWorkers = await getWorkers()
+      setWorkers(allWorkers)
 
-    if (foundWorker) {
-      const year = currentDate.getFullYear()
-      const month = currentDate.getMonth()
-      const monthEntries = getEntriesByWorkerAndMonth(workerId, year, month)
-      setEntries(monthEntries)
+      if (foundWorker) {
+        const year = currentDate.getFullYear()
+        const month = currentDate.getMonth()
+        const monthEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
+        setEntries(monthEntries)
+      }
+    } catch (error) {
+      console.error('データの読み込みに失敗しました:', error)
     }
   }
 

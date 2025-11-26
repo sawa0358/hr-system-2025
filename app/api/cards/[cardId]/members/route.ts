@@ -51,7 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: { cardId:
 
     if (!cardPerms.canAddMembers) {
       return NextResponse.json(
-        { error: "メンバーを追加する権限がありません。店長・マネージャー・総務・管理者のみ追加できます。" },
+        { error: "メンバーを追加する権限がありません。サブマネージャー以上のみ追加できます。" },
         { status: 403 },
       )
     }
@@ -189,7 +189,7 @@ export async function DELETE(
     const cardPerms = checkCardPermissions(userRole, userId, card.createdBy, cardMemberIds)
 
     if (!cardPerms.canAddMembers) {
-      return NextResponse.json({ error: "メンバーを削除する権限がありません" }, { status: 403 })
+      return NextResponse.json({ error: "メンバーを削除する権限がありません。サブマネージャー以上のみ削除できます。" }, { status: 403 })
     }
 
     await prisma.cardMember.delete({

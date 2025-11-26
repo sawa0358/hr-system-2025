@@ -235,7 +235,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     createLists: true, // サブマネージャーでもリスト作成可能
     editLists: false,
     deleteLists: false,
-    addCardMembers: false, // サブマネは他人のカードにメンバー追加不可
+    addCardMembers: true, // サブマネージャーは他人のカードにメンバー追加可能
     editOthersCards: false,
     canManageTasks: false,
     canManageWorkspaces: false,

@@ -131,12 +131,19 @@ export default function WorkerPage() {
   )}-${String(today.getDate()).padStart(2, '0')}`
   const todayEntries = entries.filter((e) => e.date === todayStr)
 
-  // 勤務記録の編集可否（3日ロック + 権限）をフロント側でも判定
+  // 勤務記録の編集可否（3日ロック + 権限 + 自分のページかどうか）をフロント側でも判定
   const canEditEntries = useMemo(() => {
     const role = currentUser?.role
     // 総務・管理者は常に編集可能（サーバー側ロジックと合わせる）
     if (role === 'hr' || role === 'admin') {
       return true
+    }
+
+    // リーダーや一般ユーザーは、自分自身のワーカーページでのみ編集可能
+    // workerId（URL上のワーカーID）と自分のワーカーIDを比較
+    if (ownWorker && ownWorker.id !== workerId) {
+      // 他人のページを見ている場合は編集不可
+      return false
     }
 
     const now = new Date()
@@ -149,7 +156,7 @@ export default function WorkerPage() {
     const isLockedMonth = entryDate < firstOfCurrentMonth && now >= thirdOfCurrentMonth
 
     return !isLockedMonth
-  }, [currentDate, currentUser?.role])
+  }, [currentDate, currentUser?.role, ownWorker, workerId])
 
   if (!worker) {
     return (
@@ -361,10 +368,12 @@ export default function WorkerPage() {
             </div>
           </div>
 
-          {/* ロック中の月の場合の説明テキスト（サーバー側エラーメッセージと同じ内容） */}
+          {/* 編集不可の場合の説明テキスト */}
           {!canEditEntries && (
             <p className="mb-2 text-xs text-red-600">
-              先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。
+              {ownWorker && ownWorker.id !== workerId
+                ? 'このワーカーの勤務記録は閲覧のみ可能です。編集はできません。'
+                : '先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。'}
             </p>
           )}
 

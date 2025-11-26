@@ -453,6 +453,11 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     checklistId: string
     itemId: string
   } | null>(null)
+  // ファイル削除確認用の状態変数
+  const [deletingFileInfo, setDeletingFileInfo] = useState<{
+    fileId: string
+    fileName: string
+  } | null>(null)
   
   // タスクが開かれた時にフォルダ情報を読み込み、ファイルを取得
   useEffect(() => {
@@ -1065,11 +1070,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
     }
   }
 
-  const handleDeleteFile = async (fileId: string) => {
-    if (!currentUser) {
-      alert("ユーザー情報が取得できません")
+  const handleDeleteFile = (fileId: string, fileName: string) => {
+    // 確認モーダルを表示
+    setDeletingFileInfo({ fileId, fileName })
+  }
+
+  const handleConfirmDeleteFile = async () => {
+    if (!deletingFileInfo || !currentUser) {
       return
     }
+
+    const { fileId } = deletingFileInfo
 
     try {
       console.log("Deleting file:", fileId)
@@ -1087,14 +1098,17 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         console.log("File deleted successfully")
         // アップロード済みファイルリストから削除
         setUploadedFiles(prevFiles => prevFiles.filter(file => file.id !== fileId))
+        setDeletingFileInfo(null)
       } else {
         const error = await response.json()
         console.error("File deletion failed:", error)
         alert(`ファイル削除に失敗しました: ${error.error}`)
+        setDeletingFileInfo(null)
       }
     } catch (error) {
       console.error("File deletion error:", error)
       alert("ファイル削除に失敗しました")
+      setDeletingFileInfo(null)
     }
   }
 
@@ -2508,7 +2522,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteFile(file.id)}
+                            onClick={() => handleDeleteFile(file.id, file.name)}
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -2712,6 +2726,26 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
             キャンセル
           </AlertDialogCancel>
           <AlertDialogAction onClick={handleConfirmDeleteChecklistItem} className="bg-red-600 hover:bg-red-700">
+            削除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* ファイル削除確認モーダル */}
+    <AlertDialog open={deletingFileInfo !== null} onOpenChange={(open) => !open && setDeletingFileInfo(null)}>
+      <AlertDialogContent className="!z-[9999]" style={{ zIndex: 9999 }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>ファイルを削除しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            この操作は取り消すことができません。ファイル「{deletingFileInfo?.fileName}」が削除されます。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeletingFileInfo(null)}>
+            キャンセル
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDeleteFile} className="bg-red-600 hover:bg-red-700">
             削除
           </AlertDialogAction>
         </AlertDialogFooter>

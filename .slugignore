@@ -102,7 +102,8 @@ temp/
 !Procfile
 !.slugignore
 certs/
-hooks/
+# hooks/ はReactフック用ディレクトリなので除外しない
+# WorkClock/ はワークスペース外のディレクトリ
 WorkClock/
 yukyu-system/backup/
 *.prisma.backup

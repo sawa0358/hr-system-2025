@@ -1,59 +1,121 @@
 # Herokuスラッグサイズ削減用
 # 不要なファイルを除外
 
-# 開発用ファイル
+# ========================================
+# ドキュメントファイル（最大の削減効果）
+# ========================================
 *.md
 !README.md
-*.log
-*.txt
-!Procfile
+!prisma/migrations/**/README.md
+docs/
 
-# バックアップファイル
+# ========================================
+# バックアップファイル（大容量）
+# ========================================
 backups/
+production_data_backup/
 *.db
-# 追記: PrismaのマイグレーションSQLは必要（除外しない）
 *.sql
 !prisma/migrations/**/migration.sql
 *.dump
 *.backup
+*.json.backup
+current-db-backup-*.json
+current_employees_data.json
+database*.db
+database*.sql
+database*.json
+employees_backup.sql
+heroku-employees-backup.sql
+temp-restore.json
 
-# ドキュメント
-docs/
-*.md
-!README.md
+# ========================================
+# ログファイル
+# ========================================
+*.log
+dev.log
+dev-server.log
+deploy.log
+deploy_*.log
+next-dev.log
 
-# テストファイル
+# ========================================
+# 開発・テスト用スクリプト
+# ========================================
+test-*.js
+import_*.js
+restore-*.js
+fix-*.js
+simple-api-test.js
+*-test.js
 **/__tests__/
 **/*.test.*
 **/*.spec.*
+__tests__/
+__mocks__/
 
-# 開発ツール
+# ========================================
+# 開発ツール設定
+# ========================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.env.local
+.env.*.local
 
-# 一時ファイル
+# ========================================
+# Next.js関連（ビルド後は不要）
+# ========================================
+.next/cache/
+.next/trace
+tsconfig.tsbuildinfo
+
+# ========================================
+# npm関連
+# ========================================
+npm-cache/
+node_modules/.cache/
+.npm/
+package-lock.json.backup
+
+# ========================================
+# Prisma関連（最適化）
+# ========================================
+prisma/prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
+node_modules/@prisma/engines/
+node_modules/.prisma/client/
+# マイグレーションファイルは保持
+!prisma/migrations/
+
+# ========================================
+# その他の不要ファイル
+# ========================================
+uploads/
 tmp/
 temp/
 *.tmp
+*.txt
+!Procfile
+!.slugignore
+certs/
+hooks/
+WorkClock/
+yukyu-system/backup/
+*.prisma.backup
+start-dev.sh
+start-local.sh
+docker-compose.yml
+Dockerfile
+README-DOCKER.md
+app.json
 
-# アップロードファイル（本番ではS3を使用）
-uploads/
-
+# ========================================
 # Git関連
+# ========================================
 .git/
 .gitignore
-
-# その他
-node_modules/.cache/
-.next/cache/
-.next/server/chunks/
-.next/static/chunks/
-node_modules/@prisma/engines/
-node_modules/.prisma/
-*.test.*
-*.spec.*
-__tests__/
-__mocks__/
+.gitattributes

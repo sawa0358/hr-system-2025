@@ -12,6 +12,18 @@ declare global {
 
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogPortal,
+  AlertDialogOverlay,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -435,6 +447,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   const [isIMEActiveEditChecklistTitle, setIsIMEActiveEditChecklistTitle] = useState(false)
   const [isComposingChecklistItemInput, setIsComposingChecklistItemInput] = useState(false)
   const [isIMEActiveChecklistItemInput, setIsIMEActiveChecklistItemInput] = useState(false)
+  // チェックリスト削除確認用の状態変数
+  const [deletingChecklistId, setDeletingChecklistId] = useState<string | null>(null)
+  const [deletingChecklistItemInfo, setDeletingChecklistItemInfo] = useState<{
+    checklistId: string
+    itemId: string
+  } | null>(null)
   
   // タスクが開かれた時にフォルダ情報を読み込み、ファイルを取得
   useEffect(() => {
@@ -835,20 +853,37 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
   }
 
   const handleDeleteChecklistItem = (checklistId: string, itemId: string) => {
-    setChecklists(
-      checklists.map((checklist) =>
-        checklist.id === checklistId
-          ? {
-              ...checklist,
-              items: checklist.items.filter((item) => item.id !== itemId),
-            }
-          : checklist,
-      ),
-    )
+    // 確認モーダルを表示
+    setDeletingChecklistItemInfo({ checklistId, itemId })
+  }
+
+  const handleConfirmDeleteChecklistItem = () => {
+    if (deletingChecklistItemInfo) {
+      const { checklistId, itemId } = deletingChecklistItemInfo
+      setChecklists(
+        checklists.map((checklist) =>
+          checklist.id === checklistId
+            ? {
+                ...checklist,
+                items: checklist.items.filter((item) => item.id !== itemId),
+              }
+            : checklist,
+        ),
+      )
+      setDeletingChecklistItemInfo(null)
+    }
   }
 
   const handleDeleteChecklist = (checklistId: string) => {
-    setChecklists(checklists.filter((c) => c.id !== checklistId))
+    // 確認モーダルを表示
+    setDeletingChecklistId(checklistId)
+  }
+
+  const handleConfirmDeleteChecklist = () => {
+    if (deletingChecklistId) {
+      setChecklists(checklists.filter((c) => c.id !== deletingChecklistId))
+      setDeletingChecklistId(null)
+    }
   }
 
   const handleEditChecklistTitle = (checklistId: string, currentTitle: string) => {
@@ -2642,6 +2677,46 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* チェックリスト削除確認モーダル */}
+    <AlertDialog open={deletingChecklistId !== null} onOpenChange={(open) => !open && setDeletingChecklistId(null)}>
+      <AlertDialogContent className="!z-[9999]" style={{ zIndex: 9999 }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>チェックリストを削除しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            この操作は取り消すことができません。チェックリストとすべての項目が削除されます。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeletingChecklistId(null)}>
+            キャンセル
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDeleteChecklist} className="bg-red-600 hover:bg-red-700">
+            削除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* チェックリスト項目削除確認モーダル */}
+    <AlertDialog open={deletingChecklistItemInfo !== null} onOpenChange={(open) => !open && setDeletingChecklistItemInfo(null)}>
+      <AlertDialogContent className="!z-[9999]" style={{ zIndex: 9999 }}>
+        <AlertDialogHeader>
+          <AlertDialogTitle>項目を削除しますか？</AlertDialogTitle>
+          <AlertDialogDescription>
+            この操作は取り消すことができません。チェックリスト項目が削除されます。
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setDeletingChecklistItemInfo(null)}>
+            キャンセル
+          </AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDeleteChecklistItem} className="bg-red-600 hover:bg-red-700">
+            削除
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
     </>
   )
 }

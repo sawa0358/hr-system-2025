@@ -123,3 +123,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* AlertDialogを最前面に表示（タスクカードの上に表示するため） */
+[data-slot="alert-dialog-overlay"] {
+  z-index: 9998 !important;
+}
+
+[data-slot="alert-dialog-content"] {
+  z-index: 9999 !important;
+}

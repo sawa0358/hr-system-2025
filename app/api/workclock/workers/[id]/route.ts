@@ -117,6 +117,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  // エラー時に request body を安全にログへ出すための一時変数
+  let requestBody: any = null
+  const workerId = params.id as string
+
   try {
     const userId = request.headers.get('x-employee-id')
     if (!userId) {
@@ -133,7 +137,6 @@ export async function PUT(
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
     }
 
-    const workerId = params.id as string
     const worker = await prisma.workClockWorker.findUnique({
       where: { id: workerId },
     })
@@ -149,6 +152,7 @@ export async function PUT(
     }
 
     const body = await request.json()
+    requestBody = body
     const {
       name,
       password,
@@ -252,7 +256,7 @@ export async function PUT(
       stack: error?.stack,
       name: error?.name,
       workerId,
-      requestBody: body, // デバッグ用にbodyの中身も出力（パスワード等は注意が必要だが開発環境前提）
+      requestBody, // デバッグ用にbodyの中身も出力（パスワード等は注意が必要だが開発環境前提）
     })
 
     const isDev = true // process.env.NODE_ENV === 'development' // 強制的に詳細を表示

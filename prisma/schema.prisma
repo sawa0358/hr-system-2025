@@ -835,6 +835,27 @@ model WorkClockWorker {
   @@map("workclock_workers")
 }
 
+model WorkClockTimeEntry {
+  id           String       @id @default(cuid())
+  workerId     String
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  // 時給パターン（任意。A/B/Cのいずれか）
+  wagePattern  WagePattern? @default(A)
+  startTime    String
+  endTime      String
+  breakMinutes Int          @default(0)
+  notes        String?
+  // 回数パターン（時給パターンと併用可能）
+  countPattern WagePattern?
+  count        Int?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([workerId, date])
+  @@map("workclock_time_entries")
+}
+
 model WorkClockReward {
   id          String          @id @default(cuid())
   workerId    String
@@ -863,23 +884,11 @@ model WorkClockRewardPreset {
   @@map("workclock_reward_presets")
 }
 
-model WorkClockTimeEntry {
-  id           String       @id @default(cuid())
-  workerId     String
-  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  date         DateTime
-  // 時給パターン（任意。A/B/Cのいずれか）
-  wagePattern  WagePattern? @default(A)
-  startTime    String
-  endTime      String
-  breakMinutes Int          @default(0)
-  notes        String?
-  // 回数パターン（時給パターンと併用可能）
-  countPattern WagePattern?
-  count        Int?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+model WorkClockTeam {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([workerId, date])
-  @@map("workclock_time_entries")
+  @@map("workclock_teams")
 }

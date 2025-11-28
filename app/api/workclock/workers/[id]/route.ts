@@ -176,6 +176,7 @@ export async function PUT(
       teams,
       role,
       notes,
+      transferDestination,
       billingTaxEnabled,
       billingTaxRate,
     } = body
@@ -226,6 +227,7 @@ export async function PUT(
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,
         notes,
+        transferDestination,
       },
       include: {
         employee: {
@@ -249,17 +251,17 @@ export async function PUT(
       code: error?.code,
       stack: error?.stack,
       name: error?.name,
+      workerId,
+      requestBody: body, // デバッグ用にbodyの中身も出力（パスワード等は注意が必要だが開発環境前提）
     })
 
-    const isDev = process.env.NODE_ENV === 'development'
+    const isDev = true // process.env.NODE_ENV === 'development' // 強制的に詳細を表示
     return NextResponse.json(
       {
         error: 'ワーカーの更新に失敗しました',
-        ...(isDev && {
-          details: error?.message || 'Unknown error',
-          code: error?.code,
-          name: error?.name,
-        }),
+        details: error?.message || 'Unknown error', // 詳細を常に含める
+        code: error?.code,
+        name: error?.name,
       },
       { status: 500 }
     )

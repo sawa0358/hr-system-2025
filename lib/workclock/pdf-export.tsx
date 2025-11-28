@@ -365,6 +365,11 @@ export function generatePDFContent(
                 ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}</p>`
                 : ''
             }
+            ${
+              worker.transferDestination
+                ? `<p><strong>振込先:</strong> <span style="white-space: pre-wrap;">${worker.transferDestination}</span></p>`
+                : ''
+            }
           </div>
           <div class="period">${monthName}</div>
         </div>

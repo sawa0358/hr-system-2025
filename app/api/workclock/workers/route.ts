@@ -218,6 +218,7 @@ export async function POST(request: NextRequest) {
       teams,
       role,
       notes,
+      transferDestination,
       billingTaxEnabled,
       billingTaxRate,
     } = body
@@ -315,6 +316,7 @@ export async function POST(request: NextRequest) {
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',
         notes,
+        transferDestination,
       },
       include: {
         employee: {
@@ -338,6 +340,7 @@ export async function POST(request: NextRequest) {
       code: error?.code,
       stack: error?.stack,
       name: error?.name,
+      requestBody: { ...body, password: '[MASKED]' },
     })
 
     // マイグレーション未適用やテーブル未作成時（開発中）の一時的な救済

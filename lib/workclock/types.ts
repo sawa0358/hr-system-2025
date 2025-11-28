@@ -54,6 +54,7 @@ export interface Worker {
   teams?: string[]
   role: 'worker' | 'admin'
   notes?: string // 備考欄
+  transferDestination?: string // 振込先
   // 時給パターン名（ラベル）
   wagePatternLabelA?: string
   wagePatternLabelB?: string

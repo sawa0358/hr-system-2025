@@ -130,6 +130,7 @@ export default function SettingsPage() {
     teams: [] as string[],
     role: 'worker' as 'admin' | 'worker',
     notes: '',
+    transferDestination: '',
     // 消費税設定
     billingTaxEnabled: false,
     billingTaxRate: '',
@@ -304,6 +305,7 @@ export default function SettingsPage() {
       teams: [],
       role: 'worker',
       notes: '',
+      transferDestination: '',
       billingTaxEnabled: false,
       billingTaxRate: '',
     })
@@ -417,6 +419,7 @@ export default function SettingsPage() {
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
             notes: formData.notes || undefined,
+            transferDestination: formData.transferDestination || undefined,
           },
           userId
         )
@@ -488,6 +491,7 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes || undefined,
+          transferDestination: formData.transferDestination || undefined,
         }
         await addWorker(payload, userId)
         // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
@@ -583,6 +587,7 @@ export default function SettingsPage() {
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
+      transferDestination: worker.transferDestination || '',
       employeeId: worker.employeeId || '',
       billingTaxEnabled: worker.billingTaxEnabled ?? false,
       billingTaxRate:
@@ -1453,6 +1458,20 @@ export default function SettingsPage() {
                           ※ リーダー権限：自分が所属するチームのワーカー/リーダーの勤務時間を一覧表示・管理可能
                           <br />※ ワーカー権限：自分の勤務時間のみ表示・管理可能
                         </p>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="transferDestination">振込先</Label>
+                        <textarea
+                          id="transferDestination"
+                          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={formData.transferDestination}
+                          onChange={(e) =>
+                            setFormData({ ...formData, transferDestination: e.target.value })
+                          }
+                          placeholder="銀行名、支店名、口座番号、口座名義などを入力"
+                          disabled={!isWorkerEditUnlocked}
+                        />
                       </div>
 
                       <div className="grid gap-2">

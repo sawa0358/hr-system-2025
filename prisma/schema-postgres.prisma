@@ -824,6 +824,7 @@ model WorkClockWorker {
   teams                  String?  // JSON文字列（string[]）
   role                   String   @default("worker") // 'worker' | 'admin'
   notes                  String?
+  transferDestination    String? // 振込先
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

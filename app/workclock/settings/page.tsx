@@ -369,12 +369,13 @@ export default function SettingsPage() {
           {
             name: formData.name,
             password: formData.password || undefined,
-            companyName: formData.companyName || undefined,
-            qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
-            chatworkId: formData.chatworkId || undefined,
+            // 文字列フィールドは、空文字にした場合もそのまま送信してDB側を上書きしたい
+            companyName: formData.companyName,
+            qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
+            chatworkId: formData.chatworkId,
             email: formData.email,
-            phone: formData.phone || undefined,
-            address: formData.address || undefined,
+            phone: formData.phone,
+            address: formData.address,
             hourlyRate: hourlyValue,
             // パターン名（ラベル）をDBに保存
             wagePatternLabelA: wageLabels.A,
@@ -384,11 +385,11 @@ export default function SettingsPage() {
             hourlyRateB:
               formData.hourlyRatePatternB !== ''
                 ? Number(formData.hourlyRatePatternB)
-                : undefined,
+                : null,
             hourlyRateC:
               formData.hourlyRatePatternC !== ''
                 ? Number(formData.hourlyRatePatternC)
-                : undefined,
+                : null,
             // 回数パターン名（ラベル）をDBに保存
             countPatternLabelA: countLabels.A,
             countPatternLabelB: countLabels.B,
@@ -397,15 +398,15 @@ export default function SettingsPage() {
             countRateA:
               formData.countRateA !== ''
                 ? Number(formData.countRateA)
-                : undefined,
+                : null,
             countRateB:
               formData.countRateB !== ''
                 ? Number(formData.countRateB)
-                : undefined,
+                : null,
             countRateC:
               formData.countRateC !== ''
                 ? Number(formData.countRateC)
-                : undefined,
+                : null,
             // 月額固定金額をDBに保存（0 または空なら未設定）
             monthlyFixedAmount:
               formData.monthlyFixedAmount !== ''
@@ -418,8 +419,11 @@ export default function SettingsPage() {
             billingTaxRate: taxRateValue,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
-            notes: formData.notes || undefined,
-            transferDestination: formData.transferDestination || undefined,
+            // 備考欄も空にした場合は空文字で上書きしたい
+            notes: formData.notes,
+            // 振込先は、空文字に更新された場合でもDB側に反映させたいので
+            // undefined にはせず、そのまま送信する（空文字なら空文字で上書き）
+            transferDestination: formData.transferDestination,
           },
           userId
         )
@@ -444,12 +448,13 @@ export default function SettingsPage() {
           employeeId: formData.employeeId,
           name: formData.name,
           password: formData.password || undefined,
-          companyName: formData.companyName || undefined,
-          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber || undefined,
-          chatworkId: formData.chatworkId || undefined,
+          // 新規登録時も、空文字で入力された場合はそのまま保存する
+          companyName: formData.companyName,
+          qualifiedInvoiceNumber: formData.qualifiedInvoiceNumber,
+          chatworkId: formData.chatworkId,
           email: formData.email,
-          phone: formData.phone || undefined,
-          address: formData.address || undefined,
+          phone: formData.phone,
+          address: formData.address,
           hourlyRate: hourlyValue,
           // パターン名（ラベル）を DB に保存
           wagePatternLabelA: wageLabels.A,
@@ -458,11 +463,11 @@ export default function SettingsPage() {
           hourlyRateB:
             formData.hourlyRatePatternB !== ''
               ? Number(formData.hourlyRatePatternB)
-              : undefined,
+              : null,
           hourlyRateC:
             formData.hourlyRatePatternC !== ''
               ? Number(formData.hourlyRatePatternC)
-              : undefined,
+              : null,
           // 回数パターン名（ラベル）を DB に保存
           countPatternLabelA: countLabels.A,
           countPatternLabelB: countLabels.B,
@@ -470,19 +475,19 @@ export default function SettingsPage() {
           countRateA:
             formData.countRateA !== ''
               ? Number(formData.countRateA)
-              : undefined,
+              : null,
           countRateB:
             formData.countRateB !== ''
               ? Number(formData.countRateB)
-              : undefined,
+              : null,
           countRateC:
             formData.countRateC !== ''
               ? Number(formData.countRateC)
-              : undefined,
+              : null,
           monthlyFixedAmount:
             formData.monthlyFixedAmount !== ''
               ? Number(formData.monthlyFixedAmount)
-              : undefined,
+              : null,
           monthlyFixedEnabled:
             formData.monthlyFixedAmount !== '' &&
             Number(formData.monthlyFixedAmount) > 0,
@@ -490,8 +495,9 @@ export default function SettingsPage() {
           billingTaxRate: taxRateValue,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
-          notes: formData.notes || undefined,
-          transferDestination: formData.transferDestination || undefined,
+          notes: formData.notes,
+          // 振込先も空文字で保存・更新できるようにする
+          transferDestination: formData.transferDestination,
         }
         await addWorker(payload, userId)
         // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
@@ -1705,6 +1711,15 @@ export default function SettingsPage() {
                             <span className="text-muted-foreground">未設定</span>
                           )}
                         </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>振込先</Label>
+                        <textarea
+                          value={viewingWorker.transferDestination || ''}
+                          readOnly
+                          className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          style={{ resize: 'none' }}
+                        />
                       </div>
                       <div className="grid gap-2">
                         <Label>備考欄</Label>

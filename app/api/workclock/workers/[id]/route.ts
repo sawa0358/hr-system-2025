@@ -199,18 +199,38 @@ export async function PUT(
         wagePatternLabelB,
         wagePatternLabelC,
         hourlyRateB:
-          hourlyRateB !== undefined && hourlyRateB !== null ? parseFloat(hourlyRateB) : undefined,
+          hourlyRateB === null
+            ? null
+            : hourlyRateB !== undefined
+            ? parseFloat(hourlyRateB)
+            : undefined,
         hourlyRateC:
-          hourlyRateC !== undefined && hourlyRateC !== null ? parseFloat(hourlyRateC) : undefined,
+          hourlyRateC === null
+            ? null
+            : hourlyRateC !== undefined
+            ? parseFloat(hourlyRateC)
+            : undefined,
         countPatternLabelA,
         countPatternLabelB,
         countPatternLabelC,
         countRateA:
-          countRateA !== undefined && countRateA !== null ? parseFloat(countRateA) : undefined,
+          countRateA === null
+            ? null
+            : countRateA !== undefined
+            ? parseFloat(countRateA)
+            : undefined,
         countRateB:
-          countRateB !== undefined && countRateB !== null ? parseFloat(countRateB) : undefined,
+          countRateB === null
+            ? null
+            : countRateB !== undefined
+            ? parseFloat(countRateB)
+            : undefined,
         countRateC:
-          countRateC !== undefined && countRateC !== null ? parseFloat(countRateC) : undefined,
+          countRateC === null
+            ? null
+            : countRateC !== undefined
+            ? parseFloat(countRateC)
+            : undefined,
         monthlyFixedAmount:
           monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
             ? parseInt(monthlyFixedAmount, 10)
@@ -224,8 +244,9 @@ export async function PUT(
             ? Boolean(billingTaxEnabled)
             : undefined,
         billingTaxRate:
-          billingTaxRate !== undefined && billingTaxRate !== null &&
-          Number.isFinite(Number(billingTaxRate))
+          billingTaxRate === null
+            ? null
+            : billingTaxRate !== undefined && Number.isFinite(Number(billingTaxRate))
             ? Number(billingTaxRate)
             : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,

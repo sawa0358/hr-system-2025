@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { organizationData } from "@/lib/mock-data"
-import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List } from "lucide-react"
+import { Users, ZoomIn, ZoomOut, Maximize2, Edit2, ChevronUp, ChevronDown, GripVertical, Eye, List, Lock, Unlock } from "lucide-react"
+import { PasswordVerificationDialog } from "@/components/password-verification-dialog"
 import {
   DndContext,
   type DragEndEvent,
@@ -897,6 +898,11 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   const [showUnassignedList, setShowUnassignedList] = useState(false)
   const [loading, setLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
+  const [isCardMoveLocked, setIsCardMoveLocked] = useState(true)
+  const [showCardMovePasswordDialog, setShowCardMovePasswordDialog] = useState(false)
+
+  // カード移動はロック解除が必要
+  const canMoveCards = canEdit && !isCardMoveLocked
 
   // クライアントサイドでのマウント状態を設定
   useEffect(() => {
@@ -1400,7 +1406,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
   }
 
   const handleDragStart = (event: DragStartEvent) => {
-    if (!canEdit) return
+    if (!canMoveCards) return
     const node = event.active.data.current?.node as OrgNode
     console.log('Drag started:', {
       nodeId: node.id,
@@ -1416,14 +1422,14 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
     setActiveNode(null)
 
     console.log('handleDragEnd called:', {
-      canEdit,
+      canMoveCards,
       over,
       overId: over?.id,
       activeId: active?.id
     })
 
-    if (!canEdit || !over) {
-      console.log('Early return:', { canEdit, over: !!over })
+    if (!canMoveCards || !over) {
+      console.log('Early return:', { canMoveCards, over: !!over })
       return
     }
 
@@ -2101,6 +2107,32 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
               <List className="w-4 h-4 mr-2" />
               未配置社員({unassignedEmployees.length})
             </Button>
+            {canEdit && (
+              <Button 
+                variant={isCardMoveLocked ? "outline" : "default"}
+                size="sm" 
+                onClick={() => {
+                  if (isCardMoveLocked) {
+                    setShowCardMovePasswordDialog(true)
+                  } else {
+                    setIsCardMoveLocked(true)
+                  }
+                }}
+                className={`whitespace-nowrap ${!isCardMoveLocked ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+              >
+                {isCardMoveLocked ? (
+                  <>
+                    <Lock className="w-4 h-4 mr-2" />
+                    カード移動
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-4 h-4 mr-2" />
+                    カード移動
+                  </>
+                )}
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
@@ -2181,7 +2213,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           employee={emp}
                           isCompactMode={isCompactMode}
                           onEmployeeClick={onEmployeeClick}
-                          canEdit={canEdit}
+                          canEdit={canMoveCards}
                           isSelected={selectedNodeId === emp.id}
                         />
                       ))}
@@ -2211,7 +2243,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           onEmployeeClick={onEmployeeClick}
                           onShowSubordinates={handleShowSubordinates}
                           selectedNodeId={null}
-                          canEdit={canEdit}
+                          canEdit={canMoveCards}
                           isCompactMode={isCompactMode}
                           onRefresh={fetchEmployees}
                         />
@@ -2239,7 +2271,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                           onEmployeeClick={onEmployeeClick}
                           onShowSubordinates={handleShowSubordinates}
                           selectedNodeId={selectedNodeId}
-                          canEdit={canEdit}
+                          canEdit={canMoveCards}
                           isCompactMode={isCompactMode}
                           onHorizontalMove={handleHorizontalMove}
                           onRefresh={fetchEmployees}
@@ -2252,7 +2284,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                       {/* TOPドロップゾーン（管理者・総務のみ表示） */}
                       {(permissions.editAllProfiles || permissions.editOrgChart) && (
                         <TopDropZone 
-                          canEdit={canEdit}
+                          canEdit={canMoveCards}
                           onDrop={moveEmployeeToTop}
                         />
                       )}
@@ -2263,7 +2295,7 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
                         onEmployeeClick={onEmployeeClick}
                         onShowSubordinates={handleShowSubordinates}
                         selectedNodeId={selectedNodeId}
-                        canEdit={canEdit}
+                        canEdit={canMoveCards}
                         isCompactMode={isCompactMode}
                         onHorizontalMove={handleHorizontalMove}
                         onRefresh={fetchEmployees}
@@ -2279,13 +2311,19 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
 
         <div className="px-4 pb-4">
           {canEdit ? (
-            <p className="text-xs text-slate-500 text-center">
-              ※ 部署名をクリックして編集 /
-              カードをドラッグして組織を変更 /
-              <span className="text-purple-600 font-medium">左側の紫色エリア</span>で左へ移動、
-              <span className="text-blue-600 font-medium">右側の青色エリア</span>で右へ移動 /
-              カードにカーソルを乗せて操作メニューを表示
-            </p>
+            isCardMoveLocked ? (
+              <p className="text-xs text-slate-500 text-center">
+                ※ カードを移動するには「カード移動」ボタンをクリックしてロックを解除してください
+              </p>
+            ) : (
+              <p className="text-xs text-slate-500 text-center">
+                ※ 部署名をクリックして編集 /
+                カードをドラッグして組織を変更 /
+                <span className="text-purple-600 font-medium">左側の紫色エリア</span>で左へ移動、
+                <span className="text-blue-600 font-medium">右側の青色エリア</span>で右へ移動 /
+                カードにカーソルを乗せて操作メニューを表示
+              </p>
+            )
           ) : (
             <p className="text-xs text-slate-500 text-center">
               ※ 閲覧モード：組織図の編集にはマネージャー権限以上が必要です
@@ -2327,6 +2365,15 @@ export const OrganizationChart = forwardRef<{ refresh: () => void }, Organizatio
           ) : null}
         </DragOverlay>
       )}
+
+      {/* カード移動ロック解除のパスワード認証ダイアログ */}
+      <PasswordVerificationDialog
+        open={showCardMovePasswordDialog}
+        onOpenChange={setShowCardMovePasswordDialog}
+        onVerified={() => setIsCardMoveLocked(false)}
+        currentUser={currentUser}
+        actionType="orgchart-card-move"
+      />
     </DndContext>
   )
 })

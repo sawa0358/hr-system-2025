@@ -12,7 +12,7 @@ interface PasswordVerificationDialogProps {
   onOpenChange: (open: boolean) => void
   onVerified: () => void
   currentUser?: any
-  actionType?: "employee-my-number" | "family-my-number" | "join-date" | "workclock-billing"
+  actionType?: "employee-my-number" | "family-my-number" | "join-date" | "workclock-billing" | "orgchart-card-move"
 }
 
 export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser, actionType }: PasswordVerificationDialogProps) {
@@ -22,6 +22,7 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
   const isJoinDateContext = actionType === "join-date"
   const isWorkClockContext = actionType === "workclock-billing"
   const isWorkClockWorkerContext = actionType === "workclock-worker"
+  const isOrgChartCardMoveContext = actionType === "orgchart-card-move"
 
   const descriptionText = isJoinDateContext
     ? "入社日を変更するには、ログインパスワードの入力が必要です。"
@@ -29,7 +30,9 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
       ? "時間管理システムの重要な設定を変更するには、ログインパスワードの入力が必要です。"
       : isWorkClockWorkerContext
         ? ""
-        : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
+        : isOrgChartCardMoveContext
+          ? "組織図のカード移動ロックを解除するには、ログインパスワードの入力が必要です。"
+          : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
 
   const warningText = isJoinDateContext
     ? "入社日は勤怠管理や年次有給の付与に影響します。変更内容を十分に確認してください。"
@@ -37,7 +40,9 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
       ? "報酬や勤務記録に関わる設定です。変更内容を十分に確認した上で操作してください。"
       : isWorkClockWorkerContext
         ? ""
-        : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
+        : isOrgChartCardMoveContext
+          ? "組織図の社員カードを移動できるようになります。誤操作にご注意ください。"
+          : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
 
   const handleVerify = () => {
     // 現在のユーザーのパスワードと照合

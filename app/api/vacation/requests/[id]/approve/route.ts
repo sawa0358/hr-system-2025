@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client"
 import { consumeLIFO } from "@/lib/vacation-consumption"
 import { calculateRequestTotalDays, applyRounding } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
+import { isNextPeriodDate, getNextPeriodInfo } from "@/lib/vacation-stats"
 
 export async function POST(
   request: NextRequest,
@@ -65,6 +66,24 @@ export async function POST(
       if (req.status === "APPROVED" && req.approvedBy && !req.finalizedBy) {
         if (!isHrOrAdmin) {
           return NextResponse.json({ error: "決済権限がありません" }, { status: 403 })
+        }
+
+        // 来期の日付の申請かどうかをチェック
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const isNextPeriod = await isNextPeriodDate(req.employeeId, req.startDate, today)
+        
+        if (isNextPeriod) {
+          // 来期の申請の場合、付与日以降でないと決済できない
+          const nextPeriodInfo = await getNextPeriodInfo(req.employeeId, today)
+          if (nextPeriodInfo && nextPeriodInfo.nextGrantDate > today) {
+            const nextGrantDateStr = nextPeriodInfo.nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '/')
+            return NextResponse.json({ 
+              error: `この申請は来期の日付です。付与日（${nextGrantDateStr}）以降に決済してください。`,
+              isNextPeriodRequest: true,
+              nextGrantDate: nextPeriodInfo.nextGrantDate.toISOString(),
+            }, { status: 400 })
+          }
         }
 
         // 設定を読み込み

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getVacationStats } from "@/lib/vacation-stats"
+import { getVacationStats, calculatePendingDays, calculateNextPeriodPendingDays } from "@/lib/vacation-stats"
 
 export async function GET(
   request: NextRequest,
@@ -14,13 +14,21 @@ export async function GET(
     try {
       // ロットベースの計算ロジックを使用
       const stats = await getVacationStats(employeeId)
+      
+      // 今期と来期の申請中日数を分けて計算
+      const today = new Date()
+      const totalPending = await calculatePendingDays(employeeId)
+      const nextPeriodPending = await calculateNextPeriodPendingDays(employeeId, today)
+      const currentPeriodPending = Math.max(0, totalPending - nextPeriodPending)
 
       return NextResponse.json({
         employeeName: stats.employeeName,
         joinDate: stats.joinDate?.toISOString(),
         totalRemaining: stats.totalRemaining,
         used: stats.used,
-        pending: stats.pending,
+        pending: totalPending,           // 全申請中日数（今期+来期）
+        currentPending: currentPeriodPending, // 今期の申請中日数
+        nextPending: nextPeriodPending,  // 来期の申請中日数
         totalGranted: stats.totalGranted,
         nextGrantDate: stats.nextGrantDate?.toISOString(),
         expiringSoon: stats.expiringSoon,

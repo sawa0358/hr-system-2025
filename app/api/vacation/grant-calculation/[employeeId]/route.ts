@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { getNextGrantDate, getPreviousGrantDate } from "@/lib/vacation-grant-lot"
+import { getNextGrantDate, getPreviousGrantDate, chooseGrantDaysForEmployee, diffInYearsHalfStep } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
 
 /**
@@ -303,10 +303,59 @@ export async function GET(
       }
     }
 
+    // 来期のデータを取得
+    let nextYearData: any = null
+    if (currentGrantDateNext) {
+      // 来期の開始付与日は現在の付与日の次（currentGrantDateNext）
+      const nextYearGrantDate = currentGrantDateNext
+      // 来期の終了日（次の次の付与日）
+      const nextYearGrantDateNext = getNextGrantDate(joinDate, cfg, nextYearGrantDate)
+
+      // 来期の予定付与日数を計算
+      const yearsAtNextGrant = diffInYearsHalfStep(joinDate, nextYearGrantDate)
+      const nextGrantDays = chooseGrantDaysForEmployee(employee.vacationPattern, yearsAtNextGrant, cfg)
+
+      // 今期から来期への繰越予定日数
+      // LIFO方式：今期の新付与日数から今期の使用日数を引いた残りが繰越
+      const currentYearUsedDays = currentYearData?.usedDays || 0
+      const currentYearNewGrantDays = currentYearData?.newGrantDays || 0
+      const carryOverToNextYear = Math.max(0, currentYearNewGrantDays - currentYearUsedDays)
+
+      // 来期の総付与予定数 = 繰越予定 + 新付与予定
+      const nextYearTotalGranted = carryOverToNextYear + nextGrantDays
+
+      // 来期の申請中日数を取得
+      const nextYearPendingRequests = await prisma.timeOffRequest.findMany({
+        where: {
+          employeeId,
+          status: 'PENDING',
+          startDate: { gte: nextYearGrantDate },
+        },
+      })
+      const nextYearPendingDays = nextYearPendingRequests.reduce(
+        (sum, req) => sum + Number(req.totalDays || 0),
+        0
+      )
+
+      nextYearData = {
+        startDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
+        endDate: nextYearGrantDateNext ? nextYearGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/') : null,
+        usedDays: 0, // 来期はまだ使用日数がない
+        pendingDays: Math.round(nextYearPendingDays * 2) / 2,
+        totalGranted: Math.round(nextYearTotalGranted * 2) / 2,
+        carryOverDays: Math.round(carryOverToNextYear * 2) / 2,
+        carryOverToDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDays: Math.round(nextGrantDays * 2) / 2,
+        totalAtGrantDate: Math.round(nextYearTotalGranted * 2) / 2,
+      }
+    }
+
     return NextResponse.json({
       twoYearsAgo: twoYearsAgoData,
       lastYear: lastYearData,
       currentYear: currentYearData,
+      nextYear: nextYearData,
     })
   } catch (error: any) {
     console.error("GET /api/vacation/grant-calculation/[employeeId] error", error)

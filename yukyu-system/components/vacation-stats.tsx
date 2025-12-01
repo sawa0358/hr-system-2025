@@ -19,7 +19,9 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
   const [statsData, setStatsData] = useState<{
     totalRemaining: number
     used: number
-    pending: number
+    pending: number        // 全申請中日数（今期+来期）
+    currentPending: number // 今期の申請中日数
+    nextPending: number    // 来期の申請中日数
     totalGranted: number
     joinDate?: string
   } | null>(null)
@@ -48,11 +50,13 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             totalRemaining: json.totalRemaining ?? 0,
             used: json.used ?? 0,
             pending: json.pending ?? 0,
+            currentPending: json.currentPending ?? json.pending ?? 0, // フォールバック
+            nextPending: json.nextPending ?? 0,
             totalGranted: json.totalGranted ?? 0,
             joinDate: json.joinDate,
           })
         } else {
-          setStatsData({ totalRemaining: 0, used: 0, pending: 0, totalGranted: 0 })
+          setStatsData({ totalRemaining: 0, used: 0, pending: 0, currentPending: 0, nextPending: 0, totalGranted: 0 })
         }
       } finally {
         setLoading(false)
@@ -78,19 +82,20 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     subtitle?: string
   }> = [
     {
-      title: "残り有給日数",
+      title: "今期の残り有給日数",
       value: loading ? "-" : (() => {
-        // 総付与数 - 取得済み - 申請中 = 残り有給日数
+        // 総付与数 - 取得済み - 今期の申請中 = 今期の残り有給日数
+        // ※来期の申請中は今期の残りから引かない
         const totalGranted = statsData?.totalGranted ?? 0
         const used = statsData?.used ?? 0
-        const pending = statsData?.pending ?? 0
-        const calculated = Math.max(0, totalGranted - used - pending)
+        const currentPending = statsData?.currentPending ?? 0
+        const calculated = Math.max(0, totalGranted - used - currentPending)
         return `${calculated.toFixed(1)}日`
       })(),
       icon: Calendar,
       color: "text-chart-1",
-      subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.pending !== undefined
-        ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 申請中: ${statsData.pending.toFixed(1)}日`
+      subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.currentPending !== undefined
+        ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 今期申請中: ${statsData.currentPending.toFixed(1)}日`
         : undefined,
     },
     {
@@ -105,9 +110,17 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
       value: loading ? "-" : `${(statsData?.pending ?? 0).toFixed(1)}日`,
       icon: Clock,
       color: "text-chart-3",
-      subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.pending !== undefined
-        ? `承認後残り: ${Math.max(0, (statsData.totalGranted ?? 0) - (statsData.used ?? 0) - (statsData.pending ?? 0)).toFixed(1)}日`
-        : undefined,
+      subtitle: (() => {
+        if (statsData?.totalGranted === undefined || statsData?.used === undefined || statsData?.pending === undefined) {
+          return undefined
+        }
+        const nextPending = statsData.nextPending ?? 0
+        const currentPending = statsData.currentPending ?? 0
+        if (nextPending > 0) {
+          return `今期: ${currentPending.toFixed(1)}日 / 来期: ${nextPending.toFixed(1)}日`
+        }
+        return `承認後残り: ${Math.max(0, (statsData.totalGranted ?? 0) - (statsData.used ?? 0) - currentPending).toFixed(1)}日`
+      })(),
     },
     {
       title: "総付与数",

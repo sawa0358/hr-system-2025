@@ -2,7 +2,7 @@
 // 設計メモ準拠
 
 import { prisma } from '@/lib/prisma';
-import { getNextGrantDate, getPreviousGrantDate } from './vacation-grant-lot';
+import { getNextGrantDate, getPreviousGrantDate, chooseGrantDaysForEmployee, diffInYearsHalfStep } from './vacation-grant-lot';
 import { loadAppConfig } from './vacation-config';
 
 /**
@@ -263,6 +263,130 @@ export async function calculateExpiringSoon(
   });
 
   return lots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0);
+}
+
+/**
+ * 来期の情報を取得（次の付与日、付与予定日数、期間）
+ */
+export async function getNextPeriodInfo(employeeId: string, today: Date = new Date()) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { joinDate: true, configVersion: true, vacationPattern: true },
+  });
+
+  if (!employee) {
+    return null;
+  }
+
+  const cfg = await loadAppConfig(employee.configVersion || undefined);
+  const joinDate = new Date(employee.joinDate);
+
+  // 次の付与日を取得
+  const nextGrantDate = getNextGrantDate(joinDate, cfg, today);
+  if (!nextGrantDate) {
+    return null;
+  }
+
+  // 次の次の付与日（来期の終了日）を取得
+  const nextNextGrantDate = getNextGrantDate(joinDate, cfg, nextGrantDate);
+
+  // 来期の付与予定日数を計算
+  const yearsAtNextGrant = diffInYearsHalfStep(joinDate, nextGrantDate);
+  const nextGrantDays = chooseGrantDaysForEmployee(employee.vacationPattern, yearsAtNextGrant, cfg);
+
+  // 今期から来期への繰越予定日数を計算
+  // LIFO方式：今期のロットの残日数（有効期限が来期まで有効なもの）
+  const carryOverLots = await prisma.grantLot.findMany({
+    where: {
+      employeeId,
+      expiryDate: { gte: nextGrantDate }, // 来期の付与日時点でまだ有効
+      daysRemaining: { gt: 0 },
+    },
+  });
+  const carryOverDays = carryOverLots.reduce((sum, lot) => sum + Number(lot.daysRemaining), 0);
+
+  // 来期の総付与予定日数 = 繰越予定日数 + 新付与予定日数
+  const nextPeriodTotalGranted = carryOverDays + nextGrantDays;
+
+  return {
+    nextGrantDate,
+    nextGrantDays,
+    nextPeriodEndDate: nextNextGrantDate,
+    carryOverDays: Math.round(carryOverDays * 2) / 2,
+    nextPeriodTotalGranted: Math.round(nextPeriodTotalGranted * 2) / 2,
+  };
+}
+
+/**
+ * 申請日が来期に属するかどうかを判定
+ */
+export async function isNextPeriodDate(employeeId: string, targetDate: Date, today: Date = new Date()): Promise<boolean> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { joinDate: true, configVersion: true },
+  });
+
+  if (!employee) {
+    return false;
+  }
+
+  const cfg = await loadAppConfig(employee.configVersion || undefined);
+  const joinDate = new Date(employee.joinDate);
+
+  // 次の付与日を取得
+  const nextGrantDate = getNextGrantDate(joinDate, cfg, today);
+  if (!nextGrantDate) {
+    return false;
+  }
+
+  // targetDateが次の付与日以降かどうか
+  return targetDate >= nextGrantDate;
+}
+
+/**
+ * 来期の申請中日数を計算
+ */
+export async function calculateNextPeriodPendingDays(employeeId: string, today: Date = new Date()): Promise<number> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { joinDate: true, configVersion: true },
+  });
+
+  if (!employee) {
+    return 0;
+  }
+
+  const cfg = await loadAppConfig(employee.configVersion || undefined);
+  const joinDate = new Date(employee.joinDate);
+
+  // 次の付与日を取得
+  const nextGrantDate = getNextGrantDate(joinDate, cfg, today);
+  if (!nextGrantDate) {
+    return 0;
+  }
+
+  // 来期に該当する申請中の申請を取得
+  const pendingRequests = await prisma.timeOffRequest.findMany({
+    where: {
+      employeeId,
+      status: 'PENDING',
+      startDate: { gte: nextGrantDate },
+    },
+  });
+
+  let total = 0;
+  for (const req of pendingRequests) {
+    if (req.totalDays) {
+      total += Number(req.totalDays);
+    } else {
+      const diffMs = req.endDate.getTime() - req.startDate.getTime();
+      const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const rounded = Math.round(Math.max(1, diffDays) * 2) / 2;
+      total += rounded;
+    }
+  }
+
+  return Math.round(total * 2) / 2;
 }
 
 /**

@@ -48,11 +48,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [sortBy, setSortBy] = useState<"date" | "status" | "days">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
-  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo">("current") // デフォルトは今期
+  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo" | "next">("current") // デフォルトは今期
   const [periodData, setPeriodData] = useState<{
     current?: { startDate: string; endDate: string }
     last?: { startDate: string; endDate: string }
     twoYearsAgo?: { startDate: string; endDate: string }
+    next?: { startDate: string; endDate: string | null }
   } | null>(null)
   const [editingRequest, setEditingRequest] = useState<any | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -134,6 +135,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               current?: { startDate: string; endDate: string }
               last?: { startDate: string; endDate: string }
               twoYearsAgo?: { startDate: string; endDate: string }
+              next?: { startDate: string; endDate: string | null }
             } = {}
             
             if (periodJson.currentYear) {
@@ -152,6 +154,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               periods.twoYearsAgo = {
                 startDate: periodJson.twoYearsAgo.startDate,
                 endDate: periodJson.twoYearsAgo.endDate,
+              }
+            }
+            if (periodJson.nextYear) {
+              periods.next = {
+                startDate: periodJson.nextYear.startDate,
+                endDate: periodJson.nextYear.endDate,
               }
             }
             
@@ -606,20 +614,23 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   }
 
   // 期間フィルター判定関数
-  const isRequestInPeriod = (request: any, period: "all" | "current" | "last" | "twoYearsAgo"): boolean => {
+  const isRequestInPeriod = (request: any, period: "all" | "current" | "last" | "twoYearsAgo" | "next"): boolean => {
     if (period === "all") return true
     if (!periodData) return true // 期間データが取得できない場合はすべて表示
     
     const periodInfo = period === "current" ? periodData.current : 
                       period === "last" ? periodData.last : 
-                      period === "twoYearsAgo" ? periodData.twoYearsAgo : null
+                      period === "twoYearsAgo" ? periodData.twoYearsAgo : 
+                      period === "next" ? periodData.next : null
     
     if (!periodInfo) return false
     
     const requestStart = new Date(request.startDate)
     const requestEnd = new Date(request.endDate)
     const periodStart = new Date(periodInfo.startDate)
-    const periodEnd = periodInfo.endDate ? new Date(periodInfo.endDate) : new Date() // 今期の場合は現在日まで
+    // 来期の場合、終了日がnullの場合は非常に遠い未来日を設定
+    const periodEnd = periodInfo.endDate ? new Date(periodInfo.endDate) : 
+                      period === "next" ? new Date('2099-12-31') : new Date()
     
     // 申請の開始日または終了日が期間内にあるかを判定
     return (requestStart >= periodStart && requestStart <= periodEnd) ||
@@ -811,19 +822,18 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       )}
       {userRole === "employee" && employeeRequests.length > 0 && (
         <div className="col-span-full flex gap-2 items-center mb-2">
-          {/* 期間フィルターは総務・管理者のみ表示 */}
-          {(currentUser?.role === 'admin' || currentUser?.role === 'hr') && (
-            <select
-              value={periodFilter}
-              onChange={(e) => setPeriodFilter(e.target.value as any)}
-              className="text-sm border rounded px-2 py-1"
-            >
-              <option value="all">全期間</option>
-              <option value="current">今期</option>
-              <option value="last">昨年</option>
-              <option value="twoYearsAgo">一昨年</option>
-            </select>
-          )}
+          {/* 期間フィルター */}
+          <select
+            value={periodFilter}
+            onChange={(e) => setPeriodFilter(e.target.value as any)}
+            className="text-sm border rounded px-2 py-1"
+          >
+            <option value="all">全期間</option>
+            <option value="next">来期</option>
+            <option value="current">今期</option>
+            <option value="last">昨年</option>
+            <option value="twoYearsAgo">一昨年</option>
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}

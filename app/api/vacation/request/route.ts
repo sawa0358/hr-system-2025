@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import { calculateRequestTotalDays, consumeLIFO } from "@/lib/vacation-consumption"
 import { loadAppConfig } from "@/lib/vacation-config"
-import { calculateRemainingDays, calculatePendingDays, getVacationStats } from "@/lib/vacation-stats"
+import { calculateRemainingDays, calculatePendingDays, getVacationStats, isNextPeriodDate, getNextPeriodInfo, calculateNextPeriodPendingDays } from "@/lib/vacation-stats"
 
 /**
  * 有給申請API（TimeOffRequest対応）
@@ -153,21 +153,56 @@ export async function POST(request: NextRequest) {
       totalDays = Math.min(totalDays, maxDays)
     }
 
-    // 総付与数チェック（今期の総付与数を超えないようにする）
-    try {
-      const stats = await getVacationStats(employeeId)
-      const totalGranted = stats.totalGranted || 0
-      const used = stats.used || 0
-      const pending = stats.pending || 0
+    // 申請日が来期に属するかどうかを判定
+    const isNextPeriod = await isNextPeriodDate(employeeId, start, today)
+    console.log('[POST /api/vacation/request] 来期判定:', { isNextPeriod, startDate: start.toISOString() })
 
-      // 新規申請日数 + 取得済み + 申請中 > 総付与数の場合、エラー
-      if (totalDays + used + pending > totalGranted) {
-        return NextResponse.json(
-          { 
-            error: "今期の総付与数を超えて申請できません" 
-          }, 
-          { status: 400 }
-        )
+    // 総付与数チェック
+    try {
+      if (isNextPeriod) {
+        // 来期の日付で申請した場合は、来期の予定残日数でチェック
+        const nextPeriodInfo = await getNextPeriodInfo(employeeId, today)
+        if (!nextPeriodInfo) {
+          return NextResponse.json(
+            { error: "来期の付与情報を取得できません" },
+            { status: 400 }
+          )
+        }
+
+        const nextPeriodPending = await calculateNextPeriodPendingDays(employeeId, today)
+        const availableDays = nextPeriodInfo.nextPeriodTotalGranted - nextPeriodPending
+
+        console.log('[POST /api/vacation/request] 来期の残日数チェック:', {
+          nextPeriodTotalGranted: nextPeriodInfo.nextPeriodTotalGranted,
+          nextPeriodPending,
+          availableDays,
+          totalDays,
+        })
+
+        if (totalDays > availableDays) {
+          return NextResponse.json(
+            { 
+              error: `来期の残日数が不足しています。利用可能日数: ${availableDays}日（来期予定総付与: ${nextPeriodInfo.nextPeriodTotalGranted}日、申請中: ${nextPeriodPending}日）` 
+            }, 
+            { status: 400 }
+          )
+        }
+      } else {
+        // 今期の日付で申請した場合は、今期の残日数でチェック
+        const stats = await getVacationStats(employeeId)
+        const totalGranted = stats.totalGranted || 0
+        const used = stats.used || 0
+        const pending = stats.pending || 0
+
+        // 新規申請日数 + 取得済み + 申請中 > 総付与数の場合、エラー
+        if (totalDays + used + pending > totalGranted) {
+          return NextResponse.json(
+            { 
+              error: "今期の総付与数を超えて申請できません" 
+            }, 
+            { status: 400 }
+          )
+        }
       }
     } catch (statsError: any) {
       // 統計情報の取得に失敗した場合は、既存の残日数チェックにフォールバック

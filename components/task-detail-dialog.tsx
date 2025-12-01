@@ -1406,6 +1406,12 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
         labels: selectedLabels,
         checklists,
         cardColor,
+        members: members.map(m => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          employee: m.employee,
+        })),
         isTemplate: true,
       }
 

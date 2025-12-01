@@ -2400,6 +2400,11 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
       console.log("[v0] Creating card from template:", template, "in list:", listId)
       
       // テンプレートから新しいカードを作成
+      // テンプレートにメンバー情報がある場合はそれを使用、なければ現在のユーザーのみ
+      const templateMemberIds = template.members && template.members.length > 0
+        ? template.members.map((m: any) => m.id)
+        : [currentUserId]
+      
       const cardData = {
         title: template.title.replace(' (テンプレート)', ''), // テンプレートの文字を削除
         description: template.description,
@@ -2407,7 +2412,7 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         cardColor: template.cardColor,
         boardId: boardData.id,
         listId: listId,
-        memberIds: [currentUserId], // 現在のユーザーをメンバーに追加
+        memberIds: templateMemberIds, // テンプレートのメンバーを追加
       }
       
       const response = await fetch("/api/cards", {
@@ -2423,35 +2428,36 @@ export const KanbanBoard = forwardRef<any, KanbanBoardProps>(({ boardData, curre
         const result = await response.json()
         console.log("[v0] Card created from template successfully:", result)
         
-        // ラベルを追加
+        // チェックリストとラベルをPATCHで追加（チェックリストアイテムのcompletedをfalseにリセット）
+        const updateData: any = {}
+        
         if (template.labels && template.labels.length > 0) {
-          for (const label of template.labels) {
-            await fetch(`/api/cards/${result.card.id}/labels`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-employee-id": currentUserId,
-              },
-              body: JSON.stringify({ labelId: label.id }),
-            })
-          }
+          updateData.labels = template.labels
         }
         
-        // チェックリストを追加
         if (template.checklists && template.checklists.length > 0) {
-          for (const checklist of template.checklists) {
-            await fetch(`/api/cards/${result.card.id}/checklists`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-employee-id": currentUserId,
-              },
-              body: JSON.stringify({
-                title: checklist.title,
-                items: checklist.items,
-              }),
-            })
-          }
+          // チェックリストのアイテムのcompletedをfalseにリセット（新しいカードなので未完了から開始）
+          updateData.checklists = template.checklists.map((checklist: any) => ({
+            ...checklist,
+            id: `checklist-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // 新しいIDを生成
+            items: checklist.items.map((item: any) => ({
+              ...item,
+              id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // 新しいIDを生成
+              completed: false, // 完了状態をリセット
+            })),
+          }))
+        }
+        
+        // チェックリストまたはラベルがある場合はPATCHで更新
+        if (Object.keys(updateData).length > 0) {
+          await fetch(`/api/cards/${result.card.id}`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "x-employee-id": currentUserId,
+            },
+            body: JSON.stringify(updateData),
+          })
         }
         
         // ボードデータを再取得

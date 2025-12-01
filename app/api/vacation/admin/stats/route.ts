@@ -268,8 +268,9 @@ export async function GET(request: NextRequest) {
               const isWithinThreeMonths = diffMs < threeMonthsInMs
               
               // 1回の付与日数がminGrantDaysForAlert以上の社員のみがアラート対象
-              // 次回付与日まで3ヶ月をきっていて、かつ設定された日数消化義務未達成
-              return isWithinThreeMonths && latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert
+              // 次回付与日まで3ヶ月をきっていて、かつ法定最低取得日数（minLegalUseDaysPerYear）未達成
+              const minLegalUseDays = defaultConfig.minLegalUseDaysPerYear ?? 5
+              return isWithinThreeMonths && latestGrantDays >= minGrantDaysForAlert && used < minLegalUseDays
             } catch {
               return false
             }

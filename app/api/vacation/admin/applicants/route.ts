@@ -298,11 +298,14 @@ export async function GET(request: NextRequest) {
         } catch {}
 
         // アラート判定（5日消化義務アラート）
-        // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成の社員
-        const minGrantDaysForAlert = 5
+        // 次回付与日まで3ヶ月をきっていて、かつ法定最低取得日数未達成の社員
+        // 設定から読み込んだ値を使用（デフォルト: minGrantDaysForAlert=10, minLegalUseDaysPerYear=5）
+        const defaultConfig = await loadAppConfig()
+        const minGrantDaysForAlertConfig = defaultConfig.alert?.minGrantDaysForAlert ?? 10
+        const minLegalUseDays = defaultConfig.minLegalUseDaysPerYear ?? 5
         const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
         let isAlert = false
-        if (latestGrantDays >= minGrantDaysForAlert && used < minGrantDaysForAlert && nextGrantDate) {
+        if (latestGrantDays >= minGrantDaysForAlertConfig && used < minLegalUseDays && nextGrantDate) {
           const today = new Date()
           const diffMs = nextGrantDate.getTime() - today.getTime()
           const isWithinThreeMonths = diffMs < threeMonthsInMs

@@ -59,6 +59,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [minGrantDaysForAlert, setMinGrantDaysForAlert] = useState(10) // デフォルト: 10日
+  const [minLegalUseDaysPerYear, setMinLegalUseDaysPerYear] = useState(5) // デフォルト: 5日（法定最低取得日数）
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false)
   const [passwordDialogAction, setPasswordDialogAction] = useState<'edit' | 'delete' | null>(null)
   const [passwordDialogRequestId, setPasswordDialogRequestId] = useState<string | null>(null)
@@ -78,6 +79,9 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           const config = await configRes.json()
           if (config.alert?.minGrantDaysForAlert !== undefined) {
             setMinGrantDaysForAlert(config.alert.minGrantDaysForAlert)
+          }
+          if (config.minLegalUseDaysPerYear !== undefined) {
+            setMinLegalUseDaysPerYear(config.minLegalUseDaysPerYear)
           }
         }
       } catch (error) {
@@ -556,10 +560,11 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   }
 
   const needsFiveDayAlert = (latestGrantDays: number | undefined, used: number) => {
-    // 最新の付与日での付与日数が設定値以上で、かつ取得済みが5日未満の場合にアラート表示
+    // 最新の付与日での付与日数が設定値（minGrantDaysForAlert）以上で、
+    // かつ取得済みが法定最低取得日数（minLegalUseDaysPerYear）未満の場合にアラート表示
     // latestGrantDaysが未定義の場合は、後方互換性のため総付与数（granted）を使用
     if (latestGrantDays !== undefined) {
-      return latestGrantDays >= minGrantDaysForAlert && used < 5
+      return latestGrantDays >= minGrantDaysForAlert && used < minLegalUseDaysPerYear
     }
     // 後方互換性: latestGrantDaysが未定義の場合は、grantedを使用（既存のロジック）
     return false // latestGrantDaysがない場合はアラートを表示しない（安全のため）

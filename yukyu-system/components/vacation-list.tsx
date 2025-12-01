@@ -374,11 +374,77 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
   }
 
-  // 決済確認ダイアログの表示
-  const handleFinalizeClick = (requestId: string) => {
+  // 来期申請エラーメッセージの状態
+  const [nextPeriodError, setNextPeriodError] = useState<string | null>(null)
+  const [isNextPeriodErrorDialogOpen, setIsNextPeriodErrorDialogOpen] = useState(false)
+
+  // 決済確認ダイアログの表示（来期チェック付き）
+  const handleFinalizeClick = async (requestId: string, request: any) => {
+    // 来期の申請かどうかをチェック
+    const employeeIdForCheck = request.employeeId || request.id
+    const startDate = request.startDate
+    
+    if (employeeIdForCheck && startDate) {
+      try {
+        // 来期チェック用のAPIを呼び出す（決済APIを呼んでエラーを確認）
+        const res = await fetch(`/api/vacation/requests/${requestId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ approverId: currentUser?.id }),
+        })
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          if (errorData.isNextPeriodRequest) {
+            // 来期の申請の場合、エラーメッセージを表示
+            setNextPeriodError(errorData.error || "来期中の申請のため、決済できません")
+            setIsNextPeriodErrorDialogOpen(true)
+            return
+          }
+          // 他のエラーの場合はtoastで表示
+          toast({
+            title: "決済エラー",
+            description: errorData.error || "決済に失敗しました",
+            variant: "destructive",
+          })
+          return
+        }
+        
+        // 成功した場合（来期チェックを通過して決済完了）
+        toast({
+          title: "決済完了",
+          description: "有給申請を決済しました。申請中の日数が取得済みに加算され、残り有給日数から減算されました。",
+        })
+        
+        // データを再読み込み
+        window.dispatchEvent(new Event('vacation-request-updated'))
+        if (userRole === "admin") {
+          const currentView = filter === "pending" ? "pending" : "all"
+          const url = supervisorId 
+            ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
+            : `/api/vacation/admin/applicants?view=${currentView}`
+          const reloadRes = await fetch(url)
+          if (reloadRes.ok) {
+            const json = await reloadRes.json()
+            setAdminEmployees(json.employees || [])
+          }
+        }
+        return
+      } catch (error: any) {
+        console.error("決済チェックエラー:", error)
+        toast({
+          title: "エラー",
+          description: "決済処理中にエラーが発生しました",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+    
+    // フォールバック: 従来の確認ダイアログを表示
     setFinalizingRequestId(requestId)
     setIsFinalizeDialogOpen(true)
-    setIsFinalizing(false) // ダイアログを開いた時点では処理中ではない
+    setIsFinalizing(false)
   }
 
   // 決済確認ダイアログのキャンセル
@@ -1130,7 +1196,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                             disabled={finalizingRequestId === request.requestId}
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleFinalizeClick(request.requestId)
+                              handleFinalizeClick(request.requestId, request)
                             }}
                           >
                             {finalizingRequestId === request.requestId ? (
@@ -1489,7 +1555,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </DialogContent>
       </Dialog>
 
-      {/* 決済確認ダイアログ */}
+      {/* 決済確認ダイアログ（フォールバック用、通常は使用されない） */}
       <Dialog open={isFinalizeDialogOpen} onOpenChange={(open) => {
         // 決済処理中はダイアログを閉じられないようにする
         if (!open && !isFinalizing) {
@@ -1529,6 +1595,29 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               ) : (
                 "はい"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 来期申請エラーダイアログ */}
+      <Dialog open={isNextPeriodErrorDialogOpen} onOpenChange={setIsNextPeriodErrorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>決済できません</DialogTitle>
+            <DialogDescription>
+              {nextPeriodError}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="default"
+              onClick={() => {
+                setIsNextPeriodErrorDialogOpen(false)
+                setNextPeriodError(null)
+              }}
+            >
+              OK
             </Button>
           </DialogFooter>
         </DialogContent>

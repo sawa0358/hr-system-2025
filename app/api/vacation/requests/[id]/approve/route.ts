@@ -76,13 +76,22 @@ export async function POST(
         if (isNextPeriod) {
           // 来期の申請の場合、付与日以降でないと決済できない
           const nextPeriodInfo = await getNextPeriodInfo(req.employeeId, today)
-          if (nextPeriodInfo && nextPeriodInfo.nextGrantDate > today) {
-            const nextGrantDateStr = nextPeriodInfo.nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '/')
-            return NextResponse.json({ 
-              error: `来期中の申請のため、新付与日:${nextGrantDateStr}以降に決済してください`,
-              isNextPeriodRequest: true,
-              nextGrantDate: nextPeriodInfo.nextGrantDate.toISOString(),
-            }, { status: 400 })
+          if (nextPeriodInfo) {
+            // 日付のみを比較（時刻の影響を排除）
+            const nextGrantDateOnly = new Date(
+              nextPeriodInfo.nextGrantDate.getFullYear(),
+              nextPeriodInfo.nextGrantDate.getMonth(),
+              nextPeriodInfo.nextGrantDate.getDate()
+            )
+            // 付与日が今日より後の場合のみエラー（付与日当日は決済可能）
+            if (nextGrantDateOnly > today) {
+              const nextGrantDateStr = nextPeriodInfo.nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '/')
+              return NextResponse.json({ 
+                error: `来期中の申請のため、新付与日:${nextGrantDateStr}以降に決済してください`,
+                isNextPeriodRequest: true,
+                nextGrantDate: nextPeriodInfo.nextGrantDate.toISOString(),
+              }, { status: 400 })
+            }
           }
         }
 

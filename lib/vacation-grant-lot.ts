@@ -172,6 +172,27 @@ function differenceInMonths(dateLeft: Date, dateRight: Date): number {
 }
 
 /**
+ * 日付のみを比較するためのヘルパー関数（時刻を排除）
+ */
+function toDateOnly(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/**
+ * 日付のみで比較（a > b）
+ */
+function isDateAfter(a: Date, b: Date): boolean {
+  return toDateOnly(a).getTime() > toDateOnly(b).getTime();
+}
+
+/**
+ * 日付のみで比較（a <= b）
+ */
+function isDateOnOrBefore(a: Date, b: Date): boolean {
+  return toDateOnly(a).getTime() <= toDateOnly(b).getTime();
+}
+
+/**
  * 社員の次の付与基準日を取得
  */
 export function getNextGrantDate(
@@ -179,9 +200,12 @@ export function getNextGrantDate(
   cfg: AppConfig,
   today: Date = new Date()
 ): Date | null {
+  const todayOnly = toDateOnly(today);
   for (const anchor of iterateAnchors(joinDate, cfg, new Date(today.getFullYear() + 1, 11, 31))) {
-    if (anchor.grantDate > today) {
-      return anchor.grantDate;
+    const grantDateOnly = toDateOnly(anchor.grantDate);
+    // 付与日が今日より後の場合
+    if (grantDateOnly.getTime() > todayOnly.getTime()) {
+      return grantDateOnly;
     }
   }
   return null;
@@ -196,9 +220,12 @@ export function getPreviousGrantDate(
   today: Date = new Date()
 ): Date | null {
   let prev: Date | null = null;
+  const todayOnly = toDateOnly(today);
   for (const anchor of iterateAnchors(joinDate, cfg, today)) {
-    if (anchor.grantDate <= today) {
-      prev = anchor.grantDate;
+    const grantDateOnly = toDateOnly(anchor.grantDate);
+    // 付与日が今日以前の場合
+    if (grantDateOnly.getTime() <= todayOnly.getTime()) {
+      prev = grantDateOnly;
     } else {
       break;
     }

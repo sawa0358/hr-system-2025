@@ -330,6 +330,23 @@ export function generatePDFContent(
           font-size: 11px;
         }
         
+        .notes-row {
+          background: #fafafa;
+        }
+        
+        .notes-cell {
+          color: #666;
+          font-size: 10px;
+          padding: 4px 10px;
+          line-height: 1.4;
+          max-height: 2.8em;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          text-overflow: ellipsis;
+        }
+        
         .footer {
           margin-top: 50px;
           padding-top: 20px;
@@ -506,9 +523,8 @@ export function generatePDFContent(
               <th style="width: 140px;">時間帯</th>
               <th style="width: 70px;">休憩</th>
               <th style="width: 110px;">実働時間</th>
-              <th style="width: 80px;">パターン</th>
+              <th>パターン</th>
               <th style="width: 100px;">小計</th>
-              <th>メモ</th>
             </tr>
           </thead>
           <tbody>
@@ -524,6 +540,11 @@ export function generatePDFContent(
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
         return aTime - bTime
       })
+
+      // メモがあるエントリの数をカウント（rowspan計算用）
+      const entriesWithNotes = sortedDayEntries.filter(e => e.notes && e.notes.trim()).length
+      // 日付セルのrowspanは、エントリ数 + メモ行数
+      const dateRowspan = sortedDayEntries.length + entriesWithNotes
 
       sortedDayEntries.forEach((entry, index) => {
         const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
@@ -585,11 +606,12 @@ export function generatePDFContent(
           patternLabel = countInfo
         }
 
+        // メイン行
         html += '<tr>'
 
         if (index === 0) {
           html += `
-            <td class="date-cell" rowspan="${dayEntries.length}">
+            <td class="date-cell" rowspan="${dateRowspan}">
               <div>${formattedDate}</div>
               <div class="date-total-small">${formatDuration(
                 dayTotal.hours,
@@ -605,9 +627,17 @@ export function generatePDFContent(
           <td class="duration">${formatDuration(duration.hours, duration.minutes)}</td>
           <td style="text-align: center; font-size: 10px; white-space: nowrap;">${patternLabel}</td>
           <td style="text-align: right; font-weight: 600; white-space: nowrap;">¥${subtotal.toLocaleString()}</td>
-          <td class="notes">${entry.notes || '-'}</td>
         </tr>
         `
+
+        // メモ行（メモがある場合のみ表示）
+        if (entry.notes && entry.notes.trim()) {
+          html += `
+        <tr class="notes-row">
+          <td colspan="5" class="notes-cell">${entry.notes}</td>
+        </tr>
+          `
+        }
       })
     })
 

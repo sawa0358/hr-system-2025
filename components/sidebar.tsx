@@ -96,15 +96,30 @@ export function Sidebar() {
       return
     }
 
+    // AbortControllerをuseEffect内で管理
+    let abortController: AbortController | null = null
+    let timeoutId: NodeJS.Timeout | null = null
+    let isMounted = true
+
     // 承認待ちの件数を取得
     const fetchPendingCount = async () => {
-      // タイムアウト制御（10秒）
-      const controller = new AbortController()
-      let timeoutId: NodeJS.Timeout | null = null
+      // 既存のリクエストをキャンセル
+      if (abortController) {
+        abortController.abort()
+      }
+      abortController = new AbortController()
+      
+      // タイムアウトをクリア
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
       
       try {
+        // タイムアウト制御（10秒）
         timeoutId = setTimeout(() => {
-          controller.abort()
+          if (abortController) {
+            abortController.abort('timeout')
+          }
         }, 10000)
         
         // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
@@ -115,9 +130,8 @@ export function Sidebar() {
           : '/api/vacation/admin/applicants?view=pending'
         
         const res = await fetch(url, {
-          signal: controller.signal,
-          // ネットワークエラーを適切に処理するための設定
-          cache: 'no-store', // 常に最新のデータを取得
+          signal: abortController.signal,
+          cache: 'no-store',
         })
         
         if (timeoutId) {
@@ -125,30 +139,28 @@ export function Sidebar() {
           timeoutId = null
         }
         
+        if (!isMounted) return
+        
         if (res.ok) {
           const json = await res.json()
-          // 承認待ち画面では各申請ごとにカードが生成されるため、レスポンスのカード数が承認待ちの申請カード数
           const count = json.employees?.length || 0
           setPendingCount(count)
         } else {
-          // エラーレスポンスの場合は0件として扱う（サイレントに処理）
           setPendingCount(0)
         }
       } catch (error: any) {
-        // タイムアウトをクリーンアップ
         if (timeoutId) {
           clearTimeout(timeoutId)
           timeoutId = null
         }
         
-        // AbortErrorは予期された中断（タイムアウトやコンポーネントのアンマウント）なので無視
+        // AbortErrorは予期された中断なので無視
         if (error?.name === 'AbortError') {
-          // サイレントに処理（ログを出力しない）
           return
         }
         
-        // その他のネットワークエラーは、開発環境のみログを出力
-        // 本番環境ではサイレントに0件として扱う（エラーをユーザーに表示しない）
+        if (!isMounted) return
+        
         if (process.env.NODE_ENV === 'development') {
           console.error('[Sidebar] 承認待ち件数取得エラー:', error)
         }
@@ -168,8 +180,15 @@ export function Sidebar() {
     window.addEventListener('vacation-request-updated', handleVacationUpdate)
 
     return () => {
+      isMounted = false
       clearInterval(interval)
       window.removeEventListener('vacation-request-updated', handleVacationUpdate)
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+      if (abortController) {
+        abortController.abort('cleanup')
+      }
     }
   }, [currentUser, isAuthenticated])
 

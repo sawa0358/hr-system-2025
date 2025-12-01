@@ -319,6 +319,7 @@ export async function getNextPeriodInfo(employeeId: string, today: Date = new Da
 
 /**
  * 申請日が来期に属するかどうかを判定
+ * 日付のみを比較（タイムゾーンの影響を排除）
  */
 export async function isNextPeriodDate(employeeId: string, targetDate: Date, today: Date = new Date()): Promise<boolean> {
   const employee = await prisma.employee.findUnique({
@@ -339,8 +340,12 @@ export async function isNextPeriodDate(employeeId: string, targetDate: Date, tod
     return false;
   }
 
+  // 日付のみを比較（タイムゾーンの影響を排除）
+  const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const nextGrantDateOnly = new Date(nextGrantDate.getFullYear(), nextGrantDate.getMonth(), nextGrantDate.getDate());
+
   // targetDateが次の付与日以降かどうか
-  return targetDate >= nextGrantDate;
+  return targetDateOnly >= nextGrantDateOnly;
 }
 
 /**

@@ -1371,6 +1371,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                 supervisorId: editingRequest.supervisorId || "", // 上司IDを初期データに含める
               } as any}
               requestId={editingRequest.id}
+              proxyEmployeeId={editingRequest.employeeId} // 編集対象の社員ID
               force={editingRequest.status?.toLowerCase() === "approved" || editingRequest.status?.toLowerCase() === "rejected"}
               onSuccess={async () => {
                 console.log('[VacationList] 申請更新成功 - onSuccessコールバック実行')

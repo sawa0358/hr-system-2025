@@ -148,7 +148,20 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
 
   // 実際の申請送信処理
   const submitRequest = async () => {
-    if (!currentUser?.id || !targetEmployeeId) {
+    if (!currentUser?.id) {
+      toast({
+        title: "エラー",
+        description: "ログイン情報が取得できません。再度ログインしてください。",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!targetEmployeeId) {
+      toast({
+        title: "エラー",
+        description: "対象の社員IDが取得できません。",
+        variant: "destructive",
+      })
       return
     }
 

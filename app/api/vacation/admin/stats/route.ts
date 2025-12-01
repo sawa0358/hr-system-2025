@@ -223,17 +223,33 @@ export async function GET(request: NextRequest) {
       nextGrantDate: string | null
     }> = []
     try {
-      const activeEmployees = await prisma.employee.findMany({
-        where: { 
-          status: "active",
-          isInvisibleTop: false, // applicants APIと同じ条件
-          role: { not: 'admin' }, // 管理者権限は除外
-          employeeType: {
-            in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+      let activeEmployees: any[] = []
+      try {
+        activeEmployees = await prisma.employee.findMany({
+          where: { 
+            status: "active",
+            isInvisibleTop: false, // applicants APIと同じ条件
+            role: { not: 'admin' }, // 管理者権限は除外
+            employeeType: {
+              in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
+            },
           },
-        },
-        select: { id: true, name: true, department: true, employeeNumber: true },
-      })
+          select: { id: true, name: true, department: true, employeeNumber: true },
+        })
+      } catch (employeeQueryError: any) {
+        // isInvisibleTopカラムがない場合は、条件なしで取得
+        console.warn('[stats API] isInvisibleTopカラムエラー、条件なしで再取得:', employeeQueryError?.message)
+        activeEmployees = await prisma.employee.findMany({
+          where: { 
+            status: "active",
+            role: { not: 'admin' },
+            employeeType: {
+              in: ['正社員', '契約社員', 'パートタイム', '派遣社員'],
+            },
+          },
+          select: { id: true, name: true, department: true, employeeNumber: true },
+        })
+      }
       
       if (activeEmployees.length > 0) {
         const today = new Date()

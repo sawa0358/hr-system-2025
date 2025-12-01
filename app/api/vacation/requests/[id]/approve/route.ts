@@ -79,7 +79,7 @@ export async function POST(
           if (nextPeriodInfo && nextPeriodInfo.nextGrantDate > today) {
             const nextGrantDateStr = nextPeriodInfo.nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '/')
             return NextResponse.json({ 
-              error: `この申請は来期の日付です。付与日（${nextGrantDateStr}）以降に決済してください。`,
+              error: `来期中の申請のため、新付与日:${nextGrantDateStr}以降に決済してください`,
               isNextPeriodRequest: true,
               nextGrantDate: nextPeriodInfo.nextGrantDate.toISOString(),
             }, { status: 400 })

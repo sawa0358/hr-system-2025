@@ -119,6 +119,7 @@ export function PayrollUploadDialog({
   const yearEndFolders = ["年末調整", "その他"]
 
   // 「全員分」自動PDF一覧の取得
+  // 注: 自動出力PDFは「毎月3日に前月分」を生成するため、選択月の前月を取得する
   useEffect(() => {
     // ダイアログが閉じている、または全員分モードでない場合は何もしない
     if (!open || !isAllEmployeesMode) {
@@ -147,6 +148,14 @@ export function PayrollUploadDialog({
       return
     }
 
+    // 前月を計算（選択月の前月分が自動出力PDFの対象）
+    let targetYear = yearNumber
+    let targetMonth = monthNumber - 1
+    if (targetMonth === 0) {
+      targetMonth = 12
+      targetYear = yearNumber - 1
+    }
+
     let isCancelled = false
 
     const fetchFiles = async () => {
@@ -154,7 +163,7 @@ export function PayrollUploadDialog({
         setIsAllFilesLoading(true)
         setAllFilesError(null)
 
-        const res = await fetch(`/api/payroll/all-pdfs?year=${yearNumber}&month=${monthNumber}`)
+        const res = await fetch(`/api/payroll/all-pdfs?year=${targetYear}&month=${targetMonth}`)
         
         // コンポーネントがアンマウントされた場合は処理を中断
         if (isCancelled) return
@@ -829,7 +838,18 @@ export function PayrollUploadDialog({
             </div>
             <div className="mb-3 text-sm text-blue-900">
               <span className="font-semibold">対象月:</span>{" "}
-              {selectedYear && selectedMonth ? `${selectedYear}${selectedMonth}` : "未選択"}
+              {selectedYear && selectedMonth && selectedMonth.endsWith("月") ? (() => {
+                const yearNum = parseInt(selectedYear.replace("年", ""), 10)
+                const monthNum = parseInt(selectedMonth.replace("月", ""), 10)
+                // 前月を計算
+                let targetYear = yearNum
+                let targetMonth = monthNum - 1
+                if (targetMonth === 0) {
+                  targetMonth = 12
+                  targetYear = yearNum - 1
+                }
+                return `${targetYear}年${targetMonth}月`
+              })() : "未選択"}
             </div>
             {isAllFilesLoading ? (
               <p className="text-sm text-blue-700">読み込み中...</p>

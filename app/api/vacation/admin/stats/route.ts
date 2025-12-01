@@ -213,55 +213,65 @@ export async function GET(request: NextRequest) {
     // 次回付与日まで3ヶ月をきっていて、かつ5日消化義務未達成の社員数
     // 対象社員: 正社員・契約社員・パートタイム・派遣社員のみ、管理者権限は除外
     let alerts = 0
+    let alertEmployees: Array<{
+      id: string
+      name: string
+      department: string | null
+      employeeNumber: string | null
+      latestGrantDays: number
+      used: number
+      nextGrantDate: string | null
+    }> = []
     try {
       const activeEmployees = await prisma.employee.findMany({
         where: { 
           status: "active",
+          isInvisibleTop: false, // applicants APIと同じ条件
           role: { not: 'admin' }, // 管理者権限は除外
           employeeType: {
             in: ['正社員', '契約社員', 'パートタイム', '派遣社員'], // 有給管理対象の雇用形態のみ
           },
         },
-        select: { id: true },
+        select: { id: true, name: true, department: true, employeeNumber: true },
       })
-      const activeEmployeeIdList = activeEmployees.map(e => e.id)
       
-      if (activeEmployeeIdList.length > 0) {
+      if (activeEmployees.length > 0) {
         const today = new Date()
         // 設定ファイルからアラート閾値を読み込む（デフォルトは10日）
         const defaultConfig = await loadAppConfig()
         const minGrantDaysForAlert = defaultConfig.alert?.minGrantDaysForAlert ?? 10
+        const minLegalUseDays = defaultConfig.minLegalUseDaysPerYear ?? 5
         const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
         
         // 各社員のアラート状況をチェック
-        const alertChecks = await Promise.all(
-          activeEmployeeIdList.map(async (employeeId) => {
+        const alertResults = await Promise.all(
+          activeEmployees.map(async (employee) => {
             try {
               // 最新の付与ロットを取得
               const latestLot = await prisma.grantLot.findFirst({
                 where: {
-                  employeeId,
+                  employeeId: employee.id,
                   expiryDate: { gte: today },
                 },
                 orderBy: { grantDate: 'desc' },
               })
               
-              if (!latestLot) return false
+              if (!latestLot) return null
               
               const latestGrantDays = Number(latestLot.daysGranted)
-              const used = await calculateUsedDays(employeeId, today)
+              const used = await calculateUsedDays(employee.id, today)
               
               // 次回付与日を取得
               const { getNextGrantDateForEmployee } = await import('@/lib/vacation-stats')
               let nextGrantDate: Date | null = null
               try {
-                nextGrantDate = await getNextGrantDateForEmployee(employeeId)
+                nextGrantDate = await getNextGrantDateForEmployee(employee.id)
               } catch {
                 // 次回付与日が取得できない場合はスキップ
-                return false
+                return null
               }
               
-              if (!nextGrantDate) return false
+              if (!nextGrantDate) return null
               
               // 次回付与日まで3ヶ月をきっているかチェック
               const diffMs = nextGrantDate.getTime() - today.getTime()
@@ -269,19 +279,33 @@ export async function GET(request: NextRequest) {
               
               // 1回の付与日数がminGrantDaysForAlert以上の社員のみがアラート対象
               // 次回付与日まで3ヶ月をきっていて、かつ法定最低取得日数（minLegalUseDaysPerYear）未達成
-              const minLegalUseDays = defaultConfig.minLegalUseDaysPerYear ?? 5
-              return isWithinThreeMonths && latestGrantDays >= minGrantDaysForAlert && used < minLegalUseDays
+              const isAlert = isWithinThreeMonths && latestGrantDays >= minGrantDaysForAlert && used < minLegalUseDays
+              
+              if (isAlert) {
+                return {
+                  id: employee.id,
+                  name: employee.name,
+                  department: employee.department,
+                  employeeNumber: employee.employeeNumber,
+                  latestGrantDays,
+                  used,
+                  nextGrantDate: nextGrantDate.toISOString().slice(0, 10),
+                }
+              }
+              return null
             } catch {
-              return false
+              return null
             }
           })
         )
         
-        alerts = alertChecks.filter(Boolean).length
+        alertEmployees = alertResults.filter((e): e is NonNullable<typeof e> => e !== null)
+        alerts = alertEmployees.length
       }
     } catch (alertError: any) {
       console.warn('アラート数計算エラー:', alertError?.message)
       alerts = 0
+      alertEmployees = []
     }
 
     return NextResponse.json({
@@ -289,6 +313,7 @@ export async function GET(request: NextRequest) {
       approvedThisMonth,
       rejected: rejectedRequests,
       alerts,
+      alertEmployees, // アラート対象社員リストも返す
     })
   } catch (error: any) {
     console.error("GET /api/vacation/admin/stats error", error)

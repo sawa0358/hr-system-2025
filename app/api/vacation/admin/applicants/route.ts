@@ -307,11 +307,19 @@ export async function GET(request: NextRequest) {
         // 次回付与日まで3ヶ月をきっていて、かつ法定最低取得日数未達成の社員
         // 設定はループ外で事前に読み込み済み（minGrantDaysForAlertConfig, minLegalUseDays）
         let isAlert = false
-        if (latestGrantDays >= minGrantDaysForAlertConfig && used < minLegalUseDays && nextGrantDate) {
-          const today = new Date()
+        let isWithinThreeMonths = false
+        if (nextGrantDate) {
           const diffMs = nextGrantDate.getTime() - today.getTime()
-          const isWithinThreeMonths = diffMs < threeMonthsInMs
-          isAlert = isWithinThreeMonths
+          isWithinThreeMonths = diffMs < threeMonthsInMs
+        }
+        // アラート条件: 付与日数 >= 設定値 AND 使用日数 < 法定義務日数 AND 次回付与日まで3ヶ月以内
+        if (latestGrantDays >= minGrantDaysForAlertConfig && used < minLegalUseDays && isWithinThreeMonths) {
+          isAlert = true
+        }
+        
+        // デバッグログ（alertsFilter時のみ）
+        if (alertsFilter) {
+          console.log(`[アラート判定] ${e.name}: latestGrantDays=${latestGrantDays}, used=${used}, isWithinThreeMonths=${isWithinThreeMonths}, isAlert=${isAlert} (設定: minGrantDaysForAlert=${minGrantDaysForAlertConfig}, minLegalUseDays=${minLegalUseDays})`)
         }
         
         // フィルタリング条件に応じて社員をフィルタリング
@@ -426,6 +434,18 @@ export async function GET(request: NextRequest) {
             nextGrantDate: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10) : null,
             nextGrantDays: nextGrantDays,
             latestGrantDays: latestGrantDays, // 最新の付与日での付与日数（5日消化義務アラート判定用）
+            // アラート判定の詳細情報（デバッグ用）
+            alertDebug: alertsFilter ? {
+              isAlert,
+              isWithinThreeMonths,
+              minGrantDaysForAlert: minGrantDaysForAlertConfig,
+              minLegalUseDays,
+              conditionMet: {
+                grantDaysCheck: latestGrantDays >= minGrantDaysForAlertConfig,
+                usedDaysCheck: used < minLegalUseDays,
+                threeMonthsCheck: isWithinThreeMonths,
+              }
+            } : undefined,
             requestId: latestRequest?.id || undefined,
             status: requestStatus,
             startDate: requestStartDate,

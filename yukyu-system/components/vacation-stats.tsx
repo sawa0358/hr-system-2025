@@ -123,6 +123,15 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     approvedThisMonth: number
     rejected: number
     alerts: number
+    alertEmployees?: Array<{
+      id: string
+      name: string
+      department: string | null
+      employeeNumber: string | null
+      latestGrantDays: number
+      used: number
+      nextGrantDate: string | null
+    }>
   } | null>(null)
 
   useEffect(() => {
@@ -138,13 +147,14 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             approvedThisMonth: json.approvedThisMonth ?? 0,
             rejected: json.rejected ?? 0,
             alerts: json.alerts ?? 0,
+            alertEmployees: json.alertEmployees ?? [],
           })
         } else {
-          setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0 })
+          setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0, alertEmployees: [] })
         }
       } catch (error) {
         console.error("管理者統計取得エラー:", error)
-        setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0 })
+        setAdminStatsData({ pending: 0, approvedThisMonth: 0, rejected: 0, alerts: 0, alertEmployees: [] })
       } finally {
         setLoading(false)
       }
@@ -196,6 +206,13 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     setLoadingEmployeeList(true)
     
     try {
+      // アラートの場合は、stats APIから取得済みのリストを使用（計算ロジックの統一）
+      if (statType === "alerts") {
+        setEmployeeList(adminStatsData?.alertEmployees || [])
+        setLoadingEmployeeList(false)
+        return
+      }
+      
       let url = "/api/vacation/admin/applicants?view=pending"
       if (statType === "pending") {
         url = "/api/vacation/admin/applicants?view=pending&status=PENDING"
@@ -206,8 +223,6 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
         url = `/api/vacation/admin/applicants?status=APPROVED&month=${year}-${month}`
       } else if (statType === "rejected") {
         url = "/api/vacation/admin/applicants?status=REJECTED"
-      } else if (statType === "alerts") {
-        url = "/api/vacation/admin/applicants?alerts=true"
       }
       
       const res = await fetch(url)

@@ -90,6 +90,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ employees: [] })
     }
 
+    // アラート判定用の設定を事前に読み込み（全社員で共通）
+    const alertConfig = await loadAppConfig()
+    const minGrantDaysForAlertConfig = alertConfig.alert?.minGrantDaysForAlert ?? 10
+    const minLegalUseDays = alertConfig.minLegalUseDaysPerYear ?? 5
+    const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
+
     // 社員ごとの統計を集計
     const today = new Date()
     const resultsArrays = await Promise.all(
@@ -299,11 +305,7 @@ export async function GET(request: NextRequest) {
 
         // アラート判定（5日消化義務アラート）
         // 次回付与日まで3ヶ月をきっていて、かつ法定最低取得日数未達成の社員
-        // 設定から読み込んだ値を使用（デフォルト: minGrantDaysForAlert=10, minLegalUseDaysPerYear=5）
-        const defaultConfig = await loadAppConfig()
-        const minGrantDaysForAlertConfig = defaultConfig.alert?.minGrantDaysForAlert ?? 10
-        const minLegalUseDays = defaultConfig.minLegalUseDaysPerYear ?? 5
-        const threeMonthsInMs = 3 * 30 * 24 * 60 * 60 * 1000 // 3ヶ月（簡易計算）
+        // 設定はループ外で事前に読み込み済み（minGrantDaysForAlertConfig, minLegalUseDays）
         let isAlert = false
         if (latestGrantDays >= minGrantDaysForAlertConfig && used < minLegalUseDays && nextGrantDate) {
           const today = new Date()

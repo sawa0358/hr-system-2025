@@ -334,17 +334,16 @@ export function generatePDFContent(
           background: #fafafa;
         }
         
+        .notes-row td {
+          border-top: none;
+        }
+        
         .notes-cell {
-          color: #666;
+          color: #555;
           font-size: 10px;
-          padding: 4px 10px;
-          line-height: 1.4;
-          max-height: 2.8em;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          text-overflow: ellipsis;
+          padding: 6px 10px 8px 10px;
+          line-height: 1.5;
+          word-break: break-all;
         }
         
         .footer {
@@ -632,9 +631,14 @@ export function generatePDFContent(
 
         // メモ行（メモがある場合のみ表示）
         if (entry.notes && entry.notes.trim()) {
+          // メモを2行分（約100文字）に切り詰め
+          const maxLength = 100
+          const trimmedNotes = entry.notes.length > maxLength 
+            ? entry.notes.substring(0, maxLength) + '...' 
+            : entry.notes
           html += `
         <tr class="notes-row">
-          <td colspan="5" class="notes-cell">${entry.notes}</td>
+          <td colspan="5" class="notes-cell">📝 ${trimmedNotes}</td>
         </tr>
           `
         }

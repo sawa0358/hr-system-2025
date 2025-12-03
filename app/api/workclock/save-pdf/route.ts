@@ -14,8 +14,10 @@ import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
  * - saveIndividual=trueの場合、各個人のフォルダにも保存
  */
 export async function POST(request: NextRequest) {
+  console.log('[WorkClock手動PDF保存] ===== API開始 =====')
   try {
     const body = await request.json()
+    console.log('[WorkClock手動PDF保存] リクエストbody:', JSON.stringify(body))
     const { workerIds, year, month, saveIndividual = true } = body
 
     if (!workerIds || !Array.isArray(workerIds) || workerIds.length === 0) {
@@ -307,7 +309,6 @@ export async function POST(request: NextRequest) {
             data: {
               filePath: uploadResult.filePath,
               fileSize: pdfBuffer.length,
-              updatedAt: new Date(),
             },
           })
           results.push({ type: 'all', success: true, fileId: existingFile.id, updated: true })
@@ -410,7 +411,6 @@ export async function POST(request: NextRequest) {
                   data: {
                     filePath: individualUploadResult.filePath,
                     fileSize: individualPdfBuffer.length,
-                    updatedAt: new Date(),
                   },
                 })
                 results.push({

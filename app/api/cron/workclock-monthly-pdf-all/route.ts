@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
       const rewards = await prisma.workClockReward.findMany({
         where: {
           workerId: worker.id,
-          month: {
+          date: {
             gte: startDate,
             lte: endDate,
           },
@@ -265,9 +265,9 @@ export async function GET(request: NextRequest) {
         rewards: item.rewards.map((r) => ({
           id: r.id,
           workerId: r.workerId,
-          name: r.name,
+          name: r.description,
           amount: r.amount,
-          month: r.month,
+          month: r.date,
         })),
       })),
       lastMonth

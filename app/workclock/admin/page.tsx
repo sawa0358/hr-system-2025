@@ -146,6 +146,44 @@ export default function AdminPage() {
     }
   }
 
+  // PDF手動保存（[hr][admin]のみ）
+  const handleSaveAllPDF = async (workerIds: string[]) => {
+    if (!confirm('表示中のワーカーのPDFを給与or請求管理フォルダに保存しますか？\n\n・全員分フォルダに1つのPDF\n・各個人フォルダに個別PDF\n\nが保存されます。')) {
+      return
+    }
+
+    try {
+      const year = currentDate.getFullYear()
+      const month = currentDate.getMonth() + 1
+
+      const response = await fetch('/api/workclock/save-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workerIds,
+          year,
+          month,
+          saveIndividual: true,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        const successCount = result.results?.filter((r: any) => r.success).length || 0
+        alert(`PDFを保存しました！\n\n${result.targetMonth} の勤務報告書を${successCount}件保存しました。\n\n給与or請求管理フォルダで確認できます。`)
+      } else {
+        alert(`PDF保存に失敗しました: ${result.error}`)
+      }
+    } catch (error: any) {
+      console.error('PDF保存エラー:', error)
+      alert('PDF保存に失敗しました')
+    }
+  }
+
+  // [hr][admin]のみPDF保存可能
+  const canSavePDF = currentUser?.role === 'hr' || currentUser?.role === 'admin'
+
   return (
     <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
       {isMobile ? (
@@ -279,9 +317,11 @@ export default function AdminPage() {
             allRewards={allRewards}
             onExportPDF={handleExportPDF}
             onExportAllPDF={handleExportAllPDF}
+            onSaveAllPDF={handleSaveAllPDF}
             currentUserWorker={ownWorker}
             selectedMonth={currentDate}
             onMonthChange={setCurrentDate}
+            canSavePDF={canSavePDF}
           />
         </div>
       </main>

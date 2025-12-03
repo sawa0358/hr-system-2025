@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/workclock/time-utils'
 import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
-import { ExternalLink, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import { ExternalLink, FileText, ChevronDown, ChevronRight, FolderDown } from 'lucide-react'
 import {
   Collapsible,
   CollapsibleContent,
@@ -37,12 +37,14 @@ interface WorkerTableProps {
   allRewards: Reward[]
   onExportPDF: (workerId: string) => void
   onExportAllPDF: (workerIds: string[]) => void
+  onSaveAllPDF?: (workerIds: string[]) => void // フォルダに保存
   currentUserWorker?: Worker | null // リーダー判定用に追加
   selectedMonth: Date // 表示年月
   onMonthChange: (date: Date) => void // 年月変更ハンドラー
+  canSavePDF?: boolean // [hr][admin]のみtrue
 }
 
-export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, currentUserWorker, selectedMonth, onMonthChange }: WorkerTableProps) {
+export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, onSaveAllPDF, currentUserWorker, selectedMonth, onMonthChange, canSavePDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   const [isTeamSummaryOpen, setIsTeamSummaryOpen] = useState<boolean>(true)
   
@@ -160,18 +162,35 @@ export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onEx
         <CardHeader className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <CardTitle>個人別詳細</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const ids = workerStats.map((worker) => worker.id)
-                onExportAllPDF(ids)
-              }}
-              disabled={workerStats.length === 0}
-            >
-              <FileText className="mr-1 h-3 w-3" />
-              表示中全員をPDF出力
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const ids = workerStats.map((worker) => worker.id)
+                  onExportAllPDF(ids)
+                }}
+                disabled={workerStats.length === 0}
+              >
+                <FileText className="mr-1 h-3 w-3" />
+                表示中全員をPDF出力
+              </Button>
+              {canSavePDF && onSaveAllPDF && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => {
+                    const ids = workerStats.map((worker) => worker.id)
+                    onSaveAllPDF(ids)
+                  }}
+                  disabled={workerStats.length === 0}
+                >
+                  <FolderDown className="mr-1 h-3 w-3" />
+                  フォルダに保存
+                </Button>
+              )}
+            </div>
           </div>
           {/* チームフィルター */}
           <div className="flex flex-wrap items-center gap-4">

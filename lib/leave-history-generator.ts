@@ -1,11 +1,12 @@
 /**
  * 有給管理履歴スナップショットの画像/PDF生成
- * Puppeteerを使用してサーバーサイドで生成
+ * Browserless.io（本番）またはローカルChrome（開発）を使用してサーバーサイドで生成
  */
 
-import puppeteer from "puppeteer"
+import { getBrowser } from "@/lib/browserless"
 import { prisma } from "@/lib/prisma"
 import { getVacationStats } from "@/lib/vacation-stats"
+import type { Browser } from "puppeteer-core"
 
 interface GenerateSnapshotOptions {
   employeeId: string
@@ -197,7 +198,7 @@ function generateLeavePageHTML(
 export async function generateSnapshotImageAndPDF(
   options: GenerateSnapshotOptions
 ): Promise<{ imageBuffer: Buffer | null; pdfBuffer: Buffer | null; error?: string }> {
-  let browser: puppeteer.Browser | null = null
+  let browser: Browser | null = null
 
   try {
     // 社員情報を取得
@@ -220,23 +221,8 @@ export async function generateSnapshotImageAndPDF(
     // HTMLを生成
     const html = generateLeavePageHTML(employee.name, stats, options.snapshotDate)
 
-    // Puppeteerを起動
-    // Heroku環境ではCHROME_BINまたはGOOGLE_CHROME_SHIMを使用
-    const executablePath = process.env.CHROME_BIN || process.env.GOOGLE_CHROME_SHIM || undefined
-    
-    browser = await puppeteer.launch({
-      headless: true,
-      executablePath,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-web-security",
-        "--disable-features=IsolateOrigins,site-per-process",
-      ],
-      ignoreDefaultArgs: ["--disable-extensions"],
-    })
+    // Browserless.io（本番）またはローカルChrome（開発）を使用
+    browser = await getBrowser()
 
     const page = await browser.newPage()
     

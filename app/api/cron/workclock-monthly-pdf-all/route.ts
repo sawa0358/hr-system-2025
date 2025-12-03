@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateCombinedPDFContent } from '@/lib/workclock/pdf-export'
-import puppeteer from 'puppeteer'
+import { getBrowser } from '@/lib/browserless'
 
 /**
  * Cronエンドポイント: 月次「全員分」勤務報告書PDFの自動生成と保存（給与or請求管理用）
@@ -231,23 +231,10 @@ export async function GET(request: NextRequest) {
       lastMonth
     )
 
-    // PuppeteerでPDF化
+    // Browserless.ioでPDF化（本番）またはローカルChrome（開発）
     let browser: any = null
     try {
-      // Heroku環境ではbuildpackでインストールされたChromeを使用
-      // jontewks/puppeteer-heroku-buildpackはPATHにgoogle-chrome-stableを追加する
-      const launchOptions: any = {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-      }
-      
-      // 本番環境でのみexecutablePathを設定（Puppeteerがデフォルトで見つけられない場合）
-      if (process.env.NODE_ENV === 'production') {
-        // google-chrome-stableがPATHにあればそれを使用
-        launchOptions.executablePath = 'google-chrome-stable'
-      }
-      
-      browser = await puppeteer.launch(launchOptions)
+      browser = await getBrowser()
 
       const page = await browser.newPage()
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' })

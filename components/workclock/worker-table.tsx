@@ -16,7 +16,12 @@ import { Badge } from '@/components/ui/badge'
 import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/workclock/time-utils'
 import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
-import { ExternalLink, FileText } from 'lucide-react'
+import { ExternalLink, FileText, ChevronDown, ChevronRight } from 'lucide-react'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   Select,
   SelectContent,
@@ -39,6 +44,7 @@ interface WorkerTableProps {
 
 export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, currentUserWorker, selectedMonth, onMonthChange }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
+  const [isTeamSummaryOpen, setIsTeamSummaryOpen] = useState<boolean>(true)
   
   // リーダー（role='admin'）も含めて表示
   const activeWorkers = workers
@@ -100,65 +106,54 @@ export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onEx
 
   return (
     <div className="space-y-6">
-      {/* Team Summary & Filter */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold">チーム別サマリー</h2>
-          <Select
-            value={filterTeam}
-            onValueChange={setFilterTeam}
-            disabled={teams.length === 0}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue
-                placeholder={teams.length === 0 ? 'チームは未登録です' : 'チームで絞り込み'}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全てのチーム</SelectItem>
-              {teams.map((team) => (
-                <SelectItem key={team} value={team}>
-                  {team}
-                </SelectItem>
+      {/* Team Summary - Collapsible */}
+      <Collapsible open={isTeamSummaryOpen} onOpenChange={setIsTeamSummaryOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="flex items-center gap-2 p-0 h-auto hover:bg-transparent">
+            {isTeamSummaryOpen ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronRight className="h-5 w-5" />
+            )}
+            <h2 className="text-xl font-bold">チーム別サマリー</h2>
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-4">
+          {teams.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              {teamTotals.map((teamTotal) => (
+                <Card key={teamTotal.team}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">{teamTotal.team}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">メンバー</span>
+                      <span className="font-medium">{teamTotal.workerCount}人</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">合計時間</span>
+                      <span className="font-medium">
+                        {formatDuration(teamTotal.totalHours, teamTotal.totalMinutes)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">合計コスト</span>
+                      <span className="font-semibold text-primary">
+                        ¥{Math.floor(teamTotal.totalCost).toLocaleString()}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {teams.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-3">
-            {teamTotals.map((teamTotal) => (
-              <Card key={teamTotal.team}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{teamTotal.team}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">メンバー</span>
-                    <span className="font-medium">{teamTotal.workerCount}人</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">合計時間</span>
-                    <span className="font-medium">
-                      {formatDuration(teamTotal.totalHours, teamTotal.totalMinutes)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">合計コスト</span>
-                    <span className="font-semibold text-primary">
-                      ¥{Math.floor(teamTotal.totalCost).toLocaleString()}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-muted-foreground">
-            チームが登録されていないため、サマリーは表示されません。
-          </div>
-        )}
-      </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              チームが登録されていないため、サマリーは表示されません。
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* Worker Details Table */}
       <Card>
@@ -177,6 +172,31 @@ export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onEx
               <FileText className="mr-1 h-3 w-3" />
               表示中全員をPDF出力
             </Button>
+          </div>
+          {/* チームフィルター */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-700">チーム:</span>
+              <Select
+                value={filterTeam}
+                onValueChange={setFilterTeam}
+                disabled={teams.length === 0}
+              >
+                <SelectTrigger className="w-[180px] h-8">
+                  <SelectValue
+                    placeholder={teams.length === 0 ? 'チームは未登録です' : 'チームで絞り込み'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全てのチーム</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           {/* 年月フィルター */}
           <div className="flex flex-wrap items-center gap-2">

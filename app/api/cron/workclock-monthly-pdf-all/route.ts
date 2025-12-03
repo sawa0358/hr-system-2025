@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateCombinedPDFContent } from '@/lib/workclock/pdf-export'
 import { getBrowser } from '@/lib/browserless'
+import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
 
 /**
  * Cronエンドポイント: 月次「全員分」勤務報告書PDFの自動生成と保存（給与or請求管理用）
@@ -144,9 +145,9 @@ export async function GET(request: NextRequest) {
       createdAt?: Date
     }
 
-    const items: { worker: WorkerForPDF; entries: TimeEntryForPDF[] }[] = []
+    const items: { worker: WorkerForPDF; entries: TimeEntryForPDF[]; rewards: any[] }[] = []
 
-    // 各ワーカーごとに先月の時間記録を取得
+    // 各ワーカーごとに先月の時間記録と特別報酬を取得し、報酬見込が0円でないワーカーを対象にする
     for (const worker of workers) {
       const entries = await prisma.workClockTimeEntry.findMany({
         where: {
@@ -161,7 +162,41 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      if (entries.length === 0) {
+      // 特別報酬・経費を取得
+      const rewards = await prisma.workClockReward.findMany({
+        where: {
+          workerId: worker.id,
+          month: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+      })
+
+      // 報酬見込を計算（勤務時間 + 月額固定 + 特別報酬）
+      const workerForCalc = {
+        hourlyRate: worker.hourlyRate,
+        hourlyRateB: worker.hourlyRateB || worker.hourlyRate,
+        hourlyRateC: worker.hourlyRateC || worker.hourlyRate,
+        countRateA: worker.countRateA || 0,
+        countRateB: worker.countRateB || 0,
+        countRateC: worker.countRateC || 0,
+        monthlyFixedAmount: worker.monthlyFixedAmount,
+      }
+      const entriesForCalc = entries.map((e) => ({
+        startTime: e.startTime,
+        endTime: e.endTime,
+        breakMinutes: e.breakMinutes,
+        wagePattern: e.wagePattern || undefined,
+        countPattern: e.countPattern || undefined,
+        count: e.count || undefined,
+      }))
+      const rewardsForCalc = rewards.map((r) => ({ amount: r.amount }))
+      const totalCost = calculateWorkerMonthlyCost(workerForCalc as any, entriesForCalc as any, rewardsForCalc)
+
+      // 報酬見込が0円のワーカーはスキップ
+      if (totalCost === 0) {
+        console.log(`[WorkClock月次PDF(全員分)] ${worker.name}: 報酬見込0円のためスキップ`)
         continue
       }
 
@@ -208,17 +243,17 @@ export async function GET(request: NextRequest) {
         createdAt: e.createdAt || undefined,
       }))
 
-      items.push({ worker: workerForPdf, entries: entriesForPdf })
+      items.push({ worker: workerForPdf, entries: entriesForPdf, rewards })
     }
 
     if (items.length === 0) {
       console.log(
-        `[WorkClock月次PDF(全員分)] 先月の勤務記録を持つワーカーがいないため、PDF生成をスキップしました`
+        `[WorkClock月次PDF(全員分)] 報酬見込が0円でないワーカーがいないため、PDF生成をスキップしました`
       )
       return NextResponse.json({
         success: true,
         targetMonth: targetMonthLabel,
-        message: '先月の勤務記録を持つワーカーがいないため、PDF生成をスキップしました',
+        message: '報酬見込が0円でないワーカーがいないため、PDF生成をスキップしました',
       })
     }
 
@@ -227,6 +262,13 @@ export async function GET(request: NextRequest) {
       items.map((item) => ({
         worker: item.worker as any,
         entries: item.entries as any,
+        rewards: item.rewards.map((r) => ({
+          id: r.id,
+          workerId: r.workerId,
+          name: r.name,
+          amount: r.amount,
+          month: r.month,
+        })),
       })),
       lastMonth
     )

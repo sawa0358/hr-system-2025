@@ -691,6 +691,7 @@ export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date, r
 interface WorkerWithEntries {
   worker: Worker
   entries: TimeEntry[]
+  rewards?: Reward[]
 }
 
 /**

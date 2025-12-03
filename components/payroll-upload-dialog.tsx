@@ -476,6 +476,33 @@ export function PayrollUploadDialog({
     }
   }
 
+  // 全員分PDFの削除
+  const handleDeleteAllPayrollFile = async (fileId: string, filename: string) => {
+    if (!confirm(`「${filename}」を削除してよろしいですか？`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/payroll/all-pdfs/${fileId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("全員分PDF削除エラー:", response.status, errorData)
+        alert("全員分PDFの削除に失敗しました")
+        return
+      }
+
+      // 削除成功後、一覧を更新
+      setAllPayrollFiles((prev) => prev.filter((f) => f.id !== fileId))
+      alert("削除しました")
+    } catch (error) {
+      console.error("全員分PDF削除エラー:", error)
+      alert("全員分PDFの削除に失敗しました")
+    }
+  }
+
   if (!employee) return null
 
   return (
@@ -872,17 +899,29 @@ export function PayrollUploadDialog({
                         <span className="text-xs text-blue-700">{file.folderName}</span>
                       )}
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
-                      onClick={() =>
-                        handleDownloadAllPayrollFile(file.id, file.originalName || file.filename)
-                      }
-                    >
-                      <Download className="w-3 h-3 mr-1" />
-                      DL
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-blue-300 bg-transparent text-blue-700 hover:bg-blue-100"
+                        onClick={() =>
+                          handleDownloadAllPayrollFile(file.id, file.originalName || file.filename)
+                        }
+                      >
+                        <Download className="w-3 h-3 mr-1" />
+                        DL
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300 bg-transparent text-red-600 hover:bg-red-100"
+                        onClick={() =>
+                          handleDeleteAllPayrollFile(file.id, file.originalName || file.filename)
+                        }
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

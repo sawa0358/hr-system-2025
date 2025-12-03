@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generatePDFContent } from '@/lib/workclock/pdf-export'
 import { getBrowser } from '@/lib/browserless'
+import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
 
 /**
  * Cronエンドポイント: 月次自動PDF生成と保存
@@ -78,18 +79,19 @@ export async function GET(request: NextRequest) {
     try {
       browser = await getBrowser()
 
+      // 対象月の開始日・終了日を先に計算
+      const startDate = new Date(year, month - 1, 1)
+      const endDate = new Date(year, month, 0, 23, 59, 59)
+
       for (const worker of workers) {
         try {
-          // 業務委託・外注先のみ処理
-          const employeeType = worker.employee?.employeeType || ''
-          if (!employeeType.includes('業務委託') && !employeeType.includes('外注先')) {
+          // employeeIdがない場合はスキップ（社員カードと紐付いていないワーカー）
+          if (!worker.employeeId) {
+            console.log(`[WorkClock月次PDF] ${worker.name}: employeeIdがないためスキップ`)
             continue
           }
 
           // 先月の時間記録を取得
-          const startDate = new Date(year, month - 1, 1)
-          const endDate = new Date(year, month, 0, 23, 59, 59)
-
           const entries = await prisma.workClockTimeEntry.findMany({
             where: {
               workerId: worker.id,
@@ -103,8 +105,41 @@ export async function GET(request: NextRequest) {
             },
           })
 
-          if (entries.length === 0) {
-            console.log(`[WorkClock月次PDF] ${worker.name}: 先月の記録なし、スキップ`)
+          // 特別報酬・経費を取得
+          const rewards = await prisma.workClockReward.findMany({
+            where: {
+              workerId: worker.id,
+              month: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+          })
+
+          // 報酬見込を計算（勤務時間 + 月額固定 + 特別報酬）
+          const workerForCalc = {
+            hourlyRate: worker.hourlyRate,
+            hourlyRateB: worker.hourlyRateB || worker.hourlyRate,
+            hourlyRateC: worker.hourlyRateC || worker.hourlyRate,
+            countRateA: worker.countRateA || 0,
+            countRateB: worker.countRateB || 0,
+            countRateC: worker.countRateC || 0,
+            monthlyFixedAmount: worker.monthlyFixedAmount,
+          }
+          const entriesForCalc = entries.map((e) => ({
+            startTime: e.startTime,
+            endTime: e.endTime,
+            breakMinutes: e.breakMinutes,
+            wagePattern: e.wagePattern || undefined,
+            countPattern: e.countPattern || undefined,
+            count: e.count || undefined,
+          }))
+          const rewardsForCalc = rewards.map((r) => ({ amount: r.amount }))
+          const totalCost = calculateWorkerMonthlyCost(workerForCalc as any, entriesForCalc as any, rewardsForCalc)
+
+          // 報酬見込が0円のワーカーはスキップ
+          if (totalCost === 0) {
+            console.log(`[WorkClock月次PDF] ${worker.name}: 報酬見込0円のためスキップ`)
             continue
           }
 
@@ -156,7 +191,14 @@ export async function GET(request: NextRequest) {
               countPattern: e.countPattern || undefined,
               count: e.count || undefined,
             })),
-            lastMonth
+            lastMonth,
+            rewards.map((r) => ({
+              id: r.id,
+              workerId: r.workerId,
+              name: r.name,
+              amount: r.amount,
+              month: r.month,
+            }))
           )
 
           // ページを作成してPDFを生成

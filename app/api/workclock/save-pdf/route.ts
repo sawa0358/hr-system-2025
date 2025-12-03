@@ -332,9 +332,14 @@ export async function POST(request: NextRequest) {
       }
 
       // 個人別PDFを保存（オプション）
+      console.log(`[WorkClock手動PDF保存] saveIndividual=${saveIndividual}, items.length=${items.length}`)
       if (saveIndividual) {
         for (const item of items) {
-          if (!item.worker.employeeId) continue
+          console.log(`[WorkClock手動PDF保存] 個人PDF処理: ${item.worker.name}, employeeId=${item.worker.employeeId}`)
+          if (!item.worker.employeeId) {
+            console.log(`[WorkClock手動PDF保存] ${item.worker.name}: employeeIdがないためスキップ`)
+            continue
+          }
 
           try {
             const individualHtml = generatePDFContent(
@@ -385,6 +390,7 @@ export async function POST(request: NextRequest) {
               )
             }
 
+            console.log(`[WorkClock手動PDF保存] ${item.worker.name}: アップロード結果`, individualUploadResult)
             if (individualUploadResult.success && individualUploadResult.filePath) {
               // 既存のファイルを確認して更新または新規作成
               const existingIndividualFile = await prisma.file.findFirst({

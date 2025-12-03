@@ -10,6 +10,7 @@ import puppeteer from 'puppeteer'
  * 
  * 実行タイミング想定: 毎月3日0:30（日本時間）
  *   - Heroku Scheduler で毎日 3:30 PM (UTC) に実行し、日本時間で3日かどうかをチェック
+ *   - テスト時は ?force=true を付けることで日付チェックをスキップ可能
  * 保護: Authorization ヘッダーまたは query parameter でトークン確認
  */
 export async function GET(request: NextRequest) {
@@ -23,6 +24,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // 強制実行フラグ（テスト用）
+    const forceRun = request.nextUrl.searchParams.get('force') === 'true'
+
     // 日本時間（JST = UTC + 9時間）で日付をチェック
     const now = new Date()
     const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000)
@@ -30,7 +34,8 @@ export async function GET(request: NextRequest) {
 
     // 毎月3日のみ実行するためのチェック（日本時間基準）
     // Heroku Schedulerは「毎月」の指定ができないため、毎日実行させてここで日付をチェックする
-    if (jstDay !== 3) {
+    // force=true の場合は日付チェックをスキップ
+    if (!forceRun && jstDay !== 3) {
       console.log(`[WorkClock月次PDF] 今日は3日ではないため処理をスキップします（日本時間で${jstDay}日）`)
       return NextResponse.json({
         success: true,

@@ -234,9 +234,15 @@ export async function GET(request: NextRequest) {
     // PuppeteerでPDF化
     let browser: any = null
     try {
+      // Heroku環境ではbuildpackでインストールされたChromeを使用
+      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || 
+        process.env.GOOGLE_CHROME_BIN || 
+        '/app/.apt/usr/bin/google-chrome-stable'
+      
       browser = await puppeteer.launch({
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: process.env.NODE_ENV === 'production' ? executablePath : undefined,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
       })
 
       const page = await browser.newPage()

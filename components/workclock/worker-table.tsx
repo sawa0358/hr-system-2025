@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 
 interface WorkerTableProps {
   workers: Worker[]
@@ -32,9 +33,11 @@ interface WorkerTableProps {
   onExportPDF: (workerId: string) => void
   onExportAllPDF: (workerIds: string[]) => void
   currentUserWorker?: Worker | null // リーダー判定用に追加
+  selectedMonth: Date // 表示年月
+  onMonthChange: (date: Date) => void // 年月変更ハンドラー
 }
 
-export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, currentUserWorker }: WorkerTableProps) {
+export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, currentUserWorker, selectedMonth, onMonthChange }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
   
   // リーダー（role='admin'）も含めて表示
@@ -159,20 +162,70 @@ export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onEx
 
       {/* Worker Details Table */}
       <Card>
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>個人別詳細</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const ids = workerStats.map((worker) => worker.id)
-              onExportAllPDF(ids)
-            }}
-            disabled={workerStats.length === 0}
-          >
-            <FileText className="mr-1 h-3 w-3" />
-            表示中全員をPDF出力
-          </Button>
+        <CardHeader className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <CardTitle>個人別詳細</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const ids = workerStats.map((worker) => worker.id)
+                onExportAllPDF(ids)
+              }}
+              disabled={workerStats.length === 0}
+            >
+              <FileText className="mr-1 h-3 w-3" />
+              表示中全員をPDF出力
+            </Button>
+          </div>
+          {/* 年月フィルター */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-slate-700">表示年月:</span>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  className="w-24 h-8"
+                  value={selectedMonth.getFullYear()}
+                  onChange={(e) => {
+                    const year = Number(e.target.value) || selectedMonth.getFullYear()
+                    const next = new Date(year, selectedMonth.getMonth(), 1)
+                    onMonthChange(next)
+                  }}
+                />
+                <span className="text-sm">年</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  className="w-16 h-8"
+                  value={selectedMonth.getMonth() + 1}
+                  onChange={(e) => {
+                    let month = Number(e.target.value) || selectedMonth.getMonth() + 1
+                    if (month < 1) month = 1
+                    if (month > 12) month = 12
+                    const next = new Date(selectedMonth.getFullYear(), month - 1, 1)
+                    onMonthChange(next)
+                  }}
+                />
+                <span className="text-sm">月</span>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const now = new Date()
+                  const next = new Date(now.getFullYear(), now.getMonth(), 1)
+                  onMonthChange(next)
+                }}
+              >
+                今月へ
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

@@ -280,6 +280,8 @@ export default function AdminPage() {
             onExportPDF={handleExportPDF}
             onExportAllPDF={handleExportAllPDF}
             currentUserWorker={ownWorker}
+            selectedMonth={currentDate}
+            onMonthChange={setCurrentDate}
           />
         </div>
       </main>

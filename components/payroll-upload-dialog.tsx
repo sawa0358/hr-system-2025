@@ -148,13 +148,9 @@ export function PayrollUploadDialog({
       return
     }
 
-    // 前月を計算（選択月の前月分が自動出力PDFの対象）
-    let targetYear = yearNumber
-    let targetMonth = monthNumber - 1
-    if (targetMonth === 0) {
-      targetMonth = 12
-      targetYear = yearNumber - 1
-    }
+    // 選択した年月のPDFを取得（手動保存・自動保存両方）
+    const targetYear = yearNumber
+    const targetMonth = monthNumber
 
     let isCancelled = false
 
@@ -857,9 +853,9 @@ export function PayrollUploadDialog({
           <div className="mt-8 border border-blue-200 rounded-lg p-4 bg-blue-50">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="font-medium text-blue-900">時間管理システム全員分（自動出力PDF）</p>
+                <p className="font-medium text-blue-900">時間管理システム全員分PDF</p>
                 <p className="text-xs text-blue-700">
-                  毎月3日に前月分として時間管理システムから自動保存された全員分勤務報告書PDFを一覧・ダウンロードできます
+                  時間管理システムから保存された全員分勤務報告書PDFを一覧・ダウンロードできます
                 </p>
               </div>
             </div>
@@ -868,14 +864,7 @@ export function PayrollUploadDialog({
               {selectedYear && selectedMonth && selectedMonth.endsWith("月") ? (() => {
                 const yearNum = parseInt(selectedYear.replace("年", ""), 10)
                 const monthNum = parseInt(selectedMonth.replace("月", ""), 10)
-                // 前月を計算
-                let targetYear = yearNum
-                let targetMonth = monthNum - 1
-                if (targetMonth === 0) {
-                  targetMonth = 12
-                  targetYear = yearNum - 1
-                }
-                return `${targetYear}年${targetMonth}月`
+                return `${yearNum}年${monthNum}月`
               })() : "未選択"}
             </div>
             {isAllFilesLoading ? (

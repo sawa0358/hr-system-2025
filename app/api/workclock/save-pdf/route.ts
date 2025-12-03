@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { generateCombinedPDFContent, generatePDFContent } from '@/lib/workclock/pdf-export'
 import { getBrowser } from '@/lib/browserless'
+import { calculateWorkerMonthlyCost } from '@/lib/workclock/cost-calculation'
 
 /**
  * 時間管理システムPDF手動保存API
@@ -184,6 +185,33 @@ export async function POST(request: NextRequest) {
         count: e.count || undefined,
       }))
 
+      // 報酬見込を計算
+      const workerForCalc = {
+        hourlyRate: worker.hourlyRate,
+        hourlyRateB: worker.hourlyRateB || worker.hourlyRate,
+        hourlyRateC: worker.hourlyRateC || worker.hourlyRate,
+        countRateA: worker.countRateA || 0,
+        countRateB: worker.countRateB || 0,
+        countRateC: worker.countRateC || 0,
+        monthlyFixedAmount: worker.monthlyFixedAmount,
+      }
+      const entriesForCalc = entries.map((e) => ({
+        startTime: e.startTime,
+        endTime: e.endTime,
+        breakMinutes: e.breakMinutes,
+        wagePattern: e.wagePattern || undefined,
+        countPattern: e.countPattern || undefined,
+        count: e.count || undefined,
+      }))
+      const rewardsForCalc = rewards.map((r) => ({ amount: r.amount }))
+      const totalCost = calculateWorkerMonthlyCost(workerForCalc as any, entriesForCalc as any, rewardsForCalc)
+
+      // 報酬見込が0円のワーカーはスキップ
+      if (totalCost === 0) {
+        console.log(`[WorkClock手動PDF保存] ${worker.name}: 報酬見込0円のためスキップ`)
+        continue
+      }
+
       items.push({ 
         worker: workerForPdf, 
         entries: entriesForPdf, 
@@ -338,7 +366,8 @@ export async function POST(request: NextRequest) {
             let individualUploadResult
 
             if (isProduction) {
-              const s3Folder = `${item.worker.employeeId}/payroll`
+              // S3でも月フォルダを含める
+              const s3Folder = `${item.worker.employeeId}/payroll/${individualFolderName}`
               individualUploadResult = await uploadFileToS3(
                 individualPdfBuffer,
                 individualFilename,

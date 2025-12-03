@@ -235,15 +235,19 @@ export async function GET(request: NextRequest) {
     let browser: any = null
     try {
       // Heroku環境ではbuildpackでインストールされたChromeを使用
-      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || 
-        process.env.GOOGLE_CHROME_BIN || 
-        '/app/.apt/usr/bin/google-chrome-stable'
-      
-      browser = await puppeteer.launch({
+      // jontewks/puppeteer-heroku-buildpackはPATHにgoogle-chrome-stableを追加する
+      const launchOptions: any = {
         headless: true,
-        executablePath: process.env.NODE_ENV === 'production' ? executablePath : undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-      })
+      }
+      
+      // 本番環境でのみexecutablePathを設定（Puppeteerがデフォルトで見つけられない場合）
+      if (process.env.NODE_ENV === 'production') {
+        // google-chrome-stableがPATHにあればそれを使用
+        launchOptions.executablePath = 'google-chrome-stable'
+      }
+      
+      browser = await puppeteer.launch(launchOptions)
 
       const page = await browser.newPage()
       await page.setContent(htmlContent, { waitUntil: 'networkidle0' })

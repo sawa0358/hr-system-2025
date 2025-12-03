@@ -20,7 +20,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Users, LayoutDashboard, Settings, Menu, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, LayoutDashboard, Settings, Menu, ChevronLeft, ChevronRight, X } from 'lucide-react'
+
+const FILTER_STORAGE_KEY = 'workclock_sidebar_filters'
+
+interface StoredFilters {
+  team: string
+  employment: string
+  role: string
+  sortOrder: string
+}
 import { useAuth } from '@/lib/auth-context'
 import { useIsMobile } from '@/hooks/use-mobile'
 
@@ -60,10 +69,52 @@ export function SidebarNav({
   const [sortOrder, setSortOrder] = useState<string>('newest') // 並び順
   const [allEmployees, setAllEmployees] = useState<Employee[]>([])
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const { currentUser } = useAuth()
   const isMobile = useIsMobile()
+
+  // 初回マウント時にlocalStorageからフィルター状態を復元
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (saved) {
+        try {
+          const filters: StoredFilters = JSON.parse(saved)
+          setSelectedTeam(filters.team || 'all')
+          setSelectedEmployment(filters.employment || 'all')
+          setSelectedRole(filters.role || 'all')
+          setSortOrder(filters.sortOrder || 'newest')
+        } catch (e) {
+          console.error('フィルター復元エラー:', e)
+        }
+      }
+      setIsInitialized(true)
+    }
+  }, [])
+
+  // フィルター変更時にlocalStorageに保存
+  useEffect(() => {
+    if (!isInitialized) return
+    if (typeof window !== 'undefined') {
+      const filters: StoredFilters = {
+        team: selectedTeam,
+        employment: selectedEmployment,
+        role: selectedRole,
+        sortOrder: sortOrder
+      }
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
+    }
+  }, [selectedTeam, selectedEmployment, selectedRole, sortOrder, isInitialized])
+
+  // フィルターをクリア
+  const handleClearFilters = () => {
+    setSelectedTeam('all')
+    setSelectedEmployment('all')
+    setSelectedRole('all')
+    setSortOrder('newest')
+  }
 
   // 業務委託・外注先の社員を取得
   useEffect(() => {
@@ -309,10 +360,21 @@ export function SidebarNav({
 
           {!effectiveCollapsed && isAdminView && (
             <div className="mt-4 space-y-3 px-2 py-2">
-              <h3 className="flex items-center text-xs font-medium text-muted-foreground">
-                <Users className="mr-2 h-3 w-3" />
-                ワーカー選択
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center text-xs font-medium text-muted-foreground">
+                  <Users className="mr-2 h-3 w-3" />
+                  ワーカー選択
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearFilters}
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  クリア
+                </Button>
+              </div>
               
               {/* フィルターは常に表示し、リストに0件でも操作可能にする */}
               <div className="space-y-2">

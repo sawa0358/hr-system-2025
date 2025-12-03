@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Table,
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Worker, TimeEntry } from '@/lib/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/time-utils'
-import { ExternalLink, FileText } from 'lucide-react'
+import { ExternalLink, FileText, X } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -71,8 +71,81 @@ function calculateWorkerMonthlyCost(worker: Worker, entries: TimeEntry[]): numbe
   return patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount + monthlyFixedAmount
 }
 
+const FILTER_STORAGE_KEY = 'workclock_worker_filters'
+
+interface WorkerFilters {
+  team: string
+  employeeType: string
+  role: string
+  sortBy: string
+}
+
 export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTableProps) {
-  const [filterTeam, setFilterTeam] = useState<string>('all')
+  // フィルター状態をlocalStorageから復元
+  const [filterTeam, setFilterTeam] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (saved) {
+        const filters: WorkerFilters = JSON.parse(saved)
+        return filters.team || 'all'
+      }
+    }
+    return 'all'
+  })
+  
+  const [filterEmployeeType, setFilterEmployeeType] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (saved) {
+        const filters: WorkerFilters = JSON.parse(saved)
+        return filters.employeeType || 'all'
+      }
+    }
+    return 'all'
+  })
+  
+  const [filterRole, setFilterRole] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (saved) {
+        const filters: WorkerFilters = JSON.parse(saved)
+        return filters.role || 'all'
+      }
+    }
+    return 'all'
+  })
+  
+  const [sortBy, setSortBy] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(FILTER_STORAGE_KEY)
+      if (saved) {
+        const filters: WorkerFilters = JSON.parse(saved)
+        return filters.sortBy || 'registrationDesc'
+      }
+    }
+    return 'registrationDesc'
+  })
+
+  // フィルター変更時にlocalStorageに保存
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const filters: WorkerFilters = {
+        team: filterTeam,
+        employeeType: filterEmployeeType,
+        role: filterRole,
+        sortBy: sortBy
+      }
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters))
+    }
+  }, [filterTeam, filterEmployeeType, filterRole, sortBy])
+
+  // フィルターをクリア
+  const handleClearFilters = () => {
+    setFilterTeam('all')
+    setFilterEmployeeType('all')
+    setFilterRole('all')
+    setSortBy('registrationDesc')
+  }
   
   const activeWorkers = workers.filter((w) => w.role === 'worker')
   const teams = Array.from(
@@ -81,9 +154,35 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
     )
   ) as string[]
 
-  const filteredWorkers = filterTeam === 'all' 
-    ? activeWorkers 
-    : activeWorkers.filter((w: any) => (w.teams || []).includes(filterTeam))
+  // 雇用形態の一覧を取得
+  const employeeTypes = Array.from(
+    new Set(
+      activeWorkers.map((w: any) => w.employeeType).filter(Boolean)
+    )
+  ) as string[]
+
+  let filteredWorkers = activeWorkers
+
+  // チームフィルター
+  if (filterTeam !== 'all') {
+    filteredWorkers = filteredWorkers.filter((w: any) => 
+      (w.teams || []).includes(filterTeam)
+    )
+  }
+
+  // 雇用形態フィルター
+  if (filterEmployeeType !== 'all') {
+    filteredWorkers = filteredWorkers.filter((w: any) => 
+      w.employeeType === filterEmployeeType
+    )
+  }
+
+  // 権限フィルター
+  if (filterRole !== 'all') {
+    filteredWorkers = filteredWorkers.filter((w: any) => 
+      w.role === filterRole
+    )
+  }
 
   const workerStats = filteredWorkers.map((worker) => {
     const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
@@ -96,6 +195,36 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
       totalMinutes: total.minutes,
       totalAmount,
       entryCount: workerEntries.length,
+    }
+  })
+
+  // ソート適用
+  const sortedWorkerStats = [...workerStats].sort((a, b) => {
+    switch (sortBy) {
+      case 'registrationDesc':
+        // 登録日時（新しい順） - IDが新しいほど後から登録されたと仮定
+        return b.id.localeCompare(a.id)
+      case 'registrationAsc':
+        // 登録日時（古い順）
+        return a.id.localeCompare(b.id)
+      case 'nameAsc':
+        // 名前（あいうえお順）
+        return a.name.localeCompare(b.name, 'ja')
+      case 'nameDesc':
+        // 名前（逆順）
+        return b.name.localeCompare(a.name, 'ja')
+      case 'hoursDesc':
+        // 勤務時間（多い順）
+        const totalMinutesA = a.totalHours * 60 + a.totalMinutes
+        const totalMinutesB = b.totalHours * 60 + b.totalMinutes
+        return totalMinutesB - totalMinutesA
+      case 'hoursAsc':
+        // 勤務時間（少ない順）
+        const totalMinA = a.totalHours * 60 + a.totalMinutes
+        const totalMinB = b.totalHours * 60 + b.totalMinutes
+        return totalMinA - totalMinB
+      default:
+        return 0
     }
   })
 
@@ -123,24 +252,101 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
 
   return (
     <div className="space-y-6">
+      {/* Worker Selection Filters */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>ワーカー選択</CardTitle>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleClearFilters}
+              className="gap-2"
+            >
+              <X className="h-4 w-4" />
+              クリア
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* チームフィルター */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">チーム</label>
+              <Select value={filterTeam} onValueChange={setFilterTeam}>
+                <SelectTrigger>
+                  <SelectValue placeholder="チームで絞り込み" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 雇用形態フィルター */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">雇用形態</label>
+              <Select value={filterEmployeeType} onValueChange={setFilterEmployeeType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="雇用形態で絞り込み" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  {employeeTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 権限フィルター */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">権限</label>
+              <Select value={filterRole} onValueChange={setFilterRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="権限で絞り込み" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  <SelectItem value="worker">ワーカー</SelectItem>
+                  <SelectItem value="admin">管理者</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 並び順 */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">並び順</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger>
+                  <SelectValue placeholder="並び順を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="registrationDesc">登録日時（新しい順）</SelectItem>
+                  <SelectItem value="registrationAsc">登録日時（古い順）</SelectItem>
+                  <SelectItem value="nameAsc">名前（あいうえお順）</SelectItem>
+                  <SelectItem value="nameDesc">名前（逆順）</SelectItem>
+                  <SelectItem value="hoursDesc">勤務時間（多い順）</SelectItem>
+                  <SelectItem value="hoursAsc">勤務時間（少ない順）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Team Summary Cards */}
       {teams.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">チーム別サマリー</h2>
-            <Select value={filterTeam} onValueChange={setFilterTeam}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="チームで絞り込み" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全てのチーム</SelectItem>
-                {teams.map((team) => (
-                  <SelectItem key={team} value={team}>
-                    {team}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -192,7 +398,7 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
               </TableRow>
             </TableHeader>
             <TableBody>
-              {workerStats.map((worker) => (
+              {sortedWorkerStats.map((worker) => (
                 <TableRow key={worker.id}>
                   <TableCell className="font-medium">{worker.name}</TableCell>
                   <TableCell>
@@ -235,9 +441,9 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
             </TableBody>
           </Table>
 
-          {workerStats.length === 0 && (
+          {sortedWorkerStats.length === 0 && (
             <div className="py-8 text-center text-muted-foreground">
-              勤務記録がありません
+              {filteredWorkers.length === 0 ? '条件に一致するワーカーがいません' : '勤務記録がありません'}
             </div>
           )}
         </CardContent>

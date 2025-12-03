@@ -250,7 +250,8 @@ export async function POST(request: NextRequest) {
     try {
       browser = await getBrowser()
       const page = await browser.newPage()
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' })
+      // domcontentloadedで高速化（外部リソースを待たない）
+      await page.setContent(htmlContent, { waitUntil: 'domcontentloaded' })
 
       const pdfBuffer = await page.pdf({
         format: 'A4',
@@ -350,7 +351,8 @@ export async function POST(request: NextRequest) {
             )
 
             const individualPage = await browser.newPage()
-            await individualPage.setContent(individualHtml, { waitUntil: 'networkidle0' })
+            // domcontentloadedで高速化（外部リソースを待たない）
+            await individualPage.setContent(individualHtml, { waitUntil: 'domcontentloaded' })
 
             const individualPdfBuffer = await individualPage.pdf({
               format: 'A4',

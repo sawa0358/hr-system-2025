@@ -22,8 +22,9 @@ export async function connectToBrowserless(): Promise<Browser> {
 
   console.log('[Browserless] Connecting to Browserless.io...')
 
+  // タイムアウトを5分に延長（複数PDF生成に対応）
   const browser = await puppeteer.connect({
-    browserWSEndpoint: `wss://chrome.browserless.io?token=${BROWSERLESS_TOKEN}`,
+    browserWSEndpoint: `wss://chrome.browserless.io?token=${BROWSERLESS_TOKEN}&timeout=300000`,
   })
 
   console.log('[Browserless] Connected successfully')

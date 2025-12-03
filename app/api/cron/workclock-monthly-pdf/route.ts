@@ -5,11 +5,11 @@ import puppeteer from 'puppeteer'
 
 /**
  * Cronエンドポイント: 月次自動PDF生成と保存
- * 月替りの「翌月3日0:00」に実行して先月の月表示画面をPDFでスクショして、
+ * 月替りの「翌月3日0:30」（日本時間）に実行して先月の月表示画面をPDFでスクショして、
  * 各ワーカー（業務委託or外注先）の「給与or請求管理」の本人のカード内「対象月フォルダ」にも自動保存
  * 
- * 実行タイミング想定: 毎月3日15:30（UTC）= 日本時間 翌日0:30
- *   - Heroku Scheduler 等の外部スケジューラーでこのエンドポイントを叩く時間を 3:30 PM (UTC) に設定してください
+ * 実行タイミング想定: 毎月3日0:30（日本時間）
+ *   - Heroku Scheduler で毎日 3:30 PM (UTC) に実行し、日本時間で3日かどうかをチェック
  * 保護: Authorization ヘッダーまたは query parameter でトークン確認
  */
 export async function GET(request: NextRequest) {
@@ -23,23 +23,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    // 日本時間（JST = UTC + 9時間）で日付をチェック
+    const now = new Date()
+    const jstDate = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+    const jstDay = jstDate.getDate()
 
-    // 毎月3日のみ実行するためのチェック
+    // 毎月3日のみ実行するためのチェック（日本時間基準）
     // Heroku Schedulerは「毎月」の指定ができないため、毎日実行させてここで日付をチェックする
-    if (today.getDate() !== 3) {
-      console.log(`[WorkClock月次PDF] 今日は3日ではないため処理をスキップします（本日は${today.getDate()}日）`)
+    if (jstDay !== 3) {
+      console.log(`[WorkClock月次PDF] 今日は3日ではないため処理をスキップします（日本時間で${jstDay}日）`)
       return NextResponse.json({
         success: true,
         skipped: true,
         message: '今日は3日ではないため処理をスキップしました',
-        today: today.toISOString()
+        jstDate: jstDate.toISOString()
       })
     }
     
-    // 先月を計算
-    const lastMonth = new Date(today)
+    // 先月を計算（日本時間基準）
+    const lastMonth = new Date(jstDate)
     lastMonth.setMonth(lastMonth.getMonth() - 1)
     const year = lastMonth.getFullYear()
     const month = lastMonth.getMonth() + 1

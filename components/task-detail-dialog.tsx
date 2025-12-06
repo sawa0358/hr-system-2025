@@ -2151,6 +2151,7 @@ export function TaskDetailDialog({ task, open, onOpenChange, onRefresh, onTaskUp
                 </div>
               )}
             </div>
+            <p className="text-xs text-slate-500 mb-2">※チェックを入れたら保存ボタンで反映します</p>
             <div className="space-y-4">
               {checklists.map((checklist) => {
                 const completedCount = checklist.items.filter((item) => item.completed).length

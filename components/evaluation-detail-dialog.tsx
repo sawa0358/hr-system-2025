@@ -363,7 +363,10 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="w-[98vw] h-[95vh] max-w-none max-h-none overflow-y-auto">
+        <DialogContent className="w-[98vw] h-[95vh] max-w-none max-h-none overflow-y-auto flex flex-col">
+          {/* モバイルでURLバーと被らないようスペーサーを追加 */}
+          <div className="h-6 shrink-0 md:h-2" />
+          
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4">
               <Avatar className="w-12 h-12">
@@ -405,7 +408,7 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
             </DialogTitle>
           </DialogHeader>
 
-          <div className="mt-6">
+          <div className="mt-6 flex-1 overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium text-slate-700">年度を選択:</span>
@@ -515,6 +518,25 @@ export function EvaluationDetailDialog({ employee, open, onOpenChange }: Evaluat
                 </div>
               )}
             </div>
+          </div>
+
+          {/* フッターボタン（PC/モバイル共通） */}
+          <div className="shrink-0 pt-4 mt-4 border-t border-slate-200 flex justify-end gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+            >
+              キャンセル
+            </Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => {
+                console.log('考課表を保存')
+                onOpenChange(false)
+              }}
+            >
+              保存して閉じる
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

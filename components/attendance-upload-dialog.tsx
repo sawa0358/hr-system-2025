@@ -44,6 +44,9 @@ export function AttendanceUploadDialog({
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
   const [editingFolderName, setEditingFolderName] = useState("")
   const [isDragging, setIsDragging] = useState(false)
+  // DBから取得したファイル情報（永続化データ）
+  const [dbFiles, setDbFiles] = useState<{ [key: string]: { id: string; name: string; createdAt: string }[] }>({})
+  const [isLoadingDbFiles, setIsLoadingDbFiles] = useState(false)
 
   // 個人別ファイル管理のためのキー生成
   const getStorageKey = (folderKey: string) => {
@@ -71,6 +74,87 @@ export function AttendanceUploadDialog({
     return []
   }
 
+  // DBからファイル一覧を取得する関数
+  const fetchFilesFromDB = async () => {
+    try {
+      // 全員分モードの場合、対象のemployeeIDを取得
+      let employeeIdToUse = employee?.id || ''
+      
+      if (isAllEmployeesMode && !employeeIdToUse) {
+        try {
+          const response = await fetch('/api/attendance/all-employee-id')
+          if (response.ok) {
+            const data = await response.json()
+            employeeIdToUse = data.employeeId
+          } else {
+            console.error('全員分用のemployeeID取得に失敗しました')
+            return
+          }
+        } catch (error) {
+          console.error('全員分用のemployeeID取得エラー:', error)
+          return
+        }
+      }
+
+      if (!employeeIdToUse) return
+
+      setIsLoadingDbFiles(true)
+      const response = await fetch(`/api/files/employee/${employeeIdToUse}`, {
+        method: 'GET',
+        headers: {
+          'x-employee-id': employeeIdToUse,
+        },
+      })
+
+      if (response.ok) {
+        const files = await response.json()
+        // attendanceカテゴリのファイルのみをフォルダ別に分類
+        const attendanceFiles = files.filter((f: any) => f.category === 'attendance')
+        
+        const filesByFolder: { [key: string]: { id: string; name: string; createdAt: string }[] } = {}
+        
+        attendanceFiles.forEach((file: any) => {
+          // folderNameから年月を解析してfolderKeyを生成
+          // 例: "2025年12月" -> "2025年-12月"、"2025年-12月" -> "2025年-12月"
+          let folderKey = ''
+          if (file.folderName) {
+            // 「YYYY年-MM月」形式の場合（既存のfolderKey形式）
+            if (file.folderName.match(/^\d{4}年-\d{1,2}月$/)) {
+              folderKey = file.folderName
+            } else {
+              // 「YYYY年MM月」形式の場合
+              const match = file.folderName.match(/(\d{4})年(\d{1,2})月/)
+              if (match) {
+                folderKey = `${match[1]}年-${match[2]}月`
+              } else {
+                // その他の場合
+                folderKey = `other-${file.folderName}`
+              }
+            }
+          }
+          
+          if (folderKey) {
+            if (!filesByFolder[folderKey]) {
+              filesByFolder[folderKey] = []
+            }
+            filesByFolder[folderKey].push({
+              id: file.id,
+              name: file.originalName,
+              createdAt: file.createdAt,
+            })
+          }
+        })
+        
+        setDbFiles(filesByFolder)
+        console.log('勤怠管理: DBから取得したファイル:', filesByFolder)
+      }
+    } catch (error) {
+      console.error('DBからのファイル取得エラー:', error)
+    } finally {
+      setIsLoadingDbFiles(false)
+    }
+  }
+
   // 現在の年を取得する関数
   const getCurrentYear = () => {
     return new Date().getFullYear()
@@ -82,7 +166,7 @@ export function AttendanceUploadDialog({
     return `${currentMonth}月`
   }
 
-  // ダイアログが開かれるたびに最新の年と月を設定
+  // ダイアログが開かれるたびに最新の年と月を設定し、DBからファイルを取得
   useEffect(() => {
     if (open) {
       const currentYear = getCurrentYear()
@@ -92,8 +176,11 @@ export function AttendanceUploadDialog({
       console.log('勤怠管理: 現在の月を設定:', currentMonthStr)
       setSelectedYear(currentYearStr)
       setSelectedMonth(currentMonthStr)
+      
+      // DBからファイル一覧を取得（デバイス間同期のため）
+      fetchFilesFromDB()
     }
-  }, [open])
+  }, [open, employee?.id, isAllEmployeesMode])
 
   // コンポーネント初期化時にファイルデータを読み込み
   useEffect(() => {
@@ -333,7 +420,10 @@ export function AttendanceUploadDialog({
           const result = await response.json()
           console.log('ファイルアップロード成功:', result)
           
-          // アップロード成功したファイルをリストに追加
+          // DBからファイル一覧を再取得（他デバイスでも表示されるように）
+          await fetchFilesFromDB()
+          
+          // localStorageにも一時的に保存（即時反映のため）
           const newFiles = [...(uploadedFiles[folderKey] || []), file.name]
           setUploadedFiles({
             ...uploadedFiles,
@@ -580,7 +670,11 @@ export function AttendanceUploadDialog({
               <div className="grid grid-cols-6 gap-2 mb-4">
                 {months.map((month) => {
                   const folderKey = `${selectedYear}-${month}`
-                  const files = uploadedFiles[folderKey] || []
+                  const localFiles = uploadedFiles[folderKey] || []
+                  const dbFileList = dbFiles[folderKey] || []
+                  // 重複を排除した総ファイル数
+                  const dbFileNames = new Set(dbFileList.map(f => f.name))
+                  const totalCount = dbFileList.length + localFiles.filter(name => !dbFileNames.has(name)).length
                   return (
                     <Button
                       key={month}
@@ -590,9 +684,9 @@ export function AttendanceUploadDialog({
                       className="relative"
                     >
                       {month}
-                      {files.length > 0 && (
+                      {totalCount > 0 && (
                         <span className="ml-1 bg-blue-100 text-blue-800 text-xs px-1.5 py-0.5 rounded-full">
-                          {files.length}
+                          {totalCount}
                         </span>
                       )}
                     </Button>
@@ -603,7 +697,16 @@ export function AttendanceUploadDialog({
               {/* 各月のコンテンツ */}
               {months.map((month) => {
                 const folderKey = `${selectedYear}-${month}`
-                const files = uploadedFiles[folderKey] || []
+                const localFiles = uploadedFiles[folderKey] || []
+                const dbFileList = dbFiles[folderKey] || []
+                
+                // DBファイルとlocalStorageファイルを統合（重複を排除）
+                const dbFileNames = new Set(dbFileList.map(f => f.name))
+                const localOnlyFiles = localFiles.filter(name => !dbFileNames.has(name))
+                const allFiles = [
+                  ...dbFileList.map(f => ({ ...f, source: 'db' as const })),
+                  ...localOnlyFiles.map(name => ({ id: '', name, createdAt: '', source: 'local' as const }))
+                ]
 
                 return (
                   <TabsContent key={month} value={month} className="space-y-4 m-0">
@@ -641,19 +744,26 @@ export function AttendanceUploadDialog({
                     </div>
 
                     {/* アップロード済みファイル一覧 */}
-                    {files.length > 0 && (
+                    {isLoadingDbFiles ? (
+                      <p className="text-sm text-slate-500">ファイルを読み込み中...</p>
+                    ) : allFiles.length > 0 && (
                       <div className="space-y-2">
                         <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
-                        {files.map((file, index) => (
-                          <Card key={index} className="border-slate-200">
+                        {allFiles.map((file, index) => (
+                          <Card key={file.id || `local-${index}`} className="border-slate-200">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <FileText className="w-8 h-8 text-emerald-600" />
                                   <div>
-                                    <p className="font-medium text-slate-900">{file}</p>
+                                    <p className="font-medium text-slate-900">{file.name}</p>
                                     <p className="text-sm text-slate-500">
-                                      {new Date().toLocaleDateString()}
+                                      {file.createdAt 
+                                        ? new Date(file.createdAt).toLocaleDateString('ja-JP')
+                                        : new Date().toLocaleDateString('ja-JP')}
+                                      {file.source === 'db' && (
+                                        <span className="ml-2 text-xs text-green-600">✓ 保存済み</span>
+                                      )}
                                     </p>
                                   </div>
                                 </div>
@@ -661,7 +771,7 @@ export function AttendanceUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => downloadFile(folderKey, file)}
+                                    onClick={() => downloadFile(folderKey, file.name)}
                                     title="ダウンロード"
                                   >
                                     <Download className="w-4 h-4" />
@@ -669,7 +779,7 @@ export function AttendanceUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeFile(folderKey, file)}
+                                    onClick={() => removeFile(folderKey, file.name)}
                                     title="削除"
                                   >
                                     <Trash2 className="w-4 h-4 text-red-600" />
@@ -705,7 +815,11 @@ export function AttendanceUploadDialog({
                 <TabsList className="flex-1 justify-start overflow-x-auto">
                   {otherFolders.map((folder) => {
                     const folderKey = `other-${folder}`
-                    const files = uploadedFiles[folderKey] || []
+                    const localFiles = uploadedFiles[folderKey] || []
+                    const dbFileList = dbFiles[folderKey] || []
+                    // 重複を排除した総ファイル数
+                    const dbFileNames = new Set(dbFileList.map(f => f.name))
+                    const totalCount = dbFileList.length + localFiles.filter(name => !dbFileNames.has(name)).length
                     const isEditing = editingFolderId === folder
 
                     return (
@@ -736,9 +850,9 @@ export function AttendanceUploadDialog({
                         ) : (
                           <TabsTrigger value={folder} className="flex items-center">
                             {folder}
-                            {files.length > 0 && (
+                            {totalCount > 0 && (
                               <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                                {files.length}
+                                {totalCount}
                               </span>
                             )}
                           </TabsTrigger>
@@ -774,7 +888,16 @@ export function AttendanceUploadDialog({
               {/* 各フォルダのコンテンツ */}
               {otherFolders.map((folder) => {
                 const folderKey = `other-${folder}`
-                const files = uploadedFiles[folderKey] || []
+                const localFiles = uploadedFiles[folderKey] || []
+                const dbFileList = dbFiles[folderKey] || []
+                
+                // DBファイルとlocalStorageファイルを統合（重複を排除）
+                const dbFileNames = new Set(dbFileList.map(f => f.name))
+                const localOnlyFiles = localFiles.filter(name => !dbFileNames.has(name))
+                const allFiles = [
+                  ...dbFileList.map(f => ({ ...f, source: 'db' as const })),
+                  ...localOnlyFiles.map(name => ({ id: '', name, createdAt: '', source: 'local' as const }))
+                ]
 
                 return (
                   <TabsContent key={folder} value={folder} className="space-y-4 m-0">
@@ -812,19 +935,26 @@ export function AttendanceUploadDialog({
                     </div>
 
                     {/* アップロード済みファイル一覧 */}
-                    {files.length > 0 && (
+                    {isLoadingDbFiles ? (
+                      <p className="text-sm text-slate-500">ファイルを読み込み中...</p>
+                    ) : allFiles.length > 0 && (
                       <div className="space-y-2">
                         <h3 className="font-semibold text-slate-900 mb-3">アップロード済みファイル</h3>
-                        {files.map((file, index) => (
-                          <Card key={index} className="border-slate-200">
+                        {allFiles.map((file, index) => (
+                          <Card key={file.id || `local-${index}`} className="border-slate-200">
                             <CardContent className="p-4">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <FileText className="w-8 h-8 text-emerald-600" />
                                   <div>
-                                    <p className="font-medium text-slate-900">{file}</p>
+                                    <p className="font-medium text-slate-900">{file.name}</p>
                                     <p className="text-sm text-slate-500">
-                                      {new Date().toLocaleDateString()}
+                                      {file.createdAt 
+                                        ? new Date(file.createdAt).toLocaleDateString('ja-JP')
+                                        : new Date().toLocaleDateString('ja-JP')}
+                                      {file.source === 'db' && (
+                                        <span className="ml-2 text-xs text-green-600">✓ 保存済み</span>
+                                      )}
                                     </p>
                                   </div>
                                 </div>
@@ -832,7 +962,7 @@ export function AttendanceUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => downloadFile(folderKey, file)}
+                                    onClick={() => downloadFile(folderKey, file.name)}
                                     title="ダウンロード"
                                   >
                                     <Download className="w-4 h-4" />
@@ -840,7 +970,7 @@ export function AttendanceUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeFile(folderKey, file)}
+                                    onClick={() => removeFile(folderKey, file.name)}
                                     title="削除"
                                   >
                                     <Trash2 className="w-4 h-4 text-red-600" />

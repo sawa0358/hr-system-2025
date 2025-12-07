@@ -46,7 +46,7 @@ interface WorkerTableProps {
 
 export function WorkerTable({ workers, allEntries, allRewards, onExportPDF, onExportAllPDF, onSaveAllPDF, currentUserWorker, selectedMonth, onMonthChange, canSavePDF }: WorkerTableProps) {
   const [filterTeam, setFilterTeam] = useState<string>('all')
-  const [isTeamSummaryOpen, setIsTeamSummaryOpen] = useState<boolean>(true)
+  const [isTeamSummaryOpen, setIsTeamSummaryOpen] = useState<boolean>(false)
   
   // リーダー（role='admin'）も含めて表示
   const activeWorkers = workers

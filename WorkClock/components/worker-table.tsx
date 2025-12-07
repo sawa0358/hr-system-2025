@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Worker, TimeEntry } from '@/lib/types'
 import { getMonthlyTotal, formatDuration } from '@/lib/time-utils'
-import { ExternalLink, FileText, X } from 'lucide-react'
+import { ExternalLink, FileText, X, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -81,6 +81,9 @@ interface WorkerFilters {
 }
 
 export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTableProps) {
+  // チーム別サマリーの開閉状態（デフォルトは閉じた状態）
+  const [isTeamSummaryOpen, setIsTeamSummaryOpen] = useState(false)
+  
   // フィルター状態をlocalStorageから復元
   const [filterTeam, setFilterTeam] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -344,39 +347,62 @@ export function WorkerTable({ workers, allEntries, onExportPDF }: WorkerTablePro
 
       {/* Team Summary Cards */}
       {teams.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">チーム別サマリー</h2>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            {teamTotals.map((teamTotal) => (
-              <Card key={teamTotal.team}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">{teamTotal.team}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">メンバー</span>
-                    <span className="font-medium">{teamTotal.workerCount}人</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">合計時間</span>
-                    <span className="font-medium">
-                      {formatDuration(teamTotal.totalHours, teamTotal.totalMinutes)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">合計コスト</span>
-                    <span className="font-semibold text-primary">
-                      ¥{Math.floor(teamTotal.totalCost).toLocaleString()}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>チーム別サマリー</CardTitle>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsTeamSummaryOpen(!isTeamSummaryOpen)}
+                className="gap-2"
+              >
+                {isTeamSummaryOpen ? (
+                  <>
+                    <ChevronUp className="h-4 w-4" />
+                    閉じる
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-4 w-4" />
+                    開く
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardHeader>
+          {isTeamSummaryOpen && (
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                {teamTotals.map((teamTotal) => (
+                  <Card key={teamTotal.team}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">{teamTotal.team}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">メンバー</span>
+                        <span className="font-medium">{teamTotal.workerCount}人</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">合計時間</span>
+                        <span className="font-medium">
+                          {formatDuration(teamTotal.totalHours, teamTotal.totalMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">合計コスト</span>
+                        <span className="font-semibold text-primary">
+                          ¥{Math.floor(teamTotal.totalCost).toLocaleString()}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          )}
+        </Card>
       )}
 
       {/* Worker Details Table */}

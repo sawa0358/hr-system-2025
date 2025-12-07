@@ -12,3 +12,5 @@ ALTER TABLE "convenience_entries" ADD COLUMN "isAdminOnly" BOOLEAN NOT NULL DEFA
 
 
 
+
+

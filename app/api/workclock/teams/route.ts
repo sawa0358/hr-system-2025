@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// MasterDataのタイプ定義
+const TEAM_TYPE = 'workclock_team'
+
 // GET: チーム一覧を取得
 export async function GET(request: NextRequest) {
   try {
@@ -27,21 +30,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
-    // 全ワーカーのチーム情報を取得
+    // MasterDataからチーム一覧を取得
+    const teamRecords = await prisma.masterData.findMany({
+      where: {
+        type: TEAM_TYPE,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    })
+
+    // MasterDataに保存されているチーム名を取得
+    const masterTeams = teamRecords.map(r => r.value)
+
+    // 互換性のため: ワーカーに紐づいているチームも取得（既存データ用）
     const workers = await prisma.workClockWorker.findMany({
       select: {
         teams: true,
       },
     })
 
-    // 全てのチーム名を収集して重複を削除
-    const teamSet = new Set<string>()
+    const workerTeamSet = new Set<string>()
     workers.forEach((worker) => {
       if (worker.teams) {
         try {
           const teams = JSON.parse(worker.teams)
           if (Array.isArray(teams)) {
-            teams.forEach((team: string) => teamSet.add(team))
+            teams.forEach((team: string) => workerTeamSet.add(team))
           }
         } catch (error) {
           console.error('チーム情報のパースエラー:', error)
@@ -49,7 +64,9 @@ export async function GET(request: NextRequest) {
       }
     })
 
-    const teams = Array.from(teamSet).sort()
+    // MasterDataとワーカーのチームを結合して重複排除
+    const allTeams = new Set([...masterTeams, ...workerTeamSet])
+    const teams = Array.from(allTeams).sort()
 
     return NextResponse.json({ teams })
   } catch (error: any) {
@@ -61,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: 新しいチームを作成（実際にはチーム名の検証のみ）
+// POST: 新しいチームを作成（MasterDataに永続保存）
 export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-employee-id')
@@ -96,20 +113,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
-    // 既存のチーム一覧を取得
+    const teamName = name.trim()
+
+    // MasterDataに既存のチームがあるかチェック
+    const existingTeam = await prisma.masterData.findUnique({
+      where: {
+        type_value: {
+          type: TEAM_TYPE,
+          value: teamName,
+        },
+      },
+    })
+
+    if (existingTeam) {
+      return NextResponse.json(
+        { error: 'このチーム名は既に登録されています' },
+        { status: 400 }
+      )
+    }
+
+    // ワーカーに紐づいているチームもチェック（互換性のため）
     const workers = await prisma.workClockWorker.findMany({
       select: {
         teams: true,
       },
     })
 
-    const teamSet = new Set<string>()
+    const workerTeamSet = new Set<string>()
     workers.forEach((worker) => {
       if (worker.teams) {
         try {
           const teams = JSON.parse(worker.teams)
           if (Array.isArray(teams)) {
-            teams.forEach((team: string) => teamSet.add(team))
+            teams.forEach((team: string) => workerTeamSet.add(team))
           }
         } catch (error) {
           console.error('チーム情報のパースエラー:', error)
@@ -117,16 +153,33 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 重複チェック
-    if (teamSet.has(name.trim())) {
+    if (workerTeamSet.has(teamName)) {
       return NextResponse.json(
         { error: 'このチーム名は既に登録されています' },
         { status: 400 }
       )
     }
 
-    // チームはワーカーに紐づいて保存されるため、ここでは成功を返すのみ
-    return NextResponse.json({ success: true, name: name.trim() })
+    // 現在のチーム数を取得して順序番号を決定
+    const existingCount = await prisma.masterData.count({
+      where: {
+        type: TEAM_TYPE,
+      },
+    })
+
+    // MasterDataに新しいチームを保存
+    await prisma.masterData.create({
+      data: {
+        type: TEAM_TYPE,
+        value: teamName,
+        label: teamName,
+        order: existingCount,
+      },
+    })
+
+    console.log(`[WorkClock] チーム「${teamName}」をMasterDataに保存しました`)
+
+    return NextResponse.json({ success: true, name: teamName })
   } catch (error: any) {
     console.error('WorkClock team作成エラー:', error)
     
@@ -137,7 +190,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE: チームを削除（全ワーカーから該当チーム名を削除）
+// DELETE: チームを削除（MasterDataと全ワーカーから削除）
 export async function DELETE(request: NextRequest) {
   try {
     const userId = request.headers.get('x-employee-id')
@@ -170,6 +223,22 @@ export async function DELETE(request: NextRequest) {
         { error: 'チーム名が必要です' },
         { status: 400 }
       )
+    }
+
+    // MasterDataから削除
+    try {
+      await prisma.masterData.delete({
+        where: {
+          type_value: {
+            type: TEAM_TYPE,
+            value: teamName,
+          },
+        },
+      })
+      console.log(`[WorkClock] チーム「${teamName}」をMasterDataから削除しました`)
+    } catch (e) {
+      // MasterDataに存在しない場合は無視（ワーカーに紐づいているだけの古いデータの可能性）
+      console.log(`[WorkClock] チーム「${teamName}」はMasterDataに存在しませんでした`)
     }
 
     // 該当チームを持つ全ワーカーを取得
@@ -205,7 +274,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `${updatedCount}人のワーカーからチーム「${teamName}」を削除しました` 
+      message: `チーム「${teamName}」を削除しました（${updatedCount}人のワーカーから除外）` 
     })
   } catch (error: any) {
     console.error('WorkClock team削除エラー:', error)

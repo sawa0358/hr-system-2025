@@ -1,0 +1,577 @@
+diff --git a/app/api/workclock/teams/route.ts b/app/api/workclock/teams/route.ts
+index 9468392..be8df09 100644
+--- a/app/api/workclock/teams/route.ts
++++ b/app/api/workclock/teams/route.ts
+@@ -1,6 +1,9 @@
+ import { NextRequest, NextResponse } from 'next/server'
+ import { prisma } from '@/lib/prisma'
+ 
++// MasterDataのタイプ定義
++const TEAM_TYPE = 'workclock_team'
++
+ // GET: チーム一覧を取得
+ export async function GET(request: NextRequest) {
+   try {
+@@ -27,21 +30,33 @@ export async function GET(request: NextRequest) {
+       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+     }
+ 
+-    // 全ワーカーのチーム情報を取得
++    // MasterDataからチーム一覧を取得
++    const teamRecords = await prisma.masterData.findMany({
++      where: {
++        type: TEAM_TYPE,
++      },
++      orderBy: {
++        order: 'asc',
++      },
++    })
++
++    // MasterDataに保存されているチーム名を取得
++    const masterTeams = teamRecords.map(r => r.value)
++
++    // 互換性のため: ワーカーに紐づいているチームも取得（既存データ用）
+     const workers = await prisma.workClockWorker.findMany({
+       select: {
+         teams: true,
+       },
+     })
+ 
+-    // 全てのチーム名を収集して重複を削除
+-    const teamSet = new Set<string>()
++    const workerTeamSet = new Set<string>()
+     workers.forEach((worker) => {
+       if (worker.teams) {
+         try {
+           const teams = JSON.parse(worker.teams)
+           if (Array.isArray(teams)) {
+-            teams.forEach((team: string) => teamSet.add(team))
++            teams.forEach((team: string) => workerTeamSet.add(team))
+           }
+         } catch (error) {
+           console.error('チーム情報のパースエラー:', error)
+@@ -49,7 +64,9 @@ export async function GET(request: NextRequest) {
+       }
+     })
+ 
+-    const teams = Array.from(teamSet).sort()
++    // MasterDataとワーカーのチームを結合して重複排除
++    const allTeams = new Set([...masterTeams, ...workerTeamSet])
++    const teams = Array.from(allTeams).sort()
+ 
+     return NextResponse.json({ teams })
+   } catch (error: any) {
+@@ -61,7 +78,7 @@ export async function GET(request: NextRequest) {
+   }
+ }
+ 
+-// POST: 新しいチームを作成（実際にはチーム名の検証のみ）
++// POST: 新しいチームを作成（MasterDataに永続保存）
+ export async function POST(request: NextRequest) {
+   try {
+     const userId = request.headers.get('x-employee-id')
+@@ -96,20 +113,39 @@ export async function POST(request: NextRequest) {
+       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+     }
+ 
+-    // 既存のチーム一覧を取得
++    const teamName = name.trim()
++
++    // MasterDataに既存のチームがあるかチェック
++    const existingTeam = await prisma.masterData.findUnique({
++      where: {
++        type_value: {
++          type: TEAM_TYPE,
++          value: teamName,
++        },
++      },
++    })
++
++    if (existingTeam) {
++      return NextResponse.json(
++        { error: 'このチーム名は既に登録されています' },
++        { status: 400 }
++      )
++    }
++
++    // ワーカーに紐づいているチームもチェック（互換性のため）
+     const workers = await prisma.workClockWorker.findMany({
+       select: {
+         teams: true,
+       },
+     })
+ 
+-    const teamSet = new Set<string>()
++    const workerTeamSet = new Set<string>()
+     workers.forEach((worker) => {
+       if (worker.teams) {
+         try {
+           const teams = JSON.parse(worker.teams)
+           if (Array.isArray(teams)) {
+-            teams.forEach((team: string) => teamSet.add(team))
++            teams.forEach((team: string) => workerTeamSet.add(team))
+           }
+         } catch (error) {
+           console.error('チーム情報のパースエラー:', error)
+@@ -117,16 +153,33 @@ export async function POST(request: NextRequest) {
+       }
+     })
+ 
+-    // 重複チェック
+-    if (teamSet.has(name.trim())) {
++    if (workerTeamSet.has(teamName)) {
+       return NextResponse.json(
+         { error: 'このチーム名は既に登録されています' },
+         { status: 400 }
+       )
+     }
+ 
+-    // チームはワーカーに紐づいて保存されるため、ここでは成功を返すのみ
+-    return NextResponse.json({ success: true, name: name.trim() })
++    // 現在のチーム数を取得して順序番号を決定
++    const existingCount = await prisma.masterData.count({
++      where: {
++        type: TEAM_TYPE,
++      },
++    })
++
++    // MasterDataに新しいチームを保存
++    await prisma.masterData.create({
++      data: {
++        type: TEAM_TYPE,
++        value: teamName,
++        label: teamName,
++        order: existingCount,
++      },
++    })
++
++    console.log(`[WorkClock] チーム「${teamName}」をMasterDataに保存しました`)
++
++    return NextResponse.json({ success: true, name: teamName })
+   } catch (error: any) {
+     console.error('WorkClock team作成エラー:', error)
+     
+@@ -137,7 +190,7 @@ export async function POST(request: NextRequest) {
+   }
+ }
+ 
+-// DELETE: チームを削除（全ワーカーから該当チーム名を削除）
++// DELETE: チームを削除（MasterDataと全ワーカーから削除）
+ export async function DELETE(request: NextRequest) {
+   try {
+     const userId = request.headers.get('x-employee-id')
+@@ -172,6 +225,22 @@ export async function DELETE(request: NextRequest) {
+       )
+     }
+ 
++    // MasterDataから削除
++    try {
++      await prisma.masterData.delete({
++        where: {
++          type_value: {
++            type: TEAM_TYPE,
++            value: teamName,
++          },
++        },
++      })
++      console.log(`[WorkClock] チーム「${teamName}」をMasterDataから削除しました`)
++    } catch (e) {
++      // MasterDataに存在しない場合は無視（ワーカーに紐づいているだけの古いデータの可能性）
++      console.log(`[WorkClock] チーム「${teamName}」はMasterDataに存在しませんでした`)
++    }
++
+     // 該当チームを持つ全ワーカーを取得
+     const workers = await prisma.workClockWorker.findMany({
+       select: {
+@@ -205,7 +274,7 @@ export async function DELETE(request: NextRequest) {
+ 
+     return NextResponse.json({ 
+       success: true, 
+-      message: `${updatedCount}人のワーカーからチーム「${teamName}」を削除しました` 
++      message: `チーム「${teamName}」を削除しました（${updatedCount}人のワーカーから除外）` 
+     })
+   } catch (error: any) {
+     console.error('WorkClock team削除エラー:', error)
+diff --git a/app/workclock/settings/page.tsx b/app/workclock/settings/page.tsx
+index 7255ef4..0ca08a6 100644
+--- a/app/workclock/settings/page.tsx
++++ b/app/workclock/settings/page.tsx
+@@ -41,7 +41,7 @@ import {
+ import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
+ import { Worker } from '@/lib/workclock/types'
+ import { api } from '@/lib/workclock/api'
+-import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
++import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown } from 'lucide-react'
+ import { useToast } from '@/hooks/use-toast'
+ import { MultiSelect } from '@/components/workclock/multi-select'
+ import { Badge } from '@/components/ui/badge'
+@@ -58,6 +58,11 @@ import {
+ } from '@/components/ui/sheet'
+ import { useIsMobile } from '@/hooks/use-mobile'
+ import { Switch } from '@/components/ui/switch'
++import {
++  Collapsible,
++  CollapsibleContent,
++  CollapsibleTrigger,
++} from '@/components/ui/collapsible'
+ 
+ // getCurrentUserIdをエクスポートする必要があるので、直接実装
+ function getCurrentUserId(): string {
+@@ -111,6 +116,11 @@ export default function SettingsPage() {
+   const [withholdingRateUnder1M, setWithholdingRateUnder1M] = useState<string>('10.21')
+   const [withholdingRateOver1M, setWithholdingRateOver1M] = useState<string>('20.42')
+   const [isSavingWithholding, setIsSavingWithholding] = useState(false)
++  // 税率設定のパスワード保護
++  const [isTaxRateEditUnlocked, setIsTaxRateEditUnlocked] = useState(false)
++  const [isTaxRatePasswordDialogOpen, setIsTaxRatePasswordDialogOpen] = useState(false)
++  // 税率設定の折りたたみ状態
++  const [isTaxSettingsOpen, setIsTaxSettingsOpen] = useState(false)
+   const [formData, setFormData] = useState({
+     employeeId: '',
+     name: '',
+@@ -250,6 +260,8 @@ export default function SettingsPage() {
+       })
+       // 反映後、ワーカー一覧を再取得
+       await loadWorkers()
++      // 保存後にロック状態に戻す
++      setIsTaxRateEditUnlocked(false)
+     } catch (error: any) {
+       console.error('handleSaveStandardTaxRate error:', error)
+       toast({
+@@ -284,6 +296,8 @@ export default function SettingsPage() {
+         title: '保存しました',
+         description: '源泉徴収率を更新しました。',
+       })
++      // 保存後にロック状態に戻す
++      setIsTaxRateEditUnlocked(false)
+     } catch (error: any) {
+       console.error('handleSaveWithholdingTaxRate error:', error)
+       toast({
+@@ -296,6 +310,16 @@ export default function SettingsPage() {
+     }
+   }
+ 
++  // 税率設定のパスワード認証成功時
++  const handleTaxRateEditVerified = () => {
++    setIsTaxRateEditUnlocked(true)
++    setIsTaxRatePasswordDialogOpen(false)
++    toast({
++      title: '編集が有効化されました',
++      description: '税率設定を変更できるようになりました。',
++    })
++  }
++
+   // モバイル時のスクロールでメニューを閉じる
+   useEffect(() => {
+     if (!isMobile || !isMenuOpen) return
+@@ -693,27 +717,37 @@ export default function SettingsPage() {
+     }
+   }
+ 
+-  const handleAddTeam = async (e: React.FormEvent) => {
+-    e.preventDefault()
+-    if (newTeamName.trim()) {
+-      try {
+-        await addTeam(newTeamName.trim(), currentUser?.id)
+-        const updatedTeams = await getTeams(currentUser?.id)
+-        setTeams(updatedTeams) // チーム管理と連動
+-        setNewTeamName('')
+-        // setIsTeamDialogOpen(false) // 続けて入力できるように閉じない
+-        toast({
+-          title: 'チーム追加完了',
+-          description: `${newTeamName}を追加しました`,
+-        })
+-      } catch (error) {
+-        console.error('チーム追加エラー:', error)
+-        toast({
+-          title: 'エラー',
+-          description: 'チームの追加に失敗しました',
+-          variant: 'destructive',
+-        })
+-      }
++  const handleAddTeam = async () => {
++    console.log('[handleAddTeam] 呼び出し開始', { newTeamName, userId: currentUser?.id })
++    const teamName = newTeamName.trim()
++    if (!teamName) {
++      console.log('[handleAddTeam] チーム名が空です')
++      toast({
++        title: '入力エラー',
++        description: 'チーム名を入力してください',
++        variant: 'destructive',
++      })
++      return
++    }
++    try {
++      console.log('[handleAddTeam] addTeam呼び出し', { teamName, userId: currentUser?.id })
++      await addTeam(teamName, currentUser?.id)
++      console.log('[handleAddTeam] addTeam成功')
++      const updatedTeams = await getTeams(currentUser?.id)
++      console.log('[handleAddTeam] 更新後のチーム一覧', updatedTeams)
++      setTeams(updatedTeams) // チーム管理と連動
++      setNewTeamName('')
++      toast({
++        title: 'チーム追加完了',
++        description: `${teamName}を追加しました`,
++      })
++    } catch (error) {
++      console.error('[handleAddTeam] エラー:', error)
++      toast({
++        title: 'エラー',
++        description: 'チームの追加に失敗しました',
++        variant: 'destructive',
++      })
+     }
+   }
+ 
+@@ -939,16 +973,25 @@ export default function SettingsPage() {
+                     </DialogDescription>
+                   </DialogHeader>
+                   <div className="space-y-4 py-4">
+-                    <form onSubmit={handleAddTeam} className="flex gap-2">
++                    <div className="flex gap-2">
+                       <Input
+                         placeholder="新しいチーム名"
+                         value={newTeamName}
+                         onChange={(e) => setNewTeamName(e.target.value)}
++                        onKeyDown={(e) => {
++                          if (e.key === 'Enter') {
++                            e.preventDefault()
++                            handleAddTeam()
++                          }
++                        }}
+                       />
+-                      <Button type="submit">
++                      <Button 
++                        type="button"
++                        onClick={() => handleAddTeam()}
++                      >
+                         <Plus className="h-4 w-4" />
+                       </Button>
+-                    </form>
++                    </div>
+                     <div className="space-y-2">
+                       <Label>登録済みチーム</Label>
+                       <div className="flex flex-wrap gap-2">
+@@ -1828,85 +1871,125 @@ export default function SettingsPage() {
+             </div>
+           </div>
+ 
+-          {/* 全社共通の標準消費税率設定 */}
+-          <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+-              <div>
+-                <h2 className="text-base font-semibold text-slate-900">標準消費税率（全社設定）</h2>
+-                <p className="text-xs text-slate-500">
+-                  ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
+-                </p>
+-              </div>
+-              <div className="flex items-center gap-2">
+-                <Input
+-                  type="number"
+-                  min={0}
+-                  step={0.1}
+-                  value={standardTaxRate}
+-                  onChange={(e) => setStandardTaxRate(e.target.value)}
+-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+-                  className="w-24"
+-                />
+-                <span className="text-sm text-slate-600">%</span>
+-                <Button
+-                  variant="outline"
+-                  size="sm"
+-                  onClick={handleSaveStandardTaxRate}
+-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+-                >
+-                  {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
+-                </Button>
+-              </div>
+-            </div>
+-          </div>
++          {/* 税率設定（折りたたみ式） */}
++          <Collapsible open={isTaxSettingsOpen} onOpenChange={setIsTaxSettingsOpen} className="mb-6">
++            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
++              {/* 常に表示: タイトルと現在の値 */}
++              <CollapsibleTrigger asChild>
++                <button className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
++                  <div className="flex flex-wrap items-center gap-4 text-left">
++                    <div className="flex items-center gap-2">
++                      <span className="text-sm font-medium text-slate-700">消費税率:</span>
++                      <span className="text-sm font-semibold text-slate-900">{standardTaxRate}%</span>
++                    </div>
++                    <div className="flex items-center gap-2">
++                      <span className="text-sm font-medium text-slate-700">源泉徴収率:</span>
++                      <span className="text-sm font-semibold text-slate-900">{withholdingRateUnder1M}% / {withholdingRateOver1M}%</span>
++                      <span className="text-xs text-slate-500">(100万円以下/超)</span>
++                    </div>
++                  </div>
++                  <ChevronDown className={`h-5 w-5 text-slate-500 transition-transform duration-200 ${isTaxSettingsOpen ? 'rotate-180' : ''}`} />
++                </button>
++              </CollapsibleTrigger>
+ 
+-          {/* 源泉徴収率設定 */}
+-          <div className="rounded-lg border bg-card p-4 shadow-sm">
+-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+-              <div>
+-                <h2 className="text-base font-semibold text-slate-900">源泉徴収率設定（全社設定）</h2>
+-                <p className="text-xs text-slate-500">
+-                  源泉徴収対象のワーカーのPDF請求書に適用される税率です。法定税率に合わせて設定してください。
+-                </p>
+-              </div>
+-              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+-                <div className="flex items-center gap-2">
+-                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円以下:</span>
+-                  <Input
+-                    type="number"
+-                    min={0}
+-                    step={0.01}
+-                    value={withholdingRateUnder1M}
+-                    onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
+-                    disabled={isSavingWithholding || !canEditCompensation}
+-                    className="w-24"
+-                  />
+-                  <span className="text-sm text-slate-600">%</span>
+-                </div>
+-                <div className="flex items-center gap-2">
+-                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円超:</span>
+-                  <Input
+-                    type="number"
+-                    min={0}
+-                    step={0.01}
+-                    value={withholdingRateOver1M}
+-                    onChange={(e) => setWithholdingRateOver1M(e.target.value)}
+-                    disabled={isSavingWithholding || !canEditCompensation}
+-                    className="w-24"
+-                  />
+-                  <span className="text-sm text-slate-600">%</span>
++              {/* 折りたたみ: 編集UI */}
++              <CollapsibleContent>
++                <div className="border-t border-slate-200 p-4 space-y-4">
++                  {/* 消費税率設定 */}
++                  <div className="space-y-2">
++                    <h3 className="text-sm font-semibold text-slate-900">標準消費税率（全社設定）</h3>
++                    <p className="text-xs text-slate-500">
++                      ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
++                    </p>
++                    <div className="flex items-center gap-2 mt-2">
++                      {!isTaxRateEditUnlocked && canEditCompensation && (
++                        <Button
++                          variant="outline"
++                          size="sm"
++                          onClick={() => setIsTaxRatePasswordDialogOpen(true)}
++                        >
++                          編集を有効化
++                        </Button>
++                      )}
++                      <Input
++                        type="number"
++                        min={0}
++                        step={0.1}
++                        value={standardTaxRate}
++                        onChange={(e) => setStandardTaxRate(e.target.value)}
++                        disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
++                        className="w-24"
++                      />
++                      <span className="text-sm text-slate-600">%</span>
++                      <Button
++                        variant="outline"
++                        size="sm"
++                        onClick={handleSaveStandardTaxRate}
++                        disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
++                      >
++                        {isSavingTax ? '保存中...' : '保存'}
++                      </Button>
++                    </div>
++                  </div>
++
++                  {/* 源泉徴収率設定 */}
++                  <div className="space-y-2 pt-3 border-t border-slate-100">
++                    <h3 className="text-sm font-semibold text-slate-900">源泉徴収率設定（全社設定）</h3>
++                    <p className="text-xs text-slate-500">
++                      源泉徴収対象のワーカーのPDF請求書に適用される税率です。法定税率に合わせて設定してください。
++                    </p>
++                    <div className="flex flex-wrap items-center gap-3 mt-2">
++                      <div className="flex items-center gap-2">
++                        <span className="text-sm text-slate-600 whitespace-nowrap">100万円以下:</span>
++                        <Input
++                          type="number"
++                          min={0}
++                          step={0.01}
++                          value={withholdingRateUnder1M}
++                          onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
++                          disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
++                          className="w-24"
++                        />
++                        <span className="text-sm text-slate-600">%</span>
++                      </div>
++                      <div className="flex items-center gap-2">
++                        <span className="text-sm text-slate-600 whitespace-nowrap">100万円超:</span>
++                        <Input
++                          type="number"
++                          min={0}
++                          step={0.01}
++                          value={withholdingRateOver1M}
++                          onChange={(e) => setWithholdingRateOver1M(e.target.value)}
++                          disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
++                          className="w-24"
++                        />
++                        <span className="text-sm text-slate-600">%</span>
++                      </div>
++                      <Button
++                        variant="outline"
++                        size="sm"
++                        onClick={handleSaveWithholdingTaxRate}
++                        disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
++                      >
++                        {isSavingWithholding ? '保存中...' : '保存'}
++                      </Button>
++                    </div>
++                  </div>
+                 </div>
+-                <Button
+-                  variant="outline"
+-                  size="sm"
+-                  onClick={handleSaveWithholdingTaxRate}
+-                  disabled={isSavingWithholding || !canEditCompensation}
+-                >
+-                  {isSavingWithholding ? '保存中...' : '保存'}
+-                </Button>
+-              </div>
++              </CollapsibleContent>
+             </div>
+-          </div>
++          </Collapsible>
++
++          {/* 税率設定用パスワード認証ダイアログ */}
++          <PasswordVerificationDialog
++            open={isTaxRatePasswordDialogOpen}
++            onOpenChange={(open) => {
++              setIsTaxRatePasswordDialogOpen(open)
++            }}
++            onVerified={handleTaxRateEditVerified}
++            currentUser={currentUser}
++            actionType="workclock-worker"
++          />
+ 
+           <Card>
+             <CardHeader>
+diff --git a/lib/workclock/api.ts b/lib/workclock/api.ts
+index c9d5861..c48c1be 100644
+--- a/lib/workclock/api.ts
++++ b/lib/workclock/api.ts
+@@ -300,11 +300,11 @@ export const api = {
+       return handleResponse(response)
+     },
+ 
+-    update: async (rateUnder1M: number, rateOver1M: number) => {
++    update: async (data: { rateUnder1M: number; rateOver1M: number }) => {
+       const response = await fetch(`${API_BASE}/withholding-tax-settings`, {
+         method: 'PUT',
+         headers: getAuthHeaders(),
+-        body: JSON.stringify({ rateUnder1M, rateOver1M }),
++        body: JSON.stringify(data),
+       })
+       return handleResponse(response)
+     },
+diff --git a/prisma/prisma/dev.db b/prisma/prisma/dev.db
+index d426387..33bd5ac 100755
+Binary files a/prisma/prisma/dev.db and b/prisma/prisma/dev.db differ

@@ -1841,6 +1841,45 @@ export default function SettingsPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* 請求・消費税設定 */}
+                      <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                        <Label className="text-sm font-medium">請求・消費税設定</Label>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm">消費税対象</p>
+                            <p className="text-xs text-muted-foreground">
+                              {viewingWorker.billingTaxEnabled ? '対象（消費税を請求書に表示）' : '対象外'}
+                            </p>
+                          </div>
+                          <Badge variant={viewingWorker.billingTaxEnabled ? "default" : "secondary"}>
+                            {viewingWorker.billingTaxEnabled ? '対象' : '対象外'}
+                          </Badge>
+                        </div>
+                        {viewingWorker.billingTaxEnabled && viewingWorker.billingTaxRate !== undefined && (
+                          <div className="flex items-center gap-2 pl-4">
+                            <span className="text-sm text-muted-foreground">消費税率:</span>
+                            <span className="text-sm font-medium">{viewingWorker.billingTaxRate}%</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 源泉徴収設定 */}
+                      <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                        <Label className="text-sm font-medium">源泉徴収設定</Label>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <p className="text-sm">源泉徴収対象</p>
+                            <p className="text-xs text-muted-foreground">
+                              {viewingWorker.withholdingTaxEnabled ? '対象（PDF請求書に源泉徴収税額を表示）' : '対象外'}
+                            </p>
+                          </div>
+                          <Badge variant={viewingWorker.withholdingTaxEnabled ? "default" : "secondary"}>
+                            {viewingWorker.withholdingTaxEnabled ? '対象' : '対象外'}
+                          </Badge>
+                        </div>
+                      </div>
+
                       <div className="grid gap-2">
                         <Label>振込先</Label>
                         <textarea

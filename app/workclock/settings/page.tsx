@@ -41,7 +41,7 @@ import {
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { api } from '@/lib/workclock/api'
-import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +58,11 @@ import {
 } from '@/components/ui/sheet'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Switch } from '@/components/ui/switch'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 // getCurrentUserIdをエクスポートする必要があるので、直接実装
 function getCurrentUserId(): string {
@@ -114,6 +119,8 @@ export default function SettingsPage() {
   // 税率設定のパスワード保護
   const [isTaxRateEditUnlocked, setIsTaxRateEditUnlocked] = useState(false)
   const [isTaxRatePasswordDialogOpen, setIsTaxRatePasswordDialogOpen] = useState(false)
+  // 税率設定の折りたたみ状態
+  const [isTaxSettingsOpen, setIsTaxSettingsOpen] = useState(false)
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -1864,94 +1871,114 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* 全社共通の標準消費税率設定 */}
-          <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">標準消費税率（全社設定）</h2>
-                <p className="text-xs text-slate-500">
-                  ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isTaxRateEditUnlocked && canEditCompensation && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsTaxRatePasswordDialogOpen(true)}
-                  >
-                    編集を有効化
-                  </Button>
-                )}
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.1}
-                  value={standardTaxRate}
-                  onChange={(e) => setStandardTaxRate(e.target.value)}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
-                  className="w-24"
-                />
-                <span className="text-sm text-slate-600">%</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveStandardTaxRate}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
-                >
-                  {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
-                </Button>
-              </div>
-            </div>
-          </div>
+          {/* 税率設定（折りたたみ式） */}
+          <Collapsible open={isTaxSettingsOpen} onOpenChange={setIsTaxSettingsOpen} className="mb-6">
+            <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+              {/* 常に表示: タイトルと現在の値 */}
+              <CollapsibleTrigger asChild>
+                <button className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div className="flex flex-wrap items-center gap-4 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700">消費税率:</span>
+                      <span className="text-sm font-semibold text-slate-900">{standardTaxRate}%</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-slate-700">源泉徴収率:</span>
+                      <span className="text-sm font-semibold text-slate-900">{withholdingRateUnder1M}% / {withholdingRateOver1M}%</span>
+                      <span className="text-xs text-slate-500">(100万円以下/超)</span>
+                    </div>
+                  </div>
+                  <ChevronDown className={`h-5 w-5 text-slate-500 transition-transform duration-200 ${isTaxSettingsOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
 
-          {/* 源泉徴収率設定 */}
-          <div className="rounded-lg border bg-card p-4 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">源泉徴収率設定（全社設定）</h2>
-                <p className="text-xs text-slate-500">
-                  源泉徴収対象のワーカーのPDF請求書に適用される税率です。法定税率に合わせて設定してください。
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 md:flex-row md:items-center">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円以下:</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={withholdingRateUnder1M}
-                    onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
-                    disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-slate-600">%</span>
+              {/* 折りたたみ: 編集UI */}
+              <CollapsibleContent>
+                <div className="border-t border-slate-200 p-4 space-y-4">
+                  {/* 消費税率設定 */}
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-slate-900">標準消費税率（全社設定）</h3>
+                    <p className="text-xs text-slate-500">
+                      ここで変更した税率は、課税対象に設定されているすべてのワーカーの請求に自動反映されます。
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {!isTaxRateEditUnlocked && canEditCompensation && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsTaxRatePasswordDialogOpen(true)}
+                        >
+                          編集を有効化
+                        </Button>
+                      )}
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={standardTaxRate}
+                        onChange={(e) => setStandardTaxRate(e.target.value)}
+                        disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
+                        className="w-24"
+                      />
+                      <span className="text-sm text-slate-600">%</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSaveStandardTaxRate}
+                        disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
+                      >
+                        {isSavingTax ? '保存中...' : '保存'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* 源泉徴収率設定 */}
+                  <div className="space-y-2 pt-3 border-t border-slate-100">
+                    <h3 className="text-sm font-semibold text-slate-900">源泉徴収率設定（全社設定）</h3>
+                    <p className="text-xs text-slate-500">
+                      源泉徴収対象のワーカーのPDF請求書に適用される税率です。法定税率に合わせて設定してください。
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 mt-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600 whitespace-nowrap">100万円以下:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={withholdingRateUnder1M}
+                          onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
+                          disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-600">%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-slate-600 whitespace-nowrap">100万円超:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={withholdingRateOver1M}
+                          onChange={(e) => setWithholdingRateOver1M(e.target.value)}
+                          disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
+                          className="w-24"
+                        />
+                        <span className="text-sm text-slate-600">%</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSaveWithholdingTaxRate}
+                        disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
+                      >
+                        {isSavingWithholding ? '保存中...' : '保存'}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円超:</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={withholdingRateOver1M}
-                    onChange={(e) => setWithholdingRateOver1M(e.target.value)}
-                    disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
-                    className="w-24"
-                  />
-                  <span className="text-sm text-slate-600">%</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSaveWithholdingTaxRate}
-                  disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
-                >
-                  {isSavingWithholding ? '保存中...' : '保存'}
-                </Button>
-              </div>
+              </CollapsibleContent>
             </div>
-          </div>
+          </Collapsible>
 
           {/* 税率設定用パスワード認証ダイアログ */}
           <PasswordVerificationDialog

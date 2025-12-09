@@ -300,11 +300,11 @@ export const api = {
       return handleResponse(response)
     },
 
-    update: async (rateUnder1M: number, rateOver1M: number) => {
+    update: async (data: { rateUnder1M: number; rateOver1M: number }) => {
       const response = await fetch(`${API_BASE}/withholding-tax-settings`, {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ rateUnder1M, rateOver1M }),
+        body: JSON.stringify(data),
       })
       return handleResponse(response)
     },

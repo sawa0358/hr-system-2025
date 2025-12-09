@@ -957,8 +957,20 @@ export default function SettingsPage() {
                         placeholder="新しいチーム名"
                         value={newTeamName}
                         onChange={(e) => setNewTeamName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleAddTeam(e as any)
+                          }
+                        }}
                       />
-                      <Button type="submit">
+                      <Button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          handleAddTeam(e as any)
+                        }}
+                      >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </form>

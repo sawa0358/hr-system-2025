@@ -253,6 +253,8 @@ export default function SettingsPage() {
       })
       // 反映後、ワーカー一覧を再取得
       await loadWorkers()
+      // 保存後にロック状態に戻す
+      setIsTaxRateEditUnlocked(false)
     } catch (error: any) {
       console.error('handleSaveStandardTaxRate error:', error)
       toast({
@@ -287,6 +289,8 @@ export default function SettingsPage() {
         title: '保存しました',
         description: '源泉徴収率を更新しました。',
       })
+      // 保存後にロック状態に戻す
+      setIsTaxRateEditUnlocked(false)
     } catch (error: any) {
       console.error('handleSaveWithholdingTaxRate error:', error)
       toast({
@@ -707,8 +711,10 @@ export default function SettingsPage() {
   }
 
   const handleAddTeam = async () => {
+    console.log('[handleAddTeam] 呼び出し開始', { newTeamName, userId: currentUser?.id })
     const teamName = newTeamName.trim()
     if (!teamName) {
+      console.log('[handleAddTeam] チーム名が空です')
       toast({
         title: '入力エラー',
         description: 'チーム名を入力してください',
@@ -717,8 +723,11 @@ export default function SettingsPage() {
       return
     }
     try {
+      console.log('[handleAddTeam] addTeam呼び出し', { teamName, userId: currentUser?.id })
       await addTeam(teamName, currentUser?.id)
+      console.log('[handleAddTeam] addTeam成功')
       const updatedTeams = await getTeams(currentUser?.id)
+      console.log('[handleAddTeam] 更新後のチーム一覧', updatedTeams)
       setTeams(updatedTeams) // チーム管理と連動
       setNewTeamName('')
       toast({
@@ -726,7 +735,7 @@ export default function SettingsPage() {
         description: `${teamName}を追加しました`,
       })
     } catch (error) {
-      console.error('チーム追加エラー:', error)
+      console.error('[handleAddTeam] エラー:', error)
       toast({
         title: 'エラー',
         description: 'チームの追加に失敗しました',

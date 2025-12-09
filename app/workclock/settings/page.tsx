@@ -111,6 +111,9 @@ export default function SettingsPage() {
   const [withholdingRateUnder1M, setWithholdingRateUnder1M] = useState<string>('10.21')
   const [withholdingRateOver1M, setWithholdingRateOver1M] = useState<string>('20.42')
   const [isSavingWithholding, setIsSavingWithholding] = useState(false)
+  // 税率設定のパスワード保護
+  const [isTaxRateEditUnlocked, setIsTaxRateEditUnlocked] = useState(false)
+  const [isTaxRatePasswordDialogOpen, setIsTaxRatePasswordDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -294,6 +297,16 @@ export default function SettingsPage() {
     } finally {
       setIsSavingWithholding(false)
     }
+  }
+
+  // 税率設定のパスワード認証成功時
+  const handleTaxRateEditVerified = () => {
+    setIsTaxRateEditUnlocked(true)
+    setIsTaxRatePasswordDialogOpen(false)
+    toast({
+      title: '編集が有効化されました',
+      description: '税率設定を変更できるようになりました。',
+    })
   }
 
   // モバイル時のスクロールでメニューを閉じる
@@ -1838,13 +1851,22 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {!isTaxRateEditUnlocked && canEditCompensation && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsTaxRatePasswordDialogOpen(true)}
+                  >
+                    編集を有効化
+                  </Button>
+                )}
                 <Input
                   type="number"
                   min={0}
                   step={0.1}
                   value={standardTaxRate}
                   onChange={(e) => setStandardTaxRate(e.target.value)}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
                   className="w-24"
                 />
                 <span className="text-sm text-slate-600">%</span>
@@ -1852,7 +1874,7 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleSaveStandardTaxRate}
-                  disabled={isLoadingTax || isSavingTax || !canEditCompensation}
+                  disabled={isLoadingTax || isSavingTax || !canEditCompensation || !isTaxRateEditUnlocked}
                 >
                   {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
                 </Button>
@@ -1878,7 +1900,7 @@ export default function SettingsPage() {
                     step={0.01}
                     value={withholdingRateUnder1M}
                     onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
-                    disabled={isSavingWithholding || !canEditCompensation}
+                    disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
                     className="w-24"
                   />
                   <span className="text-sm text-slate-600">%</span>
@@ -1891,7 +1913,7 @@ export default function SettingsPage() {
                     step={0.01}
                     value={withholdingRateOver1M}
                     onChange={(e) => setWithholdingRateOver1M(e.target.value)}
-                    disabled={isSavingWithholding || !canEditCompensation}
+                    disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
                     className="w-24"
                   />
                   <span className="text-sm text-slate-600">%</span>
@@ -1900,13 +1922,24 @@ export default function SettingsPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleSaveWithholdingTaxRate}
-                  disabled={isSavingWithholding || !canEditCompensation}
+                  disabled={isSavingWithholding || !canEditCompensation || !isTaxRateEditUnlocked}
                 >
                   {isSavingWithholding ? '保存中...' : '保存'}
                 </Button>
               </div>
             </div>
           </div>
+
+          {/* 税率設定用パスワード認証ダイアログ */}
+          <PasswordVerificationDialog
+            open={isTaxRatePasswordDialogOpen}
+            onOpenChange={(open) => {
+              setIsTaxRatePasswordDialogOpen(open)
+            }}
+            onVerified={handleTaxRateEditVerified}
+            currentUser={currentUser}
+            actionType="workclock-worker"
+          />
 
           <Card>
             <CardHeader>

@@ -6,6 +6,7 @@ import { SidebarNav } from '@/components/sidebar-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Card,
   CardContent,
@@ -39,7 +40,8 @@ import {
 } from '@/components/ui/table'
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, getWorkerCandidates, WorkerCandidate } from '@/lib/storage'
 import { Worker } from '@/lib/types'
-import { Plus, Pencil, Trash2, Tags, X } from 'lucide-react'
+import { api } from '@/lib/api'
+import { Plus, Pencil, Trash2, Tags, X, Percent, FileText } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -55,6 +57,14 @@ export default function SettingsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('')
+  
+  // 税率設定
+  const [standardTaxRate, setStandardTaxRate] = useState<number>(10)
+  const [withholdingRateUnder1M, setWithholdingRateUnder1M] = useState<number>(10.21)
+  const [withholdingRateOver1M, setWithholdingRateOver1M] = useState<number>(20.42)
+  const [isSavingTax, setIsSavingTax] = useState(false)
+  const [isSavingWithholding, setIsSavingWithholding] = useState(false)
+  
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -69,6 +79,7 @@ export default function SettingsPage() {
     teams: [] as string[],
     role: 'worker' as 'admin' | 'worker',
     notes: '',
+    withholdingTaxEnabled: false, // 源泉徴収対象
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -80,6 +91,28 @@ export default function SettingsPage() {
         const teamsData = await getTeams()
         setWorkers(workersData)
         setTeams(teamsData)
+        
+        // 税率設定を読み込む
+        try {
+          const taxResponse: any = await api.taxSettings.get()
+          if (taxResponse?.rate !== undefined) {
+            setStandardTaxRate(taxResponse.rate)
+          }
+        } catch (e) {
+          console.warn('消費税率の読み込みに失敗:', e)
+        }
+        
+        try {
+          const withholdingResponse: any = await api.withholdingTaxSettings.get()
+          if (withholdingResponse?.rateUnder1M !== undefined) {
+            setWithholdingRateUnder1M(withholdingResponse.rateUnder1M)
+          }
+          if (withholdingResponse?.rateOver1M !== undefined) {
+            setWithholdingRateOver1M(withholdingResponse.rateOver1M)
+          }
+        } catch (e) {
+          console.warn('源泉徴収率の読み込みに失敗:', e)
+        }
       } catch (error) {
         console.error('データの読み込みに失敗しました:', error)
       }
@@ -102,6 +135,7 @@ export default function SettingsPage() {
       teams: [],
       role: 'worker',
       notes: '',
+      withholdingTaxEnabled: false,
     })
     setSelectedEmployeeId('')
     setEditingWorker(null)
@@ -151,6 +185,7 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role,
           notes: formData.notes,
+          withholdingTaxEnabled: formData.withholdingTaxEnabled,
         })
         const updatedWorkers = await getWorkers()
         setWorkers(updatedWorkers)
@@ -182,6 +217,7 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role,
           notes: formData.notes,
+          withholdingTaxEnabled: formData.withholdingTaxEnabled,
         })
         setWorkers([...workers, newWorker])
         // 候補リストを更新（登録された従業員を除外）
@@ -220,6 +256,7 @@ export default function SettingsPage() {
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
+      withholdingTaxEnabled: worker.withholdingTaxEnabled || false,
     })
     setSelectedEmployeeId(worker.employeeId || '')
     setIsDialogOpen(true)
@@ -287,6 +324,48 @@ export default function SettingsPage() {
           variant: 'destructive',
         })
       }
+    }
+  }
+
+  // 消費税率を保存
+  const handleSaveTaxRate = async () => {
+    setIsSavingTax(true)
+    try {
+      await api.taxSettings.update(standardTaxRate)
+      toast({
+        title: '保存完了',
+        description: '標準消費税率を更新しました',
+      })
+    } catch (error) {
+      console.error('消費税率の保存に失敗:', error)
+      toast({
+        title: 'エラー',
+        description: '消費税率の保存に失敗しました',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingTax(false)
+    }
+  }
+
+  // 源泉徴収率を保存
+  const handleSaveWithholdingRate = async () => {
+    setIsSavingWithholding(true)
+    try {
+      await api.withholdingTaxSettings.update(withholdingRateUnder1M, withholdingRateOver1M)
+      toast({
+        title: '保存完了',
+        description: '源泉徴収率を更新しました',
+      })
+    } catch (error) {
+      console.error('源泉徴収率の保存に失敗:', error)
+      toast({
+        title: 'エラー',
+        description: '源泉徴収率の保存に失敗しました',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingWithholding(false)
     }
   }
 
@@ -553,6 +632,25 @@ export default function SettingsPage() {
                         </Select>
                       </div>
 
+                      {/* 源泉徴収対象スイッチ */}
+                      <div className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="withholdingTaxEnabled" className="text-base">
+                            源泉徴収対象
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            業務委託契約の場合は源泉徴収対象にしてください
+                          </p>
+                        </div>
+                        <Switch
+                          id="withholdingTaxEnabled"
+                          checked={formData.withholdingTaxEnabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, withholdingTaxEnabled: checked })
+                          }
+                        />
+                      </div>
+
                       <div className="grid gap-2">
                         <Label htmlFor="notes">備考欄</Label>
                         <textarea
@@ -587,6 +685,110 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* 税率設定セクション（総務・管理者のみ） */}
+          {(currentUser?.role === 'hr' || currentUser?.role === 'admin') && (
+            <div className="grid gap-6 md:grid-cols-2 mb-6">
+              {/* 標準消費税率 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Percent className="h-5 w-5" />
+                    標準消費税率
+                  </CardTitle>
+                  <CardDescription>
+                    請求書に適用する消費税率を設定します
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={standardTaxRate}
+                      onChange={(e) => setStandardTaxRate(Number(e.target.value))}
+                      className="w-24"
+                    />
+                    <span className="text-muted-foreground">%</span>
+                    <Button
+                      onClick={handleSaveTaxRate}
+                      disabled={isSavingTax}
+                      size="sm"
+                    >
+                      {isSavingTax ? '保存中...' : '保存'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ※ 消費税課税対象のワーカーに適用されます
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* 源泉徴収率 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    源泉徴収税率
+                  </CardTitle>
+                  <CardDescription>
+                    業務委託ワーカーに対する源泉徴収率を設定します
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm">100万円以下</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={withholdingRateUnder1M}
+                          onChange={(e) => setWithholdingRateUnder1M(Number(e.target.value))}
+                          className="w-20"
+                        />
+                        <span className="text-muted-foreground text-sm">%</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm">100万円超（超過分）</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={withholdingRateOver1M}
+                          onChange={(e) => setWithholdingRateOver1M(Number(e.target.value))}
+                          className="w-20"
+                        />
+                        <span className="text-muted-foreground text-sm">%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleSaveWithholdingRate}
+                    disabled={isSavingWithholding}
+                    size="sm"
+                  >
+                    {isSavingWithholding ? '保存中...' : '保存'}
+                  </Button>
+                  <div className="text-xs text-muted-foreground p-3 bg-muted rounded space-y-1">
+                    <p className="font-medium">計算式:</p>
+                    <p>• 報酬が100万円以下: 報酬額 × {withholdingRateUnder1M}%</p>
+                    <p>• 報酬が100万円超: (超過分 × {withholdingRateOver1M}%) + (100万円 × {withholdingRateUnder1M}%)</p>
+                    <p className="mt-2 font-medium">計算例:</p>
+                    <p>• 報酬30万円: {(300000 * withholdingRateUnder1M / 100).toLocaleString()}円</p>
+                    <p>• 報酬150万円: {Math.floor(1000000 * withholdingRateUnder1M / 100 + 500000 * withholdingRateOver1M / 100).toLocaleString()}円</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>登録ワーカー一覧</CardTitle>
@@ -603,6 +805,7 @@ export default function SettingsPage() {
                     <TableHead>時給</TableHead>
                     <TableHead>チーム</TableHead>
                     <TableHead>権限</TableHead>
+                    <TableHead>源泉徴収</TableHead>
                     <TableHead className="text-right">操作</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -627,6 +830,15 @@ export default function SettingsPage() {
                       </TableCell>
                       <TableCell>
                         {worker.role === 'admin' ? '管理者' : 'ワーカー'}
+                      </TableCell>
+                      <TableCell>
+                        {worker.withholdingTaxEnabled ? (
+                          <Badge variant="secondary" className="text-xs">
+                            対象
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

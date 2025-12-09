@@ -183,6 +183,7 @@ export async function PUT(
       transferDestination,
       billingTaxEnabled,
       billingTaxRate,
+      withholdingTaxEnabled,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -248,6 +249,10 @@ export async function PUT(
             ? null
             : billingTaxRate !== undefined && Number.isFinite(Number(billingTaxRate))
             ? Number(billingTaxRate)
+            : undefined,
+        withholdingTaxEnabled:
+          withholdingTaxEnabled !== undefined && withholdingTaxEnabled !== null
+            ? Boolean(withholdingTaxEnabled)
             : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,

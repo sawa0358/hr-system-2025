@@ -1,10 +1,46 @@
 import { Worker, TimeEntry } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
 
+// 源泉徴収率の型定義
+export interface WithholdingTaxRates {
+  rateUnder1M: number  // 100万円以下の税率（%）
+  rateOver1M: number   // 100万円超の税率（%）
+}
+
+// デフォルトの源泉徴収率（現行法律）
+export const DEFAULT_WITHHOLDING_RATES: WithholdingTaxRates = {
+  rateUnder1M: 10.21,
+  rateOver1M: 20.42,
+}
+
+/**
+ * 源泉徴収額を計算する
+ * @param amount 報酬額
+ * @param rates 源泉徴収率
+ * @returns 源泉徴収額
+ */
+export function calculateWithholdingTax(
+  amount: number,
+  rates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+): number {
+  if (amount <= 0) return 0
+  
+  if (amount <= 1000000) {
+    // 100万円以下: 報酬額 × 税率
+    return Math.floor(amount * (rates.rateUnder1M / 100))
+  } else {
+    // 100万円超: (100万円 × 低税率) + (超過分 × 高税率)
+    const baseAmount = 1000000 * (rates.rateUnder1M / 100)
+    const excessAmount = (amount - 1000000) * (rates.rateOver1M / 100)
+    return Math.floor(baseAmount + excessAmount)
+  }
+}
+
 export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
-  month: Date
+  month: Date,
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): string {
   const monthName = month.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -13,7 +49,26 @@ export function generatePDFContent(
 
   const monthlyTotal = getMonthlyTotal(entries)
   const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
-  const totalAmount = totalHours * worker.hourlyRate
+  const baseAmount = Math.floor(totalHours * worker.hourlyRate)
+
+  // 消費税計算
+  let taxAmount = 0
+  if (worker.billingTaxEnabled && worker.billingTaxRate) {
+    taxAmount = Math.floor(baseAmount * (worker.billingTaxRate / 100))
+  }
+
+  // 消費税込みの小計
+  const subtotalWithTax = baseAmount + taxAmount
+
+  // 源泉徴収計算（源泉徴収対象の場合のみ）
+  let withholdingAmount = 0
+  if (worker.withholdingTaxEnabled) {
+    // 源泉徴収は報酬額（税抜）に対して計算
+    withholdingAmount = calculateWithholdingTax(baseAmount, withholdingRates)
+  }
+
+  // 最終支払額
+  const finalAmount = subtotalWithTax - withholdingAmount
 
   // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => 
@@ -28,6 +83,50 @@ export function generatePDFContent(
     acc[entry.date].push(entry)
     return acc
   }, {} as Record<string, TimeEntry[]>)
+
+  // サマリー行を生成
+  let summaryRows = `
+          <div class="summary-item">
+            <span class="summary-label">勤務日数</span>
+            <span class="summary-value">${Object.keys(entriesByDate).length}日</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">総勤務時間</span>
+            <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">報酬（税抜）</span>
+            <span class="summary-value">¥${baseAmount.toLocaleString()}</span>
+          </div>
+  `
+
+  // 消費税がある場合
+  if (taxAmount > 0) {
+    summaryRows += `
+          <div class="summary-item">
+            <span class="summary-label">消費税（${worker.billingTaxRate}%）</span>
+            <span class="summary-value">+ ¥${taxAmount.toLocaleString()}</span>
+          </div>
+    `
+  }
+
+  // 源泉徴収がある場合
+  if (withholdingAmount > 0) {
+    summaryRows += `
+          <div class="summary-item withholding">
+            <span class="summary-label">源泉徴収税</span>
+            <span class="summary-value withholding-value">- ¥${withholdingAmount.toLocaleString()}</span>
+          </div>
+    `
+  }
+
+  // 最終支払額
+  summaryRows += `
+          <div class="summary-item total-amount">
+            <span class="summary-label">お支払い額</span>
+            <span class="summary-value">¥${finalAmount.toLocaleString()}</span>
+          </div>
+  `
 
   let html = `
     <!DOCTYPE html>
@@ -123,6 +222,17 @@ export function generatePDFContent(
         .summary-value {
           font-weight: bold;
           color: #000;
+        }
+        
+        .summary-item.withholding {
+          background: #fff5f5;
+          padding: 8px;
+          margin: 0 -8px;
+          border-radius: 4px;
+        }
+        
+        .withholding-value {
+          color: #dc2626 !important;
         }
         
         .total-amount {
@@ -224,15 +334,25 @@ export function generatePDFContent(
           color: #999;
           font-style: italic;
         }
+        
+        .tax-note {
+          margin-top: 10px;
+          padding: 10px;
+          background: #f9f9f9;
+          border-radius: 4px;
+          font-size: 10px;
+          color: #666;
+        }
       </style>
     </head>
     <body>
       <div class="header">
-        <h1>勤務報告書</h1>
+        <h1>勤務報告書 / 請求書</h1>
         <div class="header-info">
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>
-            ${worker.team ? `<p><strong>所属:</strong> ${worker.team}</p>` : ''}
+            ${worker.companyName ? `<p><strong>屋号:</strong> ${worker.companyName}</p>` : ''}
+            ${worker.teams && worker.teams.length > 0 ? `<p><strong>所属:</strong> ${worker.teams.join(', ')}</p>` : ''}
             <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
           </div>
           <div class="period">${monthName}</div>
@@ -241,19 +361,14 @@ export function generatePDFContent(
       
       <div class="summary">
         <div class="summary-grid">
-          <div class="summary-item">
-            <span class="summary-label">勤務日数</span>
-            <span class="summary-value">${Object.keys(entriesByDate).length}日</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">総勤務時間</span>
-            <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
-          </div>
-          <div class="summary-item total-amount">
-            <span class="summary-label">報酬合計</span>
-            <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
-          </div>
+          ${summaryRows}
         </div>
+        ${worker.withholdingTaxEnabled ? `
+        <div class="tax-note">
+          <p>※ 源泉徴収税は報酬額（税抜）に対して計算されています。</p>
+          <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
+        </div>
+        ` : ''}
       </div>
   `
 
@@ -326,8 +441,14 @@ export function generatePDFContent(
   return html
 }
 
-export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date): void {
-  const htmlContent = generatePDFContent(worker, entries, month)
+export async function downloadPDF(
+  worker: Worker,
+  entries: TimeEntry[],
+  month: Date,
+  withholdingRates?: WithholdingTaxRates
+): Promise<void> {
+  const rates = withholdingRates || DEFAULT_WITHHOLDING_RATES
+  const htmlContent = generatePDFContent(worker, entries, month, rates)
   
   // Create a new window for printing
   const printWindow = window.open('', '_blank')

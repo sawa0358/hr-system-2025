@@ -8,20 +8,36 @@ const API_BASE = '/api/workclock'
 
 /**
  * 認証ヘッダーを取得
- * セッションストレージからemployeeIdを取得
+ * localStorageまたはsessionStorageからcurrentUserを取得
  */
 function getAuthHeaders(): HeadersInit {
   if (typeof window === 'undefined') return {}
   
-  const employeeId = sessionStorage.getItem('employeeId')
-  if (!employeeId) {
-    console.warn('[WorkClock API] employeeId not found in session')
-    return {}
+  // まずlocalStorageをチェック、なければsessionStorageをチェック
+  let savedUser = localStorage.getItem('currentUser')
+  if (!savedUser) {
+    savedUser = sessionStorage.getItem('currentUser')
   }
   
-  return {
-    'Content-Type': 'application/json',
-    'x-employee-id': employeeId,
+  if (!savedUser) {
+    console.warn('[WorkClock API] currentUser not found in storage')
+    return { 'Content-Type': 'application/json' }
+  }
+  
+  try {
+    const user = JSON.parse(savedUser)
+    if (!user.id) {
+      console.warn('[WorkClock API] user.id not found')
+      return { 'Content-Type': 'application/json' }
+    }
+    
+    return {
+      'Content-Type': 'application/json',
+      'x-employee-id': user.id,
+    }
+  } catch (e) {
+    console.error('[WorkClock API] Failed to parse currentUser:', e)
+    return { 'Content-Type': 'application/json' }
   }
 }
 

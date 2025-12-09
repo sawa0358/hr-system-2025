@@ -2,6 +2,30 @@ import { Worker, TimeEntry, Reward } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
 import { getWagePatternLabels } from './wage-patterns'
 
+// 源泉徴収率の型定義
+export interface WithholdingTaxRates {
+  rateUnder1M: number  // 100万円以下の税率（%）
+  rateOver1M: number   // 100万円超の税率（%）
+}
+
+// 源泉徴収率のデフォルト値（法定税率）
+export const DEFAULT_WITHHOLDING_RATES: WithholdingTaxRates = {
+  rateUnder1M: 10.21,
+  rateOver1M: 20.42,
+}
+
+// 源泉徴収税額の計算
+function calculateWithholdingTax(amount: number, rates: WithholdingTaxRates): number {
+  if (amount <= 0) return 0
+  if (amount <= 1000000) {
+    return Math.floor(amount * (rates.rateUnder1M / 100))
+  } else {
+    const under1M = Math.floor(1000000 * (rates.rateUnder1M / 100))
+    const over1M = Math.floor((amount - 1000000) * (rates.rateOver1M / 100))
+    return under1M + over1M
+  }
+}
+
 function formatDateLabel(dateStr: string): string {
   const [yearStr, monthStr, dayStr] = dateStr.split('-')
   const year = Number(yearStr)
@@ -25,7 +49,8 @@ export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
   month: Date,
-  rewards: Reward[] = []
+  rewards: Reward[] = [],
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): string {
   const monthName = month.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -126,6 +151,15 @@ export function generatePDFContent(
       ? Math.floor(baseAmount * (effectiveTaxRatePercent / 100))
       : 0
   const totalWithTax: number = baseAmount + taxAmount
+
+  // 源泉徴収税額の計算（対象の場合のみ）
+  const withholdingTaxEnabled: boolean = (worker as any).withholdingTaxEnabled ?? false
+  const withholdingTaxAmount: number = withholdingTaxEnabled
+    ? calculateWithholdingTax(baseAmount, withholdingRates)
+    : 0
+  
+  // 最終支払額（消費税を加算し、源泉徴収税を減算）
+  const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -507,6 +541,24 @@ export function generatePDFContent(
           </div>
               `
           }
+          ${
+            withholdingTaxEnabled
+              ? `
+          <div class="summary-item" style="padding-top: 10px; border-top: 1px dashed #666;">
+            <span class="summary-label">源泉徴収税額</span>
+            <span class="summary-value" style="color: #c00;">-¥${withholdingTaxAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item total-amount" style="background: #e8f5e9; padding: 8px; border-radius: 4px;">
+            <span class="summary-label" style="font-weight: bold;">差引支払額</span>
+            <span class="summary-value" style="font-weight: bold; font-size: 1.2em;">¥${Math.floor(finalPaymentAmount).toLocaleString()}</span>
+          </div>
+          <div class="tax-note" style="font-size: 10px; color: #666; margin-top: 8px;">
+            <p>※ 源泉徴収税は報酬額（税抜）に対して計算されています。</p>
+            <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
+          </div>
+              `
+              : ''
+          }
         </div>
       </div>
   `
@@ -666,8 +718,14 @@ export function generatePDFContent(
   return html
 }
 
-export function downloadPDF(worker: Worker, entries: TimeEntry[], month: Date, rewards: Reward[] = []): void {
-  const htmlContent = generatePDFContent(worker, entries, month, rewards)
+export function downloadPDF(
+  worker: Worker,
+  entries: TimeEntry[],
+  month: Date,
+  rewards: Reward[] = [],
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+): void {
+  const htmlContent = generatePDFContent(worker, entries, month, rewards, withholdingRates)
   
   // Create a new window for printing
   const printWindow = window.open('', '_blank')
@@ -700,7 +758,8 @@ interface WorkerWithEntries {
  */
 export function generateCombinedPDFContent(
   items: WorkerWithEntries[],
-  month: Date
+  month: Date,
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): string {
   const monthName = month.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -709,7 +768,7 @@ export function generateCombinedPDFContent(
   
   // 各ワーカーの個人PDFを生成し、body部分を抽出
   const workerSections = items.map((item) => {
-    const individualPDF = generatePDFContent(item.worker, item.entries, month, item.rewards)
+    const individualPDF = generatePDFContent(item.worker, item.entries, month, item.rewards, withholdingRates)
     
     // <body>タグの中身を抽出（開始タグと終了タグを除く）
     const bodyMatch = individualPDF.match(/<body[^>]*>([\s\S]*)<\/body>/)
@@ -764,14 +823,15 @@ export function generateCombinedPDFContent(
 
 export function downloadCombinedPDF(
   items: WorkerWithEntries[],
-  month: Date
+  month: Date,
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): void {
   if (!items || items.length === 0) {
     alert('PDF出力対象のワーカーがいません。')
     return
   }
 
-  const htmlContent = generateCombinedPDFContent(items, month)
+  const htmlContent = generateCombinedPDFContent(items, month, withholdingRates)
 
   const printWindow = window.open('', '_blank')
   if (!printWindow) {

@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/table'
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
+import { api } from '@/lib/workclock/api'
 import { Plus, Pencil, Trash2, Tags, X, Menu, Eye } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
@@ -106,6 +107,10 @@ export default function SettingsPage() {
   const [standardTaxRate, setStandardTaxRate] = useState<string>('10')
   const [isLoadingTax, setIsLoadingTax] = useState(false)
   const [isSavingTax, setIsSavingTax] = useState(false)
+  // 源泉徴収率設定
+  const [withholdingRateUnder1M, setWithholdingRateUnder1M] = useState<string>('10.21')
+  const [withholdingRateOver1M, setWithholdingRateOver1M] = useState<string>('20.42')
+  const [isSavingWithholding, setIsSavingWithholding] = useState(false)
   const [formData, setFormData] = useState({
     employeeId: '',
     name: '',
@@ -134,6 +139,7 @@ export default function SettingsPage() {
     // 消費税設定
     billingTaxEnabled: false,
     billingTaxRate: '',
+    withholdingTaxEnabled: false, // 源泉徴収対象
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -193,6 +199,21 @@ export default function SettingsPage() {
         setIsLoadingTax(false)
       }
     })()
+    
+    // 源泉徴収率の読み込み
+    ;(async () => {
+      try {
+        const response: any = await api.withholdingTaxSettings.get()
+        if (response?.rateUnder1M !== undefined) {
+          setWithholdingRateUnder1M(String(response.rateUnder1M))
+        }
+        if (response?.rateOver1M !== undefined) {
+          setWithholdingRateOver1M(String(response.rateOver1M))
+        }
+      } catch (e) {
+        console.warn('源泉徴収率の読み込みに失敗:', e)
+      }
+    })()
   }, [currentUser])
 
   const handleSaveStandardTaxRate = async () => {
@@ -238,6 +259,40 @@ export default function SettingsPage() {
       })
     } finally {
       setIsSavingTax(false)
+    }
+  }
+
+  // 源泉徴収率の保存
+  const handleSaveWithholdingTaxRate = async () => {
+    try {
+      const rateUnder1M = Number(withholdingRateUnder1M)
+      const rateOver1M = Number(withholdingRateOver1M)
+      
+      if (!Number.isFinite(rateUnder1M) || rateUnder1M < 0 || !Number.isFinite(rateOver1M) || rateOver1M < 0) {
+        toast({
+          title: '入力エラー',
+          description: '有効な源泉徴収率（0以上の数値）を入力してください。',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setIsSavingWithholding(true)
+      await api.withholdingTaxSettings.update({ rateUnder1M, rateOver1M })
+
+      toast({
+        title: '保存しました',
+        description: '源泉徴収率を更新しました。',
+      })
+    } catch (error: any) {
+      console.error('handleSaveWithholdingTaxRate error:', error)
+      toast({
+        title: 'エラー',
+        description: error?.message || '源泉徴収率の更新に失敗しました',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingWithholding(false)
     }
   }
 
@@ -308,6 +363,7 @@ export default function SettingsPage() {
       transferDestination: '',
       billingTaxEnabled: false,
       billingTaxRate: '',
+      withholdingTaxEnabled: false,
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -417,6 +473,7 @@ export default function SettingsPage() {
               Number(formData.monthlyFixedAmount) > 0,
             billingTaxEnabled: formData.billingTaxEnabled,
             billingTaxRate: taxRateValue,
+            withholdingTaxEnabled: formData.withholdingTaxEnabled,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
             // 備考欄も空にした場合は空文字で上書きしたい
@@ -493,6 +550,7 @@ export default function SettingsPage() {
             Number(formData.monthlyFixedAmount) > 0,
           billingTaxEnabled: formData.billingTaxEnabled,
           billingTaxRate: taxRateValue,
+          withholdingTaxEnabled: formData.withholdingTaxEnabled,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes,
@@ -600,6 +658,7 @@ export default function SettingsPage() {
         typeof worker.billingTaxRate === 'number'
           ? String(worker.billingTaxRate)
           : '',
+      withholdingTaxEnabled: worker.withholdingTaxEnabled ?? false,
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -1188,6 +1247,33 @@ export default function SettingsPage() {
                         )}
                       </div>
 
+                      {/* 源泉徴収設定 */}
+                      <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-sm">源泉徴収設定</Label>
+                            <p className="text-xs text-muted-foreground">
+                              このワーカーのPDF請求書に源泉徴収税額を表示するかどうかを設定します。
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.withholdingTaxEnabled}
+                              onCheckedChange={(checked) =>
+                                setFormData({
+                                  ...formData,
+                                  withholdingTaxEnabled: checked,
+                                })
+                              }
+                              disabled={!isWorkerEditUnlocked}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {formData.withholdingTaxEnabled ? '対象' : '対象外'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
                       <Card className="border border-dashed bg-muted/40">
                         <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
                           <div>
@@ -1769,6 +1855,54 @@ export default function SettingsPage() {
                   disabled={isLoadingTax || isSavingTax || !canEditCompensation}
                 >
                   {isSavingTax ? '保存中...' : '保存して全ワーカーに反映'}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* 源泉徴収率設定 */}
+          <div className="rounded-lg border bg-card p-4 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">源泉徴収率設定（全社設定）</h2>
+                <p className="text-xs text-slate-500">
+                  源泉徴収対象のワーカーのPDF請求書に適用される税率です。法定税率に合わせて設定してください。
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円以下:</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={withholdingRateUnder1M}
+                    onChange={(e) => setWithholdingRateUnder1M(e.target.value)}
+                    disabled={isSavingWithholding || !canEditCompensation}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-slate-600">%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-600 whitespace-nowrap">100万円超:</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={withholdingRateOver1M}
+                    onChange={(e) => setWithholdingRateOver1M(e.target.value)}
+                    disabled={isSavingWithholding || !canEditCompensation}
+                    className="w-24"
+                  />
+                  <span className="text-sm text-slate-600">%</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSaveWithholdingTaxRate}
+                  disabled={isSavingWithholding || !canEditCompensation}
+                >
+                  {isSavingWithholding ? '保存中...' : '保存'}
                 </Button>
               </div>
             </div>

@@ -8,7 +8,8 @@ import { AdminOverview } from '@/components/admin-overview'
 import { WorkerTable } from '@/components/worker-table'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { downloadPDF } from '@/lib/pdf-export'
+import { downloadPDF, WithholdingTaxRates, DEFAULT_WITHHOLDING_RATES } from '@/lib/pdf-export'
+import { api } from '@/lib/api'
 
 export default function AdminPage() {
   const [workers, setWorkers] = useState<Worker[]>([])
@@ -66,7 +67,21 @@ export default function AdminPage() {
       const month = currentDate.getMonth()
       const workerEntries = await getEntriesByWorkerAndMonth(workerId, year, month)
       
-      downloadPDF(worker, workerEntries, currentDate)
+      // 源泉徴収率を取得
+      let withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+      try {
+        const response: any = await api.withholdingTaxSettings.get()
+        if (response?.rateUnder1M !== undefined && response?.rateOver1M !== undefined) {
+          withholdingRates = {
+            rateUnder1M: response.rateUnder1M,
+            rateOver1M: response.rateOver1M,
+          }
+        }
+      } catch (e) {
+        console.warn('源泉徴収率の取得に失敗しました。デフォルト値を使用します。', e)
+      }
+      
+      await downloadPDF(worker, workerEntries, currentDate, withholdingRates)
     } catch (error) {
       console.error('PDFエクスポートに失敗しました:', error)
       alert('PDFエクスポートに失敗しました。もう一度お試しください。')

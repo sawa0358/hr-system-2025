@@ -23,6 +23,11 @@ export interface Worker {
   teams?: string[]
   role: 'worker' | 'admin'
   notes?: string // 備考欄
+  // 消費税設定
+  billingTaxEnabled?: boolean // 消費税を請求に反映するか
+  billingTaxRate?: number // 個別の消費税率
+  // 源泉徴収設定
+  withholdingTaxEnabled?: boolean // 源泉徴収対象かどうか
 }
 
 export interface WorkSummary {

@@ -13,16 +13,18 @@ interface AdminOverviewProps {
   selectedMonth: Date
 }
 
-export function AdminOverview({ workers, allEntries, allRewards, selectedMonth }: AdminOverviewProps) {
+export function AdminOverview({ workers, allEntries, allRewards = [], selectedMonth }: AdminOverviewProps) {
   // リーダー（role='admin'）も含めて表示（WorkerTableと同じロジック）
-  const activeWorkers = workers
+  const activeWorkers = workers || []
+  const safeAllEntries = allEntries || []
+  const safeAllRewards = allRewards || []
   
-  const totalHoursAndMinutes = getMonthlyTotal(allEntries)
+  const totalHoursAndMinutes = getMonthlyTotal(safeAllEntries)
   const totalHours = totalHoursAndMinutes.hours + totalHoursAndMinutes.minutes / 60
 
   const totalCost = activeWorkers.reduce((sum, worker) => {
-    const workerEntries = allEntries.filter((e) => e.workerId === worker.id)
-    const workerRewards = allRewards.filter((r) => r.workerId === worker.id)
+    const workerEntries = safeAllEntries.filter((e) => e.workerId === worker.id)
+    const workerRewards = safeAllRewards.filter((r) => r.workerId === worker.id)
     return sum + calculateWorkerMonthlyCost(worker, workerEntries, workerRewards)
   }, 0)
 

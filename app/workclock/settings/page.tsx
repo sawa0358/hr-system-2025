@@ -706,27 +706,32 @@ export default function SettingsPage() {
     }
   }
 
-  const handleAddTeam = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newTeamName.trim()) {
-      try {
-        await addTeam(newTeamName.trim(), currentUser?.id)
-        const updatedTeams = await getTeams(currentUser?.id)
-        setTeams(updatedTeams) // チーム管理と連動
-        setNewTeamName('')
-        // setIsTeamDialogOpen(false) // 続けて入力できるように閉じない
-        toast({
-          title: 'チーム追加完了',
-          description: `${newTeamName}を追加しました`,
-        })
-      } catch (error) {
-        console.error('チーム追加エラー:', error)
-        toast({
-          title: 'エラー',
-          description: 'チームの追加に失敗しました',
-          variant: 'destructive',
-        })
-      }
+  const handleAddTeam = async () => {
+    const teamName = newTeamName.trim()
+    if (!teamName) {
+      toast({
+        title: '入力エラー',
+        description: 'チーム名を入力してください',
+        variant: 'destructive',
+      })
+      return
+    }
+    try {
+      await addTeam(teamName, currentUser?.id)
+      const updatedTeams = await getTeams(currentUser?.id)
+      setTeams(updatedTeams) // チーム管理と連動
+      setNewTeamName('')
+      toast({
+        title: 'チーム追加完了',
+        description: `${teamName}を追加しました`,
+      })
+    } catch (error) {
+      console.error('チーム追加エラー:', error)
+      toast({
+        title: 'エラー',
+        description: 'チームの追加に失敗しました',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -952,7 +957,7 @@ export default function SettingsPage() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
-                    <form onSubmit={handleAddTeam} className="flex gap-2">
+                    <div className="flex gap-2">
                       <Input
                         placeholder="新しいチーム名"
                         value={newTeamName}
@@ -960,20 +965,17 @@ export default function SettingsPage() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             e.preventDefault()
-                            handleAddTeam(e as any)
+                            handleAddTeam()
                           }
                         }}
                       />
                       <Button 
                         type="button"
-                        onClick={(e) => {
-                          e.preventDefault()
-                          handleAddTeam(e as any)
-                        }}
+                        onClick={() => handleAddTeam()}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
-                    </form>
+                    </div>
                     <div className="space-y-2">
                       <Label>登録済みチーム</Label>
                       <div className="flex flex-wrap gap-2">

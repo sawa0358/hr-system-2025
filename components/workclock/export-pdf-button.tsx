@@ -41,7 +41,7 @@ export function ExportPDFButton({
         console.warn('源泉徴収率の取得に失敗しました。デフォルト値を使用します。', e)
       }
 
-      await downloadPDF(worker, entries, month, withholdingRates)
+      await downloadPDF(worker, entries, month, [], withholdingRates)
     } catch (error) {
       console.error('PDF出力に失敗しました:', error)
       alert('PDF出力に失敗しました。もう一度お試しください。')

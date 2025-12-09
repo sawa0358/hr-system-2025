@@ -17,7 +17,8 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { downloadPDF, downloadCombinedPDF } from '@/lib/workclock/pdf-export'
+import { downloadPDF, downloadCombinedPDF, WithholdingTaxRates, DEFAULT_WITHHOLDING_RATES } from '@/lib/workclock/pdf-export'
+import { api } from '@/lib/workclock/api'
 import { useIsMobile } from '@/hooks/use-mobile'
 
 export default function AdminPage() {
@@ -104,7 +105,7 @@ export default function AdminPage() {
     setCurrentDate(new Date(year, month + 1, 1))
   }
 
-  const handleExportPDF = (workerId: string) => {
+  const handleExportPDF = async (workerId: string) => {
     try {
       const worker = workers.find((w) => w.id === workerId)
       if (!worker) {
@@ -115,14 +116,28 @@ export default function AdminPage() {
       const workerEntries = allEntries.filter((e) => e.workerId === workerId)
       const workerRewards = allRewards.filter((r) => r.workerId === workerId)
 
-      downloadPDF(worker, workerEntries, currentDate, workerRewards)
+      // 源泉徴収率を取得
+      let withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+      try {
+        const response: any = await api.withholdingTaxSettings.get()
+        if (response?.rateUnder1M !== undefined && response?.rateOver1M !== undefined) {
+          withholdingRates = {
+            rateUnder1M: response.rateUnder1M,
+            rateOver1M: response.rateOver1M,
+          }
+        }
+      } catch (e) {
+        console.warn('源泉徴収率の取得に失敗しました。デフォルト値を使用します。', e)
+      }
+
+      downloadPDF(worker, workerEntries, currentDate, workerRewards, withholdingRates)
     } catch (error) {
       console.error('PDFエクスポートエラー:', error)
       alert('PDFエクスポートに失敗しました')
     }
   }
 
-  const handleExportAllPDF = (workerIds: string[]) => {
+  const handleExportAllPDF = async (workerIds: string[]) => {
     try {
       const items = workerIds
         .map((id) => {
@@ -139,7 +154,21 @@ export default function AdminPage() {
         return
       }
 
-      downloadCombinedPDF(items, currentDate)
+      // 源泉徴収率を取得
+      let withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+      try {
+        const response: any = await api.withholdingTaxSettings.get()
+        if (response?.rateUnder1M !== undefined && response?.rateOver1M !== undefined) {
+          withholdingRates = {
+            rateUnder1M: response.rateUnder1M,
+            rateOver1M: response.rateOver1M,
+          }
+        }
+      } catch (e) {
+        console.warn('源泉徴収率の取得に失敗しました。デフォルト値を使用します。', e)
+      }
+
+      downloadCombinedPDF(items, currentDate, withholdingRates)
     } catch (error) {
       console.error('一括PDFエクスポートエラー:', error)
       alert('一括PDFエクスポートに失敗しました')

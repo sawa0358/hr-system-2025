@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Next.jsの静的最適化を無効化（PUTメソッドを有効にする）
+export const dynamic = 'force-dynamic'
+
 // キー: MasterData.type/value で標準税率を管理
 const TAX_TYPE = 'workclock_tax'
 const TAX_VALUE_STANDARD = 'standard_rate'

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// Next.jsの静的最適化を無効化（PUTメソッドを有効にする）
+export const dynamic = 'force-dynamic'
+
 // キー: MasterData.type/value で源泉徴収率を管理
 const WITHHOLDING_TAX_TYPE = 'workclock_withholding_tax'
 const RATE_UNDER_1M = 'rate_under_1m' // 100万円以下の税率

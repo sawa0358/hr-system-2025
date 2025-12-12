@@ -136,9 +136,9 @@ export function generatePDFContent(
     hourlyPatternTotalAmount + countPatternTotalAmount + (monthlyFixedAmount ?? 0) + rewardAmount
 
   // 消費税計算用（ワーカーごとの設定）
-  const baseAmount = totalAmount
   const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false
   const workerTaxRateRaw = (worker as any).billingTaxRate
+  const taxType: 'exclusive' | 'inclusive' = (worker as any).taxType || 'exclusive'
   // 税率は「10.0」などの百分率で保存する想定。未設定の場合はデフォルト10%を使用
   const effectiveTaxRatePercent: number =
     billingTaxEnabled && typeof workerTaxRateRaw === 'number'
@@ -146,19 +146,39 @@ export function generatePDFContent(
       : billingTaxEnabled
       ? 10
       : 0
-  const taxAmount: number =
-    billingTaxEnabled && effectiveTaxRatePercent > 0
-      ? Math.floor(baseAmount * (effectiveTaxRatePercent / 100))
-      : 0
-  const totalWithTax: number = baseAmount + taxAmount
 
-  // 源泉徴収税額の計算（対象の場合のみ）
+  // 外税・内税で計算を分岐
+  let baseAmountExclTax: number // 税抜金額（源泉徴収の計算に使用）
+  let taxAmount: number
+  let totalWithTax: number
+
+  if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
+    if (taxType === 'inclusive') {
+      // 内税: totalAmountは税込金額として扱う
+      // 税抜金額 = 税込金額 ÷ (1 + 税率/100)
+      baseAmountExclTax = Math.floor(totalAmount / (1 + effectiveTaxRatePercent / 100))
+      taxAmount = totalAmount - baseAmountExclTax // 内税額
+      totalWithTax = totalAmount // 税込金額 = 元の金額
+    } else {
+      // 外税: totalAmountは税抜金額として扱う
+      baseAmountExclTax = totalAmount
+      taxAmount = Math.floor(totalAmount * (effectiveTaxRatePercent / 100))
+      totalWithTax = totalAmount + taxAmount
+    }
+  } else {
+    // 消費税対象外
+    baseAmountExclTax = totalAmount
+    taxAmount = 0
+    totalWithTax = totalAmount
+  }
+
+  // 源泉徴収税額の計算（対象の場合のみ、常に税抜金額に対して計算）
   const withholdingTaxEnabled: boolean = (worker as any).withholdingTaxEnabled ?? false
   const withholdingTaxAmount: number = withholdingTaxEnabled
-    ? calculateWithholdingTax(baseAmount, withholdingRates)
+    ? calculateWithholdingTax(baseAmountExclTax, withholdingRates)
     : 0
   
-  // 最終支払額（消費税を加算し、源泉徴収税を減算）
+  // 最終支払額（税込金額から源泉徴収税を減算）
   const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount
 
   // DB優先でパターン名を取得
@@ -520,24 +540,39 @@ export function generatePDFContent(
           }
           ${
             billingTaxEnabled
-              ? `
+              ? taxType === 'inclusive'
+                ? `
+          <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
+            <span class="summary-label">報酬額（税込）</span>
+            <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="font-size: 11px; color: #666;">
+            <span class="summary-label">　└ 内税額（${effectiveTaxRatePercent}%）</span>
+            <span class="summary-value">うち ¥${taxAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="font-size: 11px; color: #666;">
+            <span class="summary-label">　└ 税抜金額</span>
+            <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
+          </div>
+                `
+                : `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">税抜小計</span>
-            <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
+            <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">消費税（${effectiveTaxRatePercent}%）</span>
+            <span class="summary-label">消費税（${effectiveTaxRatePercent}%・外税）</span>
             <span class="summary-value">¥${taxAmount.toLocaleString()}</span>
           </div>
           <div class="summary-item total-amount">
             <span class="summary-label">税込合計</span>
             <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
           </div>
-              `
+                `
               : `
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
-            <span class="summary-value">¥${Math.floor(baseAmount).toLocaleString()}</span>
+            <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
           </div>
               `
           }

@@ -79,6 +79,8 @@ export default function SettingsPage() {
     teams: [] as string[],
     role: 'worker' as 'admin' | 'worker',
     notes: '',
+    billingTaxEnabled: false, // 消費税を請求に反映
+    taxType: 'exclusive' as 'exclusive' | 'inclusive', // 外税 | 内税
     withholdingTaxEnabled: false, // 源泉徴収対象
   })
   const { toast } = useToast()
@@ -135,6 +137,8 @@ export default function SettingsPage() {
       teams: [],
       role: 'worker',
       notes: '',
+      billingTaxEnabled: false,
+      taxType: 'exclusive',
       withholdingTaxEnabled: false,
     })
     setSelectedEmployeeId('')
@@ -185,6 +189,8 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role,
           notes: formData.notes,
+          billingTaxEnabled: formData.billingTaxEnabled,
+          taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
         })
         const updatedWorkers = await getWorkers()
@@ -217,6 +223,8 @@ export default function SettingsPage() {
           teams: formData.teams,
           role: formData.role,
           notes: formData.notes,
+          billingTaxEnabled: formData.billingTaxEnabled,
+          taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
         })
         setWorkers([...workers, newWorker])
@@ -256,6 +264,8 @@ export default function SettingsPage() {
       teams: worker.teams || [],
       role: worker.role,
       notes: worker.notes || '',
+      billingTaxEnabled: worker.billingTaxEnabled || false,
+      taxType: worker.taxType || 'exclusive',
       withholdingTaxEnabled: worker.withholdingTaxEnabled || false,
     })
     setSelectedEmployeeId(worker.employeeId || '')

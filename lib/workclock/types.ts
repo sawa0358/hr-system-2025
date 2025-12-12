@@ -26,6 +26,7 @@ export interface Worker {
   // 消費税設定
   billingTaxEnabled?: boolean // 消費税を請求に反映するか
   billingTaxRate?: number // 個別の消費税率
+  taxType?: 'exclusive' | 'inclusive' // 外税 | 内税（デフォルト: 外税）
   // 源泉徴収設定
   withholdingTaxEnabled?: boolean // 源泉徴収対象かどうか
 }

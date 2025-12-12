@@ -221,6 +221,7 @@ export async function POST(request: NextRequest) {
       transferDestination,
       billingTaxEnabled,
       billingTaxRate,
+      taxType,
       withholdingTaxEnabled,
     } = body
 
@@ -314,6 +315,7 @@ export async function POST(request: NextRequest) {
           Number.isFinite(Number(billingTaxRate))
             ? Number(billingTaxRate)
             : null,
+        taxType: taxType === 'inclusive' ? 'inclusive' : 'exclusive',
         withholdingTaxEnabled: withholdingTaxEnabled ?? false,
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',

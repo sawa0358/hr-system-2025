@@ -54,3 +54,4 @@ heroku pg:backups:restore backups/pre-deployment-20251210_004100/heroku-producti
 - 新しいマイグレーションは`withholdingTaxEnabled`カラムの追加のみ
 - 既存データへの影響はなし（デフォルト値: false）
 
+

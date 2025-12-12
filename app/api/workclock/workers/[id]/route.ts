@@ -183,6 +183,7 @@ export async function PUT(
       transferDestination,
       billingTaxEnabled,
       billingTaxRate,
+      taxType,
       withholdingTaxEnabled,
     } = body
 
@@ -249,6 +250,10 @@ export async function PUT(
             ? null
             : billingTaxRate !== undefined && Number.isFinite(Number(billingTaxRate))
             ? Number(billingTaxRate)
+            : undefined,
+        taxType:
+          taxType !== undefined
+            ? (taxType === 'inclusive' ? 'inclusive' : 'exclusive')
             : undefined,
         withholdingTaxEnabled:
           withholdingTaxEnabled !== undefined && withholdingTaxEnabled !== null

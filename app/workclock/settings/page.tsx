@@ -149,6 +149,7 @@ export default function SettingsPage() {
     // 消費税設定
     billingTaxEnabled: false,
     billingTaxRate: '',
+    taxType: 'exclusive' as 'exclusive' | 'inclusive', // 外税 | 内税
     withholdingTaxEnabled: false, // 源泉徴収対象
   })
   const { toast } = useToast()
@@ -387,6 +388,7 @@ export default function SettingsPage() {
       transferDestination: '',
       billingTaxEnabled: false,
       billingTaxRate: '',
+      taxType: 'exclusive',
       withholdingTaxEnabled: false,
     })
     setEditingWorker(null)
@@ -497,6 +499,7 @@ export default function SettingsPage() {
               Number(formData.monthlyFixedAmount) > 0,
             billingTaxEnabled: formData.billingTaxEnabled,
             billingTaxRate: taxRateValue,
+            taxType: formData.taxType,
             withholdingTaxEnabled: formData.withholdingTaxEnabled,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
@@ -574,6 +577,7 @@ export default function SettingsPage() {
             Number(formData.monthlyFixedAmount) > 0,
           billingTaxEnabled: formData.billingTaxEnabled,
           billingTaxRate: taxRateValue,
+          taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
@@ -682,6 +686,7 @@ export default function SettingsPage() {
         typeof worker.billingTaxRate === 'number'
           ? String(worker.billingTaxRate)
           : '',
+      taxType: worker.taxType || 'exclusive',
       withholdingTaxEnabled: worker.withholdingTaxEnabled ?? false,
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
@@ -1261,32 +1266,74 @@ export default function SettingsPage() {
                           </div>
                         </div>
                         {formData.billingTaxEnabled && (
-                          <div className="grid grid-cols-[120px,1fr] items-center gap-3">
-                            <Label
-                              htmlFor="billingTaxRate"
-                              className="text-xs text-muted-foreground"
-                            >
-                              消費税率（%）
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                id="billingTaxRate"
-                                type="number"
-                                min={0}
-                                step={0.1}
-                                value={formData.billingTaxRate}
-                                onChange={(e) =>
-                                  setFormData({
-                                    ...formData,
-                                    billingTaxRate: e.target.value,
-                                  })
-                                }
-                                placeholder="例: 10"
-                                disabled={!isWorkerEditUnlocked}
-                              />
-                              <span className="text-xs text-muted-foreground">%</span>
+                          <>
+                            <div className="grid grid-cols-[120px,1fr] items-center gap-3">
+                              <Label
+                                htmlFor="billingTaxRate"
+                                className="text-xs text-muted-foreground"
+                              >
+                                消費税率（%）
+                              </Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  id="billingTaxRate"
+                                  type="number"
+                                  min={0}
+                                  step={0.1}
+                                  value={formData.billingTaxRate}
+                                  onChange={(e) =>
+                                    setFormData({
+                                      ...formData,
+                                      billingTaxRate: e.target.value,
+                                    })
+                                  }
+                                  placeholder="例: 10"
+                                  disabled={!isWorkerEditUnlocked}
+                                />
+                                <span className="text-xs text-muted-foreground">%</span>
+                              </div>
                             </div>
-                          </div>
+                            <div className="grid grid-cols-[120px,1fr] items-center gap-3">
+                              <Label className="text-xs text-muted-foreground">
+                                税区分
+                              </Label>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    formData.taxType === 'exclusive'
+                                      ? 'bg-primary text-primary-foreground border-primary'
+                                      : 'bg-background text-muted-foreground border-input hover:bg-accent'
+                                  }`}
+                                  onClick={() =>
+                                    setFormData({ ...formData, taxType: 'exclusive' })
+                                  }
+                                  disabled={!isWorkerEditUnlocked}
+                                >
+                                  外税
+                                </button>
+                                <button
+                                  type="button"
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
+                                    formData.taxType === 'inclusive'
+                                      ? 'bg-primary text-primary-foreground border-primary'
+                                      : 'bg-background text-muted-foreground border-input hover:bg-accent'
+                                  }`}
+                                  onClick={() =>
+                                    setFormData({ ...formData, taxType: 'inclusive' })
+                                  }
+                                  disabled={!isWorkerEditUnlocked}
+                                >
+                                  内税
+                                </button>
+                                <span className="text-xs text-muted-foreground">
+                                  {formData.taxType === 'exclusive'
+                                    ? '報酬額に消費税を上乗せ'
+                                    : '報酬額に消費税を含む'}
+                                </span>
+                              </div>
+                            </div>
+                          </>
                         )}
                       </div>
 
@@ -1856,11 +1903,24 @@ export default function SettingsPage() {
                             {viewingWorker.billingTaxEnabled ? '対象' : '対象外'}
                           </Badge>
                         </div>
-                        {viewingWorker.billingTaxEnabled && viewingWorker.billingTaxRate !== undefined && (
-                          <div className="flex items-center gap-2 pl-4">
-                            <span className="text-sm text-muted-foreground">消費税率:</span>
-                            <span className="text-sm font-medium">{viewingWorker.billingTaxRate}%</span>
-                          </div>
+                        {viewingWorker.billingTaxEnabled && (
+                          <>
+                            <div className="flex items-center gap-2 pl-4">
+                              <span className="text-sm text-muted-foreground">消費税率:</span>
+                              <span className="text-sm font-medium">{viewingWorker.billingTaxRate ?? '-'}%</span>
+                            </div>
+                            <div className="flex items-center gap-2 pl-4">
+                              <span className="text-sm text-muted-foreground">税区分:</span>
+                              <Badge variant="outline">
+                                {viewingWorker.taxType === 'inclusive' ? '内税' : '外税'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {viewingWorker.taxType === 'inclusive'
+                                  ? '（報酬額に消費税を含む）'
+                                  : '（報酬額に消費税を上乗せ）'}
+                              </span>
+                            </div>
+                          </>
                         )}
                       </div>
 

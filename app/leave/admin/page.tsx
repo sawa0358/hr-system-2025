@@ -35,10 +35,10 @@ export default function LeaveAdminPage() {
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   // 店長・マネージャーは承認待ちのみ表示
   const isManagerOrStoreManager = currentUser?.role === 'manager' || currentUser?.role === 'store_manager'
-  
+
   // 店長・マネージャーの場合は「承認待ち」のみ表示し、「全社員」ボタンは非表示
   const canViewAllEmployees = isAdminOrHR && !isManagerOrStoreManager
-  
+
   // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
 
@@ -53,7 +53,7 @@ export default function LeaveAdminPage() {
       const res = await fetch('/api/vacation/recalc/all', {
         method: 'POST',
       })
-      
+
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
         throw new Error(error?.error || '付与ロットの生成に失敗しました')
@@ -61,7 +61,7 @@ export default function LeaveAdminPage() {
 
       const result = await res.json()
       const summary = result.summary || {}
-      
+
       toast({
         title: "付与ロット生成完了",
         description: `成功: ${summary.success || 0}件、生成: ${summary.totalGenerated || 0}件、更新: ${summary.totalUpdated || 0}件`,
@@ -78,13 +78,38 @@ export default function LeaveAdminPage() {
     }
   }
 
+  // デフォルト画面の制御（承認待ちがある場合は承認待ち、ない場合は全社員を表示）
+  // ただし、URLパラメータで明示的に指定されている場合はそちらを優先
+  useState(() => {
+    if (!params.get("view")) {
+      const fetchPendingCount = async () => {
+        try {
+          const res = await fetch('/api/vacation/admin/applicants?view=pending')
+          if (res.ok) {
+            const json = await res.json()
+            const count = json.employees?.length || 0
+            setPendingCount(count)
+            if (count > 0) {
+              setView("pending")
+            } else if (isAdminOrHR) {
+              setView("all")
+            }
+          }
+        } catch (error) {
+          console.error('[LeaveAdminPage] 承認待ち件数取得エラー:', error)
+        }
+      }
+      fetchPendingCount()
+    }
+  })
+
+  // 上部のタブ：管理者ボタンを移動したため、社員と設定のみ
   const tabs = [
-    { 
-      name: "社員", 
-      href: currentUser ? `/leave?employeeId=${currentUser.id}&name=${encodeURIComponent(currentUser.name || '')}` : "/leave", 
-      show: currentUser?.role === 'hr' && pathname !== '/leave' // 総務のみ表示、管理者は非表示、ただし社員画面を開いている時は非表示
+    {
+      name: "社員",
+      href: currentUser ? `/leave?employeeId=${currentUser.id}&name=${encodeURIComponent(currentUser.name || '')}` : "/leave",
+      show: currentUser?.role === 'hr' && pathname !== '/leave'
     },
-    { name: "管理者", href: "/leave/admin", show: isAdminOrHR },
     { name: "設定", href: "/leave/settings", show: isAdminOrHR },
   ].filter(tab => tab.show)
 
@@ -116,7 +141,7 @@ export default function LeaveAdminPage() {
 
         <VacationStats userRole="admin" />
 
-        <EmployeeFilters 
+        <EmployeeFilters
           onFiltersChange={(newFilters) => {
             setFilters({
               searchQuery: newFilters.searchQuery,
@@ -131,8 +156,8 @@ export default function LeaveAdminPage() {
 
         <div className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-2">
           <div className="flex gap-2">
-            <Button 
-              variant={view === "pending" ? "default" : "outline"} 
+            <Button
+              variant={view === "pending" ? "default" : "outline"}
               onClick={() => { setView("pending"); router.replace("/leave/admin?view=pending") }}
               className="relative"
             >
@@ -143,8 +168,13 @@ export default function LeaveAdminPage() {
                 </span>
               )}
             </Button>
-            {canViewAllEmployees && (
-              <Button variant={view === "all" ? "default" : "outline"} onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}>全社員</Button>
+            {isAdminOrHR && (
+              <Button
+                variant={view === "all" ? "default" : "outline"}
+                onClick={() => { setView("all"); router.replace("/leave/admin?view=all") }}
+              >
+                管理者画面
+              </Button>
             )}
           </div>
         </div>

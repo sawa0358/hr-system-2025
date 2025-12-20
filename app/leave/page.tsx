@@ -19,7 +19,7 @@ export default function LeavePage() {
   // AIに渡すコンテキスト情報を構築
   const buildAIContext = () => {
     const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
-    
+
     return `【現在のページ】有給管理（休暇管理）
 【ページの説明】社員の有給休暇を管理するページです
 
@@ -48,51 +48,51 @@ export default function LeavePage() {
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
-  
+
   // employeeIdパラメータを取得（管理者が特定社員の画面を見る場合）
   const employeeIdParam = params.get("employeeId")
   const employeeNameParam = params.get("name")
-  
+
   // 表示する社員IDを決定（パラメータがあればそれを使用、なければ自分のID）
   const displayEmployeeId = employeeIdParam || currentUser?.id
   const displayEmployeeName = employeeNameParam || currentUser?.name || "従業員"
-  
+
   // 管理者が他の社員の画面を見ているかどうか
   const isViewingOtherEmployee = employeeIdParam && employeeIdParam !== currentUser?.id
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
-  
+
   // マネージャー・総務・管理者権限の判定（AIに聞くボタン表示用）
   const canUseAI = currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
   // 店長・マネージャー以上が「ほか一覧」を表示可能
   const canViewOthersList = currentUser?.role === 'manager' || currentUser?.role === 'store_manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin'
-  
+
   // 総務・管理者の場合は「承認待ち一覧」、店長・マネージャーの場合は「ほか一覧」
   const isAdminOrHRRole = currentUser?.role === 'hr' || currentUser?.role === 'admin'
   const othersListLabel = isAdminOrHRRole ? '承認待ち一覧' : 'ほか一覧'
-  
+
   // 「ほか一覧」ボタンのバッジ用カウント
   const [othersListBadgeCount, setOthersListBadgeCount] = useState(0)
-  
+
   // 店長・マネージャー以上の場合、承認待ち申請数を取得
   useEffect(() => {
     if (!canViewOthersList || !currentUser?.id) {
       setOthersListBadgeCount(0)
       return
     }
-    
+
     // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
     // 総務・管理者の場合は、全申請をカウント
     const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
     const fetchOthersListCount = async () => {
       try {
-        const url = isManagerOrStoreManager 
+        const url = isManagerOrStoreManager
           ? `/api/vacation/admin/applicants?view=pending&supervisorId=${currentUser.id}`
           : '/api/vacation/admin/applicants?view=pending'
-        
+
         const res = await fetch(url, {
           cache: 'no-store',
         })
-        
+
         if (res.ok) {
           const json = await res.json()
           const count = json.employees?.length || 0
@@ -105,47 +105,49 @@ export default function LeavePage() {
         setOthersListBadgeCount(0)
       }
     }
-    
+
     fetchOthersListCount()
-    
+
     // カスタムイベントで承認状態が変わった時に更新
     const handleVacationUpdate = () => {
       fetchOthersListCount()
     }
     window.addEventListener('vacation-request-updated', handleVacationUpdate)
-    
+
     // 定期的に更新（30秒ごと）
     const interval = setInterval(fetchOthersListCount, 30000)
-    
+
     return () => {
       window.removeEventListener('vacation-request-updated', handleVacationUpdate)
       clearInterval(interval)
     }
   }, [canViewOthersList, currentUser?.id, currentUser?.role])
-  
+
   // 総務・管理者権限の場合は、employeeIdパラメータがない場合に自動的に管理者画面にリダイレクト
   useEffect(() => {
     if (isAdminOrHR && !employeeIdParam) {
       router.replace('/leave/admin')
     }
   }, [isAdminOrHR, employeeIdParam, router])
-  
+
+  // デフォルトタブの決定（店長・マネージャーでほか一覧に件数がある場合はほか一覧をデフォルトに）
+  useEffect(() => {
+    if (!params.get("tab") && othersListBadgeCount > 0 && (currentUser?.role === 'manager' || currentUser?.role === 'store_manager')) {
+      setTab("others")
+    }
+  }, [othersListBadgeCount, currentUser?.role, params])
+
   const initialTab = useMemo(() => (params.get("tab") === "form" ? "form" : params.get("tab") === "others" ? "others" : "list"), [params])
   const [tab, setTab] = useState<"list" | "form" | "others">(initialTab)
 
   const tabs = [
-    { 
-      name: "社員", 
+    {
+      name: "社員",
       href: "/leave",
       show: false // 社員の有給管理画面を開いている時は非表示（全権限者対象）
     },
-    { 
-      name: "管理者", 
-      href: "/leave/admin",
-      show: isAdminOrHR
-    },
-    { 
-      name: "設定", 
+    {
+      name: "設定",
       href: "/leave/settings",
       show: isAdminOrHR
     },
@@ -180,8 +182,8 @@ export default function LeavePage() {
         {/* 過去記録セレクター（総務・管理者のみ表示） */}
         {isViewingOtherEmployee && isAdminOrHR && (
           <div className="flex justify-end">
-            <LeaveHistorySelector 
-              employeeId={displayEmployeeId} 
+            <LeaveHistorySelector
+              employeeId={displayEmployeeId}
               employeeName={displayEmployeeName}
             />
           </div>
@@ -191,10 +193,10 @@ export default function LeavePage() {
 
         <div className="flex items-center justify-between bg-slate-50 rounded-md px-3 py-2">
           <div className="flex gap-2">
-            <Button 
-              variant={tab === "list" ? "default" : "outline"} 
-              onClick={() => { 
-                setTab("list"); 
+            <Button
+              variant={tab === "list" ? "default" : "outline"}
+              onClick={() => {
+                setTab("list");
                 const params = new URLSearchParams()
                 if (employeeIdParam) params.set("employeeId", employeeIdParam)
                 if (employeeNameParam) params.set("name", employeeNameParam)
@@ -204,20 +206,24 @@ export default function LeavePage() {
             >
               申請一覧
             </Button>
-            {/* ほか一覧ボタン（店長・マネージャー以上が表示可能） */}
-            {/* 総務・管理者は「承認待ち一覧」、店長・マネージャーは「ほか一覧」 */}
-            {canViewOthersList && (
-              <Button 
-                variant="outline"
-                onClick={() => { 
-                  router.push('/leave/admin')
+            {/* ほか一覧ボタン（店長・マネージャーのみ表示。総務・管理者は管理者画面ボタンを使用） */}
+            {canViewOthersList && !isAdminOrHRRole && (
+              <Button
+                variant={tab === "others" ? "default" : "outline"}
+                onClick={() => {
+                  setTab("others")
+                  const params = new URLSearchParams()
+                  if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                  if (employeeNameParam) params.set("name", employeeNameParam)
+                  params.set("tab", "others")
+                  router.replace(`/leave?${params.toString()}`)
                 }}
                 className="relative"
               >
                 {othersListLabel}
                 {othersListBadgeCount > 0 && (
-                  <Badge 
-                    variant="destructive" 
+                  <Badge
+                    variant="destructive"
                     className="absolute -top-2 -right-2 h-5 min-w-[20px] flex items-center justify-center px-1.5 text-xs font-bold"
                   >
                     {othersListBadgeCount > 99 ? '99+' : othersListBadgeCount}
@@ -226,10 +232,10 @@ export default function LeavePage() {
               </Button>
             )}
             {/* 新規申請ボタン（管理者でも表示） */}
-            <Button 
-              variant={tab === "form" ? "default" : "outline"} 
-              onClick={() => { 
-                setTab("form"); 
+            <Button
+              variant={tab === "form" ? "default" : "outline"}
+              onClick={() => {
+                setTab("form");
                 const params = new URLSearchParams()
                 if (employeeIdParam) params.set("employeeId", employeeIdParam)
                 if (employeeNameParam) params.set("name", employeeNameParam)
@@ -239,7 +245,41 @@ export default function LeavePage() {
             >
               {isViewingOtherEmployee ? "代理申請" : "新規申請"}
             </Button>
+            {/* 管理者画面ボタン（総務・管理者の場合のみ表示） */}
+            {isAdminOrHR && (
+              <Button
+                variant={pathname === "/leave/admin" ? "default" : "outline"}
+                onClick={() => { router.push("/leave/admin?view=all") }}
+                className="relative"
+              >
+                管理者画面
+                {othersListBadgeCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="absolute -top-2 -right-2 h-5 min-w-[20px] flex items-center justify-center px-1.5 text-xs font-bold"
+                  >
+                    {othersListBadgeCount > 99 ? '99+' : othersListBadgeCount}
+                  </Badge>
+                )}
+              </Button>
+            )}
           </div>
+          {/* 戻るボタン（ほか一覧を表示中かつ店長・マネージャーの場合に表示） */}
+          {tab === "others" && (currentUser?.role === 'manager' || currentUser?.role === 'store_manager') && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTab("list")
+                const params = new URLSearchParams()
+                if (employeeIdParam) params.set("employeeId", employeeIdParam)
+                if (employeeNameParam) params.set("name", employeeNameParam)
+                params.set("tab", "list")
+                router.replace(`/leave?${params.toString()}`)
+              }}
+            >
+              戻る
+            </Button>
+          )}
         </div>
 
         {tab === "form" ? (
@@ -253,7 +293,7 @@ export default function LeavePage() {
                 </CardContent>
               </Card>
             )}
-            <VacationRequestForm 
+            <VacationRequestForm
               proxyEmployeeId={isViewingOtherEmployee ? displayEmployeeId : undefined}
               onSuccess={() => {
                 // 申請成功後、申請一覧タブに切り替える（リロードしない）
@@ -271,27 +311,27 @@ export default function LeavePage() {
             />
           </div>
         ) : tab === "others" ? (
-            // ほか一覧：管理者モードのカード表示のみ（supervisorIdでフィルタリング）
-            <Card style={{ backgroundColor: '#b4d5e7' }}>
-              <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
-                <VacationList 
-                  userRole="admin" 
-                  filter="pending"
-                  supervisorId={currentUser?.id} // 現在のユーザー（上司）のIDでフィルタリング
-                  onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
-                />
-              </CardContent>
-            </Card>
+          // ほか一覧：管理者モードのカード表示のみ（supervisorIdでフィルタリング）
+          <Card style={{ backgroundColor: '#b4d5e7' }}>
+            <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
+              <VacationList
+                userRole="admin"
+                filter="pending"
+                supervisorId={currentUser?.id} // 現在のユーザー（上司）のIDでフィルタリング
+                onEmployeeClick={(id, name) => router.push(`/leave?employeeId=${id}&name=${encodeURIComponent(name)}`)}
+              />
+            </CardContent>
+          </Card>
         ) : (
-            <Card style={{ backgroundColor: '#b4d5e7' }}>
-              <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
-                <VacationList 
-                  userRole={userRole} 
-                  filter={"all"}
-                  employeeId={displayEmployeeId} // 表示する社員IDを渡す
-                />
-              </CardContent>
-            </Card>
+          <Card style={{ backgroundColor: '#b4d5e7' }}>
+            <CardContent className="p-6" style={{ backgroundColor: 'transparent' }}>
+              <VacationList
+                userRole={userRole}
+                filter={"all"}
+                employeeId={displayEmployeeId} // 表示する社員IDを渡す
+              />
+            </CardContent>
+          </Card>
         )}
       </div>
     </main>

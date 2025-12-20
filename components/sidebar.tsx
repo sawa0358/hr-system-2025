@@ -56,14 +56,14 @@ export function Sidebar() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
   const pathname = usePathname()
-  
+
   // フックは通常通り呼び出す（Reactのルールに従う）
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
   const sidebarRef = useRef<HTMLElement>(null)
 
   // 人事管理プルダウン内のページかどうかを判定
-  const isInDropdownMenu = ['/employees', '/attendance', '/payroll', '/leave'].some(path => 
+  const isInDropdownMenu = ['/employees', '/attendance', '/payroll', '/leave'].some(path =>
     pathname.startsWith(path)
   )
 
@@ -89,8 +89,8 @@ export function Sidebar() {
       return
     }
 
-    const canViewBadge = currentUser.role === 'admin' || currentUser.role === 'hr' || 
-                         currentUser.role === 'manager' || currentUser.role === 'store_manager'
+    const canViewBadge = currentUser.role === 'admin' || currentUser.role === 'hr' ||
+      currentUser.role === 'manager' || currentUser.role === 'store_manager'
     if (!canViewBadge) {
       setPendingCount(0)
       return
@@ -108,12 +108,12 @@ export function Sidebar() {
         abortController.abort()
       }
       abortController = new AbortController()
-      
+
       // タイムアウトをクリア
       if (timeoutId) {
         clearTimeout(timeoutId)
       }
-      
+
       try {
         // タイムアウト制御（10秒）
         timeoutId = setTimeout(() => {
@@ -121,26 +121,26 @@ export function Sidebar() {
             abortController.abort('timeout')
           }
         }, 10000)
-        
+
         // 店長・マネージャーの場合、supervisorIdを指定して自分が見れる申請のみをカウント
         // 総務・管理者の場合は、全申請をカウント
         const isManagerOrStoreManager = currentUser.role === 'manager' || currentUser.role === 'store_manager'
-        const url = isManagerOrStoreManager 
+        const url = isManagerOrStoreManager
           ? `/api/vacation/admin/applicants?view=pending&supervisorId=${currentUser.id}`
           : '/api/vacation/admin/applicants?view=pending'
-        
+
         const res = await fetch(url, {
           signal: abortController.signal,
           cache: 'no-store',
         })
-        
+
         if (timeoutId) {
           clearTimeout(timeoutId)
           timeoutId = null
         }
-        
+
         if (!isMounted) return
-        
+
         if (res.ok) {
           const json = await res.json()
           const count = json.employees?.length || 0
@@ -153,14 +153,14 @@ export function Sidebar() {
           clearTimeout(timeoutId)
           timeoutId = null
         }
-        
+
         // AbortErrorは予期された中断なので無視
         if (error?.name === 'AbortError') {
           return
         }
-        
+
         if (!isMounted) return
-        
+
         if (process.env.NODE_ENV === 'development') {
           console.error('[Sidebar] 承認待ち件数取得エラー:', error)
         }
@@ -252,27 +252,27 @@ export function Sidebar() {
     document.addEventListener('scroll', handleScroll, { passive: true })
     document.documentElement.addEventListener('scroll', handleScroll, { passive: true })
     document.body.addEventListener('scroll', handleScroll, { passive: true })
-    
+
     // ホイールイベントで横スクロールを明示的に検知
     window.addEventListener('wheel', handleWheel, { passive: true })
     document.addEventListener('wheel', handleWheel, { passive: true })
     document.documentElement.addEventListener('wheel', handleWheel, { passive: true })
     document.body.addEventListener('wheel', handleWheel, { passive: true })
-    
+
     // メインコンテンツエリアのスクロールも検知
     const mainElement = document.querySelector('main')
     if (mainElement) {
       mainElement.addEventListener('scroll', handleScroll, { passive: true })
       mainElement.addEventListener('wheel', handleWheel, { passive: true })
     }
-    
+
     // すべてのスクロール可能な要素を監視（横スクロール対応）
     const scrollableElements = document.querySelectorAll('[style*="overflow"], [class*="overflow"]')
     scrollableElements.forEach((element) => {
       element.addEventListener('scroll', handleScroll, { passive: true })
       element.addEventListener('wheel', handleWheel, { passive: true })
     })
-    
+
     // 少し遅延させて、展開ボタンのクリックイベントが先に処理されるようにする
     const timeoutId = setTimeout(() => {
       document.addEventListener('click', handleClick)
@@ -314,7 +314,7 @@ export function Sidebar() {
       if (!hasPermission(item.permission)) {
         return false
       }
-      
+
       // 有給管理メニューの場合は雇用形態もチェック（全権限者対象）
       if (item.href === "/leave") {
         // ログインしていない場合は表示しない
@@ -322,19 +322,19 @@ export function Sidebar() {
           console.log("[Sidebar] 有給管理メニュー: currentUserが存在しません")
           return false
         }
-        
+
         // 雇用形態をチェック（全権限者が対象）
         const employeeType = currentUser.employeeType?.trim()
         if (!employeeType) {
           console.log("[Sidebar] 有給管理メニュー: employeeTypeが存在しません", currentUser)
           return false
         }
-        
+
         // 許可された雇用形態かチェック（大文字小文字・前後の空白を無視）
         const isAllowed = allowedEmployeeTypesForLeave.some(
           allowed => allowed.trim().toLowerCase() === employeeType.toLowerCase()
         )
-        
+
         if (!isAllowed) {
           console.log("[Sidebar] 有給管理メニュー: 雇用形態が許可されていません", {
             employeeType,
@@ -342,15 +342,15 @@ export function Sidebar() {
           })
           return false
         }
-        
+
         console.log("[Sidebar] 有給管理メニュー: 表示します", { employeeType })
       }
-      
+
       return true
     })
   }, [hasPermission, currentUser])
-  const visibleAdminMenuItems = React.useMemo(() => 
-    adminMenuItems.filter((item) => hasPermission(item.permission)), 
+  const visibleAdminMenuItems = React.useMemo(() =>
+    adminMenuItems.filter((item) => hasPermission(item.permission)),
     [hasPermission]
   )
 
@@ -360,21 +360,21 @@ export function Sidebar() {
     if (visibleDropdownItems.length === 0) {
       return false
     }
-    
+
     // 雇用形態チェック（正社員・契約社員・パートタイム・派遣社員のみ）
     if (!currentUser) {
       return false
     }
-    
+
     const employeeType = currentUser.employeeType?.trim()
     if (!employeeType) {
       return false
     }
-    
+
     const isAllowed = allowedEmployeeTypesForLeave.some(
       allowed => allowed.trim().toLowerCase() === employeeType.toLowerCase()
     )
-    
+
     return isAllowed
   }, [visibleDropdownItems, currentUser, allowedEmployeeTypesForLeave])
 
@@ -388,8 +388,8 @@ export function Sidebar() {
     () =>
       isExternalWorker
         ? visibleMenuItems.filter(
-            (item) => item.href === "/tasks" || item.href === "/workclock"
-          )
+          (item) => item.href === "/tasks" || item.href === "/workclock"
+        )
         : visibleMenuItems,
     [visibleMenuItems, isExternalWorker]
   )
@@ -408,21 +408,21 @@ export function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
           {!collapsed && (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
-              <span className="font-bold text-slate-900">HR System</span>
-              <span className="text-xs text-slate-500 font-medium">v3.5.0</span>
+                <span className="font-bold text-slate-900">HR System</span>
+                <span className="text-xs text-slate-500 font-medium">v3.6.0</span>
               </div>
-              </div>
+            </div>
           )}
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.stopPropagation()
               setCollapsed(!collapsed)
-            }} 
+            }}
             className="ml-auto"
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -521,7 +521,7 @@ export function Sidebar() {
                     </>
                   )}
                 </button>
-                
+
                 {/* サブメニュー */}
                 {!collapsed && dropdownOpen && (
                   <ul className="mt-1 ml-4 space-y-1 rounded-md bg-[#fdfdea] p-1">

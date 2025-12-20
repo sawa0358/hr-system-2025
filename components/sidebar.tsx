@@ -412,7 +412,7 @@ export function Sidebar() {
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
                 <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-slate-500 font-medium">v3.6.0</span>
+                <span className="text-xs text-slate-500 font-medium">v3.6.1</span>
               </div>
             </div>
           )}
@@ -498,7 +498,14 @@ export function Sidebar() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    setDropdownOpen(!dropdownOpen)
+                    // 閉じている状態でクリックした場合、サイドバーを展開してプルダウンも開く
+                    if (collapsed) {
+                      setCollapsed(false)
+                      setDropdownOpen(true)
+                    } else {
+                      // 開いている状態では通常のトグル動作
+                      setDropdownOpen(!dropdownOpen)
+                    }
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",

@@ -394,6 +394,7 @@ export function generatePDFContent(
           display: flex;
           justify-content: space-between;
           align-items: flex-end;
+          margin-top: 15px;
         }
         
         .worker-info {
@@ -644,7 +645,7 @@ export function generatePDFContent(
     </head>
     <body>
       <div class="header">
-        <h1>勤務報告書 / 請求書　　　対象期間: ${monthName}</h1>
+        <h1>勤務報告書 / 請求書　　　<span style="font-size: 18px;">対象期間: ${monthName}</span></h1>
         <div class="header-info">
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>

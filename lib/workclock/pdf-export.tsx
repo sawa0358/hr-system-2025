@@ -341,9 +341,6 @@ export function generatePDFContent(
         }
         
         .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
           margin-bottom: 30px;
           border-bottom: 2px solid #333;
           padding-bottom: 20px;
@@ -351,7 +348,7 @@ export function generatePDFContent(
         
         .header-title h1 {
           font-size: 24px;
-          margin-bottom: 5px;
+          margin-bottom: 15px;
           color: #000;
         }
         
@@ -363,6 +360,7 @@ export function generatePDFContent(
         .header-info {
           display: flex;
           gap: 40px;
+          margin-top: 15px;
         }
         
         .worker-info p, .worker-info-right p {
@@ -516,7 +514,7 @@ export function generatePDFContent(
     <body>
       <div class="header">
         <div class="header-title">
-          <h1>勤務報告書 / 請求書　　　対象期間: ${monthName}</h1>
+          <h1>勤務報告書 / 請求書　　　<span style="font-size: 18px;">対象期間: ${monthName}</span></h1>
         </div>
         <div class="header-info">
           <div class="worker-info">

@@ -300,20 +300,6 @@ export function generatePDFContent(
           </div>
   `
 
-  // 源泉あり・なし小計（両方ある場合のみ表示）
-  if (subtotalWithholding > 0 && subtotalNonWithholding > 0) {
-    summaryRows += `
-          <div class="summary-item subtotal-withholding">
-            <span class="summary-label">源泉あり小計</span>
-            <span class="summary-value">¥${subtotalWithholding.toLocaleString()}</span>
-          </div>
-          <div class="summary-item subtotal-non-withholding">
-            <span class="summary-label">源泉なし小計</span>
-            <span class="summary-value">¥${subtotalNonWithholding.toLocaleString()}</span>
-          </div>
-    `
-  }
-
   summaryRows += `
           <div class="summary-item">
             <span class="summary-label">報酬（税抜）</span>

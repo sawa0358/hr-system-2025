@@ -555,14 +555,6 @@ export function generatePDFContent(
             <span class="summary-label">総勤務時間</span>
             <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
           </div>
-          <div class="summary-item">
-            <span class="summary-label">源泉あり小計</span>
-            <span class="summary-value">¥${subtotalWithholding.toLocaleString()}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">源泉なし小計</span>
-            <span class="summary-value">¥${subtotalNonWithholding.toLocaleString()}</span>
-          </div>
           ${breakdownRowsHtml}
           ${billingTaxEnabled
       ? taxType === 'inclusive'

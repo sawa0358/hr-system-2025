@@ -298,6 +298,33 @@ export function generatePDFContent(
       ? worker.teams.join(', ')
       : ''
 
+  // 時給設定の項目を動的に生成（0円や未設定は除外）
+  const wageSettings: string[] = []
+  if (worker.hourlyRate && worker.hourlyRate > 0) {
+    wageSettings.push(`${wageLabels.A}: ¥${worker.hourlyRate.toLocaleString()}`)
+  }
+  if (worker.hourlyRateB && worker.hourlyRateB > 0) {
+    wageSettings.push(`${wageLabels.B}: ¥${worker.hourlyRateB.toLocaleString()}`)
+  }
+  if (worker.hourlyRateC && worker.hourlyRateC > 0) {
+    wageSettings.push(`${wageLabels.C}: ¥${worker.hourlyRateC.toLocaleString()}`)
+  }
+
+  // 回数設定の項目を動的に生成（0円や未設定は除外）
+  const countSettings: string[] = []
+  if (worker.countRateA && worker.countRateA > 0) {
+    countSettings.push(`${countLabels.A}: ¥${worker.countRateA.toLocaleString()}`)
+  }
+  if (worker.countRateB && worker.countRateB > 0) {
+    countSettings.push(`${countLabels.B}: ¥${worker.countRateB.toLocaleString()}`)
+  }
+  if (worker.countRateC && worker.countRateC > 0) {
+    countSettings.push(`${countLabels.C}: ¥${worker.countRateC.toLocaleString()}`)
+  }
+
+  const hasWageSettings = wageSettings.length > 0
+  const hasCountSettings = countSettings.length > 0
+
   // Sort entries by date (文字列比較でOK: YYYY-MM-DD形式)
   const sortedEntries = [...entries].sort((a, b) => a.date.localeCompare(b.date))
 
@@ -532,12 +559,18 @@ export function generatePDFContent(
 
           <div class="worker-info-right">
             ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
+            ${hasWageSettings ? `
             <p><strong>時給設定:</strong></p>
             <p style="margin-left: 1em; font-size: 11px; margin-top: 0;">
-              ${wageLabels.A}: ¥${worker.hourlyRate.toLocaleString()}
-              ${worker.hourlyRateB ? ` ／ ${wageLabels.B}: ¥${worker.hourlyRateB.toLocaleString()}` : ''}
-              ${worker.hourlyRateC ? ` ／ ${wageLabels.C}: ¥${worker.hourlyRateC.toLocaleString()}` : ''}
+              ${wageSettings.join(' ／ ')}
             </p>
+            ` : ''}
+            ${hasCountSettings ? `
+            <p><strong>回数設定:</strong></p>
+            <p style="margin-left: 1em; font-size: 11px; margin-top: 0;">
+              ${countSettings.join(' ／ ')}
+            </p>
+            ` : ''}
             ${worker.monthlyFixedAmount
       ? `<p><strong>月額固定:</strong> ¥${worker.monthlyFixedAmount.toLocaleString()}</p>`
       : ''

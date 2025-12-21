@@ -70,6 +70,10 @@ export interface Worker {
 
   // 月額固定の源泉徴収ON/OFF
   withholdingMonthlyFixed?: boolean // 月額固定源泉徴収
+
+  // 請求先
+  billingClientId?: string // 請求先ID
+  billingClientName?: string // 請求先名（API経由で取得）
 }
 
 export interface WorkSummary {

@@ -838,6 +838,9 @@ model WorkClockWorker {
   role                   String   @default("worker") // 'worker' | 'admin'
   notes                  String?
   transferDestination    String? // 振込先
+  // 請求先
+  billingClientId        String?
+  billingClient          WorkClockBillingClient? @relation(fields: [billingClientId], references: [id], onDelete: SetNull)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 
@@ -846,6 +849,17 @@ model WorkClockWorker {
   rewardPresets          WorkClockRewardPreset[]
 
   @@map("workclock_workers")
+}
+
+// 請求先マスタ（複数社登録可能）
+model WorkClockBillingClient {
+  id        String   @id @default(cuid())
+  name      String   @unique // 会社名（例: 株式会社ABC）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  workers   WorkClockWorker[]
+
+  @@map("workclock_billing_clients")
 }
 
 model WorkClockTimeEntry {

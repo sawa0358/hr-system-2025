@@ -69,6 +69,12 @@ export async function GET(request: NextRequest) {
             furigana: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -93,6 +99,7 @@ export async function GET(request: NextRequest) {
         teams,
         employeeType: worker.employee?.employeeType || null,
         furigana: worker.employee?.furigana || null,
+        billingClientName: worker.billingClient?.name || null,
       }
     })
 
@@ -231,6 +238,7 @@ export async function POST(request: NextRequest) {
       withholdingCountB,
       withholdingCountC,
       withholdingMonthlyFixed,
+      billingClientId,
     } = body
 
     // 必須項目チェック（社員・氏名のみ必須）
@@ -337,6 +345,7 @@ export async function POST(request: NextRequest) {
         role: role || 'worker',
         notes,
         transferDestination,
+        billingClientId: billingClientId || null,
       },
       include: {
         employee: {

@@ -516,6 +516,11 @@ export function generatePDFContent(
         <div class="header-title">
           <h1>勤務報告書 / 請求書　　　<span style="font-size: 18px;">対象期間: ${monthName}</span></h1>
         </div>
+        ${(worker as any).billingClientName ? `
+        <div style="margin-top: 12px; margin-bottom: 8px; font-size: 18px; font-weight: bold;">
+          ${(worker as any).billingClientName} 御中
+        </div>
+        ` : ''}
         <div class="header-info">
           <div class="worker-info">
             ${worker.companyName ? `<p><strong>${worker.companyName}</strong></p>` : ''}

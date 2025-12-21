@@ -33,6 +33,12 @@ export async function GET(
             email: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -88,6 +94,7 @@ export async function GET(
     return NextResponse.json({
       ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
+      billingClientName: (worker as any).billingClient?.name || null,
     })
   } catch (error: any) {
     console.error('WorkClock worker取得エラー:', error)
@@ -193,6 +200,7 @@ export async function PUT(
       withholdingCountB,
       withholdingCountC,
       withholdingMonthlyFixed,
+      billingClientId,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -300,6 +308,7 @@ export async function PUT(
         role,
         notes,
         transferDestination,
+        billingClientId: billingClientId !== undefined ? (billingClientId || null) : undefined,
       },
       include: {
         employee: {
@@ -309,12 +318,19 @@ export async function PUT(
             email: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
     return NextResponse.json({
       ...updated,
       teams: updated.teams ? JSON.parse(updated.teams) : [],
+      billingClientName: (updated as any).billingClient?.name || null,
     })
   } catch (error: any) {
     console.error('WorkClock worker更新エラー:', error)

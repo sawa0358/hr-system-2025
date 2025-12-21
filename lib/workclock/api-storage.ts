@@ -671,6 +671,106 @@ export async function deleteTeam(teamName: string, userId?: string): Promise<voi
   }
 }
 
+// Billing Clients (請求先)
+export interface BillingClient {
+  id: string
+  name: string
+}
+
+export async function getBillingClients(userId?: string): Promise<BillingClient[]> {
+  try {
+    const finalUserId = userId || getCurrentUserId()
+    if (!finalUserId) {
+      console.error('WorkClock: ユーザーIDが取得できません')
+      return []
+    }
+
+    const response = await fetch(`${API_BASE}/billing-clients`, {
+      headers: {
+        'x-employee-id': finalUserId,
+      },
+    })
+
+    if (!response.ok) {
+      console.warn('[WorkClock] 請求先一覧の取得に失敗しました - status:', response.status)
+      return []
+    }
+
+    const data = await response.json()
+    return data.billingClients || []
+  } catch (error) {
+    console.error('[WorkClock] getBillingClients error:', error)
+    return []
+  }
+}
+
+export async function addBillingClient(name: string, userId?: string): Promise<BillingClient> {
+  const finalUserId = userId || getCurrentUserId()
+  if (!finalUserId) {
+    throw new Error('認証が必要です。ログインしてください。')
+  }
+
+  const response = await fetch(`${API_BASE}/billing-clients`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-employee-id': finalUserId,
+    },
+    body: JSON.stringify({ name }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || '請求先の追加に失敗しました')
+  }
+
+  const data = await response.json()
+  return data.billingClient
+}
+
+export async function updateBillingClient(id: string, name: string, userId?: string): Promise<BillingClient> {
+  const finalUserId = userId || getCurrentUserId()
+  if (!finalUserId) {
+    throw new Error('認証が必要です。ログインしてください。')
+  }
+
+  const response = await fetch(`${API_BASE}/billing-clients`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-employee-id': finalUserId,
+    },
+    body: JSON.stringify({ id, name }),
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || '請求先の更新に失敗しました')
+  }
+
+  const data = await response.json()
+  return data.billingClient
+}
+
+export async function deleteBillingClient(id: string, userId?: string): Promise<void> {
+  const finalUserId = userId || getCurrentUserId()
+  if (!finalUserId) {
+    throw new Error('認証が必要です。ログインしてください。')
+  }
+
+  const response = await fetch(`${API_BASE}/billing-clients?id=${id}`, {
+    method: 'DELETE',
+    headers: {
+      'x-employee-id': finalUserId,
+    },
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}))
+    throw new Error(error.error || '請求先の削除に失敗しました')
+  }
+}
+
 // Initialize with sample data if empty (API移行後は不要)
 export function initializeSampleData(): void {
   // API移行後は初期化不要

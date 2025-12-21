@@ -360,7 +360,6 @@ export async function POST(request: NextRequest) {
       code: error?.code,
       stack: error?.stack,
       name: error?.name,
-      requestBody: { ...body, password: '[MASKED]' },
     })
 
     // マイグレーション未適用やテーブル未作成時（開発中）の一時的な救済

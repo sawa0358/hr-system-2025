@@ -193,33 +193,35 @@ export function generatePDFContent(
 
   const monthlyTotal = getMonthlyTotal(entries)
   
-  // パターン別の報酬明細を計算
+  // 源泉あり/なしの小計をパターン別設定から算出
   const breakdowns = calculatePatternBreakdowns(worker, entries)
-  
-  // 源泉徴収対象と非対象に分類
-  const withholdingItems = breakdowns.filter(b => b.isWithholding)
-  const nonWithholdingItems = breakdowns.filter(b => !b.isWithholding)
-  
-  // 源泉あり小計
-  const subtotalWithholding = withholdingItems.reduce((sum, item) => sum + item.amount, 0)
-  // 源泉なし小計
-  const subtotalNonWithholding = nonWithholdingItems.reduce((sum, item) => sum + item.amount, 0)
-  // 合計（税抜）
-  const totalBaseAmount = subtotalWithholding + subtotalNonWithholding
+  const subtotalWithholding = breakdowns
+    .filter((b) => b.isWithholding)
+    .reduce((sum, b) => sum + b.amount, 0)
+  const subtotalNonWithholding = breakdowns
+    .filter((b) => !b.isWithholding)
+    .reduce((sum, b) => sum + b.amount, 0)
+  const baseAmountBeforeTax = subtotalWithholding + subtotalNonWithholding
 
   // 消費税計算
+  const billingTaxEnabled = worker.billingTaxEnabled ?? false
+  const billingTaxRate = worker.billingTaxRate ?? 10
   let taxAmount = 0
-  if (worker.billingTaxEnabled && worker.billingTaxRate) {
-    taxAmount = Math.floor(totalBaseAmount * (worker.billingTaxRate / 100))
+  let totalWithTax = baseAmountBeforeTax
+  
+  if (billingTaxEnabled && billingTaxRate > 0) {
+    taxAmount = Math.floor(baseAmountBeforeTax * (billingTaxRate / 100))
+    totalWithTax = baseAmountBeforeTax + taxAmount
   }
 
   // 源泉徴収額を計算（源泉徴収対象分のみ）
-  const withholdingAmount = subtotalWithholding > 0 
+  const hasWithholding = subtotalWithholding > 0
+  const withholdingAmount = hasWithholding
     ? calculateWithholdingTax(subtotalWithholding, withholdingRates)
     : 0
 
   // 最終支払額
-  const finalAmount = totalBaseAmount + taxAmount - withholdingAmount
+  const finalAmount = totalWithTax - withholdingAmount
 
   // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => 
@@ -290,7 +292,7 @@ export function generatePDFContent(
   summaryRows += `
           <div class="summary-item">
             <span class="summary-label">報酬（税抜）</span>
-            <span class="summary-value">¥${totalBaseAmount.toLocaleString()}</span>
+            <span class="summary-value">¥${baseAmountBeforeTax.toLocaleString()}</span>
           </div>
   `
 

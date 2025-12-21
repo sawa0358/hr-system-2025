@@ -45,6 +45,135 @@ function formatDateLabel(dateStr: string): string {
   })
 }
 
+type PatternBreakdown = {
+  label: string
+  rate: number
+  amount: number
+  hours?: number
+  minutes?: number
+  count?: number
+  isWithholding: boolean
+}
+
+function calculatePatternBreakdowns(
+  worker: Worker,
+  entries: TimeEntry[],
+  wageLabels: { A: string; B: string; C: string },
+  countLabels: { A: string; B: string; C: string },
+  rewards: Reward[]
+): PatternBreakdown[] {
+  const breakdowns: PatternBreakdown[] = []
+  const globalWithholding = (worker as any).withholdingTaxEnabled ?? false
+
+  // 時給パターン別の集計
+  const hourlyTotals: Record<string, { hours: number; minutes: number }> = {
+    A: { hours: 0, minutes: 0 },
+    B: { hours: 0, minutes: 0 },
+    C: { hours: 0, minutes: 0 },
+  }
+
+  // 回数パターン別の集計
+  const countTotals: Record<string, number> = { A: 0, B: 0, C: 0 }
+
+  entries.forEach((entry) => {
+    // 時給パターンを集計（未設定はAとして計上）
+    const wagePattern = (entry as any).wagePattern || 'A'
+    const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
+    hourlyTotals[wagePattern].hours += duration.hours
+    hourlyTotals[wagePattern].minutes += duration.minutes
+
+    // 回数パターンを集計
+    if (entry.countPattern && entry.count) {
+      countTotals[entry.countPattern] += entry.count
+    }
+  })
+
+  // 分を時間に変換
+  Object.keys(hourlyTotals).forEach((pattern) => {
+    const total = hourlyTotals[pattern]
+    total.hours += Math.floor(total.minutes / 60)
+    total.minutes = total.minutes % 60
+  })
+
+  // 時給パターン
+  const hourlyRates = {
+    A: worker.hourlyRate,
+    B: worker.hourlyRateB || worker.hourlyRate,
+    C: worker.hourlyRateC || worker.hourlyRate,
+  };
+  (['A', 'B', 'C'] as Array<'A' | 'B' | 'C'>).forEach((p) => {
+    const totalHours = hourlyTotals[p].hours + hourlyTotals[p].minutes / 60
+    const amount = Math.floor(totalHours * (hourlyRates[p] || 0))
+    if (totalHours > 0 && amount > 0) {
+      breakdowns.push({
+        label: wageLabels[p],
+        hours: hourlyTotals[p].hours,
+        minutes: hourlyTotals[p].minutes,
+        rate: hourlyRates[p] || 0,
+        amount,
+        isWithholding:
+          (p === 'A'
+            ? worker.withholdingHourlyA
+            : p === 'B'
+              ? worker.withholdingHourlyB
+              : worker.withholdingHourlyC) ?? globalWithholding,
+      })
+    }
+  })
+
+  // 回数パターン
+  const countRates = {
+    A: worker.countRateA || 0,
+    B: worker.countRateB || 0,
+    C: worker.countRateC || 0,
+  };
+  (['A', 'B', 'C'] as Array<'A' | 'B' | 'C'>).forEach((p) => {
+    const count = countTotals[p]
+    const amount = Math.floor(count * (countRates[p] || 0))
+    if (count > 0 && amount > 0) {
+      breakdowns.push({
+        label: countLabels[p],
+        count,
+        rate: countRates[p] || 0,
+        amount,
+        isWithholding:
+          (p === 'A'
+            ? worker.withholdingCountA
+            : p === 'B'
+              ? worker.withholdingCountB
+              : worker.withholdingCountC) ?? globalWithholding,
+      })
+    }
+  })
+
+  // 月額固定
+  const monthlyFixedAmount =
+    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
+      ? worker.monthlyFixedAmount
+      : null
+  if (monthlyFixedAmount) {
+    breakdowns.push({
+      label: '月額固定',
+      rate: monthlyFixedAmount,
+      amount: monthlyFixedAmount,
+      isWithholding: (worker as any).withholdingMonthlyFixed ?? globalWithholding,
+    })
+  }
+
+  // 特別報酬（集計のみ、明細は従来通り別枠で表示）
+  const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
+  if (rewardAmount > 0) {
+    breakdowns.push({
+      label: '特別報酬・経費',
+      rate: rewardAmount,
+      amount: rewardAmount,
+      isWithholding: globalWithholding,
+    })
+  }
+
+  return breakdowns
+}
+
 export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
@@ -59,127 +188,6 @@ export function generatePDFContent(
 
   // 全エントリの時間合計を計算
   const monthlyTotal = getMonthlyTotal(entries)
-  const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
-
-  // 時給パターン別の集計（wagePattern が設定されているエントリのみ対象）
-  const entriesByPattern = entries.reduce((acc, entry) => {
-    const pattern = entry.wagePattern
-    if (!pattern) {
-      return acc
-    }
-    if (!acc[pattern]) acc[pattern] = []
-    acc[pattern].push(entry)
-    return acc
-  }, {} as Record<string, TimeEntry[]>)
-
-  // 時給パターン別の時間と金額を計算
-  const patternTotals = {
-    A: { hours: 0, minutes: 0, amount: 0 },
-    B: { hours: 0, minutes: 0, amount: 0 },
-    C: { hours: 0, minutes: 0, amount: 0 },
-  }
-
-  Object.entries(entriesByPattern).forEach(([pattern, patternEntries]) => {
-    const total = getMonthlyTotal(patternEntries)
-    const hours = total.hours + total.minutes / 60
-    const rate =
-      pattern === 'A'
-        ? worker.hourlyRate
-        : pattern === 'B'
-          ? worker.hourlyRateB || worker.hourlyRate
-          : worker.hourlyRateC || worker.hourlyRate
-    patternTotals[pattern as 'A' | 'B' | 'C'] = {
-      hours: total.hours,
-      minutes: total.minutes,
-      amount: hours * rate,
-    }
-  })
-
-  // 回数パターン別の集計と金額を計算（countPatternが設定されているエントリから計算）
-  const countTotals = {
-    A: { count: 0, amount: 0 },
-    B: { count: 0, amount: 0 },
-    C: { count: 0, amount: 0 },
-  }
-
-  entries.forEach(entry => {
-    if (entry.countPattern) {
-      const pattern = entry.countPattern
-      const count = entry.count || 1
-      const rate =
-        pattern === 'A'
-          ? worker.countRateA || 0
-          : pattern === 'B'
-            ? worker.countRateB || 0
-            : worker.countRateC || 0
-      countTotals[pattern as 'A' | 'B' | 'C'].count += count
-      countTotals[pattern as 'A' | 'B' | 'C'].amount += count * rate
-    }
-  })
-
-  const monthlyFixedAmount =
-    typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
-      ? worker.monthlyFixedAmount
-      : null
-
-  // 特別報酬の計算
-  const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
-
-  // パターン別金額の小計（PDF表示・合計計算の両方で利用）
-  const hourlyPatternTotalAmount =
-    patternTotals.A.amount + patternTotals.B.amount + patternTotals.C.amount
-  const countPatternTotalAmount =
-    countTotals.A.amount + countTotals.B.amount + countTotals.C.amount
-
-  // 時給パターンの合計 ＋ 回数パターンの合計 ＋ 月額固定 ＋ 特別報酬 を「報酬合計」として扱う（税抜）
-  const totalAmount =
-    hourlyPatternTotalAmount + countPatternTotalAmount + (monthlyFixedAmount ?? 0) + rewardAmount
-
-  // 消費税計算用（ワーカーごとの設定）
-  const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false
-  const workerTaxRateRaw = (worker as any).billingTaxRate
-  const taxType: 'exclusive' | 'inclusive' = (worker as any).taxType || 'exclusive'
-  // 税率は「10.0」などの百分率で保存する想定。未設定の場合はデフォルト10%を使用
-  const effectiveTaxRatePercent: number =
-    billingTaxEnabled && typeof workerTaxRateRaw === 'number'
-      ? workerTaxRateRaw
-      : billingTaxEnabled
-        ? 10
-        : 0
-
-  // 外税・内税で計算を分岐
-  let baseAmountExclTax: number // 税抜金額（源泉徴収の計算に使用）
-  let taxAmount: number
-  let totalWithTax: number
-
-  if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
-    if (taxType === 'inclusive') {
-      // 内税: totalAmountは税込金額として扱う
-      // 税抜金額 = 税込金額 ÷ (1 + 税率/100)
-      baseAmountExclTax = Math.floor(totalAmount / (1 + effectiveTaxRatePercent / 100))
-      taxAmount = totalAmount - baseAmountExclTax // 内税額
-      totalWithTax = totalAmount // 税込金額 = 元の金額
-    } else {
-      // 外税: totalAmountは税抜金額として扱う
-      baseAmountExclTax = totalAmount
-      taxAmount = Math.floor(totalAmount * (effectiveTaxRatePercent / 100))
-      totalWithTax = totalAmount + taxAmount
-    }
-  } else {
-    // 消費税対象外
-    baseAmountExclTax = totalAmount
-    taxAmount = 0
-    totalWithTax = totalAmount
-  }
-
-  // 源泉徴収税額の計算（対象の場合のみ、常に税抜金額に対して計算）
-  const withholdingTaxEnabled: boolean = (worker as any).withholdingTaxEnabled ?? false
-  const withholdingTaxAmount: number = withholdingTaxEnabled
-    ? calculateWithholdingTax(baseAmountExclTax, withholdingRates)
-    : 0
-
-  // 最終支払額（税込金額から源泉徴収税を減算）
-  const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount
 
   // DB優先でパターン名を取得
   const scopeKey = (worker as any).employeeId || worker.id
@@ -194,6 +202,82 @@ export function generatePDFContent(
     B: worker.countPatternLabelB || '回数Bパターン',
     C: worker.countPatternLabelC || '回数Cパターン',
   }
+
+  // 1. 各パターンの詳細（時給・回数・固定・報酬）を計算・集計
+  const breakdowns = calculatePatternBreakdowns(worker, entries, wageLabels, countLabels, rewards);
+
+  // 2. 源泉あり/なしの小計を算出
+  const subtotalWithholding = breakdowns
+    .filter((b) => b.isWithholding)
+    .reduce((sum, b) => sum + b.amount, 0);
+  const subtotalNonWithholding = breakdowns
+    .filter((b) => !b.isWithholding)
+    .reduce((sum, b) => sum + b.amount, 0);
+  const baseAmountBeforeTax = subtotalWithholding + subtotalNonWithholding;
+
+  // 3. 消費税計算
+  const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false;
+  const workerTaxRateRaw = (worker as any).billingTaxRate;
+  const taxType: 'exclusive' | 'inclusive' = (worker as any).taxType || 'exclusive';
+  const effectiveTaxRatePercent: number =
+    billingTaxEnabled && typeof workerTaxRateRaw === 'number'
+      ? workerTaxRateRaw
+      : billingTaxEnabled
+        ? 10
+        : 0;
+
+  let baseAmountExclTax: number;
+  let taxAmount: number;
+  let totalWithTax: number;
+
+  if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
+    if (taxType === 'inclusive') {
+      baseAmountExclTax = Math.floor(baseAmountBeforeTax / (1 + effectiveTaxRatePercent / 100));
+      taxAmount = baseAmountBeforeTax - baseAmountExclTax;
+      totalWithTax = baseAmountBeforeTax;
+    } else {
+      baseAmountExclTax = baseAmountBeforeTax;
+      taxAmount = Math.floor(baseAmountBeforeTax * (effectiveTaxRatePercent / 100));
+      totalWithTax = baseAmountBeforeTax + taxAmount;
+    }
+  } else {
+    baseAmountExclTax = baseAmountBeforeTax;
+    taxAmount = 0;
+    totalWithTax = baseAmountBeforeTax;
+  }
+
+  // 4. 源泉徴収税額の計算（源泉あり小計に対してのみ計算）
+  const hasWithholding = subtotalWithholding > 0;
+  const withholdingTaxAmount: number = hasWithholding
+    ? calculateWithholdingTax(subtotalWithholding, withholdingRates)
+    : 0;
+
+  // 5. 最終支払額
+  const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount;
+
+  // --- 表示用HTMLの組み立て ---
+  
+  // パターン別詳細行の生成（サマリー欄）
+  const breakdownRowsHtml = breakdowns.map(item => {
+    let detailText = '';
+    if (item.hours !== undefined && item.minutes !== undefined) {
+      detailText = `${formatDuration(item.hours, item.minutes)} × ¥${item.rate.toLocaleString()} = `;
+    } else if (item.count !== undefined) {
+      detailText = `${item.count}回 × ¥${item.rate.toLocaleString()} = `;
+    }
+    
+    return `
+      <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 4px; border-top: 1px dashed #eee;">
+        <div style="display: flex; justify-content: space-between; width: 100%;">
+          <span>
+            ${item.label}${item.isWithholding ? ' <span style="color: #c00; font-size: 0.8em; border: 1px solid #c00; padding: 0 2px; border-radius: 2px; margin-left: 4px;">源泉対象</span>' : ''}:
+            <span style="color: #666; margin-left: 8px;">${detailText}</span>
+          </span>
+          <span style="font-weight: bold;">¥${item.amount.toLocaleString()}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
 
   const teamsText =
     Array.isArray(worker.teams) && worker.teams.length > 0
@@ -239,74 +323,56 @@ export function generatePDFContent(
           padding: 40px;
           max-width: 210mm;
           margin: 0 auto;
+          background: #fff;
         }
         
         .header {
-          margin-bottom: 30px;
-          border-bottom: 3px solid #333;
-          padding-bottom: 15px;
-        }
-        
-        .header-title {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          margin-bottom: 10px;
+          align-items: flex-start;
+          margin-bottom: 30px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 20px;
         }
         
-        .header h1 {
+        .header-title h1 {
           font-size: 24px;
-          margin: 0;
+          margin-bottom: 5px;
           color: #000;
         }
         
         .period {
-          font-size: 16px;
-          font-weight: bold;
-          color: #555;
+          font-size: 14px;
+          color: #666;
         }
         
         .header-info {
           display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
           gap: 40px;
-          position: relative;
         }
         
-        .worker-info {
-          font-size: 13px;
-          flex: 1;
-        }
-        
-        .worker-info-right {
-          font-size: 13px;
-          flex: 1;
-          text-align: left;
-        }
-        
-        .worker-info p {
-          margin: 3px 0;
+        .worker-info p, .worker-info-right p {
+          margin-bottom: 3px;
         }
         
         .summary {
-          background: #f5f5f5;
+          background: #f9f9f9;
           padding: 20px;
           border-radius: 8px;
-          margin: 30px 0;
-          border: 1px solid #ddd;
+          margin-bottom: 30px;
+          border: 1px solid #eee;
         }
         
         .summary-grid {
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-cols: repeat(2, 1fr);
           gap: 15px;
         }
         
         .summary-item {
           display: flex;
           justify-content: space-between;
-          padding: 8px 0;
+          padding-bottom: 8px;
           border-bottom: 1px solid #ddd;
         }
         
@@ -456,8 +522,8 @@ export function generatePDFContent(
               ${worker.hourlyRateB ? ` ／ ${wageLabels.B}: ¥${worker.hourlyRateB.toLocaleString()}` : ''}
               ${worker.hourlyRateC ? ` ／ ${wageLabels.C}: ¥${worker.hourlyRateC.toLocaleString()}` : ''}
             </p>
-            ${monthlyFixedAmount
-      ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}</p>`
+            ${worker.monthlyFixedAmount
+      ? `<p><strong>月額固定:</strong> ¥${worker.monthlyFixedAmount.toLocaleString()}</p>`
       : ''
     }
             ${worker.transferDestination
@@ -478,86 +544,15 @@ export function generatePDFContent(
             <span class="summary-label">総勤務時間</span>
             <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
           </div>
-          ${patternTotals.A.hours + patternTotals.A.minutes > 0 ||
-      patternTotals.B.hours + patternTotals.B.minutes > 0 ||
-      patternTotals.C.hours + patternTotals.C.minutes > 0
-      ? `
-          <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 8px; border-top: 1px solid #ddd;">
-            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
-              <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
-                ${patternTotals.A.hours + patternTotals.A.minutes > 0 ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.A}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.A.hours, patternTotals.A.minutes)} × ¥${worker.hourlyRate.toLocaleString()} = ¥${Math.floor(patternTotals.A.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${patternTotals.B.hours + patternTotals.B.minutes > 0 && worker.hourlyRateB ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.B}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.B.hours, patternTotals.B.minutes)} × ¥${worker.hourlyRateB.toLocaleString()} = ¥${Math.floor(patternTotals.B.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${patternTotals.C.hours + patternTotals.C.minutes > 0 && worker.hourlyRateC ? `
-                  <div>
-                    <span class="summary-label">${wageLabels.C}:</span>
-                    <span class="summary-value">${formatDuration(patternTotals.C.hours, patternTotals.C.minutes)} × ¥${worker.hourlyRateC.toLocaleString()} = ¥${Math.floor(patternTotals.C.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-              </div>
-              <span class="summary-value">¥${Math.floor(hourlyPatternTotalAmount).toLocaleString()}</span>
-            </div>
+          <div class="summary-item">
+            <span class="summary-label">源泉あり小計</span>
+            <span class="summary-value">¥${subtotalWithholding.toLocaleString()}</span>
           </div>
-              `
-      : ''
-    }
-          ${countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
-      ? `
-          <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
-            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
-              <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
-                ${countTotals.A.count > 0 && worker.countRateA ? `
-                  <div>
-                    <span class="summary-label">${countLabels.A}:</span>
-                    <span class="summary-value">${countTotals.A.count}回 × ¥${worker.countRateA.toLocaleString()} = ¥${Math.floor(countTotals.A.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${countTotals.B.count > 0 && worker.countRateB ? `
-                  <div>
-                    <span class="summary-label">${countLabels.B}:</span>
-                    <span class="summary-value">${countTotals.B.count}回 × ¥${worker.countRateB.toLocaleString()} = ¥${Math.floor(countTotals.B.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-                ${countTotals.C.count > 0 && worker.countRateC ? `
-                  <div>
-                    <span class="summary-label">${countLabels.C}:</span>
-                    <span class="summary-value">${countTotals.C.count}回 × ¥${worker.countRateC.toLocaleString()} = ¥${Math.floor(countTotals.C.amount).toLocaleString()}</span>
-                  </div>
-                ` : ''}
-              </div>
-              <span class="summary-value">¥${Math.floor(countPatternTotalAmount).toLocaleString()}</span>
-            </div>
+          <div class="summary-item">
+            <span class="summary-label">源泉なし小計</span>
+            <span class="summary-value">¥${subtotalNonWithholding.toLocaleString()}</span>
           </div>
-              `
-      : ''
-    }
-          ${rewards.length > 0
-      ? `
-          <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
-            <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
-                <div style="display: flex; gap: 8px; flex: 1;">
-                    <span class="summary-label">特別報酬・経費:</span>
-                    <div style="display: flex; flex-direction: column; gap: 2px;">
-                        ${rewards.map(r => `
-                            <span>${r.description} (¥${r.amount.toLocaleString()})</span>
-                        `).join('')}
-                    </div>
-                </div>
-                <span class="summary-value">¥${rewardAmount.toLocaleString()}</span>
-            </div>
-          </div>
-              `
-      : ''
-    }
+          ${breakdownRowsHtml}
           ${billingTaxEnabled
       ? taxType === 'inclusive'
         ? `
@@ -591,11 +586,11 @@ export function generatePDFContent(
       : `
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
-            <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
+            <span class="summary-value">¥${Math.floor(baseAmountBeforeTax).toLocaleString()}</span>
           </div>
               `
     }
-          ${withholdingTaxEnabled
+          ${hasWithholding
       ? `
           <div class="summary-item" style="padding-top: 10px; border-top: 1px dashed #666;">
             <span class="summary-label">源泉徴収税額</span>
@@ -606,7 +601,7 @@ export function generatePDFContent(
             <span class="summary-value" style="font-weight: bold; font-size: 1.2em;">¥${Math.floor(finalPaymentAmount).toLocaleString()}</span>
           </div>
           <div class="tax-note" style="font-size: 10px; color: #666; margin-top: 8px;">
-            <p>※ 源泉徴収税は報酬額（税抜）に対して計算されています。</p>
+            <p>※ 源泉徴収税は「源泉あり小計」（税抜）に対して計算しています。</p>
             <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
           </div>
               `
@@ -726,25 +721,22 @@ export function generatePDFContent(
         }
 
         html += `
-          <td class="time-range">${entry.startTime} - ${entry.endTime}</td>
-          <td style="text-align: center; white-space: nowrap;">${entry.breakMinutes}分</td>
+          <td style="text-align: center;">${entry.startTime} - ${entry.endTime}</td>
+          <td style="text-align: center;">${entry.breakMinutes}分</td>
           <td class="duration">${formatDuration(duration.hours, duration.minutes)}</td>
-          <td style="text-align: center; font-size: 10px; white-space: nowrap;">${patternLabel}</td>
-          <td style="text-align: right; font-weight: 600; white-space: nowrap;">¥${subtotal.toLocaleString()}</td>
+          <td class="notes">${patternLabel}</td>
+          <td style="text-align: right; font-weight: 600;">¥${subtotal.toLocaleString()}</td>
         </tr>
         `
 
-        // メモ行（メモがある場合のみ表示）
+        // メモ行（あれば）
         if (entry.notes && entry.notes.trim()) {
-          // メモを2行分（約100文字）に切り詰め
-          const maxLength = 100
-          const trimmedNotes = entry.notes.length > maxLength
-            ? entry.notes.substring(0, maxLength) + '...'
-            : entry.notes
           html += `
-        <tr class="notes-row">
-          <td colspan="5" class="notes-cell">📝 ${trimmedNotes}</td>
-        </tr>
+            <tr class="notes-row">
+              <td colspan="5" class="notes-cell">
+                <strong>[メモ]</strong> ${entry.notes}
+              </td>
+            </tr>
           `
         }
       })
@@ -819,76 +811,42 @@ export function generateCombinedPDFContent(
     month: 'long',
   })
 
-  // 各ワーカーの個人PDFを生成し、body部分を抽出
-  const workerSections = items.map((item) => {
-    const individualPDF = generatePDFContent(item.worker, item.entries, month, item.rewards, withholdingRates)
+  // 最初のワーカーのPDFを生成して、CSSやヘッダーを流用する
+  const firstPDF = items.length > 0 ? generatePDFContent(items[0].worker, items[0].entries, month, items[0].rewards || [], withholdingRates) : ''
+  if (!firstPDF) return ''
 
-    // <body>タグの中身を抽出（開始タグと終了タグを除く）
-    const bodyMatch = individualPDF.match(/<body[^>]*>([\s\S]*)<\/body>/)
-    if (bodyMatch && bodyMatch[1]) {
-      // worker-sectionクラスでラップして改ページ制御
-      return `<div class="worker-section">${bodyMatch[1]}</div>`
-    }
-    return ''
-  }).filter(section => section !== '')
+  // HTMLの構造を分割
+  const htmlStart = firstPDF.split('<body>')[0] + '<body>'
+  const htmlEnd = '</body></html>'
 
-  // 個人PDFのスタイルを取得（最初の個人PDFから抽出）
-  const firstPDF = items.length > 0 ? generatePDFContent(items[0].worker, items[0].entries, month, items[0].rewards) : ''
-  const styleMatch = firstPDF.match(/<style>([\s\S]*?)<\/style>/)
-  const styles = styleMatch ? styleMatch[1] : ''
-
-  // 改ページ制御用のスタイルを追加
-  const combinedStyles = `
-    ${styles}
+  // 各ワーカーのbodyコンテンツを抽出
+  const bodies = items.map((item, index) => {
+    const fullHTML = generatePDFContent(item.worker, item.entries, month, item.rewards || [], withholdingRates)
+    const bodyMatch = fullHTML.match(/<body>([\s\S]*)<\/body>/)
+    const bodyContent = bodyMatch ? bodyMatch[1] : ''
     
-    .worker-section {
-      page-break-after: always;
-    }
-    
-    .worker-section:last-child {
-      page-break-after: auto;
-    }
-  `
+    // 2ページ目以降はページブレークを入れる
+    return index === 0 
+      ? `<div class="pdf-page">${bodyContent}</div>` 
+      : `<div class="pdf-page" style="page-break-before: always;">${bodyContent}</div>`
+  }).join('')
 
-  // HTMLドキュメントを構築
-  let html = `
-    <!DOCTYPE html>
-    <html lang="ja">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>勤務報告書 / 請求書（複数人） - ${monthName}</title>
-      <style>${combinedStyles}</style>
-    </head>
-    <body>
-  `
-
-  // 各ワーカーのセクションを結合
-  html += workerSections.join('\n')
-
-  html += `
-    </body>
-    </html>
-  `
-
-  return html
+  return htmlStart + bodies + htmlEnd
 }
 
+/**
+ * 全員分のPDFをダウンロード（印刷ダイアログ表示）
+ */
 export function downloadCombinedPDF(
   items: WorkerWithEntries[],
   month: Date,
   withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): void {
-  if (!items || items.length === 0) {
-    alert('PDF出力対象のワーカーがいません。')
-    return
-  }
-
   const htmlContent = generateCombinedPDFContent(items, month, withholdingRates)
 
   const printWindow = window.open('', '_blank')
   if (!printWindow) {
-    alert('ポップアップがブロックされました。ブラウザの設定を確認してください。')
+    alert('ポップアップがブロックされました。')
     return
   }
 
@@ -898,6 +856,6 @@ export function downloadCombinedPDF(
   printWindow.onload = () => {
     setTimeout(() => {
       printWindow.print()
-    }, 250)
+    }, 500)
   }
 }

@@ -60,7 +60,7 @@ export function generatePDFContent(
   // 全エントリの時間合計を計算
   const monthlyTotal = getMonthlyTotal(entries)
   const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
-  
+
   // 時給パターン別の集計（wagePattern が設定されているエントリのみ対象）
   const entriesByPattern = entries.reduce((acc, entry) => {
     const pattern = entry.wagePattern
@@ -86,8 +86,8 @@ export function generatePDFContent(
       pattern === 'A'
         ? worker.hourlyRate
         : pattern === 'B'
-        ? worker.hourlyRateB || worker.hourlyRate
-        : worker.hourlyRateC || worker.hourlyRate
+          ? worker.hourlyRateB || worker.hourlyRate
+          : worker.hourlyRateC || worker.hourlyRate
     patternTotals[pattern as 'A' | 'B' | 'C'] = {
       hours: total.hours,
       minutes: total.minutes,
@@ -110,8 +110,8 @@ export function generatePDFContent(
         pattern === 'A'
           ? worker.countRateA || 0
           : pattern === 'B'
-          ? worker.countRateB || 0
-          : worker.countRateC || 0
+            ? worker.countRateB || 0
+            : worker.countRateC || 0
       countTotals[pattern as 'A' | 'B' | 'C'].count += count
       countTotals[pattern as 'A' | 'B' | 'C'].amount += count * rate
     }
@@ -144,8 +144,8 @@ export function generatePDFContent(
     billingTaxEnabled && typeof workerTaxRateRaw === 'number'
       ? workerTaxRateRaw
       : billingTaxEnabled
-      ? 10
-      : 0
+        ? 10
+        : 0
 
   // 外税・内税で計算を分岐
   let baseAmountExclTax: number // 税抜金額（源泉徴収の計算に使用）
@@ -177,7 +177,7 @@ export function generatePDFContent(
   const withholdingTaxAmount: number = withholdingTaxEnabled
     ? calculateWithholdingTax(baseAmountExclTax, withholdingRates)
     : 0
-  
+
   // 最終支払額（税込金額から源泉徴収税を減算）
   const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount
 
@@ -247,30 +247,46 @@ export function generatePDFContent(
           padding-bottom: 15px;
         }
         
-        .header h1 {
-          font-size: 24px;
-          margin-bottom: 10px;
-          color: #000;
-        }
-        
-        .header-info {
+        .header-title {
           display: flex;
           justify-content: space-between;
-          align-items: flex-end;
+          align-items: center;
+          margin-bottom: 10px;
         }
         
-        .worker-info {
-          font-size: 14px;
-        }
-        
-        .worker-info p {
-          margin: 5px 0;
+        .header h1 {
+          font-size: 24px;
+          margin: 0;
+          color: #000;
         }
         
         .period {
           font-size: 16px;
           font-weight: bold;
           color: #555;
+        }
+        
+        .header-info {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 40px;
+          position: relative;
+        }
+        
+        .worker-info {
+          font-size: 13px;
+          flex: 1;
+        }
+        
+        .worker-info-right {
+          font-size: 13px;
+          flex: 1;
+          text-align: left;
+        }
+        
+        .worker-info p {
+          margin: 3px 0;
         }
         
         .summary {
@@ -419,29 +435,36 @@ export function generatePDFContent(
     </head>
     <body>
       <div class="header">
-        <h1>勤務報告書 / 請求書</h1>
+        <div class="header-title">
+          <h1>勤務報告書 / 請求書</h1>
+          <div class="period">対象期間: ${monthName}</div>
+        </div>
         <div class="header-info">
           <div class="worker-info">
+            ${worker.companyName ? `<p><strong>${worker.companyName}</strong></p>` : ''}
             <p><strong>氏名:</strong> ${worker.name}</p>
+            ${worker.address ? `<p><strong>住所:</strong> ${worker.address}</p>` : ''}
+            ${worker.phone ? `<p><strong>電話:</strong> ${worker.phone}</p>` : ''}
+            ${worker.email ? `<p><strong>メール:</strong> ${worker.email}</p>` : ''}
+          </div>
+
+          <div class="worker-info-right">
             ${teamsText ? `<p><strong>所属:</strong> ${teamsText}</p>` : ''}
             <p><strong>時給設定:</strong></p>
-            <p style="margin-left: 1em; font-size: 11px;">
+            <p style="margin-left: 1em; font-size: 11px; margin-top: 0;">
               ${wageLabels.A}: ¥${worker.hourlyRate.toLocaleString()}
               ${worker.hourlyRateB ? ` ／ ${wageLabels.B}: ¥${worker.hourlyRateB.toLocaleString()}` : ''}
               ${worker.hourlyRateC ? ` ／ ${wageLabels.C}: ¥${worker.hourlyRateC.toLocaleString()}` : ''}
             </p>
-            ${
-              monthlyFixedAmount
-                ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}</p>`
-                : ''
-            }
-            ${
-              worker.transferDestination
-                ? `<p><strong>振込先:</strong> <span style="white-space: pre-wrap;">${worker.transferDestination}</span></p>`
-                : ''
-            }
+            ${monthlyFixedAmount
+      ? `<p><strong>月額固定:</strong> ¥${monthlyFixedAmount.toLocaleString()}</p>`
+      : ''
+    }
+            ${worker.transferDestination
+      ? `<p style="margin-top: 8px;"><strong>振込先:</strong></p><p style="margin-left: 1em; font-size: 11px; white-space: pre-wrap;">${worker.transferDestination}</p>`
+      : ''
+    }
           </div>
-          <div class="period">${monthName}</div>
         </div>
       </div>
       
@@ -455,11 +478,10 @@ export function generatePDFContent(
             <span class="summary-label">総勤務時間</span>
             <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
           </div>
-          ${
-            patternTotals.A.hours + patternTotals.A.minutes > 0 || 
-            patternTotals.B.hours + patternTotals.B.minutes > 0 || 
-            patternTotals.C.hours + patternTotals.C.minutes > 0
-              ? `
+          ${patternTotals.A.hours + patternTotals.A.minutes > 0 ||
+      patternTotals.B.hours + patternTotals.B.minutes > 0 ||
+      patternTotals.C.hours + patternTotals.C.minutes > 0
+      ? `
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 8px; border-top: 1px solid #ddd;">
             <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
               <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
@@ -486,11 +508,10 @@ export function generatePDFContent(
             </div>
           </div>
               `
-              : ''
-          }
-          ${
-            countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
-              ? `
+      : ''
+    }
+          ${countTotals.A.count + countTotals.B.count + countTotals.C.count > 0
+      ? `
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
             <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
               <div style="display: flex; gap: 16px; flex-wrap: wrap; flex: 1;">
@@ -517,11 +538,10 @@ export function generatePDFContent(
             </div>
           </div>
               `
-              : ''
-          }
-          ${
-            rewards.length > 0
-              ? `
+      : ''
+    }
+          ${rewards.length > 0
+      ? `
           <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 6px; border-top: 1px dashed #ccc;">
             <div style="display: flex; justify-content: space-between; width: 100%; align-items: flex-start;">
                 <div style="display: flex; gap: 8px; flex: 1;">
@@ -536,12 +556,11 @@ export function generatePDFContent(
             </div>
           </div>
               `
-              : ''
-          }
-          ${
-            billingTaxEnabled
-              ? taxType === 'inclusive'
-                ? `
+      : ''
+    }
+          ${billingTaxEnabled
+      ? taxType === 'inclusive'
+        ? `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">報酬額（税込）</span>
             <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
@@ -555,7 +574,7 @@ export function generatePDFContent(
             <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
           </div>
                 `
-                : `
+        : `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">税抜小計</span>
             <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
@@ -569,16 +588,15 @@ export function generatePDFContent(
             <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
           </div>
                 `
-              : `
+      : `
           <div class="summary-item total-amount">
             <span class="summary-label">報酬合計</span>
             <span class="summary-value">¥${Math.floor(totalAmount).toLocaleString()}</span>
           </div>
               `
-          }
-          ${
-            withholdingTaxEnabled
-              ? `
+    }
+          ${withholdingTaxEnabled
+      ? `
           <div class="summary-item" style="padding-top: 10px; border-top: 1px dashed #666;">
             <span class="summary-label">源泉徴収税額</span>
             <span class="summary-value" style="color: #c00;">-¥${withholdingTaxAmount.toLocaleString()}</span>
@@ -592,8 +610,8 @@ export function generatePDFContent(
             <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
           </div>
               `
-              : ''
-          }
+      : ''
+    }
         </div>
       </div>
   `
@@ -645,8 +663,8 @@ export function generatePDFContent(
             pattern === 'A'
               ? worker.hourlyRate
               : pattern === 'B'
-              ? worker.hourlyRateB || worker.hourlyRate
-              : worker.hourlyRateC || worker.hourlyRate
+                ? worker.hourlyRateB || worker.hourlyRate
+                : worker.hourlyRateC || worker.hourlyRate
           const hours = duration.hours + duration.minutes / 60
           hourlyAmount = Math.floor(hours * rate)
           hourlyLabel =
@@ -666,13 +684,13 @@ export function generatePDFContent(
             cPattern === 'A'
               ? worker.countRateA || 0
               : cPattern === 'B'
-              ? worker.countRateB || 0
-              : worker.countRateC || 0
+                ? worker.countRateB || 0
+                : worker.countRateC || 0
           countAmount = count * cRate
           const cLabel =
             cPattern === 'A' ? countLabels.A :
-            cPattern === 'B' ? countLabels.B :
-            countLabels.C
+              cPattern === 'B' ? countLabels.B :
+                countLabels.C
           countInfo = cRate > 0
             ? `${cLabel}（${count}回×¥${cRate.toLocaleString()}）`
             : `${cLabel}（${count}回）`
@@ -700,9 +718,9 @@ export function generatePDFContent(
             <td class="date-cell" rowspan="${dateRowspan}">
               <div>${formattedDate}</div>
               <div class="date-total-small">${formatDuration(
-                dayTotal.hours,
-                dayTotal.minutes
-              )}</div>
+            dayTotal.hours,
+            dayTotal.minutes
+          )}</div>
             </td>
           `
         }
@@ -720,8 +738,8 @@ export function generatePDFContent(
         if (entry.notes && entry.notes.trim()) {
           // メモを2行分（約100文字）に切り詰め
           const maxLength = 100
-          const trimmedNotes = entry.notes.length > maxLength 
-            ? entry.notes.substring(0, maxLength) + '...' 
+          const trimmedNotes = entry.notes.length > maxLength
+            ? entry.notes.substring(0, maxLength) + '...'
             : entry.notes
           html += `
         <tr class="notes-row">
@@ -761,10 +779,10 @@ export function downloadPDF(
   withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
 ): void {
   const htmlContent = generatePDFContent(worker, entries, month, rewards, withholdingRates)
-  
+
   // Create a new window for printing
   const printWindow = window.open('', '_blank')
-  
+
   if (!printWindow) {
     alert('ポップアップがブロックされました。ブラウザの設定を確認してください。')
     return
@@ -772,7 +790,7 @@ export function downloadPDF(
 
   printWindow.document.write(htmlContent)
   printWindow.document.close()
-  
+
   // Wait for content to load then trigger print
   printWindow.onload = () => {
     setTimeout(() => {
@@ -800,11 +818,11 @@ export function generateCombinedPDFContent(
     year: 'numeric',
     month: 'long',
   })
-  
+
   // 各ワーカーの個人PDFを生成し、body部分を抽出
   const workerSections = items.map((item) => {
     const individualPDF = generatePDFContent(item.worker, item.entries, month, item.rewards, withholdingRates)
-    
+
     // <body>タグの中身を抽出（開始タグと終了タグを除く）
     const bodyMatch = individualPDF.match(/<body[^>]*>([\s\S]*)<\/body>/)
     if (bodyMatch && bodyMatch[1]) {
@@ -818,7 +836,7 @@ export function generateCombinedPDFContent(
   const firstPDF = items.length > 0 ? generatePDFContent(items[0].worker, items[0].entries, month, items[0].rewards) : ''
   const styleMatch = firstPDF.match(/<style>([\s\S]*?)<\/style>/)
   const styles = styleMatch ? styleMatch[1] : ''
-  
+
   // 改ページ制御用のスタイルを追加
   const combinedStyles = `
     ${styles}

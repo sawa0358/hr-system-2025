@@ -1,11 +1,15 @@
 export interface TimeEntry {
   id: string
   workerId: string
-  date: string // YYYY-MM-DD format
-  startTime: string // HH:mm format (24-hour)
-  endTime: string // HH:mm format (24-hour)
+  date: string // YYYY-MM-DD
+  startTime: string // HH:mm
+  endTime: string // HH:mm
   breakMinutes: number
   notes?: string
+  wagePattern: 'A' | 'B' | 'C'
+  countPattern?: 'A' | 'B' | 'C'
+  count?: number
+  createdAt?: string
 }
 
 export interface Worker {
@@ -23,10 +27,34 @@ export interface Worker {
   teams?: string[]
   role: 'worker' | 'admin'
   notes?: string // 備考欄
+
+  // 時給パターン
+  wagePatternLabelA?: string
+  wagePatternLabelB?: string
+  wagePatternLabelC?: string
+  hourlyRateB?: number
+  hourlyRateC?: number
+
+  // 回数パターン
+  countPatternLabelA?: string
+  countPatternLabelB?: string
+  countPatternLabelC?: string
+  countRateA?: number
+  countRateB?: number
+  countRateC?: number
+
+  // 固定額設定
+  monthlyFixedAmount?: number
+  monthlyFixedEnabled?: boolean
+
+  // 振込先
+  transferDestination?: string
+
   // 消費税設定
   billingTaxEnabled?: boolean // 消費税を請求に反映するか
   billingTaxRate?: number // 個別の消費税率
   taxType?: 'exclusive' | 'inclusive' // 外税 | 内税（デフォルト: 外税）
+
   // 源泉徴収設定
   withholdingTaxEnabled?: boolean // 源泉徴収対象かどうか
 }
@@ -36,4 +64,13 @@ export interface WorkSummary {
   totalMinutes: number
   totalAmount: number
   entries: TimeEntry[]
+}
+
+export interface Reward {
+  id: string
+  workerId: string
+  month: string // YYYY-MM
+  description?: string
+  amount: number
+  status: 'pending' | 'paid'
 }

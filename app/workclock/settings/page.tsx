@@ -150,7 +150,15 @@ export default function SettingsPage() {
     billingTaxEnabled: false,
     billingTaxRate: '',
     taxType: 'exclusive' as 'exclusive' | 'inclusive', // 外税 | 内税
-    withholdingTaxEnabled: false, // 源泉徴収対象
+    withholdingTaxEnabled: false, // 源泉徴収対象（レガシー）
+    // 各パターン別源泉徴収
+    withholdingHourlyA: false,
+    withholdingHourlyB: false,
+    withholdingHourlyC: false,
+    withholdingCountA: false,
+    withholdingCountB: false,
+    withholdingCountC: false,
+    withholdingMonthlyFixed: false,
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -1421,6 +1429,19 @@ export default function SettingsPage() {
                                   placeholder="1,200"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyA"
+                                    checked={formData.withholdingHourlyA}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyA: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyA" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -1459,6 +1480,19 @@ export default function SettingsPage() {
                                   placeholder="例: 1,500"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyB"
+                                    checked={formData.withholdingHourlyB}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyB: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyB" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -1497,6 +1531,19 @@ export default function SettingsPage() {
                                   placeholder="例: 2,000"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyC"
+                                    checked={formData.withholdingHourlyC}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyC: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyC" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1528,7 +1575,22 @@ export default function SettingsPage() {
                                   placeholder="例: 5000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountA"
+                                      checked={formData.withholdingCountA}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountA: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountA" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <Input
@@ -1552,7 +1614,22 @@ export default function SettingsPage() {
                                   placeholder="例: 8000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountB"
+                                      checked={formData.withholdingCountB}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountB: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountB" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <Input
@@ -1576,7 +1653,22 @@ export default function SettingsPage() {
                                   placeholder="例: 10000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountC"
+                                      checked={formData.withholdingCountC}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountC: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountC" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1585,7 +1677,7 @@ export default function SettingsPage() {
                             <Label className="text-xs font-semibold text-muted-foreground">
                               月額固定
                             </Label>
-                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-center">
+                            <div className="space-y-2">
                               <Input
                                 id="monthlyFixedAmount"
                                 type="number"
@@ -1600,9 +1692,24 @@ export default function SettingsPage() {
                                 placeholder="例: 300000"
                                 disabled={!canEditCompValues}
                               />
-                              <p className="text-[11px] text-muted-foreground md:text-right">
-                                カレンダー画面の「月額固定 ON/OFF」トグルと連動。
-                              </p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-[11px] text-muted-foreground">
+                                  カレンダー画面の「月額固定 ON/OFF」トグルと連動。
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id="withholdingMonthlyFixed"
+                                    checked={formData.withholdingMonthlyFixed}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingMonthlyFixed: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingMonthlyFixed" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </CardContent>

@@ -516,8 +516,7 @@ export function generatePDFContent(
     <body>
       <div class="header">
         <div class="header-title">
-          <h1>勤務報告書 / 請求書</h1>
-          <div class="period">対象期間: ${monthName}</div>
+          <h1>勤務報告書 / 請求書　　　対象期間: ${monthName}</h1>
         </div>
         <div class="header-info">
           <div class="worker-info">

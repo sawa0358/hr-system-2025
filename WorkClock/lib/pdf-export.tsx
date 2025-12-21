@@ -644,7 +644,7 @@ export function generatePDFContent(
     </head>
     <body>
       <div class="header">
-        <h1>勤務報告書 / 請求書</h1>
+        <h1>勤務報告書 / 請求書　　　対象期間: ${monthName}</h1>
         <div class="header-info">
           <div class="worker-info">
             <p><strong>氏名:</strong> ${worker.name}</p>
@@ -652,7 +652,6 @@ export function generatePDFContent(
             ${worker.teams && worker.teams.length > 0 ? `<p><strong>所属:</strong> ${worker.teams.join(', ')}</p>` : ''}
             <p><strong>時給:</strong> ¥${worker.hourlyRate.toLocaleString()}</p>
           </div>
-          <div class="period">${monthName}</div>
         </div>
       </div>
       

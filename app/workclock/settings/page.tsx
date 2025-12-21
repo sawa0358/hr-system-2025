@@ -398,6 +398,14 @@ export default function SettingsPage() {
       billingTaxRate: '',
       taxType: 'exclusive',
       withholdingTaxEnabled: false,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA: false,
+      withholdingHourlyB: false,
+      withholdingHourlyC: false,
+      withholdingCountA: false,
+      withholdingCountB: false,
+      withholdingCountC: false,
+      withholdingMonthlyFixed: false,
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -509,6 +517,14 @@ export default function SettingsPage() {
             billingTaxRate: taxRateValue,
             taxType: formData.taxType,
             withholdingTaxEnabled: formData.withholdingTaxEnabled,
+            // 各パターン別源泉徴収フラグ
+            withholdingHourlyA: formData.withholdingHourlyA,
+            withholdingHourlyB: formData.withholdingHourlyB,
+            withholdingHourlyC: formData.withholdingHourlyC,
+            withholdingCountA: formData.withholdingCountA,
+            withholdingCountB: formData.withholdingCountB,
+            withholdingCountC: formData.withholdingCountC,
+            withholdingMonthlyFixed: formData.withholdingMonthlyFixed,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
             // 備考欄も空にした場合は空文字で上書きしたい
@@ -587,6 +603,14 @@ export default function SettingsPage() {
           billingTaxRate: taxRateValue,
           taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
+          // 各パターン別源泉徴収フラグ
+          withholdingHourlyA: formData.withholdingHourlyA,
+          withholdingHourlyB: formData.withholdingHourlyB,
+          withholdingHourlyC: formData.withholdingHourlyC,
+          withholdingCountA: formData.withholdingCountA,
+          withholdingCountB: formData.withholdingCountB,
+          withholdingCountC: formData.withholdingCountC,
+          withholdingMonthlyFixed: formData.withholdingMonthlyFixed,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes,
@@ -696,6 +720,14 @@ export default function SettingsPage() {
           : '',
       taxType: worker.taxType || 'exclusive',
       withholdingTaxEnabled: worker.withholdingTaxEnabled ?? false,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA: worker.withholdingHourlyA ?? false,
+      withholdingHourlyB: worker.withholdingHourlyB ?? false,
+      withholdingHourlyC: worker.withholdingHourlyC ?? false,
+      withholdingCountA: worker.withholdingCountA ?? false,
+      withholdingCountB: worker.withholdingCountB ?? false,
+      withholdingCountC: worker.withholdingCountC ?? false,
+      withholdingMonthlyFixed: worker.withholdingMonthlyFixed ?? false,
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)

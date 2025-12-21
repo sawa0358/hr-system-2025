@@ -223,6 +223,14 @@ export async function POST(request: NextRequest) {
       billingTaxRate,
       taxType,
       withholdingTaxEnabled,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA,
+      withholdingHourlyB,
+      withholdingHourlyC,
+      withholdingCountA,
+      withholdingCountB,
+      withholdingCountC,
+      withholdingMonthlyFixed,
     } = body
 
     // 必須項目チェック（社員・氏名のみ必須）
@@ -317,6 +325,14 @@ export async function POST(request: NextRequest) {
             : null,
         taxType: taxType === 'inclusive' ? 'inclusive' : 'exclusive',
         withholdingTaxEnabled: withholdingTaxEnabled ?? false,
+        // 各パターン別源泉徴収フラグ
+        withholdingHourlyA: withholdingHourlyA ?? false,
+        withholdingHourlyB: withholdingHourlyB ?? false,
+        withholdingHourlyC: withholdingHourlyC ?? false,
+        withholdingCountA: withholdingCountA ?? false,
+        withholdingCountB: withholdingCountB ?? false,
+        withholdingCountC: withholdingCountC ?? false,
+        withholdingMonthlyFixed: withholdingMonthlyFixed ?? false,
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',
         notes,

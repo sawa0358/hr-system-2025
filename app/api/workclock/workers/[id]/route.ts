@@ -185,6 +185,14 @@ export async function PUT(
       billingTaxRate,
       taxType,
       withholdingTaxEnabled,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA,
+      withholdingHourlyB,
+      withholdingHourlyC,
+      withholdingCountA,
+      withholdingCountB,
+      withholdingCountC,
+      withholdingMonthlyFixed,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -258,6 +266,35 @@ export async function PUT(
         withholdingTaxEnabled:
           withholdingTaxEnabled !== undefined && withholdingTaxEnabled !== null
             ? Boolean(withholdingTaxEnabled)
+            : undefined,
+        // 各パターン別源泉徴収フラグ
+        withholdingHourlyA:
+          withholdingHourlyA !== undefined && withholdingHourlyA !== null
+            ? Boolean(withholdingHourlyA)
+            : undefined,
+        withholdingHourlyB:
+          withholdingHourlyB !== undefined && withholdingHourlyB !== null
+            ? Boolean(withholdingHourlyB)
+            : undefined,
+        withholdingHourlyC:
+          withholdingHourlyC !== undefined && withholdingHourlyC !== null
+            ? Boolean(withholdingHourlyC)
+            : undefined,
+        withholdingCountA:
+          withholdingCountA !== undefined && withholdingCountA !== null
+            ? Boolean(withholdingCountA)
+            : undefined,
+        withholdingCountB:
+          withholdingCountB !== undefined && withholdingCountB !== null
+            ? Boolean(withholdingCountB)
+            : undefined,
+        withholdingCountC:
+          withholdingCountC !== undefined && withholdingCountC !== null
+            ? Boolean(withholdingCountC)
+            : undefined,
+        withholdingMonthlyFixed:
+          withholdingMonthlyFixed !== undefined && withholdingMonthlyFixed !== null
+            ? Boolean(withholdingMonthlyFixed)
             : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,

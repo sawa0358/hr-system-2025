@@ -817,8 +817,18 @@ model WorkClockWorker {
   billingTaxEnabled      Boolean  @default(false) // 消費税を請求に反映するか
   billingTaxRate         Float?                // 個別の消費税率（例: 10.0）。未設定時は標準税率を使用
   taxType                String   @default("exclusive") // 'exclusive'（外税）| 'inclusive'（内税）
-  // 源泉徴収設定
-  withholdingTaxEnabled  Boolean  @default(false) // 源泉徴収対象かどうか
+  // 源泉徴収設定（全体）
+  withholdingTaxEnabled  Boolean  @default(false) // 源泉徴収対象かどうか（レガシー用）
+  // 時給パターン別の源泉徴収ON/OFF
+  withholdingHourlyA     Boolean  @default(false) // 時給パターンA源泉徴収
+  withholdingHourlyB     Boolean  @default(false) // 時給パターンB源泉徴収
+  withholdingHourlyC     Boolean  @default(false) // 時給パターンC源泉徴収
+  // 回数パターン別の源泉徴収ON/OFF
+  withholdingCountA      Boolean  @default(false) // 回数パターンA源泉徴収
+  withholdingCountB      Boolean  @default(false) // 回数パターンB源泉徴収
+  withholdingCountC      Boolean  @default(false) // 回数パターンC源泉徴収
+  // 月額固定の源泉徴収ON/OFF
+  withholdingMonthlyFixed Boolean @default(false) // 月額固定源泉徴収
   teams                  String?  // JSON文字列（string[]）
   role                   String   @default("worker") // 'worker' | 'admin'
   notes                  String?

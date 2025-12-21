@@ -1,4 +1,4 @@
-import { Worker, TimeEntry } from './types'
+import { Worker, TimeEntry, WagePattern } from './types'
 import { calculateDuration, formatDuration, getMonthlyTotal } from './time-utils'
 
 // 源泉徴収率の型定義
@@ -36,6 +36,150 @@ export function calculateWithholdingTax(
   }
 }
 
+// パターン別報酬明細の型
+interface PatternBreakdown {
+  label: string
+  hours?: number
+  minutes?: number
+  count?: number
+  rate: number
+  amount: number
+  isWithholding: boolean
+}
+
+/**
+ * 各パターンの報酬を計算
+ */
+function calculatePatternBreakdowns(
+  worker: Worker,
+  entries: TimeEntry[]
+): PatternBreakdown[] {
+  const breakdowns: PatternBreakdown[] = []
+  
+  // 時給パターン別の集計
+  const hourlyTotals: Record<string, { hours: number; minutes: number }> = {
+    A: { hours: 0, minutes: 0 },
+    B: { hours: 0, minutes: 0 },
+    C: { hours: 0, minutes: 0 },
+  }
+  
+  // 回数パターン別の集計
+  const countTotals: Record<string, number> = {
+    A: 0,
+    B: 0,
+    C: 0,
+  }
+  
+  // エントリを集計
+  entries.forEach((entry) => {
+    // 時給パターンの集計
+    const wagePattern = entry.wagePattern || 'A'
+    const duration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
+    hourlyTotals[wagePattern].hours += duration.hours
+    hourlyTotals[wagePattern].minutes += duration.minutes
+    
+    // 回数パターンの集計
+    if (entry.countPattern && entry.count) {
+      countTotals[entry.countPattern] += entry.count
+    }
+  })
+  
+  // 分を時間に変換
+  Object.keys(hourlyTotals).forEach((pattern) => {
+    const total = hourlyTotals[pattern]
+    total.hours += Math.floor(total.minutes / 60)
+    total.minutes = total.minutes % 60
+  })
+  
+  // 時給パターンA
+  const hoursA = hourlyTotals.A.hours + hourlyTotals.A.minutes / 60
+  if (hoursA > 0) {
+    breakdowns.push({
+      label: worker.wagePatternLabelA || 'Aパターン',
+      hours: hourlyTotals.A.hours,
+      minutes: hourlyTotals.A.minutes,
+      rate: worker.hourlyRate,
+      amount: Math.floor(hoursA * worker.hourlyRate),
+      isWithholding: worker.withholdingHourlyA || false,
+    })
+  }
+  
+  // 時給パターンB
+  if (worker.hourlyRateB) {
+    const hoursB = hourlyTotals.B.hours + hourlyTotals.B.minutes / 60
+    if (hoursB > 0) {
+      breakdowns.push({
+        label: worker.wagePatternLabelB || 'Bパターン',
+        hours: hourlyTotals.B.hours,
+        minutes: hourlyTotals.B.minutes,
+        rate: worker.hourlyRateB,
+        amount: Math.floor(hoursB * worker.hourlyRateB),
+        isWithholding: worker.withholdingHourlyB || false,
+      })
+    }
+  }
+  
+  // 時給パターンC
+  if (worker.hourlyRateC) {
+    const hoursC = hourlyTotals.C.hours + hourlyTotals.C.minutes / 60
+    if (hoursC > 0) {
+      breakdowns.push({
+        label: worker.wagePatternLabelC || 'Cパターン',
+        hours: hourlyTotals.C.hours,
+        minutes: hourlyTotals.C.minutes,
+        rate: worker.hourlyRateC,
+        amount: Math.floor(hoursC * worker.hourlyRateC),
+        isWithholding: worker.withholdingHourlyC || false,
+      })
+    }
+  }
+  
+  // 回数パターンA
+  if (worker.countRateA && countTotals.A > 0) {
+    breakdowns.push({
+      label: worker.countPatternLabelA || '回数Aパターン',
+      count: countTotals.A,
+      rate: worker.countRateA,
+      amount: Math.floor(countTotals.A * worker.countRateA),
+      isWithholding: worker.withholdingCountA || false,
+    })
+  }
+  
+  // 回数パターンB
+  if (worker.countRateB && countTotals.B > 0) {
+    breakdowns.push({
+      label: worker.countPatternLabelB || '回数Bパターン',
+      count: countTotals.B,
+      rate: worker.countRateB,
+      amount: Math.floor(countTotals.B * worker.countRateB),
+      isWithholding: worker.withholdingCountB || false,
+    })
+  }
+  
+  // 回数パターンC
+  if (worker.countRateC && countTotals.C > 0) {
+    breakdowns.push({
+      label: worker.countPatternLabelC || '回数Cパターン',
+      count: countTotals.C,
+      rate: worker.countRateC,
+      amount: Math.floor(countTotals.C * worker.countRateC),
+      isWithholding: worker.withholdingCountC || false,
+    })
+  }
+  
+  // 月額固定
+  if (worker.monthlyFixedEnabled && worker.monthlyFixedAmount) {
+    breakdowns.push({
+      label: '月額固定',
+      rate: worker.monthlyFixedAmount,
+      amount: worker.monthlyFixedAmount,
+      isWithholding: worker.withholdingMonthlyFixed || false,
+    })
+  }
+  
+  return breakdowns
+}
+
 export function generatePDFContent(
   worker: Worker,
   entries: TimeEntry[],
@@ -48,27 +192,34 @@ export function generatePDFContent(
   })
 
   const monthlyTotal = getMonthlyTotal(entries)
-  const totalHours = monthlyTotal.hours + monthlyTotal.minutes / 60
-  const baseAmount = Math.floor(totalHours * worker.hourlyRate)
+  
+  // パターン別の報酬明細を計算
+  const breakdowns = calculatePatternBreakdowns(worker, entries)
+  
+  // 源泉徴収対象と非対象に分類
+  const withholdingItems = breakdowns.filter(b => b.isWithholding)
+  const nonWithholdingItems = breakdowns.filter(b => !b.isWithholding)
+  
+  // 源泉あり小計
+  const subtotalWithholding = withholdingItems.reduce((sum, item) => sum + item.amount, 0)
+  // 源泉なし小計
+  const subtotalNonWithholding = nonWithholdingItems.reduce((sum, item) => sum + item.amount, 0)
+  // 合計（税抜）
+  const totalBaseAmount = subtotalWithholding + subtotalNonWithholding
 
   // 消費税計算
   let taxAmount = 0
   if (worker.billingTaxEnabled && worker.billingTaxRate) {
-    taxAmount = Math.floor(baseAmount * (worker.billingTaxRate / 100))
+    taxAmount = Math.floor(totalBaseAmount * (worker.billingTaxRate / 100))
   }
 
-  // 消費税込みの小計
-  const subtotalWithTax = baseAmount + taxAmount
-
-  // 源泉徴収計算（源泉徴収対象の場合のみ）
-  let withholdingAmount = 0
-  if (worker.withholdingTaxEnabled) {
-    // 源泉徴収は報酬額（税抜）に対して計算
-    withholdingAmount = calculateWithholdingTax(baseAmount, withholdingRates)
-  }
+  // 源泉徴収額を計算（源泉徴収対象分のみ）
+  const withholdingAmount = subtotalWithholding > 0 
+    ? calculateWithholdingTax(subtotalWithholding, withholdingRates)
+    : 0
 
   // 最終支払額
-  const finalAmount = subtotalWithTax - withholdingAmount
+  const finalAmount = totalBaseAmount + taxAmount - withholdingAmount
 
   // Sort entries by date
   const sortedEntries = [...entries].sort((a, b) => 
@@ -84,6 +235,32 @@ export function generatePDFContent(
     return acc
   }, {} as Record<string, TimeEntry[]>)
 
+  // 報酬明細のHTML生成
+  let breakdownRows = ''
+  
+  breakdowns.forEach((item) => {
+    let detail = ''
+    if (item.hours !== undefined && item.minutes !== undefined) {
+      detail = `${formatDuration(item.hours, item.minutes)} × ¥${item.rate.toLocaleString()}/時`
+    } else if (item.count !== undefined) {
+      detail = `${item.count}回 × ¥${item.rate.toLocaleString()}/回`
+    } else {
+      detail = '月額固定'
+    }
+    
+    const withholdingBadge = item.isWithholding 
+      ? '<span class="withholding-badge">源泉</span>' 
+      : ''
+    
+    breakdownRows += `
+          <div class="breakdown-item ${item.isWithholding ? 'has-withholding' : ''}">
+            <span class="breakdown-label">${item.label} ${withholdingBadge}</span>
+            <span class="breakdown-detail">${detail}</span>
+            <span class="breakdown-amount">¥${item.amount.toLocaleString()}</span>
+          </div>
+    `
+  })
+
   // サマリー行を生成
   let summaryRows = `
           <div class="summary-item">
@@ -94,9 +271,26 @@ export function generatePDFContent(
             <span class="summary-label">総勤務時間</span>
             <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
           </div>
+  `
+
+  // 源泉あり・なし小計（両方ある場合のみ表示）
+  if (subtotalWithholding > 0 && subtotalNonWithholding > 0) {
+    summaryRows += `
+          <div class="summary-item subtotal-withholding">
+            <span class="summary-label">源泉あり小計</span>
+            <span class="summary-value">¥${subtotalWithholding.toLocaleString()}</span>
+          </div>
+          <div class="summary-item subtotal-non-withholding">
+            <span class="summary-label">源泉なし小計</span>
+            <span class="summary-value">¥${subtotalNonWithholding.toLocaleString()}</span>
+          </div>
+    `
+  }
+
+  summaryRows += `
           <div class="summary-item">
             <span class="summary-label">報酬（税抜）</span>
-            <span class="summary-value">¥${baseAmount.toLocaleString()}</span>
+            <span class="summary-value">¥${totalBaseAmount.toLocaleString()}</span>
           </div>
   `
 
@@ -248,6 +442,82 @@ export function generatePDFContent(
           font-size: 20px;
         }
         
+        .subtotal-withholding {
+          background: #fff5f5;
+          padding: 8px;
+          margin: 0 -8px;
+          border-radius: 4px;
+        }
+        
+        .subtotal-non-withholding {
+          background: #f5fff5;
+          padding: 8px;
+          margin: 0 -8px;
+          border-radius: 4px;
+        }
+        
+        .breakdown-section {
+          margin: 20px 0;
+          padding: 15px;
+          background: #fafafa;
+          border-radius: 8px;
+          border: 1px solid #eee;
+        }
+        
+        .breakdown-section h3 {
+          font-size: 14px;
+          margin-bottom: 10px;
+          padding-bottom: 5px;
+          border-bottom: 1px solid #ddd;
+        }
+        
+        .breakdown-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 8px 0;
+          border-bottom: 1px dotted #ddd;
+        }
+        
+        .breakdown-item:last-child {
+          border-bottom: none;
+        }
+        
+        .breakdown-item.has-withholding {
+          background: #fff5f5;
+          margin: 0 -8px;
+          padding: 8px;
+          border-radius: 4px;
+        }
+        
+        .breakdown-label {
+          font-weight: 600;
+          flex: 1;
+        }
+        
+        .breakdown-detail {
+          color: #666;
+          font-size: 11px;
+          flex: 1;
+          text-align: center;
+        }
+        
+        .breakdown-amount {
+          font-weight: bold;
+          flex: 0 0 100px;
+          text-align: right;
+        }
+        
+        .withholding-badge {
+          display: inline-block;
+          background: #dc2626;
+          color: white;
+          font-size: 9px;
+          padding: 1px 4px;
+          border-radius: 3px;
+          margin-left: 5px;
+        }
+        
         .details {
           margin-top: 30px;
         }
@@ -363,13 +633,20 @@ export function generatePDFContent(
         <div class="summary-grid">
           ${summaryRows}
         </div>
-        ${worker.withholdingTaxEnabled ? `
+        ${withholdingAmount > 0 ? `
         <div class="tax-note">
-          <p>※ 源泉徴収税は報酬額（税抜）に対して計算されています。</p>
+          <p>※ 源泉徴収税は源泉対象報酬額（税抜 ¥${subtotalWithholding.toLocaleString()}）に対して計算されています。</p>
           <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
         </div>
         ` : ''}
       </div>
+      
+      ${breakdowns.length > 1 ? `
+      <div class="breakdown-section">
+        <h3>報酬明細</h3>
+        ${breakdownRows}
+      </div>
+      ` : ''}
   `
 
   if (Object.keys(entriesByDate).length > 0) {

@@ -81,7 +81,31 @@ export default function SettingsPage() {
     notes: '',
     billingTaxEnabled: false, // 消費税を請求に反映
     taxType: 'exclusive' as 'exclusive' | 'inclusive', // 外税 | 内税
-    withholdingTaxEnabled: false, // 源泉徴収対象
+    withholdingTaxEnabled: false, // 源泉徴収対象（レガシー）
+    // 時給パターン設定
+    wagePatternLabelA: 'Aパターン',
+    wagePatternLabelB: 'Bパターン',
+    wagePatternLabelC: 'Cパターン',
+    hourlyRateB: '',
+    hourlyRateC: '',
+    // 回数パターン設定
+    countPatternLabelA: '回数Aパターン',
+    countPatternLabelB: '回数Bパターン',
+    countPatternLabelC: '回数Cパターン',
+    countRateA: '',
+    countRateB: '',
+    countRateC: '',
+    // 月額固定設定
+    monthlyFixedAmount: '',
+    monthlyFixedEnabled: false,
+    // 各パターン別源泉徴収
+    withholdingHourlyA: false,
+    withholdingHourlyB: false,
+    withholdingHourlyC: false,
+    withholdingCountA: false,
+    withholdingCountB: false,
+    withholdingCountC: false,
+    withholdingMonthlyFixed: false,
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -140,6 +164,30 @@ export default function SettingsPage() {
       billingTaxEnabled: false,
       taxType: 'exclusive',
       withholdingTaxEnabled: false,
+      // 時給パターン設定
+      wagePatternLabelA: 'Aパターン',
+      wagePatternLabelB: 'Bパターン',
+      wagePatternLabelC: 'Cパターン',
+      hourlyRateB: '',
+      hourlyRateC: '',
+      // 回数パターン設定
+      countPatternLabelA: '回数Aパターン',
+      countPatternLabelB: '回数Bパターン',
+      countPatternLabelC: '回数Cパターン',
+      countRateA: '',
+      countRateB: '',
+      countRateC: '',
+      // 月額固定設定
+      monthlyFixedAmount: '',
+      monthlyFixedEnabled: false,
+      // 各パターン別源泉徴収
+      withholdingHourlyA: false,
+      withholdingHourlyB: false,
+      withholdingHourlyC: false,
+      withholdingCountA: false,
+      withholdingCountB: false,
+      withholdingCountC: false,
+      withholdingMonthlyFixed: false,
     })
     setSelectedEmployeeId('')
     setEditingWorker(null)
@@ -174,6 +222,34 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // 報酬パターンデータを整形
+    const rewardPatternData = {
+      // 時給パターン設定
+      wagePatternLabelA: formData.wagePatternLabelA,
+      wagePatternLabelB: formData.wagePatternLabelB,
+      wagePatternLabelC: formData.wagePatternLabelC,
+      hourlyRateB: formData.hourlyRateB ? Number(formData.hourlyRateB) : undefined,
+      hourlyRateC: formData.hourlyRateC ? Number(formData.hourlyRateC) : undefined,
+      // 回数パターン設定
+      countPatternLabelA: formData.countPatternLabelA,
+      countPatternLabelB: formData.countPatternLabelB,
+      countPatternLabelC: formData.countPatternLabelC,
+      countRateA: formData.countRateA ? Number(formData.countRateA) : undefined,
+      countRateB: formData.countRateB ? Number(formData.countRateB) : undefined,
+      countRateC: formData.countRateC ? Number(formData.countRateC) : undefined,
+      // 月額固定設定
+      monthlyFixedAmount: formData.monthlyFixedAmount ? Number(formData.monthlyFixedAmount) : undefined,
+      monthlyFixedEnabled: formData.monthlyFixedEnabled,
+      // 各パターン別源泉徴収
+      withholdingHourlyA: formData.withholdingHourlyA,
+      withholdingHourlyB: formData.withholdingHourlyB,
+      withholdingHourlyC: formData.withholdingHourlyC,
+      withholdingCountA: formData.withholdingCountA,
+      withholdingCountB: formData.withholdingCountB,
+      withholdingCountC: formData.withholdingCountC,
+      withholdingMonthlyFixed: formData.withholdingMonthlyFixed,
+    }
+
     try {
       if (editingWorker) {
         await updateWorker(editingWorker.id, {
@@ -192,6 +268,7 @@ export default function SettingsPage() {
           billingTaxEnabled: formData.billingTaxEnabled,
           taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
+          ...rewardPatternData,
         })
         const updatedWorkers = await getWorkers()
         setWorkers(updatedWorkers)
@@ -226,6 +303,7 @@ export default function SettingsPage() {
           billingTaxEnabled: formData.billingTaxEnabled,
           taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
+          ...rewardPatternData,
         })
         setWorkers([...workers, newWorker])
         // 候補リストを更新（登録された従業員を除外）
@@ -267,6 +345,30 @@ export default function SettingsPage() {
       billingTaxEnabled: worker.billingTaxEnabled || false,
       taxType: worker.taxType || 'exclusive',
       withholdingTaxEnabled: worker.withholdingTaxEnabled || false,
+      // 時給パターン設定
+      wagePatternLabelA: worker.wagePatternLabelA || 'Aパターン',
+      wagePatternLabelB: worker.wagePatternLabelB || 'Bパターン',
+      wagePatternLabelC: worker.wagePatternLabelC || 'Cパターン',
+      hourlyRateB: worker.hourlyRateB ? String(worker.hourlyRateB) : '',
+      hourlyRateC: worker.hourlyRateC ? String(worker.hourlyRateC) : '',
+      // 回数パターン設定
+      countPatternLabelA: worker.countPatternLabelA || '回数Aパターン',
+      countPatternLabelB: worker.countPatternLabelB || '回数Bパターン',
+      countPatternLabelC: worker.countPatternLabelC || '回数Cパターン',
+      countRateA: worker.countRateA ? String(worker.countRateA) : '',
+      countRateB: worker.countRateB ? String(worker.countRateB) : '',
+      countRateC: worker.countRateC ? String(worker.countRateC) : '',
+      // 月額固定設定
+      monthlyFixedAmount: worker.monthlyFixedAmount ? String(worker.monthlyFixedAmount) : '',
+      monthlyFixedEnabled: worker.monthlyFixedEnabled || false,
+      // 各パターン別源泉徴収
+      withholdingHourlyA: worker.withholdingHourlyA || false,
+      withholdingHourlyB: worker.withholdingHourlyB || false,
+      withholdingHourlyC: worker.withholdingHourlyC || false,
+      withholdingCountA: worker.withholdingCountA || false,
+      withholdingCountB: worker.withholdingCountB || false,
+      withholdingCountC: worker.withholdingCountC || false,
+      withholdingMonthlyFixed: worker.withholdingMonthlyFixed || false,
     })
     setSelectedEmployeeId(worker.employeeId || '')
     setIsDialogOpen(true)
@@ -600,19 +702,246 @@ export default function SettingsPage() {
                         />
                       </div>
 
-                      <div className="grid gap-2">
-                        <Label htmlFor="hourlyRate">時給（円）*</Label>
-                        <Input
-                          id="hourlyRate"
-                          type="number"
-                          min="0"
-                          value={formData.hourlyRate}
-                          onChange={(e) =>
-                            setFormData({ ...formData, hourlyRate: e.target.value })
-                          }
-                          required
-                        />
+                      {/* ===== 報酬設定セクション ===== */}
+                      <div className="rounded-lg border p-4 space-y-4">
+                        <h3 className="font-semibold text-lg border-b pb-2">報酬設定</h3>
+                        
+                        {/* 時給パターン設定 */}
+                        <div className="space-y-3">
+                          <Label className="text-base font-medium">時給パターン</Label>
+                          
+                          {/* 時給パターンA（必須） */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.wagePatternLabelA}
+                                onChange={(e) => setFormData({ ...formData, wagePatternLabelA: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRate}
+                                  onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                                  placeholder="時給 *"
+                                  required
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingHourlyA}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingHourlyA: checked })}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* 時給パターンB */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.wagePatternLabelB}
+                                onChange={(e) => setFormData({ ...formData, wagePatternLabelB: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRateB}
+                                  onChange={(e) => setFormData({ ...formData, hourlyRateB: e.target.value })}
+                                  placeholder="時給（任意）"
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingHourlyB}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingHourlyB: checked })}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* 時給パターンC */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.wagePatternLabelC}
+                                onChange={(e) => setFormData({ ...formData, wagePatternLabelC: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.hourlyRateC}
+                                  onChange={(e) => setFormData({ ...formData, hourlyRateC: e.target.value })}
+                                  placeholder="時給（任意）"
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingHourlyC}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingHourlyC: checked })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 回数パターン設定 */}
+                        <div className="space-y-3 border-t pt-4">
+                          <Label className="text-base font-medium">回数パターン</Label>
+                          
+                          {/* 回数パターンA */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.countPatternLabelA}
+                                onChange={(e) => setFormData({ ...formData, countPatternLabelA: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateA}
+                                  onChange={(e) => setFormData({ ...formData, countRateA: e.target.value })}
+                                  placeholder="単価/回"
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingCountA}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingCountA: checked })}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* 回数パターンB */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.countPatternLabelB}
+                                onChange={(e) => setFormData({ ...formData, countPatternLabelB: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateB}
+                                  onChange={(e) => setFormData({ ...formData, countRateB: e.target.value })}
+                                  placeholder="単価/回"
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingCountB}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingCountB: checked })}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* 回数パターンC */}
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-3">
+                              <Input
+                                value={formData.countPatternLabelC}
+                                onChange={(e) => setFormData({ ...formData, countPatternLabelC: e.target.value })}
+                                placeholder="ラベル"
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="col-span-4">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.countRateC}
+                                  onChange={(e) => setFormData({ ...formData, countRateC: e.target.value })}
+                                  placeholder="単価/回"
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingCountC}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingCountC: checked })}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 月額固定設定 */}
+                        <div className="space-y-3 border-t pt-4">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-base font-medium">月額固定</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">有効</span>
+                              <Switch
+                                checked={formData.monthlyFixedEnabled}
+                                onCheckedChange={(checked) => setFormData({ ...formData, monthlyFixedEnabled: checked })}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-12 gap-2 items-center bg-muted/50 p-3 rounded">
+                            <div className="col-span-7">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-muted-foreground">¥</span>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={formData.monthlyFixedAmount}
+                                  onChange={(e) => setFormData({ ...formData, monthlyFixedAmount: e.target.value })}
+                                  placeholder="月額固定金額"
+                                  disabled={!formData.monthlyFixedEnabled}
+                                />
+                              </div>
+                            </div>
+                            <div className="col-span-5 flex items-center justify-end gap-2">
+                              <span className="text-sm text-muted-foreground">源泉徴収</span>
+                              <Switch
+                                checked={formData.withholdingMonthlyFixed}
+                                onCheckedChange={(checked) => setFormData({ ...formData, withholdingMonthlyFixed: checked })}
+                                disabled={!formData.monthlyFixedEnabled}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
+                      {/* ===== 報酬設定セクション終了 ===== */}
 
                       <div className="grid gap-2">
                         <Label htmlFor="teams">チーム（複数選択可）</Label>
@@ -640,25 +969,6 @@ export default function SettingsPage() {
                             <SelectItem value="admin">管理者</SelectItem>
                           </SelectContent>
                         </Select>
-                      </div>
-
-                      {/* 源泉徴収対象スイッチ */}
-                      <div className="flex items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="withholdingTaxEnabled" className="text-base">
-                            源泉徴収対象
-                          </Label>
-                          <p className="text-sm text-muted-foreground">
-                            業務委託契約の場合は源泉徴収対象にしてください
-                          </p>
-                        </div>
-                        <Switch
-                          id="withholdingTaxEnabled"
-                          checked={formData.withholdingTaxEnabled}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, withholdingTaxEnabled: checked })
-                          }
-                        />
                       </div>
 
                       <div className="grid gap-2">

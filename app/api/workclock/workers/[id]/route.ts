@@ -33,6 +33,12 @@ export async function GET(
             email: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -88,6 +94,7 @@ export async function GET(
     return NextResponse.json({
       ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
+      billingClientName: (worker as any).billingClient?.name || null,
     })
   } catch (error: any) {
     console.error('WorkClock worker取得エラー:', error)
@@ -185,6 +192,15 @@ export async function PUT(
       billingTaxRate,
       taxType,
       withholdingTaxEnabled,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA,
+      withholdingHourlyB,
+      withholdingHourlyC,
+      withholdingCountA,
+      withholdingCountB,
+      withholdingCountC,
+      withholdingMonthlyFixed,
+      billingClientId,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -259,10 +275,40 @@ export async function PUT(
           withholdingTaxEnabled !== undefined && withholdingTaxEnabled !== null
             ? Boolean(withholdingTaxEnabled)
             : undefined,
+        // 各パターン別源泉徴収フラグ
+        withholdingHourlyA:
+          withholdingHourlyA !== undefined && withholdingHourlyA !== null
+            ? Boolean(withholdingHourlyA)
+            : undefined,
+        withholdingHourlyB:
+          withholdingHourlyB !== undefined && withholdingHourlyB !== null
+            ? Boolean(withholdingHourlyB)
+            : undefined,
+        withholdingHourlyC:
+          withholdingHourlyC !== undefined && withholdingHourlyC !== null
+            ? Boolean(withholdingHourlyC)
+            : undefined,
+        withholdingCountA:
+          withholdingCountA !== undefined && withholdingCountA !== null
+            ? Boolean(withholdingCountA)
+            : undefined,
+        withholdingCountB:
+          withholdingCountB !== undefined && withholdingCountB !== null
+            ? Boolean(withholdingCountB)
+            : undefined,
+        withholdingCountC:
+          withholdingCountC !== undefined && withholdingCountC !== null
+            ? Boolean(withholdingCountC)
+            : undefined,
+        withholdingMonthlyFixed:
+          withholdingMonthlyFixed !== undefined && withholdingMonthlyFixed !== null
+            ? Boolean(withholdingMonthlyFixed)
+            : undefined,
         teams: teams !== undefined ? (Array.isArray(teams) ? JSON.stringify(teams) : null) : undefined,
         role,
         notes,
         transferDestination,
+        billingClientId: billingClientId !== undefined ? (billingClientId || null) : undefined,
       },
       include: {
         employee: {
@@ -272,12 +318,19 @@ export async function PUT(
             email: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
     return NextResponse.json({
       ...updated,
       teams: updated.teams ? JSON.parse(updated.teams) : [],
+      billingClientName: (updated as any).billingClient?.name || null,
     })
   } catch (error: any) {
     console.error('WorkClock worker更新エラー:', error)

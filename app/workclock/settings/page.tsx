@@ -38,10 +38,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload } from '@/lib/workclock/api-storage'
+import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload, getBillingClients, addBillingClient, updateBillingClient, deleteBillingClient, BillingClient } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { api } from '@/lib/workclock/api'
-import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown, Building2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -101,6 +101,11 @@ export default function SettingsPage() {
   const [isWorkerPasswordDialogOpen, setIsWorkerPasswordDialogOpen] = useState(false)
   const [isTeamDialogOpen, setIsTeamDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState('')
+  // 請求先管理
+  const [billingClients, setBillingClients] = useState<BillingClient[]>([])
+  const [isBillingClientDialogOpen, setIsBillingClientDialogOpen] = useState(false)
+  const [newBillingClientName, setNewBillingClientName] = useState('')
+  const [editingBillingClient, setEditingBillingClient] = useState<BillingClient | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [viewingWorker, setViewingWorker] = useState<Worker | null>(null)
@@ -150,7 +155,16 @@ export default function SettingsPage() {
     billingTaxEnabled: false,
     billingTaxRate: '',
     taxType: 'exclusive' as 'exclusive' | 'inclusive', // 外税 | 内税
-    withholdingTaxEnabled: false, // 源泉徴収対象
+    withholdingTaxEnabled: false, // 源泉徴収対象（レガシー）
+    // 各パターン別源泉徴収
+    withholdingHourlyA: false,
+    withholdingHourlyB: false,
+    withholdingHourlyC: false,
+    withholdingCountA: false,
+    withholdingCountB: false,
+    withholdingCountC: false,
+    withholdingMonthlyFixed: false,
+    billingClientId: '', // 請求先ID
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -179,6 +193,17 @@ export default function SettingsPage() {
       }
     }
     fetchTeams()
+
+    // 請求先一覧を取得
+    const fetchBillingClients = async () => {
+      try {
+        const clients = await getBillingClients(currentUser?.id)
+        setBillingClients(clients)
+      } catch (error) {
+        console.error('請求先一覧の取得に失敗', error)
+      }
+    }
+    fetchBillingClients()
 
     // 初回ロードで社員一覧も取得
     ;(async () => {
@@ -390,6 +415,15 @@ export default function SettingsPage() {
       billingTaxRate: '',
       taxType: 'exclusive',
       withholdingTaxEnabled: false,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA: false,
+      withholdingHourlyB: false,
+      withholdingHourlyC: false,
+      withholdingCountA: false,
+      withholdingCountB: false,
+      withholdingCountC: false,
+      withholdingMonthlyFixed: false,
+      billingClientId: '',
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -501,6 +535,14 @@ export default function SettingsPage() {
             billingTaxRate: taxRateValue,
             taxType: formData.taxType,
             withholdingTaxEnabled: formData.withholdingTaxEnabled,
+            // 各パターン別源泉徴収フラグ
+            withholdingHourlyA: formData.withholdingHourlyA,
+            withholdingHourlyB: formData.withholdingHourlyB,
+            withholdingHourlyC: formData.withholdingHourlyC,
+            withholdingCountA: formData.withholdingCountA,
+            withholdingCountB: formData.withholdingCountB,
+            withholdingCountC: formData.withholdingCountC,
+            withholdingMonthlyFixed: formData.withholdingMonthlyFixed,
             teams: formData.teams,
             role: formData.role as 'worker' | 'admin',
             // 備考欄も空にした場合は空文字で上書きしたい
@@ -508,6 +550,8 @@ export default function SettingsPage() {
             // 振込先は、空文字に更新された場合でもDB側に反映させたいので
             // undefined にはせず、そのまま送信する（空文字なら空文字で上書き）
             transferDestination: formData.transferDestination,
+            // 請求先ID
+            billingClientId: formData.billingClientId || null,
           },
           userId
         )
@@ -579,11 +623,21 @@ export default function SettingsPage() {
           billingTaxRate: taxRateValue,
           taxType: formData.taxType,
           withholdingTaxEnabled: formData.withholdingTaxEnabled,
+          // 各パターン別源泉徴収フラグ
+          withholdingHourlyA: formData.withholdingHourlyA,
+          withholdingHourlyB: formData.withholdingHourlyB,
+          withholdingHourlyC: formData.withholdingHourlyC,
+          withholdingCountA: formData.withholdingCountA,
+          withholdingCountB: formData.withholdingCountB,
+          withholdingCountC: formData.withholdingCountC,
+          withholdingMonthlyFixed: formData.withholdingMonthlyFixed,
           teams: formData.teams,
           role: formData.role as 'worker' | 'admin',
           notes: formData.notes,
           // 振込先も空文字で保存・更新できるようにする
           transferDestination: formData.transferDestination,
+          // 請求先ID
+          billingClientId: formData.billingClientId || null,
         }
         await addWorker(payload, userId)
         // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
@@ -688,6 +742,15 @@ export default function SettingsPage() {
           : '',
       taxType: worker.taxType || 'exclusive',
       withholdingTaxEnabled: worker.withholdingTaxEnabled ?? false,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA: worker.withholdingHourlyA ?? false,
+      withholdingHourlyB: worker.withholdingHourlyB ?? false,
+      withholdingHourlyC: worker.withholdingHourlyC ?? false,
+      withholdingCountA: worker.withholdingCountA ?? false,
+      withholdingCountB: worker.withholdingCountB ?? false,
+      withholdingCountC: worker.withholdingCountC ?? false,
+      withholdingMonthlyFixed: worker.withholdingMonthlyFixed ?? false,
+      billingClientId: worker.billingClientId || '',
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -1017,9 +1080,141 @@ export default function SettingsPage() {
                 </DialogContent>
               </Dialog>
               )}
+              {/* 請求先管理ボタンは総務権限・管理者権限のみ表示 */}
+              {canEditCompensation && (
+                <Dialog open={isBillingClientDialogOpen} onOpenChange={async (open) => {
+                  setIsBillingClientDialogOpen(open)
+                  if (!open) {
+                    const clients = await getBillingClients(currentUser?.id)
+                    setBillingClients(clients)
+                    setNewBillingClientName('')
+                    setEditingBillingClient(null)
+                  }
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Building2 className="mr-2 h-4 w-4" />
+                      請求先管理
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>請求先管理</DialogTitle>
+                      <DialogDescription>
+                        請求先（会社名）の追加・編集・削除を行います
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder={editingBillingClient ? '請求先名を編集' : '新しい請求先名'}
+                          value={editingBillingClient ? editingBillingClient.name : newBillingClientName}
+                          onChange={(e) => {
+                            if (editingBillingClient) {
+                              setEditingBillingClient({ ...editingBillingClient, name: e.target.value })
+                            } else {
+                              setNewBillingClientName(e.target.value)
+                            }
+                          }}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              if (editingBillingClient) {
+                                try {
+                                  await updateBillingClient(editingBillingClient.id, editingBillingClient.name, currentUser?.id)
+                                  const clients = await getBillingClients(currentUser?.id)
+                                  setBillingClients(clients)
+                                  setEditingBillingClient(null)
+                                  toast({ title: '更新完了', description: '請求先を更新しました' })
+                                } catch (error: any) {
+                                  toast({ title: 'エラー', description: error.message || '請求先の更新に失敗しました', variant: 'destructive' })
+                                }
+                              } else if (newBillingClientName.trim()) {
+                                try {
+                                  await addBillingClient(newBillingClientName.trim(), currentUser?.id)
+                                  const clients = await getBillingClients(currentUser?.id)
+                                  setBillingClients(clients)
+                                  setNewBillingClientName('')
+                                  toast({ title: '追加完了', description: '請求先を追加しました' })
+                                } catch (error: any) {
+                                  toast({ title: 'エラー', description: error.message || '請求先の追加に失敗しました', variant: 'destructive' })
+                                }
+                              }
+                            }
+                          }}
+                        />
+                        {editingBillingClient ? (
+                          <>
+                            <Button type="button" onClick={async () => {
+                              try {
+                                await updateBillingClient(editingBillingClient.id, editingBillingClient.name, currentUser?.id)
+                                const clients = await getBillingClients(currentUser?.id)
+                                setBillingClients(clients)
+                                setEditingBillingClient(null)
+                                toast({ title: '更新完了', description: '請求先を更新しました' })
+                              } catch (error: any) {
+                                toast({ title: 'エラー', description: error.message || '請求先の更新に失敗しました', variant: 'destructive' })
+                              }
+                            }}>更新</Button>
+                            <Button type="button" variant="outline" onClick={() => setEditingBillingClient(null)}>キャンセル</Button>
+                          </>
+                        ) : (
+                          <Button type="button" onClick={async () => {
+                            if (newBillingClientName.trim()) {
+                              try {
+                                await addBillingClient(newBillingClientName.trim(), currentUser?.id)
+                                const clients = await getBillingClients(currentUser?.id)
+                                setBillingClients(clients)
+                                setNewBillingClientName('')
+                                toast({ title: '追加完了', description: '請求先を追加しました' })
+                              } catch (error: any) {
+                                toast({ title: 'エラー', description: error.message || '請求先の追加に失敗しました', variant: 'destructive' })
+                              }
+                            }
+                          }}><Plus className="h-4 w-4" /></Button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>登録済み請求先</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {billingClients.length === 0 ? (
+                            <span className="text-sm text-muted-foreground">請求先が登録されていません</span>
+                          ) : (
+                            billingClients.map((client) => (
+                              <Badge key={client.id} variant="secondary" className="text-sm flex items-center gap-1">
+                                {client.name}
+                                <button className="ml-1 rounded-full outline-none hover:bg-slate-200 p-0.5" onClick={() => setEditingBillingClient(client)} title="編集">
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button className="rounded-full outline-none hover:bg-slate-200 p-0.5" onClick={async () => {
+                                  if (confirm(`請求先「${client.name}」を削除してもよろしいですか？`)) {
+                                    try {
+                                      await deleteBillingClient(client.id, currentUser?.id)
+                                      const clients = await getBillingClients(currentUser?.id)
+                                      setBillingClients(clients)
+                                      toast({ title: '削除完了', description: '請求先を削除しました' })
+                                    } catch (error: any) {
+                                      toast({ title: 'エラー', description: error.message || '請求先の削除に失敗しました', variant: 'destructive' })
+                                    }
+                                  }
+                                }} title="削除">
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
               <Dialog open={isDialogOpen} onOpenChange={async (open) => {
                 setIsDialogOpen(open)
                 if (open) {
+                  // 請求先一覧も取得
+                  const clients = await getBillingClients(currentUser?.id)
+                  setBillingClients(clients)
                   // ダイアログを開いた時に最新のチーム一覧を取得
                   const updatedTeams = await getTeams(currentUser?.id)
                   setTeams(updatedTeams)
@@ -1421,6 +1616,19 @@ export default function SettingsPage() {
                                   placeholder="1,200"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyA"
+                                    checked={formData.withholdingHourlyA}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyA: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyA" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -1459,6 +1667,19 @@ export default function SettingsPage() {
                                   placeholder="例: 1,500"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyB"
+                                    checked={formData.withholdingHourlyB}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyB: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyB" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between gap-2">
@@ -1497,6 +1718,19 @@ export default function SettingsPage() {
                                   placeholder="例: 2,000"
                                   disabled={!canEditCompValues}
                                 />
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Switch
+                                    id="withholdingHourlyC"
+                                    checked={formData.withholdingHourlyC}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingHourlyC: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingHourlyC" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1528,7 +1762,22 @@ export default function SettingsPage() {
                                   placeholder="例: 5000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountA"
+                                      checked={formData.withholdingCountA}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountA: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountA" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <Input
@@ -1552,7 +1801,22 @@ export default function SettingsPage() {
                                   placeholder="例: 8000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountB"
+                                      checked={formData.withholdingCountB}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountB: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountB" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                               <div className="space-y-1">
                                 <Input
@@ -1576,7 +1840,22 @@ export default function SettingsPage() {
                                   placeholder="例: 10000"
                                   disabled={!canEditCompValues}
                                 />
-                                <p className="text-[10px] text-muted-foreground">円／回</p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] text-muted-foreground">円／回</p>
+                                  <div className="flex items-center gap-2">
+                                    <Switch
+                                      id="withholdingCountC"
+                                      checked={formData.withholdingCountC}
+                                      onCheckedChange={(checked) =>
+                                        setFormData({ ...formData, withholdingCountC: checked })
+                                      }
+                                      disabled={!canEditCompValues}
+                                    />
+                                    <Label htmlFor="withholdingCountC" className="text-xs cursor-pointer">
+                                      源泉徴収
+                                    </Label>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1585,7 +1864,7 @@ export default function SettingsPage() {
                             <Label className="text-xs font-semibold text-muted-foreground">
                               月額固定
                             </Label>
-                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-center">
+                            <div className="space-y-2">
                               <Input
                                 id="monthlyFixedAmount"
                                 type="number"
@@ -1600,9 +1879,24 @@ export default function SettingsPage() {
                                 placeholder="例: 300000"
                                 disabled={!canEditCompValues}
                               />
-                              <p className="text-[11px] text-muted-foreground md:text-right">
-                                カレンダー画面の「月額固定 ON/OFF」トグルと連動。
-                              </p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-[11px] text-muted-foreground">
+                                  カレンダー画面の「月額固定 ON/OFF」トグルと連動。
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    id="withholdingMonthlyFixed"
+                                    checked={formData.withholdingMonthlyFixed}
+                                    onCheckedChange={(checked) =>
+                                      setFormData({ ...formData, withholdingMonthlyFixed: checked })
+                                    }
+                                    disabled={!canEditCompValues}
+                                  />
+                                  <Label htmlFor="withholdingMonthlyFixed" className="text-xs cursor-pointer">
+                                    源泉徴収
+                                  </Label>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </CardContent>
@@ -1617,6 +1911,32 @@ export default function SettingsPage() {
                           placeholder="チームを選択"
                           readOnly={!isWorkerEditUnlocked}
                         />
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label htmlFor="billingClient">請求先</Label>
+                        <Select
+                          value={formData.billingClientId || 'none'}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, billingClientId: value === 'none' ? '' : value })
+                          }
+                          disabled={!isWorkerEditUnlocked}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="請求先を選択" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">未設定</SelectItem>
+                            {billingClients.map((client) => (
+                              <SelectItem key={client.id} value={client.id}>
+                                {client.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          PDF出力時に「◯◯◯◯御中」として表示されます
+                        </p>
                       </div>
 
                       <div className="grid gap-2">

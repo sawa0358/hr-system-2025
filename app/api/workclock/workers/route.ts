@@ -69,6 +69,12 @@ export async function GET(request: NextRequest) {
             furigana: true,
           },
         },
+        billingClient: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -93,6 +99,7 @@ export async function GET(request: NextRequest) {
         teams,
         employeeType: worker.employee?.employeeType || null,
         furigana: worker.employee?.furigana || null,
+        billingClientName: worker.billingClient?.name || null,
       }
     })
 
@@ -223,6 +230,15 @@ export async function POST(request: NextRequest) {
       billingTaxRate,
       taxType,
       withholdingTaxEnabled,
+      // 各パターン別源泉徴収フラグ
+      withholdingHourlyA,
+      withholdingHourlyB,
+      withholdingHourlyC,
+      withholdingCountA,
+      withholdingCountB,
+      withholdingCountC,
+      withholdingMonthlyFixed,
+      billingClientId,
     } = body
 
     // 必須項目チェック（社員・氏名のみ必須）
@@ -317,10 +333,19 @@ export async function POST(request: NextRequest) {
             : null,
         taxType: taxType === 'inclusive' ? 'inclusive' : 'exclusive',
         withholdingTaxEnabled: withholdingTaxEnabled ?? false,
+        // 各パターン別源泉徴収フラグ
+        withholdingHourlyA: withholdingHourlyA ?? false,
+        withholdingHourlyB: withholdingHourlyB ?? false,
+        withholdingHourlyC: withholdingHourlyC ?? false,
+        withholdingCountA: withholdingCountA ?? false,
+        withholdingCountB: withholdingCountB ?? false,
+        withholdingCountC: withholdingCountC ?? false,
+        withholdingMonthlyFixed: withholdingMonthlyFixed ?? false,
         teams: teams && Array.isArray(teams) ? JSON.stringify(teams) : null,
         role: role || 'worker',
         notes,
         transferDestination,
+        billingClientId: billingClientId || null,
       },
       include: {
         employee: {
@@ -344,7 +369,6 @@ export async function POST(request: NextRequest) {
       code: error?.code,
       stack: error?.stack,
       name: error?.name,
-      requestBody: { ...body, password: '[MASKED]' },
     })
 
     // マイグレーション未適用やテーブル未作成時（開発中）の一時的な救済

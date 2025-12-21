@@ -55,8 +55,25 @@ export interface Worker {
   billingTaxRate?: number // 個別の消費税率
   taxType?: 'exclusive' | 'inclusive' // 外税 | 内税（デフォルト: 外税）
 
-  // 源泉徴収設定
-  withholdingTaxEnabled?: boolean // 源泉徴収対象かどうか
+  // 源泉徴収設定（レガシー）
+  withholdingTaxEnabled?: boolean // 源泉徴収対象かどうか（レガシー用）
+
+  // 時給パターン別の源泉徴収ON/OFF
+  withholdingHourlyA?: boolean // 時給パターンA源泉徴収
+  withholdingHourlyB?: boolean // 時給パターンB源泉徴収
+  withholdingHourlyC?: boolean // 時給パターンC源泉徴収
+
+  // 回数パターン別の源泉徴収ON/OFF
+  withholdingCountA?: boolean // 回数パターンA源泉徴収
+  withholdingCountB?: boolean // 回数パターンB源泉徴収
+  withholdingCountC?: boolean // 回数パターンC源泉徴収
+
+  // 月額固定の源泉徴収ON/OFF
+  withholdingMonthlyFixed?: boolean // 月額固定源泉徴収
+
+  // 請求先
+  billingClientId?: string // 請求先ID
+  billingClientName?: string // 請求先名（API経由で取得）
 }
 
 export interface WorkSummary {

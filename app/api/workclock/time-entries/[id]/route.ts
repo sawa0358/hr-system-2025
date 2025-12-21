@@ -1,24 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-// 先月以前のレコードがロック対象か判定するヘルパー（list/POST側と同一ロジック）
+// 勤務記録がロック対象か判定するヘルパー
+// - 「2日前の記録以前」をロック対象とする
+// - 今日が21日なら、19日以前の記録がロック対象（20日、21日は編集可能）
 function isLockedPastEntry(entryDate: Date, now: Date = new Date()): boolean {
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
 
-  const firstOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  const thirdOfCurrentMonth = new Date(today.getFullYear(), today.getMonth(), 3)
+  const targetDate = new Date(entryDate)
+  targetDate.setHours(0, 0, 0, 0)
 
-  return entryDate < firstOfCurrentMonth && today >= thirdOfCurrentMonth
+  // 2日前を計算
+  const twoDaysAgo = new Date(today)
+  twoDaysAgo.setDate(today.getDate() - 2)
+
+  return targetDate <= twoDaysAgo
 }
 
 function ensureCanEditLockedEntry(userRole: string | null | undefined) {
-  const allowedRolesForLocked = ['hr', 'admin']
+  const allowedRolesForLocked = ['manager', 'hr', 'admin']
   if (!allowedRolesForLocked.includes(userRole || '')) {
     return NextResponse.json(
       {
         error:
-          '先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。',
+          '2日前の記録以前の勤務記録は、マネージャー・総務・管理者のみ編集できます。必要な場合は上長に依頼してください。',
       },
       { status: 403 }
     )

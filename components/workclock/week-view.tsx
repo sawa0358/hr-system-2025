@@ -45,7 +45,7 @@ export function WeekView({
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  
+
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState<{ date: Date; minutes: number } | null>(null)
   const [dragEnd, setDragEnd] = useState<{ date: Date; minutes: number } | null>(null)
@@ -57,7 +57,7 @@ export function WeekView({
     const day = current.getDay()
     const diff = current.getDate() - day
     const sunday = new Date(current.setDate(diff))
-    
+
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(sunday)
       d.setDate(sunday.getDate() + i)
@@ -217,7 +217,7 @@ export function WeekView({
       setDragEndTime(endTime)
       setIsDialogOpen(true)
     }
-    
+
     setIsDragging(false)
     setDragStart(null)
     setDragEnd(null)
@@ -287,7 +287,7 @@ export function WeekView({
 
       {/* 勤務記録ロックに関する注意テキスト */}
       <p className="text-xs text-blue-600">
-        毎月3日0:00以降は先月末締めの勤務記録は編集できなくなります
+        2日前の記録以前の勤務記録は編集できなくなります(編集の必要がある場合は弊社の担当へお伝えください)
       </p>
 
       <Card className="relative max-h-[calc(100vh-280px)] overflow-auto">

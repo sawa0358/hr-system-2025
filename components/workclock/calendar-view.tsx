@@ -196,10 +196,10 @@ export function CalendarView({
             </div>
           </div>
 
-      {/* 勤務記録ロックに関する注意テキスト */}
-      <p className="text-xs text-blue-600">
-        毎月3日0:00以降は先月末締めの勤務記録は編集できなくなります
-      </p>
+          {/* 勤務記録ロックに関する注意テキスト */}
+          <p className="text-xs text-blue-600">
+            2日前の記録以前の勤務記録は編集できなくなります(編集の必要がある場合は弊社の担当へお伝えください)
+          </p>
 
           <Card className="p-4">
             <div className="grid grid-cols-7 gap-2">

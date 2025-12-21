@@ -98,7 +98,7 @@ export default function WorkerPage() {
         return
       }
 
-          const foundWorker = await getWorkerById(workerId, currentUser.id)
+      const foundWorker = await getWorkerById(workerId, currentUser.id)
       setWorker(foundWorker || null)
 
       const allWorkers = await getWorkers(currentUser.id)
@@ -134,8 +134,8 @@ export default function WorkerPage() {
   // 勤務記録の編集可否（3日ロック + 権限 + 自分のページかどうか）をフロント側でも判定
   const canEditEntries = useMemo(() => {
     const role = currentUser?.role
-    // 総務・管理者は常に編集可能（サーバー側ロジックと合わせる）
-    if (role === 'hr' || role === 'admin') {
+    // マネージャー・総務・管理者は常に編集可能（サーバー側ロジックと合わせる）
+    if (role === 'manager' || role === 'hr' || role === 'admin') {
       return true
     }
 
@@ -200,22 +200,22 @@ export default function WorkerPage() {
                 </Link>
               )}
             </div>
-            <SheetContent 
-              side="top" 
+            <SheetContent
+              side="top"
               className="p-0 w-full h-auto max-h-[80vh]"
               onInteractOutside={() => setIsMenuOpen(false)}
             >
-            <SheetHeader className="px-4 py-3 border-b">
-              <SheetTitle>時間管理システム</SheetTitle>
-            </SheetHeader>
-            <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
-              <SidebarNav 
-                workers={workers} 
-                currentRole={worker.role} 
-                showHeader={false}
-                collapsible={false}
-              />
-            </div>
+              <SheetHeader className="px-4 py-3 border-b">
+                <SheetTitle>時間管理システム</SheetTitle>
+              </SheetHeader>
+              <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
+                <SidebarNav
+                  workers={workers}
+                  currentRole={worker.role}
+                  showHeader={false}
+                  collapsible={false}
+                />
+              </div>
             </SheetContent>
           </Sheet>
         ) : (
@@ -246,9 +246,8 @@ export default function WorkerPage() {
               )}
             </div>
             <div
-              className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
-                isMenuOpen ? 'w-72' : 'w-0'
-              }`}
+              className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
+                }`}
               style={{ backgroundColor: '#add1cd' }}
             >
               {isMenuOpen && (
@@ -373,7 +372,7 @@ export default function WorkerPage() {
             <p className="mb-2 text-xs text-red-600">
               {ownWorker && ownWorker.id !== workerId
                 ? 'このワーカーの勤務記録は閲覧のみ可能です。編集はできません。'
-                : '先月以前の勤務記録は毎月3日以降、総務・管理者のみ編集できます。必要な場合は総務・管理者に依頼してください。'}
+                : '2日前の記録以前の勤務記録は、マネージャー・総務・管理者のみ編集できます。必要な場合は上長に依頼してください。'}
             </p>
           )}
 

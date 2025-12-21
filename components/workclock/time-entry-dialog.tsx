@@ -58,8 +58,28 @@ export function TimeEntryDialog({
   canEditEntries = true,
 }: TimeEntryDialogProps) {
   const { currentUser } = useAuth()
-  const readOnly = !canEditEntries
-  
+
+  // 編集権限の最終判定
+  const readOnly = (() => {
+    if (!canEditEntries) return true
+
+    const role = currentUser?.role
+    // マネージャー・総務・管理者は常に編集可能
+    if (role === 'manager' || role === 'hr' || role === 'admin') {
+      return false
+    }
+
+    // それ以外は「2日前以前」をロック
+    const now = new Date()
+    now.setHours(0, 0, 0, 0)
+    const target = new Date(selectedDate)
+    target.setHours(0, 0, 0, 0)
+    const twoDaysAgo = new Date(now)
+    twoDaysAgo.setDate(now.getDate() - 2)
+
+    return target <= twoDaysAgo
+  })()
+
   const getInitialTimes = () => {
     if (initialStartTime && initialEndTime) {
       return { startTime: initialStartTime, endTime: initialEndTime }
@@ -151,7 +171,7 @@ export function TimeEntryDialog({
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern])
 
   const handleAddEntry = async () => {
-    if (!window.confirm('追加しますか？後で変更はできません')) {
+    if (!window.confirm('追加しますか？（2日前の記録以前になると、編集・削除に上長の許可が必要になります）')) {
       return
     }
     if (!notes.trim()) {
@@ -194,9 +214,9 @@ export function TimeEntryDialog({
         entryData.countPattern = null
         entryData.count = null
       }
-      
+
       await addTimeEntry(entryData, currentUser.id)
-      
+
       // Reset form
       setStartTime('09:00')
       setEndTime('18:00')
@@ -228,7 +248,7 @@ export function TimeEntryDialog({
   }
 
   const duration = calculateDuration(startTime, endTime, parseInt(breakMinutes) || 0)
-  
+
   const totalDayMinutes = existingEntries.reduce((total, entry) => {
     const entryDuration = calculateDuration(entry.startTime, entry.endTime, entry.breakMinutes)
     return total + entryDuration.hours * 60 + entryDuration.minutes
@@ -266,44 +286,44 @@ export function TimeEntryDialog({
                     return aTime - bTime
                   })
                   .map((entry) => {
-                  const entryDuration = calculateDuration(
-                    entry.startTime,
-                    entry.endTime,
-                    entry.breakMinutes
-                  )
-                  return (
-                    <Card key={entry.id} className="border-l-4 border-l-primary/50">
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-4">
-                            <span className="text-lg font-semibold font-mono">
-                              {entry.startTime} - {entry.endTime}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              休憩 {entry.breakMinutes}分
-                            </span>
-                            <span className="text-base font-bold text-primary">
-                              {formatDuration(entryDuration.hours, entryDuration.minutes)}
-                            </span>
+                    const entryDuration = calculateDuration(
+                      entry.startTime,
+                      entry.endTime,
+                      entry.breakMinutes
+                    )
+                    return (
+                      <Card key={entry.id} className="border-l-4 border-l-primary/50">
+                        <CardContent className="flex items-center justify-between p-4">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-4">
+                              <span className="text-lg font-semibold font-mono">
+                                {entry.startTime} - {entry.endTime}
+                              </span>
+                              <span className="text-sm text-muted-foreground">
+                                休憩 {entry.breakMinutes}分
+                              </span>
+                              <span className="text-base font-bold text-primary">
+                                {formatDuration(entryDuration.hours, entryDuration.minutes)}
+                              </span>
+                            </div>
+                            {entry.notes && (
+                              <p className="text-sm text-muted-foreground">{entry.notes}</p>
+                            )}
                           </div>
-                          {entry.notes && (
-                            <p className="text-sm text-muted-foreground">{entry.notes}</p>
+                          {!readOnly && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              className="ml-4"
+                            >
+                              <Trash2 className="h-5 w-5 text-destructive" />
+                            </Button>
                           )}
-                        </div>
-                        {!readOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteEntry(entry.id)}
-                            className="ml-4"
-                          >
-                            <Trash2 className="h-5 w-5 text-destructive" />
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
               </div>
             </div>
           )}
@@ -405,17 +425,15 @@ export function TimeEntryDialog({
                           onValueChange={(value: 'A' | 'B' | 'C') => setCountPattern(value)}
                           disabled={
                             !hasCountPattern ||
-                          !(billingType === 'count' || billingType === 'both')
+                            !(billingType === 'count' || billingType === 'both')
                           }
                         >
                           <SelectTrigger
-                            className={`bg-white border border-slate-300 rounded-md shadow-sm ${
-                              !hasCountPattern ? 'opacity-50' : ''
-                            } ${
-                              billingType === 'count' || billingType === 'both'
+                            className={`bg-white border border-slate-300 rounded-md shadow-sm ${!hasCountPattern ? 'opacity-50' : ''
+                              } ${billingType === 'count' || billingType === 'both'
                                 ? 'ring-2 ring-primary'
                                 : ''
-                            }`}
+                              }`}
                           >
                             <SelectValue placeholder="回数パターンを選択" />
                           </SelectTrigger>
@@ -503,67 +521,67 @@ export function TimeEntryDialog({
               )}
 
               <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="start-time" className="text-base font-medium">開始時刻</Label>
-                <TimeGridSelect 
-                  value={startTime} 
-                  onChange={setStartTime}
-                  label="開始時刻を選択（5分刻み）"
-                  initialHour={initialHour}
-                  startFromValue
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start-time" className="text-base font-medium">開始時刻</Label>
+                  <TimeGridSelect
+                    value={startTime}
+                    onChange={setStartTime}
+                    label="開始時刻を選択（5分刻み）"
+                    initialHour={initialHour}
+                    startFromValue
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="end-time" className="text-base font-medium">終了時刻</Label>
-                <TimeGridSelect 
-                  value={endTime} 
-                  onChange={setEndTime}
-                  label="終了時刻を選択（5分刻み）"
-                  minTime={startTime}
-                  startFromValue
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-time" className="text-base font-medium">終了時刻</Label>
+                  <TimeGridSelect
+                    value={endTime}
+                    onChange={setEndTime}
+                    label="終了時刻を選択（5分刻み）"
+                    minTime={startTime}
+                    startFromValue
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="break" className="text-base font-medium">休憩時間（分）</Label>
-                <Input
-                  id="break"
-                  type="number"
-                  value={breakMinutes}
-                  onChange={(e) => setBreakMinutes(e.target.value)}
-                  min="0"
-                  step="5"
-                  className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="break" className="text-base font-medium">休憩時間（分）</Label>
+                  <Input
+                    id="break"
+                    type="number"
+                    value={breakMinutes}
+                    onChange={(e) => setBreakMinutes(e.target.value)}
+                    min="0"
+                    step="5"
+                    className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label className="text-base font-medium">実働時間</Label>
-                <div className="flex h-10 items-center rounded-lg bg-primary/10 px-4">
-                  <div className="text-xl font-bold text-primary">
-                    {formatDuration(duration.hours, duration.minutes)}
+                <div className="space-y-2">
+                  <Label className="text-base font-medium">実働時間</Label>
+                  <div className="flex h-10 items-center rounded-lg bg-primary/10 px-4">
+                    <div className="text-xl font-bold text-primary">
+                      {formatDuration(duration.hours, duration.minutes)}
+                    </div>
                   </div>
                 </div>
               </div>
-              </div>
 
               <div className="space-y-2">
-              <Label htmlFor="notes" className="text-base font-medium">
-                作業内容（必須）
-              </Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
-              />
-              <p className="text-xs text-muted-foreground">
-                作業内容を箇条書きなどで、簡潔に入力してください。
-              </p>
+                <Label htmlFor="notes" className="text-base font-medium">
+                  作業内容（必須）
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="text-base bg-white border border-slate-300 rounded-md shadow-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  作業内容を箇条書きなどで、簡潔に入力してください。
+                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">

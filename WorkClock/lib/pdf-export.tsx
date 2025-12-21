@@ -206,18 +206,43 @@ export function generatePDFContent(
   // 消費税計算
   const billingTaxEnabled = worker.billingTaxEnabled ?? false
   const billingTaxRate = worker.billingTaxRate ?? 10
+  const taxType = worker.taxType || 'exclusive'
+  
+  // 源泉あり小計・源泉なし小計それぞれの税抜金額を算出
+  let subtotalWithholdingExclTax: number // 源泉あり小計の税抜金額
+  let subtotalNonWithholdingExclTax: number // 源泉なし小計の税抜金額
+  
+  if (billingTaxEnabled && billingTaxRate > 0 && taxType === 'inclusive') {
+    // 内税の場合：小計に税が含まれているので税抜金額に変換
+    subtotalWithholdingExclTax = Math.floor(subtotalWithholding / (1 + billingTaxRate / 100))
+    subtotalNonWithholdingExclTax = Math.floor(subtotalNonWithholding / (1 + billingTaxRate / 100))
+  } else {
+    // 外税または消費税なしの場合：小計がそのまま税抜金額
+    subtotalWithholdingExclTax = subtotalWithholding
+    subtotalNonWithholdingExclTax = subtotalNonWithholding
+  }
+  
+  const baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax
+  
   let taxAmount = 0
   let totalWithTax = baseAmountBeforeTax
   
   if (billingTaxEnabled && billingTaxRate > 0) {
-    taxAmount = Math.floor(baseAmountBeforeTax * (billingTaxRate / 100))
-    totalWithTax = baseAmountBeforeTax + taxAmount
+    if (taxType === 'inclusive') {
+      // 内税：税抜金額から税額を逆算
+      taxAmount = baseAmountBeforeTax - baseAmountExclTax
+      totalWithTax = baseAmountBeforeTax
+    } else {
+      // 外税：税抜金額に税率を掛ける
+      taxAmount = Math.floor(baseAmountExclTax * (billingTaxRate / 100))
+      totalWithTax = baseAmountExclTax + taxAmount
+    }
   }
 
-  // 源泉徴収額を計算（源泉徴収対象分のみ）
-  const hasWithholding = subtotalWithholding > 0
+  // 源泉徴収額を計算（源泉あり小計の税抜金額に対してのみ計算）
+  const hasWithholding = subtotalWithholdingExclTax > 0
   const withholdingAmount = hasWithholding
-    ? calculateWithholdingTax(subtotalWithholding, withholdingRates)
+    ? calculateWithholdingTax(subtotalWithholdingExclTax, withholdingRates)
     : 0
 
   // 最終支払額

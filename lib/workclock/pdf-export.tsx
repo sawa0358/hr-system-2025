@@ -226,30 +226,44 @@ export function generatePDFContent(
         ? 10
         : 0;
 
-  let baseAmountExclTax: number;
+  // 源泉あり小計・源泉なし小計それぞれの税抜金額を算出
+  let subtotalWithholdingExclTax: number; // 源泉あり小計の税抜金額
+  let subtotalNonWithholdingExclTax: number; // 源泉なし小計の税抜金額
+  
+  if (billingTaxEnabled && effectiveTaxRatePercent > 0 && taxType === 'inclusive') {
+    // 内税の場合：小計に税が含まれているので税抜金額に変換
+    subtotalWithholdingExclTax = Math.floor(subtotalWithholding / (1 + effectiveTaxRatePercent / 100));
+    subtotalNonWithholdingExclTax = Math.floor(subtotalNonWithholding / (1 + effectiveTaxRatePercent / 100));
+  } else {
+    // 外税または消費税なしの場合：小計がそのまま税抜金額
+    subtotalWithholdingExclTax = subtotalWithholding;
+    subtotalNonWithholdingExclTax = subtotalNonWithholding;
+  }
+  
+  const baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
+
   let taxAmount: number;
   let totalWithTax: number;
 
   if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
     if (taxType === 'inclusive') {
-      baseAmountExclTax = Math.floor(baseAmountBeforeTax / (1 + effectiveTaxRatePercent / 100));
+      // 内税：税抜金額から税額を逆算
       taxAmount = baseAmountBeforeTax - baseAmountExclTax;
       totalWithTax = baseAmountBeforeTax;
     } else {
-      baseAmountExclTax = baseAmountBeforeTax;
-      taxAmount = Math.floor(baseAmountBeforeTax * (effectiveTaxRatePercent / 100));
-      totalWithTax = baseAmountBeforeTax + taxAmount;
+      // 外税：税抜金額に税率を掛ける
+      taxAmount = Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100));
+      totalWithTax = baseAmountExclTax + taxAmount;
     }
   } else {
-    baseAmountExclTax = baseAmountBeforeTax;
     taxAmount = 0;
-    totalWithTax = baseAmountBeforeTax;
+    totalWithTax = baseAmountExclTax;
   }
 
-  // 4. 源泉徴収税額の計算（源泉あり小計に対してのみ計算）
-  const hasWithholding = subtotalWithholding > 0;
+  // 4. 源泉徴収税額の計算（源泉あり小計の税抜金額に対してのみ計算）
+  const hasWithholding = subtotalWithholdingExclTax > 0;
   const withholdingTaxAmount: number = hasWithholding
-    ? calculateWithholdingTax(subtotalWithholding, withholdingRates)
+    ? calculateWithholdingTax(subtotalWithholdingExclTax, withholdingRates)
     : 0;
 
   // 5. 最終支払額

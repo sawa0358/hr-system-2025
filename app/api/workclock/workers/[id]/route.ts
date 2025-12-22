@@ -201,6 +201,7 @@ export async function PUT(
       withholdingCountC,
       withholdingMonthlyFixed,
       billingClientId,
+      allowPastEntryEdit,
     } = body
 
     const updated = await prisma.workClockWorker.update({
@@ -220,14 +221,14 @@ export async function PUT(
           hourlyRateB === null
             ? null
             : hourlyRateB !== undefined
-            ? parseFloat(hourlyRateB)
-            : undefined,
+              ? parseFloat(hourlyRateB)
+              : undefined,
         hourlyRateC:
           hourlyRateC === null
             ? null
             : hourlyRateC !== undefined
-            ? parseFloat(hourlyRateC)
-            : undefined,
+              ? parseFloat(hourlyRateC)
+              : undefined,
         countPatternLabelA,
         countPatternLabelB,
         countPatternLabelC,
@@ -235,20 +236,20 @@ export async function PUT(
           countRateA === null
             ? null
             : countRateA !== undefined
-            ? parseFloat(countRateA)
-            : undefined,
+              ? parseFloat(countRateA)
+              : undefined,
         countRateB:
           countRateB === null
             ? null
             : countRateB !== undefined
-            ? parseFloat(countRateB)
-            : undefined,
+              ? parseFloat(countRateB)
+              : undefined,
         countRateC:
           countRateC === null
             ? null
             : countRateC !== undefined
-            ? parseFloat(countRateC)
-            : undefined,
+              ? parseFloat(countRateC)
+              : undefined,
         monthlyFixedAmount:
           monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
             ? parseInt(monthlyFixedAmount, 10)
@@ -265,8 +266,8 @@ export async function PUT(
           billingTaxRate === null
             ? null
             : billingTaxRate !== undefined && Number.isFinite(Number(billingTaxRate))
-            ? Number(billingTaxRate)
-            : undefined,
+              ? Number(billingTaxRate)
+              : undefined,
         taxType:
           taxType !== undefined
             ? (taxType === 'inclusive' ? 'inclusive' : 'exclusive')
@@ -309,6 +310,7 @@ export async function PUT(
         notes,
         transferDestination,
         billingClientId: billingClientId !== undefined ? (billingClientId || null) : undefined,
+        allowPastEntryEdit: allowPastEntryEdit !== undefined ? Boolean(allowPastEntryEdit) : undefined,
       },
       include: {
         employee: {
@@ -407,7 +409,7 @@ export async function DELETE(
     })
     // ローカル開発用に詳細をレスポンスにも含める
     return NextResponse.json(
-      { 
+      {
         error: 'ワーカーの削除に失敗しました',
         details: error?.message || 'Unknown error',
         code: error?.code,

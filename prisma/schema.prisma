@@ -841,6 +841,7 @@ model WorkClockWorker {
   // 請求先
   billingClientId        String?
   billingClient          WorkClockBillingClient? @relation(fields: [billingClientId], references: [id], onDelete: SetNull)
+  allowPastEntryEdit    Boolean @default(false)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

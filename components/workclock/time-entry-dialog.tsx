@@ -69,7 +69,7 @@ export function TimeEntryDialog({
       return false
     }
 
-    // それ以外は「2日前以前」をロック
+    // それ以外は「2日前以前」をロック。ただし個別許可があればOK
     const now = new Date()
     now.setHours(0, 0, 0, 0)
     const target = new Date(selectedDate)
@@ -77,8 +77,16 @@ export function TimeEntryDialog({
     const twoDaysAgo = new Date(now)
     twoDaysAgo.setDate(now.getDate() - 2)
 
-    return target <= twoDaysAgo
+    const isPastEntry = target <= twoDaysAgo
+
+    // 過去記録の編集許可がある場合は編集可能
+    if (isPastEntry && worker?.allowPastEntryEdit) {
+      return false
+    }
+
+    return isPastEntry
   })()
+
 
   const getInitialTimes = () => {
     if (initialStartTime && initialEndTime) {
@@ -101,6 +109,11 @@ export function TimeEntryDialog({
   const [countPattern, setCountPattern] = useState<'A' | 'B' | 'C'>('A')
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
+
+  // UI状態管理（window.confirm/alertの代替）
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   // DB優先でパターン名を取得（localStorage はフォールバック）
   const scopeKey = employeeId || workerId
@@ -171,17 +184,19 @@ export function TimeEntryDialog({
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern])
 
   const handleAddEntry = async () => {
-    if (!window.confirm('追加しますか？（2日前の記録以前になると、編集・削除に上長の許可が必要になります）')) {
-      return
-    }
+    // バリデーション
+    setValidationError(null)
     if (!notes.trim()) {
-      alert('作業内容を入力してください（メモは必須です）。')
+      setValidationError('作業内容を入力してください（メモは必須です）。')
       return
     }
     if (!currentUser?.id) {
+      setValidationError('ユーザー情報が取得できません。ページを再読み込みしてください。')
       console.error('WorkClock: currentUser.idが取得できません')
       return
     }
+
+    setIsSaving(true)
     try {
       const entryData: any = {
         workerId,
@@ -225,26 +240,38 @@ export function TimeEntryDialog({
       setWagePattern('A')
       setCountPattern('A')
       setCount('1')
+      setValidationError(null)
       onClose()
     } catch (error) {
       console.error('勤務記録の追加エラー:', error)
+      setValidationError('保存に失敗しました。もう一度お試しください。')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleDeleteEntry = async (id: string) => {
-    if (!window.confirm('この勤務記録を削除しますか？この操作は元に戻せません。')) {
-      return
-    }
     if (!currentUser?.id) {
       console.error('WorkClock: currentUser.idが取得できません')
       return
     }
     try {
       await deleteTimeEntry(id, currentUser.id)
+      setDeleteTargetId(null)
       onClose()
     } catch (error) {
       console.error('勤務記録の削除エラー:', error)
     }
+  }
+
+  // 削除確認を開始
+  const confirmDelete = (id: string) => {
+    setDeleteTargetId(id)
+  }
+
+  // 削除確認をキャンセル
+  const cancelDelete = () => {
+    setDeleteTargetId(null)
   }
 
   const duration = calculateDuration(startTime, endTime, parseInt(breakMinutes) || 0)
@@ -311,14 +338,33 @@ export function TimeEntryDialog({
                             )}
                           </div>
                           {!readOnly && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteEntry(entry.id)}
-                              className="ml-4"
-                            >
-                              <Trash2 className="h-5 w-5 text-destructive" />
-                            </Button>
+                            deleteTargetId === entry.id ? (
+                              <div className="flex items-center gap-2 ml-4">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleDeleteEntry(entry.id)}
+                                >
+                                  削除
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelDelete}
+                                >
+                                  戻る
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => confirmDelete(entry.id)}
+                                className="ml-4"
+                              >
+                                <Trash2 className="h-5 w-5 text-destructive" />
+                              </Button>
+                            )
                           )}
                         </CardContent>
                       </Card>
@@ -584,13 +630,19 @@ export function TimeEntryDialog({
                 </p>
               </div>
 
+              {validationError && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">
+                  {validationError}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)} size="lg">
+                <Button variant="outline" onClick={() => onOpenChange(false)} size="lg" disabled={isSaving}>
                   キャンセル
                 </Button>
-                <Button onClick={handleAddEntry} size="lg" className="min-w-[120px]">
+                <Button onClick={handleAddEntry} size="lg" className="min-w-[120px]" disabled={isSaving}>
                   <Plus className="mr-2 h-4 w-4" />
-                  追加
+                  {isSaving ? '保存中...' : '追加'}
                 </Button>
               </div>
             </div>

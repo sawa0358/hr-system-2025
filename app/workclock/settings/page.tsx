@@ -165,6 +165,7 @@ export default function SettingsPage() {
     withholdingCountC: false,
     withholdingMonthlyFixed: false,
     billingClientId: '', // 請求先ID
+    allowPastEntryEdit: false, // 過去記録の編集許可
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -173,7 +174,7 @@ export default function SettingsPage() {
     if (currentUser?.id) {
       loadWorkers()
     }
-    
+
     // チーム一覧を初期化
     const fetchTeams = async () => {
       try {
@@ -205,51 +206,51 @@ export default function SettingsPage() {
     }
     fetchBillingClients()
 
-    // 初回ロードで社員一覧も取得
-    ;(async () => {
-      try {
-        setIsLoadingEmployees(true)
-        const res = await fetch('/api/employees')
-        const data = await res.json()
-        setEmployees(Array.isArray(data) ? data : [])
-      } catch (e) {
-        console.error('社員一覧の取得に失敗', e)
-      } finally {
-        setIsLoadingEmployees(false)
-      }
-    })()
-    // 標準消費税率の読み込み
-    ;(async () => {
-      try {
-        setIsLoadingTax(true)
-        const res = await fetch('/api/workclock/tax-settings')
-        if (res.ok) {
+      // 初回ロードで社員一覧も取得
+      ; (async () => {
+        try {
+          setIsLoadingEmployees(true)
+          const res = await fetch('/api/employees')
           const data = await res.json()
-          if (data && typeof data.rate === 'number') {
-            setStandardTaxRate(String(data.rate))
+          setEmployees(Array.isArray(data) ? data : [])
+        } catch (e) {
+          console.error('社員一覧の取得に失敗', e)
+        } finally {
+          setIsLoadingEmployees(false)
+        }
+      })()
+      // 標準消費税率の読み込み
+      ; (async () => {
+        try {
+          setIsLoadingTax(true)
+          const res = await fetch('/api/workclock/tax-settings')
+          if (res.ok) {
+            const data = await res.json()
+            if (data && typeof data.rate === 'number') {
+              setStandardTaxRate(String(data.rate))
+            }
           }
+        } catch (e) {
+          console.error('標準消費税率の取得に失敗:', e)
+        } finally {
+          setIsLoadingTax(false)
         }
-      } catch (e) {
-        console.error('標準消費税率の取得に失敗:', e)
-      } finally {
-        setIsLoadingTax(false)
-      }
-    })()
-    
-    // 源泉徴収率の読み込み
-    ;(async () => {
-      try {
-        const response: any = await api.withholdingTaxSettings.get()
-        if (response?.rateUnder1M !== undefined) {
-          setWithholdingRateUnder1M(String(response.rateUnder1M))
+      })()
+
+      // 源泉徴収率の読み込み
+      ; (async () => {
+        try {
+          const response: any = await api.withholdingTaxSettings.get()
+          if (response?.rateUnder1M !== undefined) {
+            setWithholdingRateUnder1M(String(response.rateUnder1M))
+          }
+          if (response?.rateOver1M !== undefined) {
+            setWithholdingRateOver1M(String(response.rateOver1M))
+          }
+        } catch (e) {
+          console.warn('源泉徴収率の読み込みに失敗:', e)
         }
-        if (response?.rateOver1M !== undefined) {
-          setWithholdingRateOver1M(String(response.rateOver1M))
-        }
-      } catch (e) {
-        console.warn('源泉徴収率の読み込みに失敗:', e)
-      }
-    })()
+      })()
   }, [currentUser])
 
   const handleSaveStandardTaxRate = async () => {
@@ -305,7 +306,7 @@ export default function SettingsPage() {
     try {
       const rateUnder1M = Number(withholdingRateUnder1M)
       const rateOver1M = Number(withholdingRateOver1M)
-      
+
       if (!Number.isFinite(rateUnder1M) || rateUnder1M < 0 || !Number.isFinite(rateOver1M) || rateOver1M < 0) {
         toast({
           title: '入力エラー',
@@ -376,7 +377,7 @@ export default function SettingsPage() {
         })
         return
       }
-      
+
       const loadedWorkers = await getWorkers(userId)
       setWorkers(loadedWorkers)
     } catch (error) {
@@ -424,6 +425,7 @@ export default function SettingsPage() {
       withholdingCountC: false,
       withholdingMonthlyFixed: false,
       billingClientId: '',
+      allowPastEntryEdit: false,
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -501,11 +503,11 @@ export default function SettingsPage() {
             hourlyRateB:
               formData.hourlyRatePatternB !== ''
                 ? Number(formData.hourlyRatePatternB)
-                : null,
+                : undefined,
             hourlyRateC:
               formData.hourlyRatePatternC !== ''
                 ? Number(formData.hourlyRatePatternC)
-                : null,
+                : undefined,
             // 回数パターン名（ラベル）をDBに保存
             countPatternLabelA: countLabels.A,
             countPatternLabelB: countLabels.B,
@@ -514,20 +516,20 @@ export default function SettingsPage() {
             countRateA:
               formData.countRateA !== ''
                 ? Number(formData.countRateA)
-                : null,
+                : undefined,
             countRateB:
               formData.countRateB !== ''
                 ? Number(formData.countRateB)
-                : null,
+                : undefined,
             countRateC:
               formData.countRateC !== ''
                 ? Number(formData.countRateC)
-                : null,
+                : undefined,
             // 月額固定金額をDBに保存（0 または空なら未設定）
             monthlyFixedAmount:
               formData.monthlyFixedAmount !== ''
                 ? Number(formData.monthlyFixedAmount)
-                : null,
+                : undefined,
             monthlyFixedEnabled:
               formData.monthlyFixedAmount !== '' &&
               Number(formData.monthlyFixedAmount) > 0,
@@ -551,7 +553,8 @@ export default function SettingsPage() {
             // undefined にはせず、そのまま送信する（空文字なら空文字で上書き）
             transferDestination: formData.transferDestination,
             // 請求先ID
-            billingClientId: formData.billingClientId || null,
+            billingClientId: formData.billingClientId || undefined,
+            allowPastEntryEdit: formData.allowPastEntryEdit,
           },
           userId
         )
@@ -591,11 +594,11 @@ export default function SettingsPage() {
           hourlyRateB:
             formData.hourlyRatePatternB !== ''
               ? Number(formData.hourlyRatePatternB)
-              : null,
+              : undefined,
           hourlyRateC:
             formData.hourlyRatePatternC !== ''
               ? Number(formData.hourlyRatePatternC)
-              : null,
+              : undefined,
           // 回数パターン名（ラベル）を DB に保存
           countPatternLabelA: countLabels.A,
           countPatternLabelB: countLabels.B,
@@ -603,19 +606,19 @@ export default function SettingsPage() {
           countRateA:
             formData.countRateA !== ''
               ? Number(formData.countRateA)
-              : null,
+              : undefined,
           countRateB:
             formData.countRateB !== ''
               ? Number(formData.countRateB)
-              : null,
+              : undefined,
           countRateC:
             formData.countRateC !== ''
               ? Number(formData.countRateC)
-              : null,
+              : undefined,
           monthlyFixedAmount:
             formData.monthlyFixedAmount !== ''
               ? Number(formData.monthlyFixedAmount)
-              : null,
+              : undefined,
           monthlyFixedEnabled:
             formData.monthlyFixedAmount !== '' &&
             Number(formData.monthlyFixedAmount) > 0,
@@ -637,7 +640,8 @@ export default function SettingsPage() {
           // 振込先も空文字で保存・更新できるようにする
           transferDestination: formData.transferDestination,
           // 請求先ID
-          billingClientId: formData.billingClientId || null,
+          billingClientId: formData.billingClientId || undefined,
+          allowPastEntryEdit: formData.allowPastEntryEdit,
         }
         await addWorker(payload, userId)
         // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
@@ -671,7 +675,7 @@ export default function SettingsPage() {
     // 最新のチーム一覧を取得（チーム管理で追加されたチームを含む）
     const latestTeams = await getTeams(currentUser?.id)
     setTeams(latestTeams)
-    
+
     // 社員のパスワードを取得（デフォルト値として）
     let employeePassword = worker.password || ''
     if (worker.employeeId) {
@@ -694,7 +698,7 @@ export default function SettingsPage() {
       C: worker.wagePatternLabelC || baseLabels.C,
     }
     setWageLabels(dbLabels)
-    
+
     // 回数パターンのラベルも読み込み
     const dbCountLabels = {
       A: worker.countPatternLabelA || '回数Aパターン',
@@ -751,6 +755,7 @@ export default function SettingsPage() {
       withholdingCountC: worker.withholdingCountC ?? false,
       withholdingMonthlyFixed: worker.withholdingMonthlyFixed ?? false,
       billingClientId: worker.billingClientId || '',
+      allowPastEntryEdit: worker.allowPastEntryEdit ?? false,
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -865,8 +870,8 @@ export default function SettingsPage() {
       filterRole === 'all'
         ? true
         : filterRole === 'admin'
-        ? worker.role === 'admin'
-        : worker.role === 'worker'
+          ? worker.role === 'admin'
+          : worker.role === 'worker'
 
     return matchesTeam && matchesEmployment && matchesRole
   }).sort((a, b) => {
@@ -934,8 +939,8 @@ export default function SettingsPage() {
               </Link>
             )}
           </div>
-          <SheetContent 
-            side="top" 
+          <SheetContent
+            side="top"
             className="p-0 w-full h-auto max-h-[80vh]"
             onInteractOutside={() => setIsMenuOpen(false)}
           >
@@ -943,9 +948,9 @@ export default function SettingsPage() {
               <SheetTitle>時間管理システム</SheetTitle>
             </SheetHeader>
             <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
-              <SidebarNav 
-                workers={workers} 
-                currentRole="admin" 
+              <SidebarNav
+                workers={workers}
+                currentRole="admin"
                 showHeader={false}
                 collapsible={false}
               />
@@ -980,9 +985,8 @@ export default function SettingsPage() {
             )}
           </div>
           <div
-            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
-              isMenuOpen ? 'w-72' : 'w-0'
-            }`}
+            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
+              }`}
             style={{ backgroundColor: '#add1cd' }}
           >
             {isMenuOpen && (
@@ -1033,52 +1037,52 @@ export default function SettingsPage() {
                       チーム管理
                     </Button>
                   </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
-                  <DialogHeader>
-                    <DialogTitle>チーム管理</DialogTitle>
-                    <DialogDescription>
-                      チームの追加・削除を行います
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="新しいチーム名"
-                        value={newTeamName}
-                        onChange={(e) => setNewTeamName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            handleAddTeam()
-                          }
-                        }}
-                      />
-                      <Button 
-                        type="button"
-                        onClick={() => handleAddTeam()}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>登録済みチーム</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {teams.map((team) => (
-                          <Badge key={team} variant="secondary" className="text-sm">
-                            {team}
-                            <button
-                              className="ml-2 rounded-full outline-none"
-                              onClick={() => handleDeleteTeam(team)}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>チーム管理</DialogTitle>
+                      <DialogDescription>
+                        チームの追加・削除を行います
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="新しいチーム名"
+                          value={newTeamName}
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleAddTeam()
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          onClick={() => handleAddTeam()}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>登録済みチーム</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {teams.map((team) => (
+                            <Badge key={team} variant="secondary" className="text-sm">
+                              {team}
+                              <button
+                                className="ml-2 rounded-full outline-none"
+                                onClick={() => handleDeleteTeam(team)}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogContent>
+                </Dialog>
               )}
               {/* 請求先管理ボタンは総務権限・管理者権限のみ表示 */}
               {canEditCompensation && (
@@ -1224,34 +1228,34 @@ export default function SettingsPage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                <Button
-                  onClick={async () => {
-                    resetForm()
-                    // 新規ワーカー登録時は報酬設定の編集を最初から有効化
-                    setIsWorkerEditUnlocked(true)
-                    // ワーカー候補（未登録の従業員）を取得
-                    try {
-                      setIsLoadingCandidates(true)
-                      const res = await fetch('/api/workclock/workers/candidates', {
-                        headers: {
-                          'x-employee-id': currentUser?.id || '',
-                        },
-                      })
-                      if (res.ok) {
-                        const data = await res.json()
-                        setWorkerCandidates(data.candidates || [])
-                      } else {
-                        console.error('ワーカー候補の取得に失敗:', res.status)
+                  <Button
+                    onClick={async () => {
+                      resetForm()
+                      // 新規ワーカー登録時は報酬設定の編集を最初から有効化
+                      setIsWorkerEditUnlocked(true)
+                      // ワーカー候補（未登録の従業員）を取得
+                      try {
+                        setIsLoadingCandidates(true)
+                        const res = await fetch('/api/workclock/workers/candidates', {
+                          headers: {
+                            'x-employee-id': currentUser?.id || '',
+                          },
+                        })
+                        if (res.ok) {
+                          const data = await res.json()
+                          setWorkerCandidates(data.candidates || [])
+                        } else {
+                          console.error('ワーカー候補の取得に失敗:', res.status)
+                          setWorkerCandidates([])
+                        }
+                      } catch (e) {
+                        console.error('ワーカー候補の取得エラー:', e)
                         setWorkerCandidates([])
+                      } finally {
+                        setIsLoadingCandidates(false)
                       }
-                    } catch (e) {
-                      console.error('ワーカー候補の取得エラー:', e)
-                      setWorkerCandidates([])
-                    } finally {
-                      setIsLoadingCandidates(false)
-                    }
-                  }}
-                >
+                    }}
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     新規ワーカー登録
                   </Button>
@@ -1369,19 +1373,19 @@ export default function SettingsPage() {
                           />
                         </div>
                         <div className="grid gap-2">
-                        <Label htmlFor="qualifiedInvoiceNumber">適格証明番号</Label>
-                        <Input
-                          id="qualifiedInvoiceNumber"
-                          value={formData.qualifiedInvoiceNumber}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              qualifiedInvoiceNumber: e.target.value,
-                            })
-                          }
-                          placeholder="T1234567890123"
-                          disabled={!isWorkerEditUnlocked}
-                        />
+                          <Label htmlFor="qualifiedInvoiceNumber">適格証明番号</Label>
+                          <Input
+                            id="qualifiedInvoiceNumber"
+                            value={formData.qualifiedInvoiceNumber}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                qualifiedInvoiceNumber: e.target.value,
+                              })
+                            }
+                            placeholder="T1234567890123"
+                            disabled={!isWorkerEditUnlocked}
+                          />
                         </div>
                       </div>
 
@@ -1495,11 +1499,10 @@ export default function SettingsPage() {
                               <div className="flex items-center gap-3">
                                 <button
                                   type="button"
-                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    formData.taxType === 'exclusive'
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'bg-background text-muted-foreground border-input hover:bg-accent'
-                                  }`}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${formData.taxType === 'exclusive'
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background text-muted-foreground border-input hover:bg-accent'
+                                    }`}
                                   onClick={() =>
                                     setFormData({ ...formData, taxType: 'exclusive' })
                                   }
@@ -1509,11 +1512,10 @@ export default function SettingsPage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                                    formData.taxType === 'inclusive'
-                                      ? 'bg-primary text-primary-foreground border-primary'
-                                      : 'bg-background text-muted-foreground border-input hover:bg-accent'
-                                  }`}
+                                  className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${formData.taxType === 'inclusive'
+                                    ? 'bg-primary text-primary-foreground border-primary'
+                                    : 'bg-background text-muted-foreground border-input hover:bg-accent'
+                                    }`}
                                   onClick={() =>
                                     setFormData({ ...formData, taxType: 'inclusive' })
                                   }
@@ -1961,6 +1963,35 @@ export default function SettingsPage() {
                           <br />※ ワーカー権限：自分の勤務時間のみ表示・管理可能
                         </p>
                       </div>
+
+                      {/* 過去記録の編集許可（管理者のみ） */}
+                      {canEditCompensation && (
+                        <div className="grid gap-3 rounded-lg border border-dashed border-red-200 bg-red-50/30 p-4">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <Label className="text-sm font-semibold text-red-700">過去記録の編集許可</Label>
+                              <p className="text-xs text-red-600">
+                                2日以上前の時間記録の編集をこのワーカーに許可します。
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                checked={formData.allowPastEntryEdit}
+                                onCheckedChange={(checked) =>
+                                  setFormData({
+                                    ...formData,
+                                    allowPastEntryEdit: checked,
+                                  })
+                                }
+                                disabled={!isWorkerEditUnlocked}
+                              />
+                              <span className="text-xs font-medium text-red-600">
+                                {formData.allowPastEntryEdit ? '許可中' : '制限中'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="grid gap-2">
                         <Label htmlFor="transferDestination">振込先</Label>
@@ -2511,7 +2542,7 @@ export default function SettingsPage() {
                         {worker.role === 'admin' ? 'リーダー' : '業務委託・外注先'}
                       </TableCell>
                       <TableCell>
-                        <div 
+                        <div
                           className="max-w-[200px] text-sm text-muted-foreground overflow-hidden"
                           style={{
                             display: '-webkit-box',

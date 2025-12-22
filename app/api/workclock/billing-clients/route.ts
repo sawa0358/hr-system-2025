@@ -25,7 +25,10 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('WorkClock billingClients取得エラー:', error)
     return NextResponse.json(
-      { error: '請求先一覧の取得に失敗しました' },
+      {
+        error: '請求先一覧の取得に失敗しました',
+        details: error.message
+      },
       { status: 500 }
     )
   }

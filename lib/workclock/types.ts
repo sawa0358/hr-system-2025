@@ -74,6 +74,8 @@ export interface Worker {
   // 請求先
   billingClientId?: string // 請求先ID
   billingClientName?: string // 請求先名（API経由で取得）
+  // 過去記録の編集許可フラグ
+  allowPastEntryEdit?: boolean
 }
 
 export interface WorkSummary {

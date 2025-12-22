@@ -338,17 +338,22 @@ export async function POST(request: NextRequest) {
     }
 
     // 先月以前の勤務記録の新規追加は、当月3日以降は総務・管理者のみ許可
+    // ただし、worker.allowPastEntryEdit が true の場合は許可
     try {
       const entryDate = new Date(date)
       if (isLockedPastEntry(entryDate)) {
-        const lockError = ensureCanEditLockedEntry(user.role)
-        if (lockError) {
-          return lockError
+        // まずworkerのallowPastEntryEdit設定を確認
+        if (!worker.allowPastEntryEdit) {
+          const lockError = ensureCanEditLockedEntry(user.role)
+          if (lockError) {
+            return lockError
+          }
         }
       }
     } catch (e) {
       console.warn('[WorkClock API] entryDate parse error (time-entries POST):', e)
     }
+
 
     // 時給パターン／回数パターンを正しく保存する
     const rawWagePattern = (body as any).wagePattern

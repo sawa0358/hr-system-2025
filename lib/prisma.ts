@@ -1,7 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
 
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:./prisma/dev.db';
+  // 開発環境向けのフォールバック - 絶対パスを使用
+  const dbPath = path.resolve(process.cwd(), 'prisma/dev.db');
+  process.env.DATABASE_URL = `file:${dbPath}`;
 }
 
 const globalForPrisma = globalThis as unknown as {
@@ -57,7 +60,7 @@ async function ensureInvisibleTopEmployee() {
         throw schemaError
       }
     }
-    
+
     if (!invisibleTopEmployee) {
       // 新規作成
       invisibleTopEmployee = await prisma.employee.create({

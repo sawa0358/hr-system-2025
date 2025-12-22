@@ -19,12 +19,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'ユーザーが見つかりません' }, { status: 404 })
     }
 
+
+
     // 権限チェック: サブマネージャー以上、または業務委託・外注先のワーカー
     const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
     const isAdmin = allowedRoles.includes(user.role || '')
     const employeeType = user.employeeType || ''
     const isWorker = employeeType.includes('業務委託') || employeeType.includes('外注先')
-    
+
     if (!isAdmin && !isWorker) {
       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
     const whereClause = isAdmin || isWorkClockLeader
       ? {} // 管理者（HRロール）または WorkClock リーダーは一旦全ワーカーを取得
       : { employeeId: userId } // それ以外のワーカーは自分のレコードのみ
-    
+
     const workers = await (prisma as any).workClockWorker.findMany({
       where: whereClause,
       include: {
@@ -147,7 +149,7 @@ export async function GET(request: NextRequest) {
     // 開発環境では詳細なエラー情報を返す
     const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
-      { 
+      {
         error: 'ワーカー一覧の取得に失敗しました',
         ...(isDev && {
           details: error?.message || 'Unknown error',
@@ -327,8 +329,8 @@ export async function POST(request: NextRequest) {
         billingTaxEnabled: billingTaxEnabled ?? false,
         billingTaxRate:
           billingTaxRate !== undefined &&
-          billingTaxRate !== null &&
-          Number.isFinite(Number(billingTaxRate))
+            billingTaxRate !== null &&
+            Number.isFinite(Number(billingTaxRate))
             ? Number(billingTaxRate)
             : null,
         taxType: taxType === 'inclusive' ? 'inclusive' : 'exclusive',

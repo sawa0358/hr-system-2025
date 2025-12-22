@@ -174,12 +174,16 @@ export async function PUT(
     const { date, startTime, endTime, breakMinutes, notes } = body as any
 
     // ロック対象かどうか判定（body.date があればそれを優先、なければ既存の entry.date）
+    // ただし、worker.allowPastEntryEdit が true の場合は許可
     try {
       const targetDate = date ? new Date(date) : entry.date
       if (isLockedPastEntry(targetDate)) {
-        const lockError = ensureCanEditLockedEntry(user.role)
-        if (lockError) {
-          return lockError
+        // workerのallowPastEntryEdit設定を確認
+        if (!entry.worker.allowPastEntryEdit) {
+          const lockError = ensureCanEditLockedEntry(user.role)
+          if (lockError) {
+            return lockError
+          }
         }
       }
     } catch (e) {
@@ -290,11 +294,15 @@ export async function DELETE(
     }
 
     // 先月以前の勤務記録の削除は、当月3日以降は総務・管理者のみ許可
+    // ただし、worker.allowPastEntryEdit が true の場合は許可
     try {
       if (isLockedPastEntry(entry.date)) {
-        const lockError = ensureCanEditLockedEntry(user.role)
-        if (lockError) {
-          return lockError
+        // workerのallowPastEntryEdit設定を確認
+        if (!entry.worker.allowPastEntryEdit) {
+          const lockError = ensureCanEditLockedEntry(user.role)
+          if (lockError) {
+            return lockError
+          }
         }
       }
     } catch (e) {

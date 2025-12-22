@@ -155,8 +155,12 @@ export default function WorkerPage() {
     const entryDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
     const isLockedMonth = entryDate < firstOfCurrentMonth && now >= thirdOfCurrentMonth
 
+    if (isLockedMonth && worker?.allowPastEntryEdit) {
+      return true
+    }
+
     return !isLockedMonth
-  }, [currentDate, currentUser?.role, ownWorker, workerId])
+  }, [currentDate, currentUser?.role, ownWorker, workerId, worker?.allowPastEntryEdit])
 
   if (!worker) {
     return (

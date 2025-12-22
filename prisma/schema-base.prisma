@@ -835,6 +835,7 @@ model WorkClockWorker {
   transferDestination    String? // 振込先
   billingClientId        String?  // 請求先ID（任意）
   billingClient          WorkClockBillingClient? @relation(fields: [billingClientId], references: [id], onDelete: SetNull)
+  allowPastEntryEdit     Boolean  @default(false) // 過去記録の編集許可
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
 

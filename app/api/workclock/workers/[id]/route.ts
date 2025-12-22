@@ -204,6 +204,8 @@ export async function PUT(
       allowPastEntryEdit,
     } = body
 
+    console.log('[WorkClock API] PUT payload:', JSON.stringify(body))
+
     const updated = await prisma.workClockWorker.update({
       where: { id: workerId },
       data: {
@@ -349,7 +351,8 @@ export async function PUT(
     return NextResponse.json(
       {
         error: 'ワーカーの更新に失敗しました',
-        details: error?.message || 'Unknown error', // 詳細を常に含める
+        details: error?.message || 'Unknown error',
+        stack: error?.stack,
         code: error?.code,
         name: error?.name,
       },

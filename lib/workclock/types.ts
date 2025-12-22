@@ -93,3 +93,13 @@ export interface Reward {
   amount: number
   status: 'pending' | 'paid'
 }
+
+export interface RewardPreset {
+  id: string
+  workerId: string
+  description: string
+  amount: number
+  isEnabled: boolean
+  createdAt?: string
+  updatedAt?: string
+}

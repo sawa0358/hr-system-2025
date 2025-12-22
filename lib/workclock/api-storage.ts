@@ -9,33 +9,33 @@ const API_BASE = '/api/workclock'
 // auth-context.tsxと同じロジックを使用
 function getCurrentUserId(): string {
   if (typeof window === 'undefined') return ''
-  
+
   try {
     // まずlocalStorage（rememberMe=true）をチェック
     let savedUser = localStorage.getItem('currentUser')
-    
+
     // localStorageにない場合はsessionStorage（rememberMe=false）をチェック
     if (!savedUser) {
       savedUser = sessionStorage.getItem('currentUser')
     }
-    
+
     if (savedUser) {
       const user = JSON.parse(savedUser)
-      
+
       // 古い形式のIDの場合は空文字を返す（auth-context.tsxと同じチェック）
       // 注意: 実際のユーザーIDは除外リストに含めないこと
-      if (user.id === "admin" || user.id === "manager" || user.id === "sub" || 
-          user.id === "ippan" || user.id === "etsuran" || 
-          user.id === "001" || user.id === "002" || user.id === "003") {
+      if (user.id === "admin" || user.id === "manager" || user.id === "sub" ||
+        user.id === "ippan" || user.id === "etsuran" ||
+        user.id === "001" || user.id === "002" || user.id === "003") {
         console.warn('WorkClock: 古いユーザーIDが検出されました', user.id)
         return ''
       }
-      
+
       // idフィールドを確認
       if (user.id && typeof user.id === 'string' && user.id.length > 0) {
         return user.id
       }
-      
+
       console.warn('WorkClock: ユーザーIDが無効です', user)
       return ''
     }
@@ -43,7 +43,7 @@ function getCurrentUserId(): string {
     console.error('WorkClock: ユーザー情報のパースエラー', error)
     return ''
   }
-  
+
   // ユーザー情報が見つからない場合は警告を出さない（ログイン前は正常）
   return ''
 }
@@ -63,7 +63,7 @@ export async function getWorkers(userId?: string): Promise<Worker[]> {
         'x-employee-id': finalUserId,
       },
     })
-    
+
     if (!response.ok) {
       if (response.status === 401) {
         throw new Error('認証が必要です。ログインしてください。')
@@ -121,7 +121,8 @@ export async function updateWorker(id: string, updates: Partial<Worker>, userId?
       body: JSON.stringify(updates),
     })
     if (!response.ok) {
-      throw new Error('ワーカーの更新に失敗しました')
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.error || errorData.details || 'ワーカーの更新に失敗しました')
     }
   } catch (error) {
     console.error('updateWorker error:', error)

@@ -1,3 +1,15 @@
+// ⚠️⚠️⚠️ 重要: データベース自動切り替えシステム ⚠️⚠️⚠️
+//
+// このプロジェクトはデータベース自動切り替えを使用しています
+// 詳細は DATABASE_AUTO_SWITCH.md を必ず参照してください
+//
+// 🔄 自動切り替え:
+//   - 開発時: npm run dev → 自動的に "sqlite" に切り替わります
+//   - 本番時: git push heroku main → 自動的に "postgresql" に切り替わります
+//
+// ⚠️ このファイルの provider を手動で編集しないでください
+// ⚠️ すべて自動化されています
+//
 // ベーススキーマ - 共通のモデル定義
 // このファイルを元に、環境別のスキーマを自動生成します
 
@@ -6,7 +18,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

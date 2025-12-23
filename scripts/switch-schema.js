@@ -18,45 +18,29 @@ if (!environment || !['dev', 'prod'].includes(environment)) {
   process.exit(1);
 }
 
-const baseSchemaPath = path.join(__dirname, '..', 'prisma', 'schema-base.prisma');
-const targetSchemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
+const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma');
 
-// ベーススキーマを読み込み
-const baseSchema = fs.readFileSync(baseSchemaPath, 'utf8');
+// 現在のスキーマを読み込み
+let schema = fs.readFileSync(schemaPath, 'utf8');
 
-let targetSchema;
 if (environment === 'dev') {
   // 開発環境用（SQLite）
-  targetSchema = baseSchema.replace(
-    'generator client {\n  provider = "prisma-client-js"\n}',
-    `generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}`
+  schema = schema.replace(
+    /provider = "postgresql"/g,
+    'provider = "sqlite"'
   );
   console.log('🔄 開発環境用スキーマ（SQLite）に切り替え中...');
 } else {
   // 本番環境用（PostgreSQL）
-  targetSchema = baseSchema.replace(
-    'generator client {\n  provider = "prisma-client-js"\n}',
-    `generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}`
+  schema = schema.replace(
+    /provider = "sqlite"/g,
+    'provider = "postgresql"'
   );
   console.log('🔄 本番環境用スキーマ（PostgreSQL）に切り替え中...');
 }
 
 // スキーマファイルを更新
-fs.writeFileSync(targetSchemaPath, targetSchema);
+fs.writeFileSync(schemaPath, schema);
 
 // Prismaクライアントを再生成
 try {

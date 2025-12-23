@@ -1,6 +1,9 @@
 {
+  "_comment_database": "⚠️ このプロジェクトはデータベース自動切り替えを使用しています。詳細は DATABASE_AUTO_SWITCH.md を参照",
+  "_comment_dev": "npm run dev で自動的にSQLiteに切り替わります",
+  "_comment_deploy": "git push heroku main で自動的にPostgreSQLに切り替わります",
   "name": "my-v0-project",
-  "version": "3.8.6",
+  "version": "3.8.7",
   "private": true,
   "engines": {
     "node": "22.x",
@@ -8,7 +11,7 @@
   },
   "scripts": {
     "build": "next build",
-    "dev": "node scripts/auto-prisma.js && next dev",
+    "dev": "node scripts/switch-schema.js dev && node scripts/auto-prisma.js && next dev",
     "dev:watch": "node scripts/prisma-watch.js & next dev",
     "dev:auto": "node scripts/auto-prisma.js && node scripts/prisma-watch.js & next dev",
     "prisma:check": "node scripts/auto-prisma.js",

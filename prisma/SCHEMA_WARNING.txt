@@ -1,0 +1,35 @@
+// ⚠️ 重要: このプロジェクトはデータベース自動切り替えシステムを使用しています
+// 詳細は DATABASE_AUTO_SWITCH.md を必ず参照してください
+//
+// 開発時: npm run dev → 自動的にSQLiteに切り替わります
+// 本番時: git push heroku main → 自動的にPostgreSQLに切り替わります
+//
+// スキーマを手動で編集する必要はありません。すべて自動化されています。
+
+// ベーススキーマ - 共通のモデル定義
+// このファイルを元に、環境別のスキーマを自動生成します
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ⚠️ 注意: 上記の provider は自動的に切り替わります
+// - 開発時: "sqlite" に自動変更
+// - 本番時: "postgresql" に自動変更
+// 手動で編集しないでください
+
+// ユーザーロール
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  store_manager
+  manager
+  hr
+  admin
+}

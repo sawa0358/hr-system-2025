@@ -1,199 +1,147 @@
-<<<<<<< HEAD
-# HR Management System
+# HR System - プロジェクト概要
 
-人事管理システム - 社員情報、勤怠、評価、給与、タスク管理を統合したWebアプリケーション
+## 🚨 最初に読むべき重要情報
 
-## 🚀 技術スタック
+### ⚠️ データベース自動切り替えシステム
+**このプロジェクトには自動スキーマ切り替え機能が実装されています。**
 
-- **フロントエンド**: Next.js 14, React 18, TypeScript
-- **UI**: Tailwind CSS, Radix UI
-- **データベース**: Prisma ORM, SQLite (開発) / PostgreSQL (本番)
-- **認証**: NextAuth.js
-- **ファイルストレージ**: AWS S3（東京リージョン）
-- **AI統合**: Google Gemini API
+詳細は必ず `DATABASE_AUTO_SWITCH.md` を参照してください。
+
+---
+
+## プロジェクト構成
+
+### 技術スタック
+- **フレームワーク**: Next.js 14.2.16
+- **言語**: TypeScript
+- **データベース**: 
+  - ローカル開発: SQLite（自動切り替え）
+  - 本番環境: PostgreSQL（自動切り替え）
+- **ORM**: Prisma
 - **デプロイ**: Heroku
+- **バージョン**: 3.8.7
 
-## 📦 セットアップ
+### 主要機能
+1. 人事管理システム
+2. 勤怠管理
+3. 有給管理（ロットベース）
+4. 業務委託時間管理（WorkClock）
+5. タスク管理
+6. 組織図管理
 
-### 1. 依存関係のインストール
+---
 
+## 🚀 開発の始め方
+
+### 1. ローカル開発サーバーの起動
 ```bash
-npm install
-# または
-pnpm install
-```
-
-### 2. 環境変数の設定
-
-`.env.local`ファイルを作成し、必要な環境変数を設定してください：
-
-```bash
-# データベース（開発環境）
-DATABASE_URL="file:./prisma/dev.db"
-
-# Gemini API
-GEMINI_API_KEY="your_gemini_api_key"
-
-# AWS S3（ファイルストレージ）
-AWS_ACCESS_KEY_ID="your_access_key"
-AWS_SECRET_ACCESS_KEY="your_secret_key"
-AWS_REGION="ap-northeast-1"
-AWS_S3_BUCKET_NAME="your-bucket-name"
-
-# NextAuth
-NEXTAUTH_SECRET="your_secret"
-NEXTAUTH_URL="http://localhost:3000"
-```
-
-**詳細は `ENV_TEMPLATE.md` を参照してください。**
-
-### 3. データベースの初期化
-
-```bash
-# Prismaクライアントの生成
-npx prisma generate
-
-# データベースマイグレーション
-npx prisma db push
-
-# シードデータの投入（オプション）
-npx prisma db seed
-```
-
-### 4. 開発サーバーの起動
-
-```bash
+# 推奨: 自動的にSQLiteに切り替わります
 npm run dev
+
+# または
+./start-dev.sh
 ```
 
-アプリケーションは `http://localhost:3000` で起動します。
-
-## 🗄️ データベース設計
-
-### 主要テーブル
-
-- **Employee**: 社員情報、権限管理
-- **Evaluation**: 評価データ
-- **Task**: タスク管理
-- **Attendance**: 勤怠記録
-- **Payroll**: 給与データ
-- **File/Folder**: ファイル管理
-- **ActivityLog**: アクティビティログ
-
-### 権限レベル
-
-- `admin`: システム管理者
-- `hr`: 人事部
-- `manager`: 管理者
-- `sub_manager`: サブ管理者
-- `general`: 一般社員
-- `viewer`: 閲覧のみ
-
-## 🚀 デプロイ
-
-### Heroku + AWS S3（本番環境）
-
-#### 前提条件
-- AWS S3バケットの作成（東京リージョン推奨）
-- IAMユーザーの作成とS3アクセス権限設定
-- Heroku CLIのインストール
-
-#### クイックスタート
-
-1. **Herokuアプリの作成**
+### 2. デプロイ
 ```bash
-heroku create your-hr-app-name
-heroku addons:create heroku-postgresql:essential-0
-```
-
-2. **環境変数の設定**
-```bash
-# AWS S3
-heroku config:set \
-  AWS_ACCESS_KEY_ID="your_access_key" \
-  AWS_SECRET_ACCESS_KEY="your_secret_key" \
-  AWS_REGION="ap-northeast-1" \
-  AWS_S3_BUCKET_NAME="your-bucket-name"
-
-# Gemini API
-heroku config:set GEMINI_API_KEY="your_gemini_key"
-
-# NextAuth
-heroku config:set \
-  NEXTAUTH_SECRET="$(openssl rand -base64 32)" \
-  NEXTAUTH_URL="https://your-hr-app-name.herokuapp.com"
-```
-
-3. **デプロイ**
-```bash
+# 自動的にPostgreSQLに切り替わります
 git push heroku main
-heroku run npx prisma migrate deploy
-heroku run npx prisma db seed
 ```
 
-#### 📖 詳細ガイド
-- **デプロイ手順**: `deploy-guide.md`
-- **チェックリスト**: `DEPLOYMENT_CHECKLIST.md`
-- **環境変数**: `ENV_TEMPLATE.md`
+---
 
-## 📁 プロジェクト構造
+## 📁 重要なファイル
 
-```
-├── app/                    # Next.js App Router
-│   ├── attendance/         # 勤怠管理
-│   ├── employees/          # 社員管理
-│   ├── evaluations/        # 評価管理
-│   ├── payroll/           # 給与管理
-│   └── tasks/             # タスク管理
-├── components/            # Reactコンポーネント
-│   ├── ui/               # 基本UIコンポーネント
-│   └── ...               # 機能別コンポーネント
-├── lib/                  # ユーティリティ
-├── prisma/               # データベーススキーマ
-└── public/               # 静的ファイル
-```
+### 必読ドキュメント
+- `DATABASE_AUTO_SWITCH.md` - **データベース自動切り替えの説明（必読）**
+- `.agent/database-environment-strategy.md` - データベース戦略の詳細
+- `.agent/workclock-modal-ui-fix.md` - 勤務時間記録モーダルのUI修正
 
-## 🔧 開発コマンド
+### 設定ファイル
+- `package.json` - NPMスクリプト（自動切り替え設定含む）
+- `prisma/schema.prisma` - データベーススキーマ（自動切り替え対象）
+- `.env.local` - ローカル環境変数
+- `start-dev.sh` - ローカル開発用起動スクリプト
+
+### スクリプト
+- `scripts/switch-schema.js` - **スキーマ自動切り替えスクリプト**
+- `scripts/auto-prisma.js` - Prisma自動再生成
+- `scripts/auto-create-invisible-top.js` - デプロイ後の自動セットアップ
+
+---
+
+## ⚠️ 注意事項
+
+### データベース関連
+1. **ローカルと本番でデータベースは完全に分離されています**
+2. **スキーマ切り替えは自動化されています（手動操作不要）**
+3. **ローカルでの変更は本番に影響しません**
+
+### 開発フロー
+1. ローカルで開発・テスト（SQLite）
+2. Gitにコミット
+3. Herokuにデプロイ（自動的にPostgreSQLに切り替わる）
+
+---
+
+## 🔧 よく使うコマンド
 
 ```bash
-# 開発サーバー起動
+# 開発サーバー起動（自動的にSQLiteに切り替え）
 npm run dev
 
 # ビルド
 npm run build
 
-# 本番サーバー起動
-npm start
+# Prismaスキーマを手動で開発用に切り替え
+npm run schema:dev
 
-# リント
-npm run lint
+# Prismaスキーマを手動で本番用に切り替え
+npm run schema:prod
 
-# Prisma Studio（データベースGUI）
-npx prisma studio
+# データベースマイグレーション状態確認
+npm run db:status
+
+# デプロイ
+git push heroku main
 ```
 
-## 📝 主要機能
+---
 
-- **社員管理**: 社員情報の登録・編集・検索
-- **勤怠管理**: 出退勤記録、残業時間管理
-- **評価管理**: 四半期評価、スコア管理
-- **給与管理**: 給与計算、手当・控除管理
-- **タスク管理**: カンバンボード、プロジェクト管理
-- **ファイル管理**: ドキュメント管理、フォルダ構造
-- **権限管理**: ロールベースのアクセス制御
+## 📚 ドキュメント構成
 
-## 🤝 貢献
+```
+.agent/
+├── database-environment-strategy.md  # データベース戦略の詳細
+├── workclock-modal-ui-fix.md        # WorkClock UI修正
+└── workflows/                        # ワークフロー定義
 
-1. このリポジトリをフォーク
-2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
-4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
-5. プルリクエストを作成
+DATABASE_AUTO_SWITCH.md               # データベース自動切り替え（必読）
+README.md                             # このファイル
+```
 
-## 📄 ライセンス
+---
 
-このプロジェクトはMITライセンスの下で公開されています。
-=======
-# hr-system-2025
-人事管理システム
->>>>>>> f2596758120980c0fa58398edbb520989653269d
+## 🆘 トラブルシューティング
+
+### データベース接続エラー
+→ `DATABASE_AUTO_SWITCH.md` の「トラブルシューティング」セクションを参照
+
+### スキーマエラー
+→ `npm run schema:dev` でスキーマを開発用に切り替え
+
+### ビルドエラー
+→ `npm run schema:prod` でスキーマを本番用に切り替えてから `npm run build`
+
+---
+
+## 📞 サポート
+
+質問や問題がある場合は、まず以下のドキュメントを確認してください：
+1. `DATABASE_AUTO_SWITCH.md` - データベース関連
+2. `.agent/database-environment-strategy.md` - 詳細な技術仕様
+
+---
+
+**最終更新: 2025-12-23**
+**バージョン: 3.8.7**

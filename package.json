@@ -1,6 +1,6 @@
 {
   "name": "my-v0-project",
-  "version": "3.8.5",
+  "version": "3.8.6",
   "private": true,
   "engines": {
     "node": "22.x",

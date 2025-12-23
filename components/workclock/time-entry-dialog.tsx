@@ -156,9 +156,7 @@ export function TimeEntryDialog({
   // モーダルを開くたびに、開始・終了時刻を最新のドラッグ／クリック結果で初期化する
   useEffect(() => {
     if (!open) return
-    const times = getInitialTimes()
-    setStartTime(times.startTime)
-    setEndTime(times.endTime)
+
     // 新規追加時は常にAパターンで初期化（選択されているパターンが無効な場合もAにフォールバック）
     if (wagePattern === 'B' && !worker?.hourlyRateB) {
       setWagePattern('A')
@@ -171,17 +169,29 @@ export function TimeEntryDialog({
     setNotes('')
     setCountPattern('A')
     setCount('1')
+
+    // 計上方法を決定
+    let initialBillingType: 'hourly' | 'count' | 'both' | 'none' = 'none'
     if (hasAnyPattern) {
       // 両方持っている場合はデフォルトで「時給＋回数」
       if (hasHourlyPattern && hasCountPattern) {
-        setBillingType('both')
+        initialBillingType = 'both'
       } else {
-        setBillingType(hasHourlyPattern ? 'hourly' : 'count')
+        initialBillingType = hasHourlyPattern ? 'hourly' : 'count'
       }
-    } else {
-      setBillingType('none')
     }
-  }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern])
+    setBillingType(initialBillingType)
+
+    // 回数パターンのみの場合は開始・終了時刻を0:00にする
+    if (initialBillingType === 'count') {
+      setStartTime('0:00')
+      setEndTime('0:00')
+    } else {
+      const times = getInitialTimes()
+      setStartTime(times.startTime)
+      setEndTime(times.endTime)
+    }
+  }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern, hasCountPattern])
 
   const handleAddEntry = async () => {
     // バリデーション
@@ -318,12 +328,68 @@ export function TimeEntryDialog({
                       entry.endTime,
                       entry.breakMinutes
                     )
+
+                    // パターン情報と金額を計算（PDF出力と同じロジック）
+                    const pattern = (entry as any).wagePattern as 'A' | 'B' | 'C' | null
+                    let hourlyAmount = 0
+                    let hourlyLabel = ''
+                    let hourlyInfo = ''
+
+                    if (pattern === 'A' || pattern === 'B' || pattern === 'C') {
+                      const rate =
+                        pattern === 'A'
+                          ? worker?.hourlyRate || 0
+                          : pattern === 'B'
+                            ? worker?.hourlyRateB || worker?.hourlyRate || 0
+                            : worker?.hourlyRateC || worker?.hourlyRate || 0
+                      const hours = entryDuration.hours + entryDuration.minutes / 60
+                      hourlyAmount = Math.floor(hours * rate)
+                      hourlyLabel =
+                        pattern === 'A' ? wageLabels.A : pattern === 'B' ? wageLabels.B : wageLabels.C
+                      const durationText = formatDuration(entryDuration.hours, entryDuration.minutes)
+                      hourlyInfo = `${durationText}／${hourlyLabel}（¥${rate.toLocaleString()}）`
+                    }
+
+                    // 回数パターンの金額
+                    let countInfo = ''
+                    let countAmount = 0
+                    if (entry.countPattern) {
+                      const cPattern = entry.countPattern
+                      const count = entry.count || 1
+                      const cRate =
+                        cPattern === 'A'
+                          ? worker?.countRateA || 0
+                          : cPattern === 'B'
+                            ? worker?.countRateB || 0
+                            : worker?.countRateC || 0
+                      countAmount = count * cRate
+                      const cLabel =
+                        cPattern === 'A' ? countLabels.A :
+                          cPattern === 'B' ? countLabels.B :
+                            countLabels.C
+                      countInfo = cRate > 0
+                        ? `${cLabel}（${count}回×¥${cRate.toLocaleString()}）`
+                        : `${cLabel}（${count}回）`
+                    }
+
+                    const subtotal = hourlyAmount + countAmount
+                    const hourlyDisplay = hourlyInfo || hourlyLabel
+
+                    let patternLabel = '-'
+                    if (hourlyDisplay && countInfo) {
+                      patternLabel = `${hourlyDisplay} ＋ ${countInfo}`
+                    } else if (hourlyDisplay) {
+                      patternLabel = hourlyDisplay
+                    } else if (countInfo) {
+                      patternLabel = countInfo
+                    }
+
                     return (
                       <Card key={entry.id} className="border-l-4 border-l-primary/50">
                         <CardContent className="flex items-center justify-between p-4">
                           <div className="flex-1 space-y-1">
-                            <div className="flex items-center gap-4">
-                              <span className="text-lg font-semibold font-mono">
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <span className="text-base font-semibold font-mono">
                                 {entry.startTime} - {entry.endTime}
                               </span>
                               <span className="text-sm text-muted-foreground">
@@ -332,9 +398,19 @@ export function TimeEntryDialog({
                               <span className="text-base font-bold text-primary">
                                 {formatDuration(entryDuration.hours, entryDuration.minutes)}
                               </span>
+                              <span className="text-sm text-muted-foreground">
+                                {patternLabel}
+                              </span>
+                              {subtotal > 0 && (
+                                <span className="text-base font-semibold">
+                                  ¥{subtotal.toLocaleString()}
+                                </span>
+                              )}
                             </div>
                             {entry.notes && (
-                              <p className="text-sm text-muted-foreground">{entry.notes}</p>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                <strong>[メモ]</strong> {entry.notes}
+                              </p>
                             )}
                           </div>
                           {!readOnly && (
@@ -393,6 +469,16 @@ export function TimeEntryDialog({
                           setBillingType(hasHourlyPattern ? 'hourly' : hasCountPattern ? 'count' : 'none')
                         } else {
                           setBillingType(value)
+                          // 回数パターンのみに切り替えた場合は開始・終了時刻を0:00にする
+                          if (value === 'count') {
+                            setStartTime('0:00')
+                            setEndTime('0:00')
+                          } else if (billingType === 'count') {
+                            // 回数パターンから他のパターンに切り替えた場合は通常の時刻に戻す
+                            const times = getInitialTimes()
+                            setStartTime(times.startTime)
+                            setEndTime(times.endTime)
+                          }
                         }
                       }}
                     >

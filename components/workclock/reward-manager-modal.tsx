@@ -86,7 +86,7 @@ export function RewardManagerModal({
         toast.error('ログインが必要です。再度ログインしてください。')
         return
       }
-      
+
       setIsLoading(true)
       const [rewardsData, presetsData] = await Promise.all([
         getRewardsByWorkerAndMonth(worker.id, month.getFullYear(), month.getMonth() + 1, currentUser.id),
@@ -96,27 +96,28 @@ export function RewardManagerModal({
       setPresets(presetsData)
 
       // 自動反映: isEnabledがtrueの固定項目を今月の報酬一覧に自動反映
-      const now = new Date()
-      const isCurrentMonth = now.getMonth() === month.getMonth() && now.getFullYear() === month.getFullYear()
-
-      if (isCurrentMonth && presetsData.length > 0) {
+      // 表示中の月に対して自動反映を行う（現在月に限定しない）
+      if (presetsData.length > 0) {
         // 有効な固定項目（isEnabled=true）を取得
         const enabledPresets = presetsData.filter(p => p.isEnabled)
-        
+        console.log('[自動反映] 有効なプリセット:', enabledPresets.length, '件')
+
         if (enabledPresets.length > 0) {
           // 今月の報酬一覧に既に反映されているかチェック
           const existingRewardDescriptions = rewardsData.map(r => r.description)
+          console.log('[自動反映] 既存の報酬:', existingRewardDescriptions)
           const monthFirstDay = formatDate(new Date(month.getFullYear(), month.getMonth(), 1))
-          
+
           // まだ反映されていない固定項目を自動反映
-          const presetsToApply = enabledPresets.filter(preset => 
+          const presetsToApply = enabledPresets.filter(preset =>
             !existingRewardDescriptions.includes(preset.description)
           )
+          console.log('[自動反映] 反映対象:', presetsToApply.length, '件', presetsToApply.map(p => p.description))
 
           if (presetsToApply.length > 0) {
             try {
               // 並列で自動反映
-              await Promise.all(presetsToApply.map(preset => 
+              await Promise.all(presetsToApply.map(preset =>
                 addReward({
                   workerId: worker.id,
                   amount: preset.amount,
@@ -124,7 +125,7 @@ export function RewardManagerModal({
                   date: monthFirstDay
                 }, currentUser.id)
               ))
-              
+
               // 反映後に報酬一覧を再取得
               const updatedRewards = await getRewardsByWorkerAndMonth(
                 worker.id,
@@ -134,13 +135,16 @@ export function RewardManagerModal({
               )
               setRewards(updatedRewards)
               onUpdate?.()
-              
-              // 自動反映の通知（静かに処理）
-              console.log(`${presetsToApply.length}件の固定項目を自動反映しました`)
+
+              // 自動反映の通知
+              console.log(`[自動反映] ${presetsToApply.length}件の固定項目を自動反映しました`)
+              toast.success(`${presetsToApply.length}件の固定項目を自動反映しました`)
             } catch (error) {
-              console.error('固定項目の自動反映エラー:', error)
-              // エラーは静かに処理（ユーザーに通知しない）
+              console.error('[自動反映] 固定項目の自動反映エラー:', error)
+              toast.error('固定項目の自動反映に失敗しました')
             }
+          } else {
+            console.log('[自動反映] 全ての固定項目は既に反映済みです')
           }
         }
       }
@@ -169,11 +173,11 @@ export function RewardManagerModal({
         description,
         date: date,
       }, currentUser.id)
-      
+
       setAmount('')
       setDescription('')
       toast.success('特別報酬・経費を追加しました')
-      
+
       // 更新
       const rewardsData = await getRewardsByWorkerAndMonth(
         worker.id,
@@ -203,7 +207,7 @@ export function RewardManagerModal({
       setIsLoading(true)
       await deleteReward(id, currentUser.id)
       toast.success('削除しました')
-      
+
       // 更新
       const rewardsData = await getRewardsByWorkerAndMonth(
         worker.id,
@@ -241,7 +245,7 @@ export function RewardManagerModal({
       setPresetAmount('')
       setPresetDescription('')
       toast.success('固定項目プリセットを追加しました')
-      
+
       const presetsData = await getRewardPresets(worker.id, currentUser.id)
       setPresets(presetsData)
     } catch (error) {
@@ -253,128 +257,128 @@ export function RewardManagerModal({
   }
 
   const handleDeletePreset = async (id: string) => {
-      if(!confirm('このプリセットを削除してもよろしいですか？')) return
+    if (!confirm('このプリセットを削除してもよろしいですか？')) return
 
-      if (!currentUser?.id) {
-        toast.error('ログインが必要です。再度ログインしてください。')
-        return
-      }
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
 
-      try {
-          setIsLoading(true)
-          await deleteRewardPreset(id, currentUser.id)
-          toast.success('プリセットを削除しました')
+    try {
+      setIsLoading(true)
+      await deleteRewardPreset(id, currentUser.id)
+      toast.success('プリセットを削除しました')
 
-          const presetsData = await getRewardPresets(worker.id, currentUser.id)
-          setPresets(presetsData)
-      } catch (error) {
-          console.error(error)
-          toast.error('削除に失敗しました')
-      } finally {
-          setIsLoading(false)
-      }
+      const presetsData = await getRewardPresets(worker.id, currentUser.id)
+      setPresets(presetsData)
+    } catch (error) {
+      console.error(error)
+      toast.error('削除に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleTogglePresetEnabled = async (preset: RewardPreset) => {
-      if (!currentUser?.id) {
-        toast.error('ログインが必要です。再度ログインしてください。')
-        return
-      }
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
 
-      try {
-          setIsLoading(true)
-          await updateRewardPreset(preset.id, { isEnabled: !preset.isEnabled }, currentUser.id)
-          toast.success(preset.isEnabled ? '自動反映をOFFにしました' : '自動反映をONにしました')
+    try {
+      setIsLoading(true)
+      await updateRewardPreset(preset.id, { isEnabled: !preset.isEnabled }, currentUser.id)
+      toast.success(preset.isEnabled ? '自動反映をOFFにしました' : '自動反映をONにしました')
 
-          const presetsData = await getRewardPresets(worker.id, currentUser.id)
-          setPresets(presetsData)
-      } catch (error) {
-          console.error(error)
-          toast.error('更新に失敗しました')
-      } finally {
-          setIsLoading(false)
-      }
+      const presetsData = await getRewardPresets(worker.id, currentUser.id)
+      setPresets(presetsData)
+    } catch (error) {
+      console.error(error)
+      toast.error('更新に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleApplyPreset = async (preset: RewardPreset) => {
-      if (!confirm(`「${preset.description}」(¥${preset.amount.toLocaleString()}) を今月の報酬に追加しますか？`)) return
+    if (!confirm(`「${preset.description}」(¥${preset.amount.toLocaleString()}) を今月の報酬に追加しますか？`)) return
 
-      if (!currentUser?.id) {
-        toast.error('ログインが必要です。再度ログインしてください。')
-        return
-      }
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
 
-      try {
-          setIsLoading(true)
-          // デフォルト日付（基本は月初または今日）
-          await addReward({
-              workerId: worker.id,
-              amount: preset.amount,
-              description: preset.description,
-              date: date // 現在選択されている日付を使用
-          }, currentUser.id)
+    try {
+      setIsLoading(true)
+      // デフォルト日付（基本は月初または今日）
+      await addReward({
+        workerId: worker.id,
+        amount: preset.amount,
+        description: preset.description,
+        date: date // 現在選択されている日付を使用
+      }, currentUser.id)
 
-          toast.success('固定項目を反映しました')
-          
-          const rewardsData = await getRewardsByWorkerAndMonth(
-              worker.id,
-              month.getFullYear(),
-              month.getMonth() + 1,
-              currentUser.id
-          )
-          setRewards(rewardsData)
-          onUpdate?.()
-          
-          // タブを切り替え
-          setActiveTab("current")
-      } catch (error) {
-          console.error(error)
-          toast.error('反映に失敗しました')
-      } finally {
-          setIsLoading(false)
-      }
+      toast.success('固定項目を反映しました')
+
+      const rewardsData = await getRewardsByWorkerAndMonth(
+        worker.id,
+        month.getFullYear(),
+        month.getMonth() + 1,
+        currentUser.id
+      )
+      setRewards(rewardsData)
+      onUpdate?.()
+
+      // タブを切り替え
+      setActiveTab("current")
+    } catch (error) {
+      console.error(error)
+      toast.error('反映に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
   }
-  
-  const handleApplyAllPresets = async () => {
-      if (presets.length === 0) return
-      if (!confirm(`${presets.length}件の固定項目をすべて今月の報酬に追加しますか？`)) return
-      
-      if (!currentUser?.id) {
-        toast.error('ログインが必要です。再度ログインしてください。')
-        return
-      }
 
-      try {
-          setIsLoading(true)
-          
-          // 並列で実行
-          await Promise.all(presets.map(preset => 
-             addReward({
-                 workerId: worker.id,
-                 amount: preset.amount,
-                 description: preset.description,
-                 date: date
-             }, currentUser.id)
-          ))
-          
-          toast.success('すべての固定項目を反映しました')
-          
-          const rewardsData = await getRewardsByWorkerAndMonth(
-              worker.id,
-              month.getFullYear(),
-              month.getMonth() + 1,
-              currentUser.id
-          )
-          setRewards(rewardsData)
-          onUpdate?.()
-          
-          setActiveTab("current")
-      } catch (error) {
-          console.error(error)
-          toast.error('一括反映に失敗しました')
-      } finally {
-          setIsLoading(false)
-      }
+  const handleApplyAllPresets = async () => {
+    if (presets.length === 0) return
+    if (!confirm(`${presets.length}件の固定項目をすべて今月の報酬に追加しますか？`)) return
+
+    if (!currentUser?.id) {
+      toast.error('ログインが必要です。再度ログインしてください。')
+      return
+    }
+
+    try {
+      setIsLoading(true)
+
+      // 並列で実行
+      await Promise.all(presets.map(preset =>
+        addReward({
+          workerId: worker.id,
+          amount: preset.amount,
+          description: preset.description,
+          date: date
+        }, currentUser.id)
+      ))
+
+      toast.success('すべての固定項目を反映しました')
+
+      const rewardsData = await getRewardsByWorkerAndMonth(
+        worker.id,
+        month.getFullYear(),
+        month.getMonth() + 1,
+        currentUser.id
+      )
+      setRewards(rewardsData)
+      onUpdate?.()
+
+      setActiveTab("current")
+    } catch (error) {
+      console.error(error)
+      toast.error('一括反映に失敗しました')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -382,201 +386,201 @@ export function RewardManagerModal({
       <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-              <Coins className="w-5 h-5" />
-              特別報酬・経費の管理
+            <Coins className="w-5 h-5" />
+            特別報酬・経費の管理
           </DialogTitle>
         </DialogHeader>
-        
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="current">今月の報酬一覧</TabsTrigger>
-                <TabsTrigger value="presets">固定項目設定</TabsTrigger>
-            </TabsList>
-            
-            {/* 今月の報酬タブ */}
-            <TabsContent value="current" className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
-                <div className="space-y-4 border-b pb-4 shrink-0">
-                    <div className="text-sm text-muted-foreground">
-                        新しい報酬・経費を追加します。固定項目タブからよく使う項目を呼び出すこともできます。
-                    </div>
-                    <form onSubmit={handleAddReward} className="grid gap-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="date">日付</Label>
-                                <Input
-                                    id="date"
-                                    type="date"
-                                    value={date}
-                                    onChange={(e) => setDate(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="amount">金額</Label>
-                                <Input
-                                    id="amount"
-                                    type="number"
-                                    placeholder="例: 5000"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    required
-                                />
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">説明</Label>
-                            <div className="flex gap-2">
-                                <Input
-                                    id="description"
-                                    placeholder="例: ボーナス、交通費調整など"
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    required
-                                />
-                                <Button type="submit" disabled={isLoading}>
-                                    <Plus className="w-4 h-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="current">今月の報酬一覧</TabsTrigger>
+            <TabsTrigger value="presets">固定項目設定</TabsTrigger>
+          </TabsList>
 
-                <div className="flex-1 overflow-y-auto pr-2">
-                    <div className="space-y-2">
-                        {rewards.length === 0 ? (
-                            <div className="text-center text-muted-foreground py-8 flex flex-col items-center gap-2">
-                                <p>登録された報酬はありません</p>
-                                {presets.length > 0 && (
-                                    <Button variant="link" onClick={() => setActiveTab("presets")} className="text-primary">
-                                        固定項目から追加する
-                                    </Button>
-                                )}
-                            </div>
-                        ) : (
-                            rewards.map((reward) => (
-                                <div key={reward.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
-                                    <div className="min-w-0 flex-1 mr-4">
-                                        <div className="text-sm font-medium truncate">{reward.description}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                            {new Date(reward.date).toLocaleDateString()}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-sm">¥{reward.amount.toLocaleString()}</span>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeleteReward(reward.id)}
-                                            disabled={isLoading}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
+          {/* 今月の報酬タブ */}
+          <TabsContent value="current" className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
+            <div className="space-y-4 border-b pb-4 shrink-0">
+              <div className="text-sm text-muted-foreground">
+                新しい報酬・経費を追加します。固定項目タブからよく使う項目を呼び出すこともできます。
+              </div>
+              <form onSubmit={handleAddReward} className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="date">日付</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="amount">金額</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="例: 5000"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="pt-2 border-t flex justify-between items-center shrink-0">
-                    <span className="font-semibold text-sm">合計</span>
-                    <span className="font-bold text-lg">
-                        ¥{rewards.reduce((acc, r) => acc + r.amount, 0).toLocaleString()}
-                    </span>
+                <div className="grid gap-2">
+                  <Label htmlFor="description">説明</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="description"
+                      placeholder="例: ボーナス、交通費調整など"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      required
+                    />
+                    <Button type="submit" disabled={isLoading}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
-            </TabsContent>
+              </form>
+            </div>
 
-            {/* 固定項目プリセットタブ */}
-            <TabsContent value="presets" className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
-                <div className="space-y-4 border-b pb-4 shrink-0">
-                    <div className="text-sm text-muted-foreground">
-                        毎月発生する交通費などの固定項目を登録しておくと、簡単に呼び出すことができます。自動反映をONにすると、毎月初に自動で「今月の報酬一覧」に反映されます。
-                    </div>
-                    <form onSubmit={handleAddPreset} className="grid gap-4">
-                        <div className="grid grid-cols-[1fr,120px,auto] gap-2 items-end">
-                            <div className="grid gap-2">
-                                <Label htmlFor="p-desc">項目名</Label>
-                                <Input
-                                    id="p-desc"
-                                    placeholder="例: 通勤交通費"
-                                    value={presetDescription}
-                                    onChange={(e) => setPresetDescription(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="p-amount">金額</Label>
-                                <Input
-                                    id="p-amount"
-                                    type="number"
-                                    placeholder="金額"
-                                    value={presetAmount}
-                                    onChange={(e) => setPresetAmount(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <Button type="submit" disabled={isLoading}>
-                                <Save className="w-4 h-4" />
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-2">
-                    {presets.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">
-                            固定項目は登録されていません
-                        </p>
-                    ) : (
-                        <div className="space-y-2">
-                            <div className="flex justify-end mb-2">
-                                <Button variant="outline" size="sm" onClick={handleApplyAllPresets} className="text-xs">
-                                    すべて今月に追加
-                                </Button>
-                            </div>
-                            {presets.map((preset) => (
-                                <div key={preset.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
-                                    <div className="min-w-0 flex-1 mr-4">
-                                        <div className="text-sm font-medium truncate">{preset.description}</div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Switch
-                                                checked={preset.isEnabled}
-                                                onCheckedChange={() => handleTogglePresetEnabled(preset)}
-                                                disabled={isLoading}
-                                                className="scale-75"
-                                            />
-                                            <span className="text-xs text-muted-foreground">
-                                                {preset.isEnabled ? '自動反映ON' : '自動反映OFF'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-bold text-sm mr-2">¥{preset.amount.toLocaleString()}</span>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            className="h-8 text-xs"
-                                            onClick={() => handleApplyPreset(preset)}
-                                            disabled={isLoading}
-                                        >
-                                            反映
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => handleDeletePreset(preset.id)}
-                                            disabled={isLoading}
-                                        >
-                                            <X className="w-4 h-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+            <div className="flex-1 overflow-y-auto pr-2">
+              <div className="space-y-2">
+                {rewards.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8 flex flex-col items-center gap-2">
+                    <p>登録された報酬はありません</p>
+                    {presets.length > 0 && (
+                      <Button variant="link" onClick={() => setActiveTab("presets")} className="text-primary">
+                        固定項目から追加する
+                      </Button>
                     )}
+                  </div>
+                ) : (
+                  rewards.map((reward) => (
+                    <div key={reward.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
+                      <div className="min-w-0 flex-1 mr-4">
+                        <div className="text-sm font-medium truncate">{reward.description}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(reward.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-sm">¥{reward.amount.toLocaleString()}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDeleteReward(reward.id)}
+                          disabled={isLoading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="pt-2 border-t flex justify-between items-center shrink-0">
+              <span className="font-semibold text-sm">合計</span>
+              <span className="font-bold text-lg">
+                ¥{rewards.reduce((acc, r) => acc + r.amount, 0).toLocaleString()}
+              </span>
+            </div>
+          </TabsContent>
+
+          {/* 固定項目プリセットタブ */}
+          <TabsContent value="presets" className="flex-1 flex flex-col gap-4 overflow-hidden pt-4">
+            <div className="space-y-4 border-b pb-4 shrink-0">
+              <div className="text-sm text-muted-foreground">
+                毎月発生する交通費などの固定項目を登録しておくと、簡単に呼び出すことができます。自動反映をONにすると、毎月初に自動で「今月の報酬一覧」に反映されます。
+              </div>
+              <form onSubmit={handleAddPreset} className="grid gap-4">
+                <div className="grid grid-cols-[1fr,120px,auto] gap-2 items-end">
+                  <div className="grid gap-2">
+                    <Label htmlFor="p-desc">項目名</Label>
+                    <Input
+                      id="p-desc"
+                      placeholder="例: 通勤交通費"
+                      value={presetDescription}
+                      onChange={(e) => setPresetDescription(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="p-amount">金額</Label>
+                    <Input
+                      id="p-amount"
+                      type="number"
+                      placeholder="金額"
+                      value={presetAmount}
+                      onChange={(e) => setPresetAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" disabled={isLoading}>
+                    <Save className="w-4 h-4" />
+                  </Button>
                 </div>
-            </TabsContent>
+              </form>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-2">
+              {presets.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">
+                  固定項目は登録されていません
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex justify-end mb-2">
+                    <Button variant="outline" size="sm" onClick={handleApplyAllPresets} className="text-xs">
+                      すべて今月に追加
+                    </Button>
+                  </div>
+                  {presets.map((preset) => (
+                    <div key={preset.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
+                      <div className="min-w-0 flex-1 mr-4">
+                        <div className="text-sm font-medium truncate">{preset.description}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Switch
+                            checked={preset.isEnabled}
+                            onCheckedChange={() => handleTogglePresetEnabled(preset)}
+                            disabled={isLoading}
+                            className="scale-75"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {preset.isEnabled ? '自動反映ON' : '自動反映OFF'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-sm mr-2">¥{preset.amount.toLocaleString()}</span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => handleApplyPreset(preset)}
+                          disabled={isLoading}
+                        >
+                          反映
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleDeletePreset(preset.id)}
+                          disabled={isLoading}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </DialogContent>
     </Dialog>

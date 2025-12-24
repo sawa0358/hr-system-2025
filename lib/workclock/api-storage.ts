@@ -373,8 +373,16 @@ export async function getRewardsByWorkerAndMonth(
   }
 }
 
+// addRewardのペイロード型（APIで必要な項目のみ）
+interface AddRewardPayload {
+  workerId: string
+  amount: number
+  description: string
+  date: string // YYYY-MM-DD
+}
+
 export async function addReward(
-  reward: Omit<Reward, 'id' | 'createdAt' | 'updatedAt'>,
+  reward: AddRewardPayload,
   userId?: string
 ): Promise<Reward> {
   try {

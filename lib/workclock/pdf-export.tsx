@@ -229,7 +229,7 @@ export function generatePDFContent(
   // 源泉あり小計・源泉なし小計それぞれの税抜金額を算出
   let subtotalWithholdingExclTax: number; // 源泉あり小計の税抜金額
   let subtotalNonWithholdingExclTax: number; // 源泉なし小計の税抜金額
-  
+
   if (billingTaxEnabled && effectiveTaxRatePercent > 0 && taxType === 'inclusive') {
     // 内税の場合：小計に税が含まれているので税抜金額に変換
     subtotalWithholdingExclTax = Math.floor(subtotalWithholding / (1 + effectiveTaxRatePercent / 100));
@@ -239,7 +239,7 @@ export function generatePDFContent(
     subtotalWithholdingExclTax = subtotalWithholding;
     subtotalNonWithholdingExclTax = subtotalNonWithholding;
   }
-  
+
   const baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
 
   let taxAmount: number;
@@ -270,7 +270,7 @@ export function generatePDFContent(
   const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount;
 
   // --- 表示用HTMLの組み立て ---
-  
+
   // パターン別詳細行の生成（サマリー欄）
   const breakdownRowsHtml = breakdowns.map(item => {
     let detailText = '';
@@ -279,7 +279,33 @@ export function generatePDFContent(
     } else if (item.count !== undefined) {
       detailText = `${item.count}回 × ¥${item.rate.toLocaleString()} = `;
     }
-    
+
+    // 特別報酬・経費の場合は内訳を表示
+    if (item.label === '特別報酬・経費' && rewards.length > 0) {
+      const rewardDetailsHtml = rewards.map(r => {
+        let dateStr = '';
+        if (r.date) {
+          const d = new Date(r.date);
+          dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
+        }
+        return `<span style="font-size: 10px; color: #555; margin-right: 12px;">・${dateStr ? `(${dateStr}) ` : ''}${r.description || '報酬'}: ¥${r.amount.toLocaleString()}</span>`;
+      }).join('');
+
+      return `
+        <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 4px; border-top: 1px dashed #eee;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+            <div style="flex: 1;">
+              <div style="margin-bottom: 4px;">
+                ${item.label}${item.isWithholding ? ' <span style="color: #c00; font-size: 0.8em; border: 1px solid #c00; padding: 0 2px; border-radius: 2px; margin-left: 4px;">源泉対象</span>' : ''}:
+              </div>
+              <div style="display: flex; flex-wrap: wrap;">${rewardDetailsHtml}</div>
+            </div>
+            <span style="font-weight: bold; white-space: nowrap; margin-left: 16px;">¥${item.amount.toLocaleString()}</span>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="summary-item" style="grid-column: 1 / -1; font-size: 11px; padding-top: 4px; border-top: 1px dashed #eee;">
         <div style="display: flex; justify-content: space-between; width: 100%;">
@@ -792,6 +818,54 @@ export function generatePDFContent(
     html += '<div class="no-data">この期間の勤務記録はありません</div>'
   }
 
+  // 特別報酬・経費の詳細を表示
+  if (rewards.length > 0) {
+    // dateを正規化してソート（ISO文字列またはDateオブジェクトに対応）
+    const sortedRewards = [...rewards].sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0
+      const dateB = b.date ? new Date(b.date).getTime() : 0
+      return dateA - dateB
+    })
+    html += `
+      <div class="details" style="margin-top: 20px;">
+        <h2>特別報酬・経費の詳細</h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 170px;">日付</th>
+              <th>内容</th>
+              <th style="width: 120px;">金額</th>
+            </tr>
+          </thead>
+          <tbody>
+    `
+
+    sortedRewards.forEach((reward) => {
+      // dateをDateオブジェクトとして扱い、YYYY-MM-DD形式に変換
+      let dateStr = ''
+      if (reward.date) {
+        const d = new Date(reward.date)
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        dateStr = `${year}-${month}-${day}`
+      }
+      html += `
+            <tr>
+              <td class="date-cell" style="text-align: center;">${dateStr ? formatDateLabel(dateStr) : '-'}</td>
+              <td>${reward.description || '特別報酬・経費'}</td>
+              <td style="text-align: right; font-weight: 600;">¥${reward.amount.toLocaleString()}</td>
+            </tr>
+      `
+    })
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `
+  }
+
   html += `
       <div class="footer">
         <p>この報告書は時間管理システムより自動生成されました</p>
@@ -865,10 +939,10 @@ export function generateCombinedPDFContent(
     const fullHTML = generatePDFContent(item.worker, item.entries, month, item.rewards || [], withholdingRates)
     const bodyMatch = fullHTML.match(/<body>([\s\S]*)<\/body>/)
     const bodyContent = bodyMatch ? bodyMatch[1] : ''
-    
+
     // 2ページ目以降はページブレークを入れる
-    return index === 0 
-      ? `<div class="pdf-page">${bodyContent}</div>` 
+    return index === 0
+      ? `<div class="pdf-page">${bodyContent}</div>`
       : `<div class="pdf-page" style="page-break-before: always;">${bodyContent}</div>`
   }).join('')
 

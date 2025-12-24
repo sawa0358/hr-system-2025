@@ -89,6 +89,7 @@ export interface Reward {
   id: string
   workerId: string
   month: string // YYYY-MM
+  date: string // YYYY-MM-DD
   description?: string
   amount: number
   status: 'pending' | 'paid'

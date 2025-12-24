@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { FileText, Loader2 } from 'lucide-react'
-import { Worker, TimeEntry } from '@/lib/workclock/types'
+import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { downloadPDF, WithholdingTaxRates, DEFAULT_WITHHOLDING_RATES } from '@/lib/workclock/pdf-export'
 import { api } from '@/lib/workclock/api'
 
@@ -11,6 +11,7 @@ interface ExportPDFButtonProps {
   worker: Worker
   entries: TimeEntry[]
   month: Date
+  rewards: Reward[]
   variant?: 'default' | 'outline' | 'ghost'
   size?: 'default' | 'sm' | 'lg' | 'icon'
 }
@@ -19,6 +20,7 @@ export function ExportPDFButton({
   worker,
   entries,
   month,
+  rewards,
   variant = 'default',
   size = 'default',
 }: ExportPDFButtonProps) {
@@ -41,7 +43,7 @@ export function ExportPDFButton({
         console.warn('源泉徴収率の取得に失敗しました。デフォルト値を使用します。', e)
       }
 
-      await downloadPDF(worker, entries, month, [], withholdingRates)
+      await downloadPDF(worker, entries, month, rewards, withholdingRates)
     } catch (error) {
       console.error('PDF出力に失敗しました:', error)
       alert('PDF出力に失敗しました。もう一度お試しください。')

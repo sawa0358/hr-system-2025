@@ -399,9 +399,16 @@ export function generatePDFContent(
           padding-bottom: 20px;
         }
         
+        .header-title {
+          background: #f5f5f5;
+          padding: 15px 20px;
+          margin-bottom: 15px;
+          border-radius: 8px;
+        }
+        
         .header-title h1 {
           font-size: 24px;
-          margin-bottom: 15px;
+          margin-bottom: 0;
           color: #000;
         }
         

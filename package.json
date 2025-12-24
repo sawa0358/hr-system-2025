@@ -3,7 +3,7 @@
   "_comment_dev": "npm run dev で自動的にSQLiteに切り替わります",
   "_comment_deploy": "git push heroku main で自動的にPostgreSQLに切り替わります",
   "name": "my-v0-project",
-  "version": "3.8.8",
+  "version": "3.8.9",
   "private": true,
   "engines": {
     "node": "22.x",

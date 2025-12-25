@@ -46,6 +46,7 @@ export default function WorkerPage() {
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
   const [checklistReward, setChecklistReward] = useState(0)
+  const [checklistDates, setChecklistDates] = useState<string[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false)
@@ -135,6 +136,13 @@ export default function WorkerPage() {
               return total
             }, 0)
             setChecklistReward(totalChecklist)
+
+            // チェックリストが記録されている日付を抽出
+            const dates = submissionRes.submissions.map((sub: any) => {
+              const d = new Date(sub.date)
+              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+            })
+            setChecklistDates(dates)
           }
         } catch (err) {
           console.error('チェックリスト報酬の取得に失敗:', err)
@@ -421,6 +429,7 @@ export default function WorkerPage() {
               setCurrentDate(next)
             }}
             canEditEntries={canEditEntries}
+            checklistDates={checklistDates}
           />
         </div>
       </main>

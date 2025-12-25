@@ -19,6 +19,10 @@ interface CalendarViewProps {
   actionButtons?: React.ReactNode
   canEditEntries?: boolean
   /**
+   * 業務チェックが記録されている日付の配列 (YYYY-MM-DD形式)
+   */
+  checklistDates?: string[]
+  /**
    * 親コンポーネント側で選択している年月
    * - 未指定の場合は内部state（従来どおり「今月」）を使用
    */
@@ -39,6 +43,7 @@ export function CalendarView({
   onEntriesChange,
   actionButtons,
   canEditEntries = true,
+  checklistDates = [],
   selectedMonth,
   onMonthChange,
 }: CalendarViewProps) {
@@ -226,6 +231,10 @@ export function CalendarView({
                 const dayOfWeek = date.getDay()
                 const isLockedEmptyDay = !canEditEntries && !hasEntries
 
+                // 日付文字列を生成
+                const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                const hasChecklistOnly = !hasEntries && checklistDates.includes(dateStr)
+
                 return (
                   <button
                     key={date.toISOString()}
@@ -236,6 +245,7 @@ export function CalendarView({
                       'group relative min-h-[80px] rounded-lg border p-2 text-left transition-all hover:border-primary hover:shadow-sm',
                       isToday && 'border-primary bg-primary/5',
                       hasEntries && 'bg-sky-100 border-sky-300',
+                      hasChecklistOnly && 'bg-green-50 border-green-200',
                       isLockedEmptyDay && 'cursor-default hover:border-muted hover:shadow-none'
                     )}
                   >
@@ -282,6 +292,13 @@ export function CalendarView({
                             </div>
                           )
                         })}
+                      </div>
+                    ) : hasChecklistOnly ? (
+                      <div className="flex items-center justify-center text-green-600">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-[10px] ml-1">チェック済</span>
                       </div>
                     ) : (
                       <div

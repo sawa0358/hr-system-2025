@@ -1004,49 +1004,49 @@ export default function ChecklistSummaryPage() {
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-slate-100">
                                         {filteredHistoricalReports.length === 0 ? (
-                                            <div className="py-20 text-center text-slate-400">
-                                                <FileSearch className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                                                <p>選択された期間のレポートはありません</p>
+                                            <div className="py-10 text-center text-slate-400">
+                                                <FileSearch className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                                                <p className="text-sm">選択された期間のレポートはありません</p>
                                             </div>
                                         ) : filteredHistoricalReports.map((report, idx) => (
-                                            <div key={report.id || idx} className="p-6 hover:bg-white/90 transition-all cursor-pointer group">
-                                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                                                    <div className="space-y-3 flex-1">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full">
-                                                                {format(new Date(report.date), 'yyyy年MM月dd日 (E)', { locale: ja })}
-                                                            </span>
-                                                            <div className="flex gap-2">
-                                                                <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px]">
-                                                                    {report.workerCount}名 報告
-                                                                </Badge>
-                                                                {report.alerts > 0 && (
-                                                                    <Badge className="bg-red-50 text-red-600 border-red-100 text-[10px]">
-                                                                        リスク {report.alerts}件
-                                                                    </Badge>
-                                                                )}
-                                                                {report.promptName && (
-                                                                    <Badge className="bg-purple-50 text-purple-600 border-purple-100 text-[10px]">
-                                                                        {report.promptName}
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                        <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50">
-                                                            <p className="text-sm text-slate-700 leading-relaxed italic whitespace-pre-wrap">
-                                                                "{report.summary}"
-                                                            </p>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 text-[11px] text-slate-400 font-medium pl-1">
-                                                            <span className="flex items-center gap-1">
-                                                                <Clock className="w-3 h-3" /> {format(new Date(report.createdAt), 'HH:mm')}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex flex-col items-end gap-2 text-right">
-                                                        <div className="text-xs text-slate-400">合計インセンティブ</div>
-                                                        <div className="text-xl font-bold text-indigo-600">¥{report.totalReward.toLocaleString()}</div>
-                                                    </div>
+                                            <div key={report.id || idx} className="px-4 py-2 hover:bg-slate-50/80 transition-colors cursor-pointer flex items-center gap-3">
+                                                {/* 日付 */}
+                                                <div className="w-32 flex-shrink-0">
+                                                    <span className="text-xs font-bold text-slate-700">
+                                                        {format(new Date(report.date), 'MM/dd (E)', { locale: ja })}
+                                                    </span>
+                                                    <span className="text-[10px] text-slate-400 ml-1">
+                                                        {format(new Date(report.createdAt), 'HH:mm')}
+                                                    </span>
+                                                </div>
+
+                                                {/* バッジ類 */}
+                                                <div className="w-32 flex-shrink-0 flex items-center gap-1">
+                                                    <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[9px] px-1.5 py-0">
+                                                        {report.workerCount}名
+                                                    </Badge>
+                                                    {report.alerts > 0 && (
+                                                        <Badge className="bg-red-50 text-red-600 border-red-100 text-[9px] px-1.5 py-0">
+                                                            ⚠{report.alerts}
+                                                        </Badge>
+                                                    )}
+                                                    {report.promptName && (
+                                                        <Badge className="bg-purple-50 text-purple-600 border-purple-100 text-[9px] px-1.5 py-0 truncate max-w-[60px]">
+                                                            {report.promptName}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+
+                                                {/* サマリー */}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-slate-600 truncate">
+                                                        {report.summary.replace(/\n/g, ' ').substring(0, 80)}...
+                                                    </p>
+                                                </div>
+
+                                                {/* 合計インセンティブ */}
+                                                <div className="w-24 flex-shrink-0 text-right">
+                                                    <span className="text-sm font-bold text-indigo-600">¥{report.totalReward.toLocaleString()}</span>
                                                 </div>
                                             </div>
                                         ))}

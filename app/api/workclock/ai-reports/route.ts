@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
+// Gemini APIクライアントを初期化
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 // 日付を正規化するヘルパー関数
 function parseDate(dateStr: string): Date {
@@ -13,6 +17,72 @@ function formatDate(date: Date): string {
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
+}
+
+// 曜日を取得
+function getJapaneseWeekday(date: Date): string {
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土']
+    return weekdays[date.getDay()]
+}
+
+// AIでレポートを生成する関数
+async function generateAIReport(dateStr: string, submissions: any[], workerMap: Record<string, string>): Promise<string> {
+    // データを分析用に整理
+    const analysisData = submissions.map((s: any) => {
+        const workerName = workerMap[s.workerId] || '不明'
+        const items = s.items || []
+        const checkedItems = items.filter((it: any) => it.isChecked || (it.isFreeText && it.freeTextValue?.trim()))
+        const totalReward = items.reduce((acc: number, it: any) => {
+            const isEligible = it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+            return acc + (isEligible ? it.reward : 0)
+        }, 0)
+        const freeTexts = items.filter((it: any) => it.isFreeText && it.freeTextValue?.trim())
+            .map((it: any) => `${it.title}: ${it.freeTextValue}`)
+
+        return {
+            workerName,
+            checkedCount: checkedItems.length,
+            totalItems: items.length,
+            totalReward,
+            isSafetyAlert: s.isSafetyAlert,
+            memo: s.memo,
+            freeTexts
+        }
+    })
+
+    const workerCount = analysisData.length
+    const alerts = analysisData.filter((d: any) => d.isSafetyAlert).length
+    const totalReward = analysisData.reduce((acc: number, d: any) => acc + d.totalReward, 0)
+    const completedCount = analysisData.filter((d: any) => d.checkedCount === d.totalItems).length
+
+    // Gemini APIが使えない場合は簡易レポート
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+        return `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}${alerts > 0 ? ` / ⚠️ リスク報告: ${alerts}件` : ''}`
+    }
+
+    try {
+        const targetDate = parseDate(dateStr)
+        const weekday = getJapaneseWeekday(targetDate)
+
+        const aiPrompt = `以下のチェックリスト提出データを分析し、1-2文の簡潔な日次サマリーを生成してください。
+
+【日付】${dateStr} (${weekday})
+【統計】報告者: ${workerCount}名 / 完了: ${completedCount}名 / リスク報告: ${alerts}件 / 合計: ¥${totalReward.toLocaleString()}
+
+${analysisData.map((d: any) =>
+            `${d.workerName}: ${d.checkedCount}/${d.totalItems}完了 ¥${d.totalReward}${d.isSafetyAlert ? ' ⚠️' : ''}${d.freeTexts.length > 0 ? ` [${d.freeTexts[0]}]` : ''}`
+        ).join('\n')}
+
+要点のみ1-2文で。`
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' })
+        const result = await model.generateContent(aiPrompt)
+        const response = await result.response
+        return response.text()
+    } catch (error) {
+        console.error('AI generation failed, using fallback:', error)
+        return `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}${alerts > 0 ? ` / ⚠️ リスク報告: ${alerts}件` : ''}`
+    }
 }
 
 // GET /api/workclock/ai-reports - 期間指定でレポート一覧を取得
@@ -53,6 +123,17 @@ export async function GET(request: NextRequest) {
                 }
             })
 
+            // ワーカー情報を取得
+            const workerIds = [...new Set(submissions.map((s: any) => s.workerId))]
+            const workers = await (prisma as any).workClockWorker.findMany({
+                where: { id: { in: workerIds } },
+                select: { id: true, name: true }
+            })
+            const workerMap: Record<string, string> = workers.reduce((acc: any, w: any) => {
+                acc[w.id] = w.name
+                return acc
+            }, {})
+
             // 日付ごとにグループ化
             const submissionsByDate: Record<string, any[]> = {}
             for (const s of submissions) {
@@ -77,10 +158,9 @@ export async function GET(request: NextRequest) {
             const existingDates = new Set(existingReports.map((r: any) => formatDate(new Date(r.date))))
 
             // 3. AIレポートがない日を自動生成
-            const newReports = []
             for (const [dateStr, subs] of Object.entries(submissionsByDate)) {
                 if (!existingDates.has(dateStr)) {
-                    // この日のサマリーを生成
+                    // この日のサマリーをAIで生成
                     const workerCount = subs.length
                     const alerts = subs.filter((s: any) => s.isSafetyAlert).length
                     const totalReward = subs.reduce((acc: number, s: any) => {
@@ -90,34 +170,22 @@ export async function GET(request: NextRequest) {
                         }, 0)
                     }, 0)
 
-                    // 簡易的なサマリーを生成
-                    const completedCount = subs.filter((s: any) => {
-                        const mandatoryItems = (s.items || []).filter((it: any) => it.isMandatory)
-                        const checkedMandatory = mandatoryItems.filter((it: any) =>
-                            it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
-                        ).length
-                        return mandatoryItems.length === 0 || checkedMandatory === mandatoryItems.length
-                    }).length
-
-                    const summary = `【自動生成レポート】
-対象者: ${workerCount}名（完了: ${completedCount}名）
-合計報酬: ¥${totalReward.toLocaleString()}
-${alerts > 0 ? `⚠️ ヒヤリハット報告: ${alerts}件` : '✅ 異常報告なし'}`
+                    // AIでサマリーを生成
+                    const summary = await generateAIReport(dateStr, subs, workerMap)
 
                     // DBに保存
-                    const report = await (prisma as any).workClockAIReport.create({
+                    await (prisma as any).workClockAIReport.create({
                         data: {
                             date: parseDate(dateStr),
                             summary,
                             promptId: null,
-                            promptName: '自動生成',
+                            promptName: 'AI分析',
                             workerCount,
                             alerts,
                             totalReward,
                             createdBy: userId,
                         }
                     })
-                    newReports.push(report)
                 }
             }
         }

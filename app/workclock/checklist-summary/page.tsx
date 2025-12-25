@@ -28,7 +28,8 @@ import {
     Clock,
     FileSearch,
     Pencil,
-    Trash2
+    Trash2,
+    Image as ImageIcon
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { getWorkers, getTeams } from '@/lib/workclock/api-storage'
@@ -1028,7 +1029,11 @@ export default function ChecklistSummaryPage() {
                                                             <TableCell className="py-4">
                                                                 <div className="flex flex-col gap-1.5 min-w-[300px] max-w-[600px]">
                                                                     <div className="flex gap-1">
-                                                                        {row.hasPhoto && (
+                                                                        {row.photoUrl ? (
+                                                                            <div className="w-8 h-8 rounded overflow-hidden border border-slate-200">
+                                                                                <img src={row.photoUrl} className="w-full h-full object-cover" />
+                                                                            </div>
+                                                                        ) : row.hasPhoto && (
                                                                             <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-blue-100 text-[9px] h-4">画像あり</Badge>
                                                                         )}
                                                                         {row.isSafetyAlert && (
@@ -1371,19 +1376,23 @@ export default function ChecklistSummaryPage() {
                                     "{selectedReport?.memo}"
                                 </div>
 
-                                {selectedReport?.hasPhoto && (
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
-                                        <div className="aspect-video bg-slate-200 rounded-xl overflow-hidden relative group">
-                                            <div className="absolute inset-0 flex items-center justify-center text-slate-400 group-hover:bg-black/5 transition-colors">
-                                                <Camera className="w-8 h-8" />
-                                            </div>
-                                            <Badge className="absolute top-2 left-2 bg-black/50 text-white backdrop-blur-md border-none">現場撮影 01</Badge>
+                                {selectedReport?.photoUrl ? (
+                                    <div className="mt-4">
+                                        <Label className="text-xs font-bold text-slate-500 flex items-center gap-2 mb-2 ml-1">
+                                            <ImageIcon className="w-4 h-4" /> 報告用写真
+                                        </Label>
+                                        <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-white">
+                                            <img
+                                                src={selectedReport.photoUrl}
+                                                alt="Report"
+                                                className="w-full h-auto max-h-[400px] object-contain mx-auto"
+                                            />
                                         </div>
-                                        <div className="aspect-video bg-slate-200 rounded-xl overflow-hidden relative group">
-                                            <div className="absolute inset-0 flex items-center justify-center text-slate-400 group-hover:bg-black/5 transition-colors">
-                                                <Camera className="w-8 h-8" />
-                                            </div>
-                                            <Badge className="absolute top-2 left-2 bg-black/50 text-white backdrop-blur-md border-none">作業後確認 02</Badge>
+                                    </div>
+                                ) : selectedReport?.hasPhoto && (
+                                    <div className="grid grid-cols-2 gap-4 mt-4 opacity-50">
+                                        <div className="aspect-video bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center border border-dashed border-slate-300">
+                                            <Camera className="w-8 h-8 text-slate-300" />
                                         </div>
                                     </div>
                                 )}

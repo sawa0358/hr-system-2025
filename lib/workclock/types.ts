@@ -151,6 +151,7 @@ export interface ChecklistSubmission {
   }
   date: string
   memo?: string
+  photoUrl?: string
   hasPhoto: boolean
   isSafetyAlert: boolean
   items?: ChecklistSubmissionItem[]

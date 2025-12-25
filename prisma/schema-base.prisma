@@ -843,6 +843,12 @@ model WorkClockWorker {
   rewards                WorkClockReward[]
   rewardPresets          WorkClockRewardPreset[]
 
+  // 業務チェックリスト関係
+  checklistPatternId   String?
+  checklistPattern     WorkClockChecklistPattern?     @relation(fields: [checklistPatternId], references: [id], onDelete: SetNull)
+  isChecklistEnabled   Boolean                        @default(false)
+  checklistSubmissions WorkClockChecklistSubmission[]
+
   @@map("workclock_workers")
 }
 
@@ -913,4 +919,96 @@ model WorkClockTeam {
   updatedAt DateTime @updatedAt
 
   @@map("workclock_teams")
+}
+
+// ==========================
+// 業務チェックリスト用モデル
+// ==========================
+
+// 業務チェックリストパターン
+model WorkClockChecklistPattern {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items   WorkClockChecklistItem[]
+  workers WorkClockWorker[]
+
+  @@map("workclock_checklist_patterns")
+}
+
+// 業務チェックリスト項目
+model WorkClockChecklistItem {
+  id          String                    @id @default(cuid())
+  patternId   String
+  pattern     WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  title       String
+  reward      Float                     @default(0)
+  isMandatory Boolean                   @default(false)
+  isFreeText  Boolean                   @default(false) // 自由記入欄かどうか
+  category    String?
+  position    Int                       @default(0)
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@index([patternId])
+  @@map("workclock_checklist_items")
+}
+
+// 業務チェックリスト提出（報告）
+model WorkClockChecklistSubmission {
+  id            String          @id @default(cuid())
+  workerId      String
+  worker        WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date          DateTime
+  memo          String?
+  photoUrl      String?
+  hasPhoto      Boolean         @default(false)
+  isSafetyAlert Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  items WorkClockChecklistSubmissionItem[]
+
+  @@index([workerId, date])
+  @@map("workclock_checklist_submissions")
+}
+
+// 提出時のチェック項目スナップショット
+model WorkClockChecklistSubmissionItem {
+  id            String                       @id @default(cuid())
+  submissionId  String
+  submission    WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  title         String
+  reward        Float
+  isMandatory   Boolean
+  isChecked     Boolean
+  isFreeText    Boolean                      @default(false) // 自由記入欄かどうか
+  freeTextValue String? // 自由記入欄の入力値
+  category      String?
+  createdAt     DateTime                     @default(now())
+
+  @@index([submissionId])
+  @@map("workclock_checklist_submission_items")
+}
+
+// WorkClock AI Report Model
+model WorkClockAIReport {
+  id          String   @id @default(cuid())
+  date        DateTime // レポート対象日
+  summary     String // AI生成サマリー
+  promptId    String? // 使用したプロンプトID
+  promptName  String? // プロンプト名（スナップショット）
+  workerCount Int // 対象ワーカー数
+  alerts      Int // アラート件数
+  totalReward Int // 合計インセンティブ
+  createdBy   String // 作成者ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([createdBy])
+  @@index([createdAt])
+  @@map("workclock_ai_reports")
 }

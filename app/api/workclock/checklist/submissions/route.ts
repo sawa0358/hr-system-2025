@@ -56,10 +56,18 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { workerId, date, memo, hasPhoto, isSafetyAlert, items } = body
+        const { workerId, date, memo, photoUrl, hasPhoto, isSafetyAlert, items } = body
 
         if (!workerId || !date || !items || !Array.isArray(items)) {
-            return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
+            return NextResponse.json({ message: '必須項目が不足しています' }, { status: 400 })
+        }
+
+        // ワーカーの存在確認
+        const worker = await (prisma as any).workClockWorker.findUnique({
+            where: { id: workerId }
+        })
+        if (!worker) {
+            return NextResponse.json({ message: `指定されたワーカー(ID: ${workerId})が見つかりません。有効なワーカーを選択してください。` }, { status: 400 })
         }
 
         // 日付を正規化 (yyyy-mm-dd形式の文字列から直接年月日を抽出することで、タイムゾーンのズレを防ぐ)
@@ -101,7 +109,8 @@ export async function POST(request: Request) {
                 workerId,
                 date: startOfDay,
                 memo,
-                hasPhoto: !!hasPhoto,
+                photoUrl,
+                hasPhoto: !!hasPhoto || !!photoUrl,
                 isSafetyAlert: !!isSafetyAlert,
                 items: {
                     create: items.map((item: any) => ({
@@ -122,7 +131,11 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ submission })
     } catch (error) {
-        console.error('POST /api/workclock/checklist/submissions error:', error)
-        return NextResponse.json({ error: '報告の提出に失敗しました' }, { status: 500 })
+        console.error('POST /api/workclock/checklist/submissions error full:', error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        return NextResponse.json({
+            message: `報告の提出に失敗しました: ${errorMessage}`,
+            error: errorMessage
+        }, { status: 500 })
     }
 }

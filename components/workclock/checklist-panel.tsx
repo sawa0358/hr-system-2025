@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2 } from 'lucide-react'
+import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/workclock/api'
 import { ChecklistItem, Worker } from '@/lib/workclock/types'
@@ -17,7 +18,7 @@ interface ChecklistPanelProps {
     workerId: string
     selectedDate: Date
     onRewardChange?: (reward: number) => void
-    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; items: ChecklistItem[] }) => void
+    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; items: ChecklistItem[] }) => void
 }
 
 export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
@@ -26,7 +27,10 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     const [reportText, setReportText] = useState('')
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isUploading, setIsUploading] = useState(false)
+    const [photoUrl, setPhotoUrl] = useState('')
     const [existingSubmissionId, setExistingSubmissionId] = useState<string | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const rewardRef = useRef<HTMLDivElement>(null)
     const listRef = useRef<HTMLDivElement>(null)
@@ -67,8 +71,8 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     const submission = submissionRes.submissions[0]
                     setExistingSubmissionId(submission.id)
                     setReportText(submission.memo || '')
+                    setPhotoUrl(submission.photoUrl || '')
 
-                    // チェック済み項目と自由記入欄の値を復元
                     // チェック済み項目と自由記入欄の値を復元
                     const updatedCheckedItems: Record<string, boolean> = {}
                     const updatedFreeTextValues: Record<string, string> = {}
@@ -88,12 +92,10 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         })
                     }
 
-                    console.log('Restored values:', { updatedCheckedItems, updatedFreeTextValues })
-
                     setCheckedItems(updatedCheckedItems)
                     setFreeTextValues(updatedFreeTextValues)
 
-                    // 報酬を再計算（チェック項目 + 入力のある自由記入欄）
+                    // 報酬を再計算
                     const totalReward = items.reduce((total, item) => {
                         if (item.isFreeText) {
                             return total + (updatedFreeTextValues[item.id]?.trim() ? item.reward : 0)
@@ -104,12 +106,12 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     // 親に通知
                     setTimeout(() => {
                         onRewardChange?.(totalReward)
-                        onStateChange?.({ checkedItems: updatedCheckedItems, freeTextValues: updatedFreeTextValues, memo: submission.memo || '', items })
+                        onStateChange?.({ checkedItems: updatedCheckedItems, freeTextValues: updatedFreeTextValues, memo: submission.memo || '', photoUrl: submission.photoUrl || '', items })
                     }, 0)
                 } else {
                     // 初期状態を親に通知
                     setTimeout(() => {
-                        onStateChange?.({ checkedItems: {}, freeTextValues: {}, memo: '', items })
+                        onStateChange?.({ checkedItems: {}, freeTextValues: {}, memo: '', photoUrl: '', items })
                     }, 0)
                 }
             } catch (error) {
@@ -133,7 +135,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 ...prev,
                 [id]: !prev[id]
             }
-            // 報酬合計を再計算（チェック項目 + 入力のある自由記入欄）
+            // 報酬合計を再計算
             const newTotal = checklistItems.reduce((total, item) => {
                 if (item.isFreeText) {
                     return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
@@ -142,18 +144,101 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             }, 0)
             setTimeout(() => {
                 onRewardChange?.(newTotal)
-                // 状態を親に通知
-                onStateChange?.({ checkedItems: newState, freeTextValues, memo: reportText, items: checklistItems })
+                onStateChange?.({ checkedItems: newState, freeTextValues, memo: reportText, photoUrl, items: checklistItems })
             }, 0)
             return newState
         })
+    }
+
+    // 画像圧縮とアップロード
+    const handleUpload = async (file: File) => {
+        if (!file.type.startsWith('image/')) return
+
+        try {
+            setIsUploading(true)
+
+            // 1. 画像圧縮 (Canvasを使用)
+            const compressed = await compressImage(file)
+
+            // 2. アップロード
+            const formData = new FormData()
+            formData.append('file', compressed, file.name)
+
+            const res = await fetch('/api/workclock/checklist/upload', {
+                method: 'POST',
+                body: formData
+            })
+
+            if (!res.ok) throw new Error('Upload failed')
+
+            const data = await res.json()
+            if (data.url) {
+                setPhotoUrl(data.url)
+                onStateChange?.({ checkedItems, freeTextValues, memo: reportText, photoUrl: data.url, items: checklistItems })
+            }
+        } catch (error) {
+            console.error('Photo upload error:', error)
+            alert('画像のアップロードに失敗しました')
+        } finally {
+            setIsUploading(false)
+        }
+    }
+
+    const compressImage = (file: File): Promise<Blob> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.readAsDataURL(file)
+            reader.onload = (e) => {
+                const img = new Image()
+                img.src = e.target?.result as string
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    const MAX_WIDTH = 1024
+                    const MAX_HEIGHT = 1024
+                    let width = img.width
+                    let height = img.height
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width
+                            width = MAX_WIDTH
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height
+                            height = MAX_HEIGHT
+                        }
+                    }
+
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    ctx?.drawImage(img, 0, 0, width, height)
+
+                    canvas.toBlob((blob) => {
+                        resolve(blob || file)
+                    }, 'image/jpeg', 0.7) // 品質を0.7に設定して軽量化
+                }
+            }
+        })
+    }
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) handleUpload(file)
+    }
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault()
+        const file = e.dataTransfer.files?.[0]
+        if (file) handleUpload(file)
     }
 
     // メモ変更時も親に通知
     const handleMemoChange = (text: string) => {
         setReportText(text)
         setTimeout(() => {
-            onStateChange?.({ checkedItems, freeTextValues, memo: text, items: checklistItems })
+            onStateChange?.({ checkedItems, freeTextValues, memo: text, photoUrl, items: checklistItems })
         }, 0)
     }
 
@@ -167,7 +252,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     const pendingMandatoryItems = checklistItems.filter(item => item.isMandatory && !checkedItems[item.id])
     const isAllMandatoryChecked = pendingMandatoryItems.length === 0
 
-    // チェックリストが無効な場合の表示
     if (!worker?.isChecklistEnabled) {
         return (
             <div className="flex flex-col items-center justify-center h-full p-8 text-center">
@@ -200,7 +284,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     return (
         <div className="flex flex-col flex-1 bg-slate-50/50 min-h-0">
 
-            {/* セクションナビゲーション (Compact) */}
             <div className="sticky top-0 z-20 flex items-center gap-1.5 p-2 bg-white/90 backdrop-blur-md border-b shadow-sm px-4">
                 <Button variant="ghost" size="sm" onClick={() => scrollToSection(rewardRef)} className="h-7 px-2 text-[10px] md:text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border border-yellow-100 rounded-md">
                     <Coins className="w-3 h-3 mr-1" /> 本日の獲得
@@ -209,14 +292,13 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     <ClipboardList className="w-3 h-3 mr-1" /> 業務チェック
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => scrollToSection(photoRef)} className="h-7 px-2 text-[10px] md:text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-100 rounded-md">
-                    <ImageIcon className="w-3 h-3 mr-1" /> 写真
+                    <ImageIcon className="w-3 h-3 mr-1" /> 報告用写真
                 </Button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 scrollbar-thin">
                 <div className="py-4 space-y-6 max-w-4xl mx-auto pb-16">
 
-                    {/* 1. 本日の獲得予定寸志 (Compact) */}
                     <section ref={rewardRef} className="scroll-mt-16">
                         <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-gradient-to-r from-yellow-50 to-white border border-yellow-200 shadow-sm relative overflow-hidden">
                             <div className="relative z-10">
@@ -236,7 +318,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         </div>
                     </section>
 
-                    {/* 2. 業務チェックリスト (Excel-like High Density) */}
                     <section ref={listRef} className="scroll-mt-16 space-y-2">
                         <div className="flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
@@ -262,23 +343,14 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                             <div className="divide-y divide-slate-100">
                                 {checklistItems.map(item => (
                                     item.isFreeText ? (
-                                        // 自由記入欄の場合
-                                        <div key={item.id}
-                                            className="group flex flex-col px-3 py-2 bg-purple-50/30 hover:bg-purple-50/50 transition-colors relative"
-                                        >
-                                            {/* 左端ライン */}
+                                        <div key={item.id} className="group flex flex-col px-3 py-2 bg-purple-50/30 hover:bg-purple-50/50 transition-colors relative">
                                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-purple-400" />
-
                                             <div className="flex items-center justify-between mb-1.5">
                                                 <Label htmlFor={`freetext-${item.id}`} className="text-[11px] font-bold text-purple-700 flex items-center gap-1">
                                                     <MessageSquare className="w-3 h-3" />
                                                     {item.title}
                                                 </Label>
-                                                {item.reward > 0 && (
-                                                    <span className="font-mono text-[9px] font-bold text-purple-600">
-                                                        +¥{item.reward}
-                                                    </span>
-                                                )}
+                                                {item.reward > 0 && <span className="font-mono text-[9px] font-bold text-purple-600">+¥{item.reward}</span>}
                                             </div>
                                             <Input
                                                 id={`freetext-${item.id}`}
@@ -286,18 +358,13 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                 onChange={(e) => {
                                                     const newValues = { ...freeTextValues, [item.id]: e.target.value }
                                                     setFreeTextValues(newValues)
-
-                                                    // 報酬を再計算
                                                     const newTotal = checklistItems.reduce((total, it) => {
-                                                        if (it.isFreeText) {
-                                                            return total + (newValues[it.id]?.trim() ? it.reward : 0)
-                                                        }
+                                                        if (it.isFreeText) return total + (newValues[it.id]?.trim() ? it.reward : 0)
                                                         return total + (checkedItems[it.id] ? it.reward : 0)
                                                     }, 0)
-
                                                     setTimeout(() => {
                                                         onRewardChange?.(newTotal)
-                                                        onStateChange?.({ checkedItems, freeTextValues: newValues, memo: reportText, items: checklistItems })
+                                                        onStateChange?.({ checkedItems, freeTextValues: newValues, memo: reportText, photoUrl, items: checklistItems })
                                                     }, 0)
                                                 }}
                                                 placeholder="入力してください..."
@@ -305,63 +372,17 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                             />
                                         </div>
                                     ) : (
-                                        // 通常のチェック項目
-                                        <div key={item.id}
-                                            onClick={() => handleToggle(item.id)}
-                                            className={cn(
-                                                "group flex items-center px-3 py-1.5 min-h-[36px] cursor-pointer transition-colors duration-75 relative",
-                                                checkedItems[item.id] ? "bg-blue-50/40" : "bg-white hover:bg-slate-50/50",
-                                                item.isMandatory && !checkedItems[item.id] && "bg-red-50/10"
-                                            )}
-                                        >
-                                            {/* 左端ライン */}
-                                            {item.isMandatory && (
-                                                <div className={cn(
-                                                    "absolute left-0 top-0 bottom-0 w-0.5 transition-colors",
-                                                    checkedItems[item.id] ? "bg-green-400" : "bg-red-400"
-                                                )} />
-                                            )}
-
-                                            {/* チェック */}
+                                        <div key={item.id} onClick={() => handleToggle(item.id)} className={cn("group flex items-center px-3 py-1.5 min-h-[36px] cursor-pointer transition-colors duration-75 relative", checkedItems[item.id] ? "bg-blue-50/40" : "bg-white hover:bg-slate-50/50", item.isMandatory && !checkedItems[item.id] && "bg-red-50/10")}>
+                                            {item.isMandatory && <div className={cn("absolute left-0 top-0 bottom-0 w-0.5 transition-colors", checkedItems[item.id] ? "bg-green-400" : "bg-red-400")} />}
                                             <div className="w-10 flex justify-center mr-2" onClick={(e) => e.stopPropagation()}>
-                                                <Switch
-                                                    id={`item-${item.id}`}
-                                                    checked={!!checkedItems[item.id]}
-                                                    onCheckedChange={() => handleToggle(item.id)}
-                                                    className="scale-[0.65] data-[state=checked]:bg-green-500"
-                                                />
+                                                <Switch id={`item-${item.id}`} checked={!!checkedItems[item.id]} onCheckedChange={() => handleToggle(item.id)} className="scale-[0.65] data-[state=checked]:bg-green-500" />
                                             </div>
-
-                                            {/* テキスト */}
                                             <div className="flex-1 py-0.5">
-                                                <Label
-                                                    htmlFor={`item-${item.id}`}
-                                                    className={cn(
-                                                        "text-[11px] font-medium leading-tight block transition-all",
-                                                        checkedItems[item.id] ? "text-slate-300 line-through" : "text-slate-600"
-                                                    )}
-                                                >
-                                                    {item.title}
-                                                </Label>
-                                                {item.isMandatory && !checkedItems[item.id] && (
-                                                    <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5">
-                                                        <AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目
-                                                    </span>
-                                                )}
+                                                <Label htmlFor={`item-${item.id}`} className={cn("text-[11px] font-medium leading-tight block transition-all", checkedItems[item.id] ? "text-slate-300 line-through" : "text-slate-600")}>{item.title}</Label>
+                                                {item.isMandatory && !checkedItems[item.id] && <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5"><AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目</span>}
                                             </div>
-
-                                            {/* 報酬 */}
                                             <div className="w-16 text-right">
-                                                {item.reward > 0 ? (
-                                                    <span className={cn(
-                                                        "font-mono text-[9px] font-bold",
-                                                        checkedItems[item.id] ? "text-yellow-600" : "text-slate-300"
-                                                    )}>
-                                                        +¥{item.reward}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[9px] text-slate-200 font-mono">-</span>
-                                                )}
+                                                {item.reward > 0 ? <span className={cn("font-mono text-[9px] font-bold", checkedItems[item.id] ? "text-yellow-600" : "text-slate-300")}>+¥{item.reward}</span> : <span className="text-[9px] text-slate-200 font-mono">-</span>}
                                             </div>
                                         </div>
                                     )
@@ -370,29 +391,38 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         </Card>
                     </section>
 
-                    {/* 3. 写真報告 (Compact) */}
                     <section ref={photoRef} className="scroll-mt-16 space-y-2">
                         <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5 px-1">
-                            <ImageIcon className="w-4 h-4 text-green-600" /> 現場写真・報告
+                            <ImageIcon className="w-4 h-4 text-green-600" /> 報告用写真
                         </h3>
-                        <Card className="overflow-hidden border-slate-200 shadow-sm rounded-lg bg-white">
+                        <Card className={cn("overflow-hidden border-slate-200 shadow-sm rounded-lg bg-white transition-all", isUploading && "opacity-50 pointer-events-none")} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
                             <div className="grid grid-cols-1 md:grid-cols-2">
-                                <div className="p-4 py-6 bg-slate-50/50 flex flex-col items-center justify-center border-r border-slate-100">
-                                    <div className="bg-white p-3 rounded-full mb-2 shadow-sm border border-slate-100 group cursor-pointer hover:bg-slate-50 transition-colors">
-                                        <Camera className="w-5 h-5 text-slate-400 group-hover:text-green-500" />
+                                <div className="p-4 py-8 bg-slate-50/50 flex flex-col items-center justify-center border-r border-slate-100 cursor-pointer hover:bg-slate-100/80 transition-colors group" onClick={() => fileInputRef.current?.click()}>
+                                    <div className="bg-white p-4 rounded-full mb-3 shadow-md border border-slate-100 group-hover:scale-110 transition-transform">
+                                        {isUploading ? <Loader2 className="w-6 h-6 text-green-500 animate-spin" /> : <Camera className="w-6 h-6 text-slate-400 group-hover:text-green-500" />}
                                     </div>
-                                    <p className="text-[10px] font-bold text-slate-600">撮影 / アップロード</p>
+                                    <p className="text-xs font-bold text-slate-600">{isUploading ? "アップロード中..." : "写真撮影 / アップロード"}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">タップしてカメラ起動・ドラッグ＆ドロップ可</p>
                                 </div>
-                                <div className="p-4 flex flex-col items-center justify-center text-center">
-                                    <div className="border border-dashed border-slate-200 rounded-lg p-4 w-full h-full flex flex-col items-center justify-center">
-                                        <ImageIcon className="w-6 h-6 text-slate-100 mb-1" />
-                                        <p className="text-[9px] text-slate-300 italic truncate w-full">No images uploaded</p>
-                                    </div>
+                                <div className="p-4 flex flex-col items-center justify-center min-h-[160px]">
+                                    {photoUrl ? (
+                                        <div className="relative group w-full h-full flex items-center justify-center bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
+                                            <img src={photoUrl} alt="Report" className="max-w-full max-h-[140px] object-contain shadow-sm" />
+                                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setPhotoUrl(''); onStateChange?.({ checkedItems, freeTextValues, memo: reportText, photoUrl: '', items: checklistItems }) }}>
+                                                <Plus className="w-3 h-3 rotate-45" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="border border-dashed border-slate-200 rounded-lg p-6 w-full h-full flex flex-col items-center justify-center bg-slate-50/30">
+                                            <ImageIcon className="w-10 h-10 text-slate-100 mb-2" />
+                                            <p className="text-[11px] text-slate-400 italic font-medium">画像がありません</p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Card>
                     </section>
-
                 </div>
             </div>
         </div>

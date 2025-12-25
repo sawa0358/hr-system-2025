@@ -1019,10 +1019,16 @@ export default function ChecklistSummaryPage() {
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-slate-100">
-                                        {filteredHistoricalReports.length === 0 ? (
+                                        {isLoadingReports ? (
+                                            <div className="py-16 text-center text-slate-400">
+                                                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                                                <p className="text-sm font-medium text-indigo-600">レポートを集計しています...</p>
+                                                <p className="text-xs text-slate-400 mt-1">チェックリストデータを分析中</p>
+                                            </div>
+                                        ) : filteredHistoricalReports.length === 0 ? (
                                             <div className="py-10 text-center text-slate-400">
                                                 <FileSearch className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                                                <p className="text-sm">選択された期間のレポートはありません</p>
+                                                <p className="text-sm">選択された期間にチェックリスト提出がありません</p>
                                             </div>
                                         ) : filteredHistoricalReports.map((report, idx) => (
                                             <div

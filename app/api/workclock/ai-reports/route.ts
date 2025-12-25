@@ -55,9 +55,21 @@ async function generateAIReport(dateStr: string, submissions: any[], workerMap: 
     const totalReward = analysisData.reduce((acc: number, d: any) => acc + d.totalReward, 0)
     const completedCount = analysisData.filter((d: any) => d.checkedCount === d.totalItems).length
 
-    // Gemini APIが使えない場合は簡易レポート
+    // Gemini APIが使えない場合は自由記入欄を含む詳細レポート
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
-        return `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}${alerts > 0 ? ` / ⚠️ リスク報告: ${alerts}件` : ''}`
+        // 自由記入欄のテキストを抽出
+        const allFreeTexts = analysisData
+            .filter((d: any) => d.freeTexts.length > 0)
+            .map((d: any) => `[${d.workerName}] ${d.freeTexts.join(' / ')}`)
+
+        let summary = `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}`
+        if (alerts > 0) {
+            summary += ` / ⚠️ リスク報告: ${alerts}件`
+        }
+        if (allFreeTexts.length > 0) {
+            summary += `\n\n【記入内容】\n${allFreeTexts.join('\n')}`
+        }
+        return summary
     }
 
     try {
@@ -70,10 +82,10 @@ async function generateAIReport(dateStr: string, submissions: any[], workerMap: 
 【統計】報告者: ${workerCount}名 / 完了: ${completedCount}名 / リスク報告: ${alerts}件 / 合計: ¥${totalReward.toLocaleString()}
 
 ${analysisData.map((d: any) =>
-            `${d.workerName}: ${d.checkedCount}/${d.totalItems}完了 ¥${d.totalReward}${d.isSafetyAlert ? ' ⚠️' : ''}${d.freeTexts.length > 0 ? ` [${d.freeTexts[0]}]` : ''}`
+            `${d.workerName}: ${d.checkedCount}/${d.totalItems}完了 ¥${d.totalReward}${d.isSafetyAlert ? ' ⚠️' : ''}${d.freeTexts.length > 0 ? ` [${d.freeTexts.join(' / ')}]` : ''}`
         ).join('\n')}
 
-要点のみ1-2文で。`
+要点のみ1-2文で。自由記入欄に重要な内容があれば言及してください。`
 
         const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite' })
         const result = await model.generateContent(aiPrompt)
@@ -81,7 +93,19 @@ ${analysisData.map((d: any) =>
         return response.text()
     } catch (error) {
         console.error('AI generation failed, using fallback:', error)
-        return `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}${alerts > 0 ? ` / ⚠️ リスク報告: ${alerts}件` : ''}`
+        // フォールバック時も自由記入欄を含める
+        const allFreeTexts = analysisData
+            .filter((d: any) => d.freeTexts.length > 0)
+            .map((d: any) => `[${d.workerName}] ${d.freeTexts.join(' / ')}`)
+
+        let summary = `対象者: ${workerCount}名（完了: ${completedCount}名）/ 合計報酬: ¥${totalReward.toLocaleString()}`
+        if (alerts > 0) {
+            summary += ` / ⚠️ リスク報告: ${alerts}件`
+        }
+        if (allFreeTexts.length > 0) {
+            summary += `\n\n【記入内容】\n${allFreeTexts.join('\n')}`
+        }
+        return summary
     }
 }
 

@@ -961,17 +961,9 @@ export default function ChecklistSummaryPage() {
                         <div className="space-y-6">
                             <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
                                 <CardHeader className="pb-4 bg-white/50 border-b border-slate-100">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <History className="w-5 h-5 text-indigo-600" /> AI総括レポート履歴
-                                        </CardTitle>
-                                        <div className="flex items-center gap-2">
-                                            <Button variant="outline" size="sm" className="h-8 text-[11px] font-bold bg-white border-slate-200">
-                                                <FileSearch className="w-3.5 h-3.5 mr-1" /> 歴史データの取得
-                                            </Button>
-                                            <Badge variant="outline" className="bg-white/50 text-[10px]">過去の分析結果一覧</Badge>
-                                        </div>
-                                    </div>
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <History className="w-5 h-5 text-indigo-600" /> AI総括レポート履歴
+                                    </CardTitle>
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-slate-100">
@@ -1029,7 +1021,7 @@ export default function ChecklistSummaryPage() {
                         </div>
                     )}
                 </div>
-            </main>
+            </main >
 
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
                 <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0 bg-[#f8fafc] border-none shadow-2xl">

@@ -20,7 +20,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { Users, LayoutDashboard, Settings, Menu, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Users, LayoutDashboard, Settings, Menu, ChevronLeft, ChevronRight, X, CheckSquare, BarChart3 } from 'lucide-react'
 
 const FILTER_STORAGE_KEY = 'workclock_sidebar_filters'
 
@@ -170,7 +170,7 @@ export function SidebarNav({
   const allAvailableWorkers = useMemo(() => {
     // WorkClockWorkerとして登録されているワーカーのemployeeIdを取得
     const registeredEmployeeIds = new Set(workers.map(w => w.employeeId || w.id))
-    
+
     // 登録されていない業務委託・外注先の社員をWorkClockWorker形式に変換
     const unregisteredEmployees = allEmployees
       .filter(emp => !registeredEmployeeIds.has(emp.id))
@@ -183,7 +183,7 @@ export function SidebarNav({
         employeeId: emp.id,
         isUnregistered: true, // 未登録フラグ
       }))
-    
+
     // リーダーの場合は、同じチームに所属するワーカーだけを表示
     if (isCurrentUserLeader && currentUserTeams.length > 0) {
       // 既存のワーカーから同じチームのメンバーだけをフィルタリング
@@ -192,22 +192,22 @@ export function SidebarNav({
         const wTeams = w.teams || []
         return wTeams.some((t) => currentUserTeams.includes(t))
       })
-      
+
       // 未登録の社員は表示しない（リーダーは登録済みのメンバーだけ管理）
       return filteredWorkers
     }
-    
+
     // 既存のワーカーと未登録の社員を統合
     return [...workers, ...unregisteredEmployees]
   }, [workers, allEmployees, isCurrentUserLeader, currentUserTeams, currentWorker?.id])
 
   const filteredWorkers = useMemo(() => {
     let filtered = allAvailableWorkers
-    
+
     if (selectedTeam !== 'all') {
       filtered = filtered.filter(w => w.teams?.includes(selectedTeam))
     }
-    
+
     if (selectedEmployment !== 'all') {
       filtered = filtered.filter(w => {
         const et = (w.employeeType || '').toString()
@@ -227,16 +227,16 @@ export function SidebarNav({
         return true
       })
     }
-    
+
     // 並び替え
     const sorted = [...filtered]
     switch (sortOrder) {
       case 'name_asc':
         // 名前順（フリガナ昇順）
         sorted.sort((a, b) => {
-          const aFurigana = a.furigana || a.name || ''
-          const bFurigana = b.furigana || b.name || ''
-          return aFurigana.localeCompare(bFurigana, 'ja')
+          const aName = a.name || ''
+          const bName = b.name || ''
+          return aName.localeCompare(bName, 'ja')
         })
         break
       case 'team_asc':
@@ -265,7 +265,7 @@ export function SidebarNav({
         // すでにAPIから新しい順で取得されているのでそのまま
         break
     }
-    
+
     return sorted
   }, [allAvailableWorkers, selectedTeam, selectedEmployment, selectedRole, sortOrder])
 
@@ -358,6 +358,29 @@ export function SidebarNav({
             </Link>
           )}
 
+          {isAdminView && (
+            <>
+              <Link href="/workclock/checklist-settings">
+                <Button
+                  variant={pathname === '/workclock/checklist-settings' ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
+                >
+                  <CheckSquare className="h-4 w-4" />
+                  {!effectiveCollapsed && <span className="ml-2">業務チェック設定</span>}
+                </Button>
+              </Link>
+              <Link href="/workclock/checklist-summary">
+                <Button
+                  variant={pathname === '/workclock/checklist-summary' ? 'secondary' : 'ghost'}
+                  className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  {!effectiveCollapsed && <span className="ml-2">業務チェック集計</span>}
+                </Button>
+              </Link>
+            </>
+          )}
+
           {!effectiveCollapsed && isAdminView && (
             <div className="mt-4 space-y-3 px-2 py-2">
               <div className="flex items-center justify-between">
@@ -375,7 +398,7 @@ export function SidebarNav({
                   クリア
                 </Button>
               </div>
-              
+
               {/* フィルターは常に表示し、リストに0件でも操作可能にする */}
               <div className="space-y-2">
                 <div className="space-y-1.5">
@@ -475,7 +498,7 @@ export function SidebarNav({
               </div>
             </div>
           )}
-          
+
           {effectiveCollapsed && workers.length > 0 && isAdminView && (
             <Select value={currentWorkerId} onValueChange={handleWorkerChange}>
               <SelectTrigger className="w-full border-0 bg-transparent px-2">

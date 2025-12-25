@@ -198,7 +198,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/50 min-h-0">
+        <div className="flex flex-col flex-1 bg-slate-50/50 min-h-0">
 
             {/* セクションナビゲーション (Compact) */}
             <div className="sticky top-0 z-20 flex items-center gap-1.5 p-2 bg-white/90 backdrop-blur-md border-b shadow-sm px-4">

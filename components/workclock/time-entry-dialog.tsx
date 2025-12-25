@@ -772,6 +772,12 @@ export function TimeEntryDialog({
               </Button>
               <Button
                 onClick={async () => {
+                  console.log('=== チェックリスト保存開始 ===')
+                  console.log('checklistState:', checklistState)
+                  console.log('currentUser:', currentUser)
+                  console.log('workerId:', workerId)
+                  console.log('worker:', worker)
+
                   // 勤務記録があるか確認
                   if (existingEntries.length === 0) {
                     const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
@@ -779,13 +785,14 @@ export function TimeEntryDialog({
                   }
 
                   if (!checklistState || !currentUser?.id) {
-                    console.warn('チェックリスト状態がありません')
-                    onOpenChange(false)
+                    console.error('チェックリスト状態:', checklistState, 'currentUser:', currentUser?.id)
+                    alert('チェックリストの状態を取得できませんでした。項目をチェックしてから保存してください。')
                     return
                   }
 
                   // チェックされた項目があるか確認
                   const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
+                  console.log('checkedCount:', checkedCount)
                   if (checkedCount === 0) {
                     const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
                     if (!proceed) return
@@ -802,7 +809,15 @@ export function TimeEntryDialog({
                       isMandatory: item.isMandatory,
                     }))
 
-                    await api.checklist.submissions.create({
+                    console.log('送信データ:', {
+                      workerId,
+                      date: dateStr,
+                      patternId: worker?.checklistPatternId,
+                      items: submissionItems,
+                      memo: checklistState.memo,
+                    })
+
+                    const result = await api.checklist.submissions.create({
                       workerId,
                       date: dateStr,
                       patternId: worker?.checklistPatternId,
@@ -811,10 +826,12 @@ export function TimeEntryDialog({
                       totalReward: checklistReward,
                     })
 
+                    console.log('保存結果:', result)
+                    alert('チェックリストを保存しました！')
                     onClose()
                   } catch (error) {
                     console.error('チェックリスト保存エラー:', error)
-                    alert('チェックリストの保存に失敗しました')
+                    alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
                   } finally {
                     setIsSavingChecklist(false)
                   }

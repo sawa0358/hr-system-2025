@@ -45,7 +45,12 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 setIsLoading(true)
                 const res = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
                 if (res.pattern?.items) {
-                    setChecklistItems(res.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position))
+                    const sortedItems = res.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position)
+                    setChecklistItems(sortedItems)
+                    // 初期状態を親に通知（レンダリング後に遅延実行）
+                    setTimeout(() => {
+                        onStateChange?.({ checkedItems: {}, memo: '', items: sortedItems })
+                    }, 0)
                 }
             } catch (error) {
                 console.error('チェックリストパターンの読み込みに失敗:', error)
@@ -72,9 +77,11 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             const newTotal = checklistItems.reduce((total, item) => {
                 return total + (newState[item.id] ? item.reward : 0)
             }, 0)
-            onRewardChange?.(newTotal)
-            // 状態を親に通知
-            onStateChange?.({ checkedItems: newState, memo: reportText, items: checklistItems })
+            setTimeout(() => {
+                onRewardChange?.(newTotal)
+                // 状態を親に通知
+                onStateChange?.({ checkedItems: newState, memo: reportText, items: checklistItems })
+            }, 0)
             return newState
         })
     }
@@ -82,7 +89,9 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     // メモ変更時も親に通知
     const handleMemoChange = (text: string) => {
         setReportText(text)
-        onStateChange?.({ checkedItems, memo: text, items: checklistItems })
+        setTimeout(() => {
+            onStateChange?.({ checkedItems, memo: text, items: checklistItems })
+        }, 0)
     }
 
     const currentRewardTotal = checklistItems.reduce((total, item) => {

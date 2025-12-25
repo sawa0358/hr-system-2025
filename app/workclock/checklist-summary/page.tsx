@@ -832,16 +832,8 @@ export default function ChecklistSummaryPage() {
                                         <div className="whitespace-pre-wrap text-slate-700 leading-relaxed bg-white/60 p-4 rounded-lg border border-purple-100 italic font-medium">
                                             {aiReport}
                                         </div>
-                                        <div className="flex gap-4 mt-4">
-                                            <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
-                                                <FileText className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                                                マニュアル作成案を生成
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
-                                                <ChevronRight className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                                                翌日のタスクを割り当て
-                                            </Button>
-                                            <Button variant="ghost" size="sm" className="ml-auto text-[11px] h-8 text-slate-400" onClick={() => setAiReport(null)}>
+                                        <div className="flex justify-end mt-4">
+                                            <Button variant="ghost" size="sm" className="text-[11px] h-8 text-slate-400" onClick={() => setAiReport(null)}>
                                                 閉じる
                                             </Button>
                                         </div>

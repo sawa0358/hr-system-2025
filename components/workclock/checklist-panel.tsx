@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -8,46 +8,110 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare } from 'lucide-react'
+import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/workclock/api'
+import { ChecklistItem, Worker } from '@/lib/workclock/types'
 
-const MOCK_CHECKLIST_ITEMS = [
-    { id: '1', title: '玄関の施錠確認：全ての入り口が施錠されているか、物理的に引いて確認してください', reward: 0, isMandatory: true },
-    { id: '2', title: '機材の電源OFF：共用スペースのPC、モニター、コーヒーメーカーの電源プラグまで抜く', reward: 0, isMandatory: true },
-    { id: '3', title: 'フィルター清掃実施：エアコンおよび空気清浄機のフィルターを水洗いした', reward: 500, isMandatory: false },
-    { id: '4', title: '備品の在庫補充：コピー用紙、洗剤、トイレットペーパーの在庫を確認し補充した', reward: 300, isMandatory: false },
-    { id: '5', title: '日報の丁寧な記入：本日の特記事項を詳細に記録した', reward: 200, isMandatory: false },
-    { id: '6', title: 'ゴミ出し：各階のゴミを回収し、指定の集積場へ搬出した', reward: 100, isMandatory: false },
-    { id: '7', title: '窓の閉鎖確認：全ての窓が完全に閉まり、クレセント錠がかかっているか確認', reward: 0, isMandatory: true },
-    { id: '8', title: '消灯確認：トイレ、更衣室、パントリーを含む全箇所の消灯を完了', reward: 0, isMandatory: true },
-]
+interface ChecklistPanelProps {
+    worker?: Worker | null
+    workerId: string
+    selectedDate: Date
+    onRewardChange?: (reward: number) => void
+}
 
-export function ChecklistPanel() {
+export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
     const [reportText, setReportText] = useState('')
+    const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
+    const [isLoading, setIsLoading] = useState(true)
 
     const rewardRef = useRef<HTMLDivElement>(null)
     const listRef = useRef<HTMLDivElement>(null)
     const photoRef = useRef<HTMLDivElement>(null)
     const memoRef = useRef<HTMLDivElement>(null)
 
+    // チェックリストパターンを読み込む
+    useEffect(() => {
+        const loadChecklistPattern = async () => {
+            if (!worker?.isChecklistEnabled || !worker?.checklistPatternId) {
+                setChecklistItems([])
+                setIsLoading(false)
+                return
+            }
+
+            try {
+                setIsLoading(true)
+                const res = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
+                if (res.pattern?.items) {
+                    setChecklistItems(res.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position))
+                }
+            } catch (error) {
+                console.error('チェックリストパターンの読み込みに失敗:', error)
+                setChecklistItems([])
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        loadChecklistPattern()
+    }, [worker?.checklistPatternId, worker?.isChecklistEnabled])
+
     const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
 
     const handleToggle = (id: string) => {
-        setCheckedItems(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }))
+        setCheckedItems(prev => {
+            const newState = {
+                ...prev,
+                [id]: !prev[id]
+            }
+            // 報酬合計を計算して親に通知
+            const newTotal = checklistItems.reduce((total, item) => {
+                return total + (newState[item.id] ? item.reward : 0)
+            }, 0)
+            onRewardChange?.(newTotal)
+            return newState
+        })
     }
 
-    const currentRewardTotal = MOCK_CHECKLIST_ITEMS.reduce((total, item) => {
+    const currentRewardTotal = checklistItems.reduce((total, item) => {
         return total + (checkedItems[item.id] ? item.reward : 0)
     }, 0)
 
-    const pendingMandatoryItems = MOCK_CHECKLIST_ITEMS.filter(item => item.isMandatory && !checkedItems[item.id])
+    const pendingMandatoryItems = checklistItems.filter(item => item.isMandatory && !checkedItems[item.id])
     const isAllMandatoryChecked = pendingMandatoryItems.length === 0
+
+    // チェックリストが無効な場合の表示
+    if (!worker?.isChecklistEnabled) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <ClipboardList className="w-16 h-16 text-slate-200 mb-4" />
+                <h3 className="text-lg font-bold text-slate-400 mb-2">業務チェックリストは無効です</h3>
+                <p className="text-sm text-slate-300">このワーカーには業務チェックリストが設定されていません。</p>
+            </div>
+        )
+    }
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+                <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+                <p className="text-sm text-slate-500">チェックリストを読み込み中...</p>
+            </div>
+        )
+    }
+
+    if (checklistItems.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <AlertCircle className="w-16 h-16 text-yellow-300 mb-4" />
+                <h3 className="text-lg font-bold text-slate-600 mb-2">チェックリスト項目がありません</h3>
+                <p className="text-sm text-slate-400">チェックリスト設定ページで項目を追加してください。</p>
+            </div>
+        )
+    }
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50 min-h-0">
@@ -115,7 +179,7 @@ export function ChecklistPanel() {
                                 <div className="w-16 text-right">Reward</div>
                             </div>
                             <div className="divide-y divide-slate-100">
-                                {MOCK_CHECKLIST_ITEMS.map(item => (
+                                {checklistItems.map(item => (
                                     <div key={item.id}
                                         onClick={() => handleToggle(item.id)}
                                         className={cn(

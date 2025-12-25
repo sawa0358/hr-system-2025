@@ -111,6 +111,7 @@ export function TimeEntryDialog({
   const [countPattern, setCountPattern] = useState<'A' | 'B' | 'C'>('A')
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
+  const [checklistReward, setChecklistReward] = useState(0)
 
   // UI状態管理（window.confirm/alertの代替）
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -755,7 +756,12 @@ export function TimeEntryDialog({
           </TabsContent>
 
           <TabsContent value="checklist" className="flex-1 min-h-0 overflow-hidden flex flex-col p-0 m-0 data-[state=inactive]:hidden bg-[#f8fafc]">
-            <ChecklistPanel />
+            <ChecklistPanel
+              worker={worker}
+              workerId={workerId}
+              selectedDate={selectedDate}
+              onRewardChange={setChecklistReward}
+            />
             <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
               <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
                 キャンセル

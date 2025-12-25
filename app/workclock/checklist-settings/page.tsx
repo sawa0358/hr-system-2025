@@ -29,37 +29,135 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Pencil, Trash2, CheckCircle2, Coins, Settings } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle2, Coins, Settings, Layout, Copy, Menu } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
+import { getWorkers } from '@/lib/workclock/api-storage'
+import { Worker } from '@/lib/workclock/types'
+import { useEffect } from 'react'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet'
 
-// モックデータ (初期状態)
-const INITIAL_MASTER_ITEMS = [
-    { id: '1', title: '玄関の施錠確認', reward: 0, isMandatory: true, category: 'security', isActive: true },
-    { id: '2', title: '機材の電源OFF', reward: 0, isMandatory: true, category: 'security', isActive: true },
-    { id: '3', title: 'フィルター清掃実施', reward: 500, isMandatory: false, category: 'maintenance', isActive: true },
-    { id: '4', title: '備品の在庫補充', reward: 300, isMandatory: false, category: 'maintenance', isActive: true },
-    { id: '5', title: '日報の丁寧な記入', reward: 200, isMandatory: false, category: 'admin', isActive: true },
+// 初期モックデータ
+const INITIAL_PATTERNS = [
+    {
+        id: 'p1',
+        name: '通常清掃パターン',
+        items: [
+            { id: '1', title: '玄関の施錠確認', reward: 0, isMandatory: true, category: 'security' },
+            { id: '2', title: '機材の電源OFF', reward: 0, isMandatory: true, category: 'security' },
+            { id: '3', title: 'フィルター清掃実施', reward: 500, isMandatory: false, category: 'maintenance' },
+        ]
+    },
+    {
+        id: 'p2',
+        name: '特別メンテナンス',
+        items: [
+            { id: '4', title: '備品の在庫補充', reward: 300, isMandatory: false, category: 'maintenance' },
+            { id: '5', title: '日報の丁寧な記入', reward: 200, isMandatory: false, category: 'admin' },
+        ]
+    }
 ]
 
 export default function ChecklistSettingsPage() {
     const { currentUser } = useAuth()
-    const [items, setItems] = useState(INITIAL_MASTER_ITEMS)
-    const [isDialogOpen, setIsDialogOpen] = useState(false)
-    const [editingItem, setEditingItem] = useState<any>(null)
+    const [patterns, setPatterns] = useState(INITIAL_PATTERNS)
+    const [selectedPatternId, setSelectedPatternId] = useState('p1')
 
-    const [formData, setFormData] = useState({
+    // ダイアログ状態: パターン作成用
+    const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false)
+    const [newPatternName, setNewPatternName] = useState('')
+
+    const [workers, setWorkers] = useState<Worker[]>([])
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const isMobile = useIsMobile()
+
+    useEffect(() => {
+        if (currentUser?.id) {
+            getWorkers(currentUser.id).then(setWorkers)
+        }
+    }, [currentUser])
+
+    // モバイル時のスクロールでメニューを閉じる
+    useEffect(() => {
+        if (!isMobile || !isMenuOpen) return
+        const handleScroll = () => setIsMenuOpen(false)
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        document.addEventListener('scroll', handleScroll, { passive: true })
+        return () => {
+            window.removeEventListener('scroll', handleScroll)
+            document.removeEventListener('scroll', handleScroll)
+        }
+    }, [isMobile, isMenuOpen])
+
+    // ダイアログ状態: 項目編集用
+    const [isItemDialogOpen, setIsItemDialogOpen] = useState(false)
+    const [editingItem, setEditingItem] = useState<any>(null)
+    const [itemFormData, setItemFormData] = useState({
         title: '',
         reward: '0',
         isMandatory: false,
         category: 'general'
     })
 
-    const handleOpenDialog = (item?: any) => {
+    const selectedPattern = patterns.find(p => p.id === selectedPatternId) || patterns[0]
+
+    const handleAddPattern = () => {
+        if (!newPatternName) return
+        const newPattern = {
+            id: Math.random().toString(36).substr(2, 9),
+            name: newPatternName,
+            items: []
+        }
+        setPatterns([...patterns, newPattern])
+        setSelectedPatternId(newPattern.id)
+        setNewPatternName('')
+        setIsPatternDialogOpen(false)
+    }
+
+    const handleDuplicatePattern = () => {
+        const patternToCopy = patterns.find(p => p.id === selectedPatternId)
+        if (!patternToCopy) return
+        const newPattern = {
+            ...patternToCopy,
+            id: Math.random().toString(36).substr(2, 9),
+            name: `${patternToCopy.name} (コピー)`,
+            items: [...patternToCopy.items.map(item => ({ ...item, id: Math.random().toString(36).substr(2, 9) }))]
+        }
+        setPatterns([...patterns, newPattern])
+        setSelectedPatternId(newPattern.id)
+    }
+
+    const handleDeletePattern = () => {
+        if (patterns.length <= 1) {
+            alert('最後の1つのパターンは削除できません。')
+            return
+        }
+        if (confirm(`パターン「${selectedPattern.name}」を削除してもよろしいですか？`)) {
+            const newPatterns = patterns.filter(p => p.id !== selectedPatternId)
+            setPatterns(newPatterns)
+            setSelectedPatternId(newPatterns[0].id)
+        }
+    }
+
+    const handleOpenItemDialog = (item?: any) => {
         if (item) {
             setEditingItem(item)
-            setFormData({
+            setItemFormData({
                 title: item.title,
                 reward: String(item.reward),
                 isMandatory: item.isMandatory,
@@ -67,150 +165,257 @@ export default function ChecklistSettingsPage() {
             })
         } else {
             setEditingItem(null)
-            setFormData({ title: '', reward: '0', isMandatory: false, category: 'general' })
+            setItemFormData({ title: '', reward: '0', isMandatory: false, category: 'general' })
         }
-        setIsDialogOpen(true)
+        setIsItemDialogOpen(true)
     }
 
-    const handleSave = () => {
-        if (!formData.title) return
+    const handleSaveItem = () => {
+        if (!itemFormData.title) return
 
-        if (editingItem) {
-            setItems(items.map(item => item.id === editingItem.id ? {
-                ...item,
-                title: formData.title,
-                reward: Number(formData.reward),
-                isMandatory: formData.isMandatory,
-                category: formData.category
-            } : item))
-        } else {
-            const newItem = {
-                id: Math.random().toString(36).substr(2, 9),
-                title: formData.title,
-                reward: Number(formData.reward),
-                isMandatory: formData.isMandatory,
-                category: formData.category,
-                isActive: true
+        const updatedPatterns = patterns.map(p => {
+            if (p.id === selectedPatternId) {
+                if (editingItem) {
+                    return {
+                        ...p,
+                        items: p.items.map(item => item.id === editingItem.id ? {
+                            ...item,
+                            title: itemFormData.title,
+                            reward: Number(itemFormData.reward),
+                            isMandatory: itemFormData.isMandatory,
+                            category: itemFormData.category
+                        } : item)
+                    }
+                } else {
+                    return {
+                        ...p,
+                        items: [...p.items, {
+                            id: Math.random().toString(36).substr(2, 9),
+                            title: itemFormData.title,
+                            reward: Number(itemFormData.reward),
+                            isMandatory: itemFormData.isMandatory,
+                            category: itemFormData.category
+                        }]
+                    }
+                }
             }
-            setItems([...items, newItem])
-        }
-        setIsDialogOpen(false)
+            return p
+        })
+        setPatterns(updatedPatterns)
+        setIsItemDialogOpen(false)
     }
 
-    const handleDelete = (id: string) => {
+    const handleDeleteItem = (itemId: string) => {
         if (confirm('この項目を削除してもよろしいですか？')) {
-            setItems(items.filter(item => item.id !== id))
+            const updatedPatterns = patterns.map(p => {
+                if (p.id === selectedPatternId) {
+                    return { ...p, items: p.items.filter(item => item.id !== itemId) }
+                }
+                return p
+            })
+            setPatterns(updatedPatterns)
         }
     }
 
     return (
-        <div className="flex h-screen bg-slate-50">
-            <div className="hidden md:block w-64 flex-none border-r bg-[#add1cd]">
-                <SidebarNav workers={[]} currentRole="admin" showHeader={true} collapsible={false} />
-            </div>
-
-            <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                <div className="max-w-6xl mx-auto space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-900">業務チェック設定</h1>
-                            <p className="text-slate-500">ワーカーに表示するチェック項目と寸志（インセンティブ）を設定します</p>
+        <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
+            {isMobile ? (
+                <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50">
+                        <SheetTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                                style={{ backgroundColor: '#f5f4cd' }}
+                            >
+                                <Menu className="h-5 w-5" />
+                            </Button>
+                        </SheetTrigger>
+                    </div>
+                    <SheetContent side="top" className="p-0 w-full h-auto max-h-[80vh]">
+                        <SheetHeader className="px-4 py-3 border-b">
+                            <SheetTitle>時間管理システム</SheetTitle>
+                        </SheetHeader>
+                        <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
+                            <SidebarNav workers={workers} currentRole="admin" showHeader={false} collapsible={false} />
                         </div>
-                        <Button onClick={() => handleOpenDialog()} className="bg-blue-600 hover:bg-blue-700">
-                            <Plus className="w-4 h-4 mr-2" />
-                            項目を追加
+                    </SheetContent>
+                </Sheet>
+            ) : (
+                <>
+                    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                            style={{ backgroundColor: '#f5f4cd' }}
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        >
+                            <Menu className="h-5 w-5" />
                         </Button>
                     </div>
+                    <div
+                        className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
+                            }`}
+                        style={{ backgroundColor: '#add1cd' }}
+                    >
+                        {isMenuOpen && (
+                            <>
+                                <div className="px-4 py-3 border-b">
+                                    <h2 className="text-base font-semibold text-sidebar-foreground">
+                                        時間管理システム
+                                    </h2>
+                                </div>
+                                <SidebarNav workers={workers} currentRole="admin" showHeader={false} collapsible={false} />
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <Card className="bg-blue-50 border-blue-200">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-blue-600 flex items-center">
-                                    <CheckCircle2 className="w-4 h-4 mr-2" /> 必須項目
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{items.filter(i => i.isMandatory).length} 件</div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-yellow-50 border-yellow-200">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-yellow-600 flex items-center">
-                                    <Coins className="w-4 h-4 mr-2" /> 寸志対象項目
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{items.filter(i => i.reward > 0).length} 件</div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-slate-50 border-slate-200">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-medium text-slate-600 flex items-center">
-                                    <Settings className="w-4 h-4 mr-2" /> 合計項目数
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{items.length} 件</div>
-                            </CardContent>
-                        </Card>
+            <main className={`flex-1 overflow-y-auto ${isMobile ? 'pt-20' : 'pt-16'}`}>
+                <div className="container mx-auto p-4 md:p-8 space-y-6 max-w-6xl">
+                    <div className="flex items-end justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-900">業務チェック設定</h1>
+                            <p className="text-slate-500">パターンの作成と各項目の寸志（インセンティブ）を設定します</p>
+                        </div>
+                        <div className="bg-white border p-3 rounded-xl shadow-sm flex items-center gap-4">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Items</span>
+                                <span className="text-2xl font-black text-slate-700 leading-none">{selectedPattern.items.length}</span>
+                            </div>
+                            <div className="w-[1px] h-8 bg-slate-100 mx-2" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mandatory</span>
+                                <span className="text-2xl font-black text-red-500 leading-none">{selectedPattern.items.filter(i => i.isMandatory).length}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <Card className="shadow-sm">
-                        <CardHeader>
-                            <CardTitle>チェック項目マスター</CardTitle>
-                            <CardDescription>
-                                ここで設定した項目が、ワーカーの勤務記録入力画面に「業務チェックリスト」として表示されます。
-                            </CardDescription>
+                    {/* パターン選択エリア */}
+                    <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl border shadow-sm">
+                        <div className="flex items-center gap-2 mr-4">
+                            <Layout className="w-4 h-4 text-slate-400" />
+                            <span className="text-sm font-bold text-slate-700">編集中のパターン:</span>
+                        </div>
+                        <Select value={selectedPatternId} onValueChange={setSelectedPatternId}>
+                            <SelectTrigger className="w-[280px] h-10 font-bold bg-slate-50 border-slate-200">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {patterns.map(p => (
+                                    <SelectItem key={p.id} value={p.id} className="font-medium">
+                                        {p.name} ({p.items.length}項目)
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <div className="flex items-center gap-2 border-l pl-4 ml-auto">
+                            <Dialog open={isPatternDialogOpen} onOpenChange={setIsPatternDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-9">
+                                        <Plus className="w-4 h-4 mr-2" /> 新規作成
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                    <DialogHeader>
+                                        <DialogTitle>新しいパターンの作成</DialogTitle>
+                                        <DialogDescription>
+                                            パターン名を入力してください（例: 早番清掃、閉店作業など）
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                        <Label htmlFor="patternName">パターン名</Label>
+                                        <Input
+                                            id="patternName"
+                                            value={newPatternName}
+                                            onChange={(e) => setNewPatternName(e.target.value)}
+                                            placeholder="例: 早番メンテナンス"
+                                            className="mt-2"
+                                        />
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="ghost" onClick={() => setIsPatternDialogOpen(false)}>キャンセル</Button>
+                                        <Button onClick={handleAddPattern} className="bg-blue-600">作成する</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                            <Button variant="outline" size="sm" onClick={handleDuplicatePattern} className="h-9">
+                                <Copy className="w-4 h-4 mr-2" /> 複製
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={handleDeletePattern} className="h-9 text-red-500 hover:text-red-600 hover:bg-red-50">
+                                <Trash2 className="w-4 h-4 mr-2" /> 削除
+                            </Button>
+                        </div>
+                    </div>
+
+                    <Card className="shadow-sm border-slate-200 overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4">
+                            <div>
+                                <CardTitle className="text-lg">「{selectedPattern.name}」のチェック項目一覧</CardTitle>
+                                <CardDescription>このパターンを割り当てられたワーカーに表示されます。</CardDescription>
+                            </div>
+                            <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800">
+                                <Plus className="w-4 h-4 mr-2" />
+                                項目を追加
+                            </Button>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="p-0">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-slate-50">
-                                        <TableHead className="w-[40%]">項目名</TableHead>
-                                        <TableHead>タイプ</TableHead>
+                                    <TableRow className="bg-white hover:bg-white border-0">
+                                        <TableHead className="w-[45%] pl-6">項目名</TableHead>
+                                        <TableHead>ステータス</TableHead>
                                         <TableHead>寸志金額</TableHead>
-                                        <TableHead>カテゴリー</TableHead>
-                                        <TableHead className="text-right">操作</TableHead>
+                                        <TableHead className="text-right pr-6">操作</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {items.map((item) => (
-                                        <TableRow key={item.id} className="hover:bg-slate-50/50">
-                                            <TableCell className="font-medium">
-                                                <div className="flex flex-col">
-                                                    {item.title}
-                                                    {item.isMandatory && <span className="text-[10px] text-red-500 font-bold">REQUIRED</span>}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {item.isMandatory ? (
-                                                    <Badge variant="destructive">必須</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">任意</Badge>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                {item.reward > 0 ? (
-                                                    <span className="font-mono font-bold text-yellow-700">¥ {item.reward.toLocaleString()}</span>
-                                                ) : (
-                                                    <span className="text-slate-400">-</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="secondary" className="capitalize">{item.category}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(item)}>
-                                                        <Pencil className="w-4 h-4 text-slate-500" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
-                                                        <Trash2 className="w-4 h-4 text-red-400" />
-                                                    </Button>
-                                                </div>
+                                    {selectedPattern.items.length > 0 ? (
+                                        selectedPattern.items.map((item) => (
+                                            <TableRow key={item.id} className="hover:bg-slate-50/50 group">
+                                                <TableCell className="font-medium pl-6">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-700">{item.title}</span>
+                                                        <span className="text-[10px] text-slate-400 capitalize">{item.category}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.isMandatory ? (
+                                                        <Badge className="bg-red-50 text-red-600 border-red-100 hover:bg-red-50 shadow-none font-bold text-[10px]">必須</Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 shadow-none font-bold text-[10px]">任意</Badge>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.reward > 0 ? (
+                                                        <span className="font-mono font-bold text-yellow-700 tracking-tight">¥{item.reward.toLocaleString()}</span>
+                                                    ) : (
+                                                        <span className="text-slate-300 font-mono">-</span>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6">
+                                                    <div className="flex justify-end gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenItemDialog(item)}>
+                                                            <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteItem(item.id)}>
+                                                            <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-32 text-center text-slate-400 italic">
+                                                項目が登録されていません。右上のボタンから追加してください。
                                             </TableCell>
                                         </TableRow>
-                                    ))}
+                                    )}
                                 </TableBody>
                             </Table>
                         </CardContent>
@@ -218,49 +423,48 @@ export default function ChecklistSettingsPage() {
                 </div>
             </main>
 
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isItemDialogOpen} onOpenChange={setIsItemDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>{editingItem ? '項目の編集' : '新しい項目を追加'}</DialogTitle>
                         <DialogDescription>
-                            チェック項目の内容と、達成時のインセンティブ（寸志）を設定します。
+                            チェック項目の内容と、達成時の寸志を設定します。
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="title">項目名</Label>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="title" className="text-xs font-bold text-slate-500">項目名</Label>
                             <Input
                                 id="title"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                value={itemFormData.title}
+                                onChange={(e) => setItemFormData({ ...itemFormData, title: e.target.value })}
                                 placeholder="例: フィルター清掃実施"
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="reward">寸志金額 (円)</Label>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="reward" className="text-xs font-bold text-slate-500">寸志金額 (円)</Label>
                             <Input
                                 id="reward"
                                 type="number"
-                                value={formData.reward}
-                                onChange={(e) => setFormData({ ...formData, reward: e.target.value })}
+                                value={itemFormData.reward}
+                                onChange={(e) => setItemFormData({ ...itemFormData, reward: e.target.value })}
                             />
-                            <p className="text-[10px] text-slate-500">※0円の場合はインセンティブなしになります。</p>
                         </div>
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-lg bg-slate-50">
+                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-xl bg-slate-50">
                             <div className="space-y-0.5">
-                                <Label htmlFor="isMandatory" className="text-base">必須項目にする</Label>
-                                <p className="text-xs text-slate-500">チェックしないと保存できなくなります。</p>
+                                <Label htmlFor="isMandatory" className="text-sm font-bold">必須項目にする</Label>
+                                <p className="text-[10px] text-slate-400">未チェック時に保存を防止します</p>
                             </div>
                             <Switch
                                 id="isMandatory"
-                                checked={formData.isMandatory}
-                                onCheckedChange={(checked) => setFormData({ ...formData, isMandatory: checked })}
+                                checked={itemFormData.isMandatory}
+                                onCheckedChange={(checked) => setItemFormData({ ...itemFormData, isMandatory: checked })}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>キャンセル</Button>
-                        <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">保存して保存</Button>
+                        <Button variant="ghost" onClick={() => setIsItemDialogOpen(false)}>キャンセル</Button>
+                        <Button onClick={handleSaveItem} className="bg-blue-600">保存する</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

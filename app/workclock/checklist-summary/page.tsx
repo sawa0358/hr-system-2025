@@ -6,7 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Sparkles, Camera, CheckCircle2, AlertTriangle, FileText, Mail, ChevronRight } from 'lucide-react'
+import { Sparkles, Camera, CheckCircle2, AlertTriangle, FileText, Mail, ChevronRight, Menu } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
+import { getWorkers } from '@/lib/workclock/api-storage'
+import { Worker } from '@/lib/workclock/types'
+import { useEffect } from 'react'
+import { useIsMobile } from '@/hooks/use-mobile'
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet'
 import {
     Table,
     TableBody,
@@ -54,6 +66,29 @@ const DAILY_SUMMARIES = [
 ]
 
 export default function ChecklistSummaryPage() {
+    const { currentUser } = useAuth()
+    const [workers, setWorkers] = useState<Worker[]>([])
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const isMobile = useIsMobile()
+
+    useEffect(() => {
+        if (currentUser?.id) {
+            getWorkers(currentUser.id).then(setWorkers)
+        }
+    }, [currentUser])
+
+    // モバイル時のスクロールでメニューを閉じる
+    useEffect(() => {
+        if (!isMobile || !isMenuOpen) return
+        const handleScroll = () => setIsMenuOpen(false)
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        document.addEventListener('scroll', handleScroll, { passive: true })
+        return () => {
+            window.removeEventListener('scroll', handleScroll)
+            document.removeEventListener('scroll', handleScroll)
+        }
+    }, [isMobile, isMenuOpen])
+
     const [isSummarizing, setIsSummarizing] = useState(false)
     const [aiReport, setAiReport] = useState<string | null>(null)
 
@@ -72,13 +107,64 @@ export default function ChecklistSummaryPage() {
     }
 
     return (
-        <div className="flex h-screen bg-slate-50">
-            <div className="hidden md:block w-64 flex-none border-r bg-[#add1cd]">
-                <SidebarNav workers={[]} currentRole="admin" showHeader={true} collapsible={false} />
-            </div>
+        <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
+            {isMobile ? (
+                <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+                    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50">
+                        <SheetTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                                style={{ backgroundColor: '#f5f4cd' }}
+                            >
+                                <Menu className="h-5 w-5" />
+                            </Button>
+                        </SheetTrigger>
+                    </div>
+                    <SheetContent side="top" className="p-0 w-full h-auto max-h-[80vh]">
+                        <SheetHeader className="px-4 py-3 border-b">
+                            <SheetTitle>時間管理システム</SheetTitle>
+                        </SheetHeader>
+                        <div className="max-h-[calc(80vh-60px)] overflow-y-auto">
+                            <SidebarNav workers={workers} currentRole="admin" showHeader={false} collapsible={false} />
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            ) : (
+                <>
+                    <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
+                            style={{ backgroundColor: '#f5f4cd' }}
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        >
+                            <Menu className="h-5 w-5" />
+                        </Button>
+                    </div>
+                    <div
+                        className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
+                            }`}
+                        style={{ backgroundColor: '#add1cd' }}
+                    >
+                        {isMenuOpen && (
+                            <>
+                                <div className="px-4 py-3 border-b">
+                                    <h2 className="text-base font-semibold text-sidebar-foreground">
+                                        時間管理システム
+                                    </h2>
+                                </div>
+                                <SidebarNav workers={workers} currentRole="admin" showHeader={false} collapsible={false} />
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
 
-            <main className="flex-1 overflow-y-auto p-4 md:p-8">
-                <div className="max-w-6xl mx-auto space-y-6">
+            <main className={`flex-1 overflow-y-auto ${isMobile ? 'pt-20' : 'pt-16'}`}>
+                <div className="container mx-auto p-4 md:p-8 space-y-6 max-w-6xl">
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-slate-900">業務チェック集計</h1>

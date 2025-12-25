@@ -41,7 +41,7 @@ import {
 import { getWorkers, addWorker, updateWorker, deleteWorker, getTeams, addTeam, deleteTeam, NewWorkerPayload, getBillingClients, addBillingClient, updateBillingClient, deleteBillingClient, BillingClient } from '@/lib/workclock/api-storage'
 import { Worker } from '@/lib/workclock/types'
 import { api } from '@/lib/workclock/api'
-import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown, Building2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tags, X, Menu, Eye, ChevronDown, Building2, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { MultiSelect } from '@/components/workclock/multi-select'
 import { Badge } from '@/components/ui/badge'
@@ -166,6 +166,8 @@ export default function SettingsPage() {
     withholdingMonthlyFixed: false,
     billingClientId: '', // 請求先ID
     allowPastEntryEdit: false, // 過去記録の編集許可
+    isChecklistEnabled: false, // 業務チェックリスト対象者
+    checklistPatternId: '', // 選択中のチェックリストパターン
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -426,6 +428,8 @@ export default function SettingsPage() {
       withholdingMonthlyFixed: false,
       billingClientId: '',
       allowPastEntryEdit: false,
+      isChecklistEnabled: false,
+      checklistPatternId: '',
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -756,6 +760,8 @@ export default function SettingsPage() {
       withholdingMonthlyFixed: worker.withholdingMonthlyFixed ?? false,
       billingClientId: worker.billingClientId || '',
       allowPastEntryEdit: worker.allowPastEntryEdit ?? false,
+      isChecklistEnabled: (worker as any).isChecklistEnabled ?? false,
+      checklistPatternId: (worker as any).checklistPatternId || '',
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -1963,6 +1969,50 @@ export default function SettingsPage() {
                           <br />※ ワーカー権限：自分の勤務時間のみ表示・管理可能
                         </p>
                       </div>
+
+                      {/* 業務チェックリスト設定 */}
+                      {canEditCompensation && (
+                        <div className="pt-6 border-t space-y-4">
+                          <h3 className="text-sm font-bold flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            業務チェックリスト設定
+                          </h3>
+                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-4">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-0.5">
+                                <Label htmlFor="isChecklistEnabled" className="text-sm font-bold">業務チェックリスト対象者</Label>
+                                <p className="text-[10px] text-slate-400 font-medium">勤務入力時にチェックリストを表示します</p>
+                              </div>
+                              <Switch
+                                id="isChecklistEnabled"
+                                checked={formData.isChecklistEnabled}
+                                onCheckedChange={(checked) => setFormData({ ...formData, isChecklistEnabled: checked })}
+                                disabled={!isWorkerEditUnlocked}
+                              />
+                            </div>
+
+                            {formData.isChecklistEnabled && (
+                              <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <Label className="text-xs font-bold text-slate-500">適用するチェックリストパターン</Label>
+                                <Select
+                                  value={formData.checklistPatternId}
+                                  onValueChange={(val) => setFormData({ ...formData, checklistPatternId: val })}
+                                  disabled={!isWorkerEditUnlocked}
+                                >
+                                  <SelectTrigger className="bg-white border-slate-200">
+                                    <SelectValue placeholder="パターンを選択" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="p1">通常清掃パターン</SelectItem>
+                                    <SelectItem value="p2">特別メンテナンス</SelectItem>
+                                    <SelectItem value="none">適用なし</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* 過去記録の編集許可（管理者のみ） */}
                       {canEditCompensation && (

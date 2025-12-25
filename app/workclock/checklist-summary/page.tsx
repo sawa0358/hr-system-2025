@@ -19,6 +19,7 @@ import {
     Settings,
     MessageSquare,
     ChevronDown,
+    ChevronLeft,
     Bot,
     Calendar as CalendarIcon,
     Filter,
@@ -67,37 +68,28 @@ import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DateRange } from 'react-day-picker'
 
-// 歴史的AIレポートのモック
-const HISTORICAL_REPORTS = [
-    {
-        date: subDays(new Date(), 1),
-        summary: "全完了。清掃クオリティが非常に高く、クレームゼロでした。特にAチームの連携が良好です。",
-        workerCount: 12,
-        alerts: 0,
-        reward: 12500
-    },
-    {
-        date: subDays(new Date(), 2),
-        summary: "一部未完了あり。Bチームで欠員が出ていましたが、他チームのバックアップで概ねカバーされました。",
-        workerCount: 11,
-        alerts: 1,
-        reward: 10800
-    },
-    {
-        date: subDays(new Date(), 3),
-        summary: "ヒヤリハット報告1件あり。脚立の安全性に問題が見つかったため、明日の朝礼で周知が必要です。",
-        workerCount: 13,
-        alerts: 1,
-        reward: 14200
-    },
-    {
-        date: subDays(new Date(), 4),
-        summary: "順調。マニュアル通りの運用が徹底されており、作業時間が平均15%短縮されました。",
-        workerCount: 12,
-        alerts: 0,
-        reward: 13000
-    },
-]
+// AIレポートの型定義
+interface AIReport {
+    id: string
+    date: string
+    summary: string
+    promptId: string | null
+    promptName: string | null
+    workerCount: number
+    alerts: number
+    totalReward: number
+    createdBy: string
+    createdAt: string
+    updatedAt: string
+}
+
+interface AIReportPagination {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+}
+
 
 // モックデータ: 日次のチェックリスト提出状況
 const DAILY_SUMMARIES = [
@@ -218,6 +210,11 @@ export default function ChecklistSummaryPage() {
     const [realSummaries, setRealSummaries] = useState<any[]>([])
     const [isLoadingData, setIsLoadingData] = useState(false)
 
+    // AIレポート履歴用state
+    const [historicalReports, setHistoricalReports] = useState<AIReport[]>([])
+    const [reportPagination, setReportPagination] = useState<AIReportPagination>({ page: 1, limit: 10, total: 0, totalPages: 0 })
+    const [isLoadingReports, setIsLoadingReports] = useState(false)
+
     // AIプロンプトの永続化（localStorage）
     useEffect(() => {
         const savedPrompts = localStorage.getItem('checklist_ai_prompts')
@@ -252,6 +249,35 @@ export default function ChecklistSummaryPage() {
             getTeams(currentUser.id).then(setTeams)
         }
     }, [currentUser])
+
+    // AIレポートの取得
+    const fetchAIReports = async (page = 1) => {
+        if (!currentUser?.id || !dateRange?.from || !dateRange?.to) return
+        setIsLoadingReports(true)
+        try {
+            const startDate = format(dateRange.from, 'yyyy-MM-dd')
+            const endDate = format(dateRange.to, 'yyyy-MM-dd')
+            const response = await fetch(`/api/workclock/ai-reports?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=10`, {
+                headers: { 'x-employee-id': currentUser.id }
+            })
+            const data = await response.json()
+            if (data.reports) {
+                setHistoricalReports(data.reports)
+                setReportPagination(data.pagination)
+            }
+        } catch (error) {
+            console.error('Failed to fetch AI reports:', error)
+        } finally {
+            setIsLoadingReports(false)
+        }
+    }
+
+    // 期間モードに切り替わった時、または日付範囲が変更された時にレポートを取得
+    useEffect(() => {
+        if (viewMode === 'period' && dateRange?.from && dateRange?.to && currentUser?.id) {
+            fetchAIReports(1)
+        }
+    }, [viewMode, dateRange, currentUser?.id])
 
     // データの取得
     const fetchSummaries = async () => {
@@ -366,16 +392,8 @@ export default function ChecklistSummaryPage() {
         return 0
     })
 
-    const filteredHistoricalReports = HISTORICAL_REPORTS.filter(report => {
-        if (!dateRange?.from || !dateRange?.to) return true
-        const d = new Date(report.date)
-        d.setHours(0, 0, 0, 0)
-        const from = new Date(dateRange.from)
-        from.setHours(0, 0, 0, 0)
-        const to = new Date(dateRange.to)
-        to.setHours(23, 59, 59, 999)
-        return d >= from && d <= to
-    }).sort((a, b) => b.date.getTime() - a.date.getTime())
+    // historicalReportsはAPIから取得済みなのでフィルタリング不要（APIで期間指定）
+    const filteredHistoricalReports = historicalReports
 
     const handleSavePrompt = () => {
         if (!newPromptName || !newPromptContent) return
@@ -429,15 +447,15 @@ export default function ChecklistSummaryPage() {
 
     const handleRunAI = () => {
         setIsSummarizing(true)
-        setTimeout(() => {
+        setTimeout(async () => {
             if (viewMode === 'daily') {
                 const workerCount = filteredSummaries.length
                 const completedCount = filteredSummaries.filter((s: any) => s.status === 'completed').length
                 const totalReward = filteredSummaries.reduce((acc: number, s: any) => acc + s.reward, 0)
+                const alertCount = filteredSummaries.filter((s: any) => s.isSafetyAlert).length
                 const alerts = filteredSummaries.filter((s: any) => s.isSafetyAlert).map((s: any) => `${s.name}: ${s.memo}`).join('\n')
 
-                setAiReport(`
-【${selectedPrompt.name} に基づく分析】
+                const reportSummary = `【${selectedPrompt.name} に基づく分析】
 プロンプト: ${selectedPrompt.content}
 
 対象者: ${workerCount}名（全完了: ${completedCount}名）
@@ -446,12 +464,37 @@ export default function ChecklistSummaryPage() {
 【総括】
 ・現在のフィルター条件に基づき、${workerCount}名の報告を分析しました。
 ・特筆すべき点: ${alerts || '不具合報告はありません。'}
-・AIの見解: 稼働率が安定しており、${selectedPrompt.id === '2' ? '備品管理の自動化を検討すべきです。' : '全体的に良好なコンディションです。'}
-      `)
+・AIの見解: 稼働率が安定しており、${selectedPrompt.id === '2' ? '備品管理の自動化を検討すべきです。' : '全体的に良好なコンディションです。'}`
+
+                setAiReport(reportSummary)
+
+                // データベースに保存
+                if (currentUser?.id) {
+                    try {
+                        await fetch('/api/workclock/ai-reports', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-employee-id': currentUser.id
+                            },
+                            body: JSON.stringify({
+                                date: format(filterDate, 'yyyy-MM-dd'),
+                                summary: reportSummary,
+                                promptId: selectedPrompt.id,
+                                promptName: selectedPrompt.name,
+                                workerCount: workerCount,
+                                alerts: alertCount,
+                                totalReward: totalReward
+                            })
+                        })
+                    } catch (error) {
+                        console.error('Failed to save AI report:', error)
+                    }
+                }
             } else {
                 const reportCount = filteredHistoricalReports.length
                 const totalWorkerCount = filteredHistoricalReports.reduce((acc, r) => acc + r.workerCount, 0)
-                const totalReward = filteredHistoricalReports.reduce((acc, r) => acc + r.reward, 0)
+                const totalReward = filteredHistoricalReports.reduce((acc, r) => acc + r.totalReward, 0)
                 const totalAlerts = filteredHistoricalReports.reduce((acc, r) => acc + r.alerts, 0)
 
                 setAiReport(`
@@ -965,12 +1008,12 @@ export default function ChecklistSummaryPage() {
                                                 <p>選択された期間のレポートはありません</p>
                                             </div>
                                         ) : filteredHistoricalReports.map((report, idx) => (
-                                            <div key={idx} className="p-6 hover:bg-white/90 transition-all cursor-pointer group">
+                                            <div key={report.id || idx} className="p-6 hover:bg-white/90 transition-all cursor-pointer group">
                                                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                                                     <div className="space-y-3 flex-1">
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full">
-                                                                {format(report.date, 'yyyy年MM月dd日 (E)', { locale: ja })}
+                                                                {format(new Date(report.date), 'yyyy年MM月dd日 (E)', { locale: ja })}
                                                             </span>
                                                             <div className="flex gap-2">
                                                                 <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px]">
@@ -981,34 +1024,64 @@ export default function ChecklistSummaryPage() {
                                                                         リスク {report.alerts}件
                                                                     </Badge>
                                                                 )}
+                                                                {report.promptName && (
+                                                                    <Badge className="bg-purple-50 text-purple-600 border-purple-100 text-[10px]">
+                                                                        {report.promptName}
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50">
-                                                            <p className="text-sm text-slate-700 leading-relaxed italic">
+                                                            <p className="text-sm text-slate-700 leading-relaxed italic whitespace-pre-wrap">
                                                                 "{report.summary}"
                                                             </p>
                                                         </div>
                                                         <div className="flex items-center gap-4 text-[11px] text-slate-400 font-medium pl-1">
                                                             <span className="flex items-center gap-1">
-                                                                <Search className="w-3 h-3" /> 詳細を確認
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <MessageSquare className="w-3 h-3" /> この日のAIに質問
+                                                                <Clock className="w-3 h-3" /> {format(new Date(report.createdAt), 'HH:mm')}
                                                             </span>
                                                         </div>
                                                     </div>
                                                     <div className="flex flex-col items-end gap-2 text-right">
                                                         <div className="text-xs text-slate-400">合計インセンティブ</div>
-                                                        <div className="text-xl font-bold text-indigo-600">¥{report.reward.toLocaleString()}</div>
-                                                        <Button variant="ghost" size="sm" className="mt-2 text-indigo-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-all">
-                                                            <ChevronRight className="w-5 h-5" />
-                                                        </Button>
+                                                        <div className="text-xl font-bold text-indigo-600">¥{report.totalReward.toLocaleString()}</div>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </CardContent>
+                                {/* ページネーション */}
+                                {reportPagination.totalPages > 1 && (
+                                    <div className="px-6 py-4 border-t border-slate-100 bg-white/50 flex items-center justify-between">
+                                        <span className="text-xs text-slate-400">
+                                            全{reportPagination.total}件中 {((reportPagination.page - 1) * reportPagination.limit) + 1} - {Math.min(reportPagination.page * reportPagination.limit, reportPagination.total)}件を表示
+                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs"
+                                                disabled={reportPagination.page <= 1 || isLoadingReports}
+                                                onClick={() => fetchAIReports(reportPagination.page - 1)}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-1" /> 前へ
+                                            </Button>
+                                            <span className="text-xs text-slate-500 px-2">
+                                                {reportPagination.page} / {reportPagination.totalPages}
+                                            </span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 text-xs"
+                                                disabled={reportPagination.page >= reportPagination.totalPages || isLoadingReports}
+                                                onClick={() => fetchAIReports(reportPagination.page + 1)}
+                                            >
+                                                次へ <ChevronRight className="w-4 h-4 ml-1" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </Card>
                         </div>
                     )}

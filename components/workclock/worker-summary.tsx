@@ -13,6 +13,7 @@ interface WorkerSummaryProps {
   todayEntries: TimeEntry[]
   selectedMonth: Date
   rewards?: Reward[]
+  checklistReward?: number
   onRewardClick?: () => void
 }
 
@@ -22,14 +23,16 @@ export function WorkerSummary({
   todayEntries,
   selectedMonth,
   rewards = [],
+  checklistReward = 0,
   onRewardClick,
 }: WorkerSummaryProps) {
   const monthlyTotal = getMonthlyTotal(monthlyEntries)
   const todayTotal = getMonthlyTotal(todayEntries)
-  
-  // 共通の計算関数を使用（時給パターン + 回数パターン + 月額固定 + 特別報酬・経費）
-  const monthlyAmount = calculateWorkerMonthlyCost(worker, monthlyEntries, rewards)
-  
+
+  // 共通の計算関数を使用（時給パターン + 回数パターン + 月額固定 + 特別報酬・経費 + チェックリスト報酬）
+  const baseAmount = calculateWorkerMonthlyCost(worker, monthlyEntries, rewards)
+  const monthlyAmount = baseAmount + checklistReward
+
   // 月額固定を取得（表示用）
   const monthlyFixedAmount =
     typeof worker.monthlyFixedAmount === 'number' && worker.monthlyFixedAmount > 0
@@ -37,7 +40,7 @@ export function WorkerSummary({
       : (worker as any).monthlyFixedAmount && Number((worker as any).monthlyFixedAmount) > 0
         ? Number((worker as any).monthlyFixedAmount)
         : null
-  
+
   // 特別報酬を取得（表示用）
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
 
@@ -53,7 +56,7 @@ export function WorkerSummary({
     B: worker.wagePatternLabelB || baseLabels.B,
     C: worker.wagePatternLabelC || baseLabels.C,
   }
-  
+
   // 5つ目のカードは廃止し、4つに戻す
   const gridColsClass = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full"
 
@@ -61,7 +64,7 @@ export function WorkerSummary({
     <div className="space-y-4 w-full">
       <div>
         <h1 className="text-3xl font-bold text-foreground">{worker.name}</h1>
-        {worker.team && <p className="text-muted-foreground">{worker.team}</p>}
+        {worker.teams && worker.teams.length > 0 && <p className="text-muted-foreground">{worker.teams.join(', ')}</p>}
       </div>
 
       <div className={gridColsClass}>
@@ -147,35 +150,40 @@ export function WorkerSummary({
         </Card>
 
         {/* 報酬見込カードをクリック可能にする */}
-        <Card 
+        <Card
           className={`w-full min-w-0 ${onRewardClick ? 'cursor-pointer hover:border-primary transition-colors relative group' : ''}`}
           onClick={onRewardClick}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium truncate flex items-center gap-2">
-                今月の報酬見込
-                {onRewardClick && <Settings className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
+              今月の報酬見込
+              {onRewardClick && <Settings className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
             </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold break-words">¥{Math.floor(monthlyAmount).toLocaleString()}</div>
             <div className="flex flex-col gap-1">
-                <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
-                {monthlyFixedAmount && (
-                    <p className="text-xs text-primary font-medium truncate">
-                        + 月額固定 ¥{monthlyFixedAmount.toLocaleString()}
-                    </p>
-                )}
-                {rewardAmount > 0 && (
-                    <p className="text-xs text-primary font-medium truncate">
-                        + 特別報酬・経費 ¥{rewardAmount.toLocaleString()}
-                    </p>
-                )}
+              <p className="text-xs text-muted-foreground truncate">{monthlyEntries.length}日勤務</p>
+              {monthlyFixedAmount && (
+                <p className="text-xs text-primary font-medium truncate">
+                  + 月額固定 ¥{monthlyFixedAmount.toLocaleString()}
+                </p>
+              )}
+              {rewardAmount > 0 && (
+                <p className="text-xs text-primary font-medium truncate">
+                  + 特別報酬・経費 ¥{rewardAmount.toLocaleString()}
+                </p>
+              )}
+              {checklistReward > 0 && (
+                <p className="text-xs text-green-600 font-medium truncate">
+                  + 業務チェック報酬 ¥{checklistReward.toLocaleString()}
+                </p>
+              )}
             </div>
           </CardContent>
           {onRewardClick && (
-             <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl pointer-events-none" />
+            <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl pointer-events-none" />
           )}
         </Card>
       </div>

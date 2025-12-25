@@ -26,15 +26,19 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     const [reportText, setReportText] = useState('')
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [existingSubmissionId, setExistingSubmissionId] = useState<string | null>(null)
 
     const rewardRef = useRef<HTMLDivElement>(null)
     const listRef = useRef<HTMLDivElement>(null)
     const photoRef = useRef<HTMLDivElement>(null)
     const memoRef = useRef<HTMLDivElement>(null)
 
-    // チェックリストパターンを読み込む
+    // 日付文字列を生成
+    const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+
+    // チェックリストパターンを読み込み、既存の提出データも取得
     useEffect(() => {
-        const loadChecklistPattern = async () => {
+        const loadData = async () => {
             if (!worker?.isChecklistEnabled || !worker?.checklistPatternId) {
                 setChecklistItems([])
                 setIsLoading(false)
@@ -43,25 +47,66 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
 
             try {
                 setIsLoading(true)
-                const res = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
-                if (res.pattern?.items) {
-                    const sortedItems = res.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position)
-                    setChecklistItems(sortedItems)
-                    // 初期状態を親に通知（レンダリング後に遅延実行）
+
+                // パターンのアイテムを取得
+                const patternRes = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
+                let items: ChecklistItem[] = []
+                if (patternRes.pattern?.items) {
+                    items = patternRes.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position)
+                    setChecklistItems(items)
+                }
+
+                // 既存の提出データを取得
+                const submissionRes = await api.checklist.submissions.getAll({
+                    workerId,
+                    startDate: dateStr,
+                    endDate: dateStr,
+                }) as { submissions: any[] }
+
+                if (submissionRes.submissions && submissionRes.submissions.length > 0) {
+                    const submission = submissionRes.submissions[0]
+                    setExistingSubmissionId(submission.id)
+                    setReportText(submission.memo || '')
+
+                    // チェック済み項目を復元
+                    const checkedMap: Record<string, boolean> = {}
+                    if (submission.items) {
+                        submission.items.forEach((item: any) => {
+                            // タイトルでマッチング（IDは変わる可能性があるため）
+                            const matchingItem = items.find(i => i.title === item.title)
+                            if (matchingItem && item.isChecked) {
+                                checkedMap[matchingItem.id] = true
+                            }
+                        })
+                    }
+                    setCheckedItems(checkedMap)
+
+                    // 報酬を計算
+                    const totalReward = items.reduce((total, item) => {
+                        return total + (checkedMap[item.id] ? item.reward : 0)
+                    }, 0)
+
+                    // 親に通知
                     setTimeout(() => {
-                        onStateChange?.({ checkedItems: {}, memo: '', items: sortedItems })
+                        onRewardChange?.(totalReward)
+                        onStateChange?.({ checkedItems: checkedMap, memo: submission.memo || '', items })
+                    }, 0)
+                } else {
+                    // 初期状態を親に通知
+                    setTimeout(() => {
+                        onStateChange?.({ checkedItems: {}, memo: '', items })
                     }, 0)
                 }
             } catch (error) {
-                console.error('チェックリストパターンの読み込みに失敗:', error)
+                console.error('チェックリストデータの読み込みに失敗:', error)
                 setChecklistItems([])
             } finally {
                 setIsLoading(false)
             }
         }
 
-        loadChecklistPattern()
-    }, [worker?.checklistPatternId, worker?.isChecklistEnabled])
+        loadData()
+    }, [worker?.checklistPatternId, worker?.isChecklistEnabled, workerId, dateStr])
 
     const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

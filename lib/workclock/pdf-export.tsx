@@ -179,7 +179,8 @@ export function generatePDFContent(
   entries: TimeEntry[],
   month: Date,
   rewards: Reward[] = [],
-  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES,
+  checklistReward: number = 0
 ): string {
   const monthName = month.toLocaleDateString('ja-JP', {
     year: 'numeric',
@@ -205,6 +206,16 @@ export function generatePDFContent(
 
   // 1. 各パターンの詳細（時給・回数・固定・報酬）を計算・集計
   const breakdowns = calculatePatternBreakdowns(worker, entries, wageLabels, countLabels, rewards);
+
+  // チェックリスト報酬を追加
+  if (checklistReward > 0) {
+    breakdowns.push({
+      label: '業務チェック報酬',
+      rate: 0,
+      amount: checklistReward,
+      isWithholding: false, // チェックリスト報酬は源泉なし
+    });
+  }
 
   // 2. 源泉あり/なしの小計を算出
   const subtotalWithholding = breakdowns
@@ -890,9 +901,10 @@ export function downloadPDF(
   entries: TimeEntry[],
   month: Date,
   rewards: Reward[] = [],
-  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES
+  withholdingRates: WithholdingTaxRates = DEFAULT_WITHHOLDING_RATES,
+  checklistReward: number = 0
 ): void {
-  const htmlContent = generatePDFContent(worker, entries, month, rewards, withholdingRates)
+  const htmlContent = generatePDFContent(worker, entries, month, rewards, withholdingRates, checklistReward)
 
   // Create a new window for printing
   const printWindow = window.open('', '_blank')

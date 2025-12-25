@@ -10,6 +10,7 @@ import {
   getWorkers,
   getRewardsByWorkerAndMonth,
 } from '@/lib/workclock/api-storage'
+import { api } from '@/lib/workclock/api'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { WorkerSummary } from '@/components/workclock/worker-summary'
 import { CalendarView } from '@/components/workclock/calendar-view'
@@ -44,6 +45,7 @@ export default function WorkerPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [entries, setEntries] = useState<TimeEntry[]>([])
   const [rewards, setRewards] = useState<Reward[]>([])
+  const [checklistReward, setChecklistReward] = useState(0)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false)
@@ -112,6 +114,31 @@ export default function WorkerPage() {
 
         const monthRewards = await getRewardsByWorkerAndMonth(workerId, year, month, currentUser.id)
         setRewards(monthRewards)
+
+        // チェックリスト提出から報酬を取得
+        try {
+          const firstDay = `${year}-${String(month).padStart(2, '0')}-01`
+          const lastDay = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`
+          const submissionRes = await api.checklist.submissions.getAll({
+            workerId,
+            startDate: firstDay,
+            endDate: lastDay,
+          }) as { submissions: any[] }
+
+          if (submissionRes.submissions) {
+            const totalChecklist = submissionRes.submissions.reduce((total, sub) => {
+              if (sub.items) {
+                return total + sub.items.reduce((itemTotal: number, item: any) => {
+                  return itemTotal + (item.isChecked ? (item.reward || 0) : 0)
+                }, 0)
+              }
+              return total
+            }, 0)
+            setChecklistReward(totalChecklist)
+          }
+        } catch (err) {
+          console.error('チェックリスト報酬の取得に失敗:', err)
+        }
       }
     } catch (error) {
       console.error('データ読み込みエラー:', error)
@@ -287,6 +314,7 @@ export default function WorkerPage() {
                 todayEntries={todayEntries}
                 selectedMonth={currentDate}
                 rewards={rewards}
+                checklistReward={checklistReward}
                 onRewardClick={canClickRewardSummary ? () => setIsRewardModalOpen(true) : undefined}
               />
             </div>
@@ -296,6 +324,7 @@ export default function WorkerPage() {
                 entries={entries}
                 month={currentDate}
                 rewards={rewards}
+                checklistReward={checklistReward}
                 variant="outline"
               />
               {/* SpecialRewardButton は WorkerSummary に統合されたため削除 */}

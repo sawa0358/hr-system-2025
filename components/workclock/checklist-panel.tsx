@@ -1,11 +1,10 @@
-'use client'
-
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2 } from 'lucide-react'
@@ -23,6 +22,7 @@ interface ChecklistPanelProps {
 
 export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
+    const [freeTextValues, setFreeTextValues] = useState<Record<string, string>>({})  // 自由記入欄の値
     const [reportText, setReportText] = useState('')
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -68,18 +68,26 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     setExistingSubmissionId(submission.id)
                     setReportText(submission.memo || '')
 
-                    // チェック済み項目を復元
+                    // チェック済み項目と自由記入欄の値を復元
                     const checkedMap: Record<string, boolean> = {}
+                    const freeTextMap: Record<string, string> = {}
                     if (submission.items) {
                         submission.items.forEach((item: any) => {
                             // タイトルでマッチング（IDは変わる可能性があるため）
                             const matchingItem = items.find(i => i.title === item.title)
-                            if (matchingItem && item.isChecked) {
-                                checkedMap[matchingItem.id] = true
+                            if (matchingItem) {
+                                if (item.isFreeText) {
+                                    // 自由記入欄の値を復元
+                                    freeTextMap[matchingItem.id] = item.freeTextValue || ''
+                                } else if (item.isChecked) {
+                                    // チェック項目の状態を復元
+                                    checkedMap[matchingItem.id] = true
+                                }
                             }
                         })
                     }
                     setCheckedItems(checkedMap)
+                    setFreeTextValues(freeTextMap)
 
                     // 報酬を計算
                     const totalReward = items.reduce((total, item) => {
@@ -243,64 +251,100 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {checklistItems.map(item => (
-                                    <div key={item.id}
-                                        onClick={() => handleToggle(item.id)}
-                                        className={cn(
-                                            "group flex items-center px-3 py-1.5 min-h-[36px] cursor-pointer transition-colors duration-75 relative",
-                                            checkedItems[item.id] ? "bg-blue-50/40" : "bg-white hover:bg-slate-50/50",
-                                            item.isMandatory && !checkedItems[item.id] && "bg-red-50/10"
-                                        )}
-                                    >
-                                        {/* 左端ライン */}
-                                        {item.isMandatory && (
-                                            <div className={cn(
-                                                "absolute left-0 top-0 bottom-0 w-0.5 transition-colors",
-                                                checkedItems[item.id] ? "bg-green-400" : "bg-red-400"
-                                            )} />
-                                        )}
+                                    item.isFreeText ? (
+                                        // 自由記入欄の場合
+                                        <div key={item.id}
+                                            className="group flex flex-col px-3 py-2 bg-purple-50/30 hover:bg-purple-50/50 transition-colors relative"
+                                        >
+                                            {/* 左端ライン */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-purple-400" />
 
-                                        {/* チェック */}
-                                        <div className="w-10 flex justify-center mr-2" onClick={(e) => e.stopPropagation()}>
-                                            <Switch
-                                                id={`item-${item.id}`}
-                                                checked={!!checkedItems[item.id]}
-                                                onCheckedChange={() => handleToggle(item.id)}
-                                                className="scale-[0.65] data-[state=checked]:bg-green-500"
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <Label htmlFor={`freetext-${item.id}`} className="text-[11px] font-bold text-purple-700 flex items-center gap-1">
+                                                    <MessageSquare className="w-3 h-3" />
+                                                    {item.title}
+                                                </Label>
+                                                {item.reward > 0 && (
+                                                    <span className="font-mono text-[9px] font-bold text-purple-600">
+                                                        +¥{item.reward}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <Input
+                                                id={`freetext-${item.id}`}
+                                                value={freeTextValues[item.id] || ''}
+                                                onChange={(e) => {
+                                                    const newValues = { ...freeTextValues, [item.id]: e.target.value }
+                                                    setFreeTextValues(newValues)
+                                                    setTimeout(() => {
+                                                        onStateChange?.({ checkedItems, memo: reportText, items: checklistItems })
+                                                    }, 0)
+                                                }}
+                                                placeholder="入力してください..."
+                                                className="text-xs h-8 bg-white border-purple-200 focus:border-purple-400"
                                             />
                                         </div>
+                                    ) : (
+                                        // 通常のチェック項目
+                                        <div key={item.id}
+                                            onClick={() => handleToggle(item.id)}
+                                            className={cn(
+                                                "group flex items-center px-3 py-1.5 min-h-[36px] cursor-pointer transition-colors duration-75 relative",
+                                                checkedItems[item.id] ? "bg-blue-50/40" : "bg-white hover:bg-slate-50/50",
+                                                item.isMandatory && !checkedItems[item.id] && "bg-red-50/10"
+                                            )}
+                                        >
+                                            {/* 左端ライン */}
+                                            {item.isMandatory && (
+                                                <div className={cn(
+                                                    "absolute left-0 top-0 bottom-0 w-0.5 transition-colors",
+                                                    checkedItems[item.id] ? "bg-green-400" : "bg-red-400"
+                                                )} />
+                                            )}
 
-                                        {/* テキスト */}
-                                        <div className="flex-1 py-0.5">
-                                            <Label
-                                                htmlFor={`item-${item.id}`}
-                                                className={cn(
-                                                    "text-[11px] font-medium leading-tight block transition-all",
-                                                    checkedItems[item.id] ? "text-slate-300 line-through" : "text-slate-600"
+                                            {/* チェック */}
+                                            <div className="w-10 flex justify-center mr-2" onClick={(e) => e.stopPropagation()}>
+                                                <Switch
+                                                    id={`item-${item.id}`}
+                                                    checked={!!checkedItems[item.id]}
+                                                    onCheckedChange={() => handleToggle(item.id)}
+                                                    className="scale-[0.65] data-[state=checked]:bg-green-500"
+                                                />
+                                            </div>
+
+                                            {/* テキスト */}
+                                            <div className="flex-1 py-0.5">
+                                                <Label
+                                                    htmlFor={`item-${item.id}`}
+                                                    className={cn(
+                                                        "text-[11px] font-medium leading-tight block transition-all",
+                                                        checkedItems[item.id] ? "text-slate-300 line-through" : "text-slate-600"
+                                                    )}
+                                                >
+                                                    {item.title}
+                                                </Label>
+                                                {item.isMandatory && !checkedItems[item.id] && (
+                                                    <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5">
+                                                        <AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目
+                                                    </span>
                                                 )}
-                                            >
-                                                {item.title}
-                                            </Label>
-                                            {item.isMandatory && !checkedItems[item.id] && (
-                                                <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5">
-                                                    <AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目
-                                                </span>
-                                            )}
-                                        </div>
+                                            </div>
 
-                                        {/* 報酬 */}
-                                        <div className="w-16 text-right">
-                                            {item.reward > 0 ? (
-                                                <span className={cn(
-                                                    "font-mono text-[9px] font-bold",
-                                                    checkedItems[item.id] ? "text-yellow-600" : "text-slate-300"
-                                                )}>
-                                                    +¥{item.reward}
-                                                </span>
-                                            ) : (
-                                                <span className="text-[9px] text-slate-200 font-mono">-</span>
-                                            )}
+                                            {/* 報酬 */}
+                                            <div className="w-16 text-right">
+                                                {item.reward > 0 ? (
+                                                    <span className={cn(
+                                                        "font-mono text-[9px] font-bold",
+                                                        checkedItems[item.id] ? "text-yellow-600" : "text-slate-300"
+                                                    )}>
+                                                        +¥{item.reward}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[9px] text-slate-200 font-mono">-</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    )
                                 ))}
                             </div>
                         </Card>

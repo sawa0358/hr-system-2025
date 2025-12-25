@@ -110,6 +110,7 @@ export default function ChecklistSettingsPage() {
         title: '',
         reward: '0',
         isMandatory: false,
+        isFreeText: false,
         category: 'general'
     })
 
@@ -173,18 +174,19 @@ export default function ChecklistSettingsPage() {
         }
     }
 
-    const handleOpenItemDialog = (item?: any) => {
+    const handleOpenItemDialog = (item?: any, isFreeText = false) => {
         if (item) {
             setEditingItem(item)
             setItemFormData({
                 title: item.title,
                 reward: String(item.reward),
                 isMandatory: item.isMandatory,
+                isFreeText: item.isFreeText || false,
                 category: item.category
             })
         } else {
             setEditingItem(null)
-            setItemFormData({ title: '', reward: '0', isMandatory: false, category: 'general' })
+            setItemFormData({ title: '', reward: '0', isMandatory: false, isFreeText, category: 'general' })
         }
         setIsItemDialogOpen(true)
     }
@@ -198,6 +200,7 @@ export default function ChecklistSettingsPage() {
                     title: itemFormData.title,
                     reward: Number(itemFormData.reward),
                     isMandatory: itemFormData.isMandatory,
+                    isFreeText: itemFormData.isFreeText,
                     category: itemFormData.category
                 })
             } else {
@@ -205,6 +208,7 @@ export default function ChecklistSettingsPage() {
                     title: itemFormData.title,
                     reward: Number(itemFormData.reward),
                     isMandatory: itemFormData.isMandatory,
+                    isFreeText: itemFormData.isFreeText,
                     category: itemFormData.category,
                     position: (selectedPattern.items?.length || 0)
                 })
@@ -368,10 +372,16 @@ export default function ChecklistSettingsPage() {
                                 <CardTitle className="text-lg">「{selectedPattern.name}」のチェック項目一覧</CardTitle>
                                 <CardDescription>このパターンを割り当てられたワーカーに表示されます。</CardDescription>
                             </div>
-                            <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800">
-                                <Plus className="w-4 h-4 mr-2" />
-                                項目を追加
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button onClick={() => handleOpenItemDialog(undefined, true)} variant="outline" className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    自由欄追加
+                                </Button>
+                                <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    項目を追加
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent className="p-0">
                             <Table>
@@ -400,7 +410,9 @@ export default function ChecklistSettingsPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {item.isMandatory ? (
+                                                    {item.isFreeText ? (
+                                                        <Badge className="bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-50 shadow-none font-bold text-[10px]">自由欄</Badge>
+                                                    ) : item.isMandatory ? (
                                                         <Badge className="bg-red-50 text-red-600 border-red-100 hover:bg-red-50 shadow-none font-bold text-[10px]">必須</Badge>
                                                     ) : (
                                                         <Badge variant="outline" className="bg-slate-50 text-slate-500 border-slate-200 shadow-none font-bold text-[10px]">任意</Badge>
@@ -442,19 +454,25 @@ export default function ChecklistSettingsPage() {
             <Dialog open={isItemDialogOpen} onOpenChange={setIsItemDialogOpen}>
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                        <DialogTitle>{editingItem ? '項目の編集' : '新しい項目を追加'}</DialogTitle>
+                        <DialogTitle>
+                            {itemFormData.isFreeText ? '自由記入欄を追加' : (editingItem ? '項目の編集' : '新しい項目を追加')}
+                        </DialogTitle>
                         <DialogDescription>
-                            チェック項目の内容と、達成時の寸志を設定します。
+                            {itemFormData.isFreeText
+                                ? 'ワーカーが自由にテキストを入力できる欄を追加します。'
+                                : 'チェック項目の内容と、達成時の寸志を設定します。'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-1.5">
-                            <Label htmlFor="title" className="text-xs font-bold text-slate-500">項目名</Label>
+                            <Label htmlFor="title" className="text-xs font-bold text-slate-500">
+                                {itemFormData.isFreeText ? '記入欄のタイトル' : '項目名'}
+                            </Label>
                             <Input
                                 id="title"
                                 value={itemFormData.title}
                                 onChange={(e) => setItemFormData({ ...itemFormData, title: e.target.value })}
-                                placeholder="例: フィルター清掃実施"
+                                placeholder={itemFormData.isFreeText ? "例: 特記事項・申し送り" : "例: フィルター清掃実施"}
                             />
                         </div>
                         <div className="grid gap-1.5">
@@ -466,17 +484,19 @@ export default function ChecklistSettingsPage() {
                                 onChange={(e) => setItemFormData({ ...itemFormData, reward: e.target.value })}
                             />
                         </div>
-                        <div className="flex items-center justify-between space-x-2 border p-3 rounded-xl bg-slate-50">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="isMandatory" className="text-sm font-bold">必須項目にする</Label>
-                                <p className="text-[10px] text-slate-400">未チェック時に保存を防止します</p>
+                        {!itemFormData.isFreeText && (
+                            <div className="flex items-center justify-between space-x-2 border p-3 rounded-xl bg-slate-50">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="isMandatory" className="text-sm font-bold">必須項目にする</Label>
+                                    <p className="text-[10px] text-slate-400">未チェック時に保存を防止します</p>
+                                </div>
+                                <Switch
+                                    id="isMandatory"
+                                    checked={itemFormData.isMandatory}
+                                    onCheckedChange={(checked) => setItemFormData({ ...itemFormData, isMandatory: checked })}
+                                />
                             </div>
-                            <Switch
-                                id="isMandatory"
-                                checked={itemFormData.isMandatory}
-                                onCheckedChange={(checked) => setItemFormData({ ...itemFormData, isMandatory: checked })}
-                            />
-                        </div>
+                        )}
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsItemDialogOpen(false)}>キャンセル</Button>

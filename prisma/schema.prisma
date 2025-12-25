@@ -963,6 +963,7 @@ model WorkClockChecklistItem {
   title       String
   reward      Float    @default(0)
   isMandatory Boolean  @default(false)
+  isFreeText  Boolean  @default(false)  // 自由記入欄かどうか
   category    String?
   position    Int      @default(0)
   createdAt   DateTime @default(now())
@@ -992,15 +993,17 @@ model WorkClockChecklistSubmission {
 
 // 提出時のチェック項目スナップショット
 model WorkClockChecklistSubmissionItem {
-  id           String   @id @default(cuid())
-  submissionId String
-  submission   WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  title        String
-  reward       Float
-  isMandatory  Boolean
-  isChecked    Boolean
-  category     String?
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  submissionId  String
+  submission    WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  title         String
+  reward        Float
+  isMandatory   Boolean
+  isChecked     Boolean
+  isFreeText    Boolean  @default(false)  // 自由記入欄かどうか
+  freeTextValue String?  // 自由記入欄の入力値
+  category      String?
+  createdAt     DateTime @default(now())
 
   @@index([submissionId])
   @@map("workclock_checklist_submission_items")

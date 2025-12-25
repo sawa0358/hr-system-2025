@@ -96,6 +96,8 @@ export async function POST(request: Request) {
                         reward: Number(item.reward) || 0,
                         isMandatory: !!item.isMandatory,
                         isChecked: !!item.isChecked,
+                        isFreeText: !!item.isFreeText,
+                        freeTextValue: item.freeTextValue || null,
                         category: item.category,
                     }))
                 }

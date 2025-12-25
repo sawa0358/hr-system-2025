@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 export async function PUT(request: Request, { params }: { params: { itemId: string } }) {
     try {
         const body = await request.json()
-        const { title, reward, isMandatory, category, position } = body
+        const { title, reward, isMandatory, isFreeText, category, position } = body
 
         const item = await (prisma as any).workClockChecklistItem.update({
             where: { id: params.itemId },
@@ -14,6 +14,7 @@ export async function PUT(request: Request, { params }: { params: { itemId: stri
                 title,
                 reward: reward !== undefined ? Number(reward) : undefined,
                 isMandatory: isMandatory !== undefined ? !!isMandatory : undefined,
+                isFreeText: isFreeText !== undefined ? !!isFreeText : undefined,
                 category,
                 position: position !== undefined ? Number(position) : undefined,
             },

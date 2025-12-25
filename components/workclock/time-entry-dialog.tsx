@@ -113,7 +113,7 @@ export function TimeEntryDialog({
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
   const [checklistReward, setChecklistReward] = useState(0)
-  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; memo: string; items: any[] } | null>(null)
+  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; items: any[] } | null>(null)
   const [isSavingChecklist, setIsSavingChecklist] = useState(false)
 
   // UI状態管理（window.confirm/alertの代替）
@@ -801,21 +801,37 @@ export function TimeEntryDialog({
                   setIsSavingChecklist(true)
                   try {
                     // チェックリスト提出を保存
-                    const submissionItems = checklistState.items.map(item => ({
-                      itemId: item.id,
-                      title: item.title,
-                      isChecked: !!checklistState.checkedItems[item.id],
-                      reward: checklistState.checkedItems[item.id] ? item.reward : 0,
-                      isMandatory: item.isMandatory,
-                    }))
+                    const submissionItems = checklistState.items.map(item => {
+                      const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
+                      const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
 
-                    console.log('送信データ:', {
-                      workerId,
-                      date: dateStr,
-                      patternId: worker?.checklistPatternId,
-                      items: submissionItems,
-                      memo: checklistState.memo,
+                      // 報酬の計算ルール: 
+                      // 1. 自由記入欄の場合は、文字が入力されていれば報酬加算
+                      // 2. 通常項目の場合は、チェックが入っていれば報酬加算
+                      let reward = 0
+                      if (item.isFreeText) {
+                        if (freeTextValue && freeTextValue.trim() !== '') {
+                          reward = item.reward
+                        }
+                      } else if (isChecked) {
+                        reward = item.reward
+                      }
+
+                      return {
+                        itemId: item.id,
+                        title: item.title,
+                        isChecked,
+                        reward,
+                        isMandatory: item.isMandatory,
+                        isFreeText: !!item.isFreeText,
+                        freeTextValue,
+                      }
                     })
+
+                    // 送信用データの合計報酬を再計算（厳密な一貫性のため）
+                    const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
+
+                    console.log('報酬計算結果:', { finalTotalReward, submissionItems })
 
                     const result = await api.checklist.submissions.create({
                       workerId,
@@ -823,7 +839,7 @@ export function TimeEntryDialog({
                       patternId: worker?.checklistPatternId,
                       items: submissionItems,
                       memo: checklistState.memo,
-                      totalReward: checklistReward,
+                      totalReward: finalTotalReward, // 厳密に計算した値を送る
                     })
 
                     console.log('保存結果:', result)

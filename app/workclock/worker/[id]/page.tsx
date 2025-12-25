@@ -130,7 +130,9 @@ export default function WorkerPage() {
             const totalChecklist = submissionRes.submissions.reduce((total, sub) => {
               if (sub.items) {
                 return total + sub.items.reduce((itemTotal: number, item: any) => {
-                  return itemTotal + (item.isChecked ? (item.reward || 0) : 0)
+                  // 加算条件: 通常項目のチェック済み、または自由記入欄の入力あり
+                  const isEligible = item.isChecked || (item.isFreeText && item.freeTextValue && item.freeTextValue.trim() !== '')
+                  return itemTotal + (isEligible ? (item.reward || 0) : 0)
                 }, 0)
               }
               return total

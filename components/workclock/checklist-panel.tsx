@@ -17,7 +17,7 @@ interface ChecklistPanelProps {
     workerId: string
     selectedDate: Date
     onRewardChange?: (reward: number) => void
-    onStateChange?: (state: { checkedItems: Record<string, boolean>; memo: string; items: ChecklistItem[] }) => void
+    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; items: ChecklistItem[] }) => void
 }
 
 export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
@@ -69,40 +69,47 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     setReportText(submission.memo || '')
 
                     // チェック済み項目と自由記入欄の値を復元
-                    const checkedMap: Record<string, boolean> = {}
-                    const freeTextMap: Record<string, string> = {}
-                    if (submission.items) {
-                        submission.items.forEach((item: any) => {
-                            // タイトルでマッチング（IDは変わる可能性があるため）
-                            const matchingItem = items.find(i => i.title === item.title)
+                    // チェック済み項目と自由記入欄の値を復元
+                    const updatedCheckedItems: Record<string, boolean> = {}
+                    const updatedFreeTextValues: Record<string, string> = {}
+                    if (submission.items && Array.isArray(submission.items)) {
+                        submission.items.forEach((subItem: any) => {
+                            // タイトルでマッチング（前後の空白を除去して比較）
+                            const subTitle = subItem.title?.trim()
+                            const matchingItem = items.find(i => i.title?.trim() === subTitle)
+
                             if (matchingItem) {
-                                if (item.isFreeText) {
-                                    // 自由記入欄の値を復元
-                                    freeTextMap[matchingItem.id] = item.freeTextValue || ''
-                                } else if (item.isChecked) {
-                                    // チェック項目の状態を復元
-                                    checkedMap[matchingItem.id] = true
+                                if (subItem.isFreeText) {
+                                    updatedFreeTextValues[matchingItem.id] = subItem.freeTextValue || ''
+                                } else if (subItem.isChecked) {
+                                    updatedCheckedItems[matchingItem.id] = true
                                 }
                             }
                         })
                     }
-                    setCheckedItems(checkedMap)
-                    setFreeTextValues(freeTextMap)
 
-                    // 報酬を計算
+                    console.log('Restored values:', { updatedCheckedItems, updatedFreeTextValues })
+
+                    setCheckedItems(updatedCheckedItems)
+                    setFreeTextValues(updatedFreeTextValues)
+
+                    // 報酬を再計算（チェック項目 + 入力のある自由記入欄）
                     const totalReward = items.reduce((total, item) => {
-                        return total + (checkedMap[item.id] ? item.reward : 0)
+                        if (item.isFreeText) {
+                            return total + (updatedFreeTextValues[item.id]?.trim() ? item.reward : 0)
+                        }
+                        return total + (updatedCheckedItems[item.id] ? item.reward : 0)
                     }, 0)
 
                     // 親に通知
                     setTimeout(() => {
                         onRewardChange?.(totalReward)
-                        onStateChange?.({ checkedItems: checkedMap, memo: submission.memo || '', items })
+                        onStateChange?.({ checkedItems: updatedCheckedItems, freeTextValues: updatedFreeTextValues, memo: submission.memo || '', items })
                     }, 0)
                 } else {
                     // 初期状態を親に通知
                     setTimeout(() => {
-                        onStateChange?.({ checkedItems: {}, memo: '', items })
+                        onStateChange?.({ checkedItems: {}, freeTextValues: {}, memo: '', items })
                     }, 0)
                 }
             } catch (error) {
@@ -126,14 +133,17 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 ...prev,
                 [id]: !prev[id]
             }
-            // 報酬合計を計算して親に通知
+            // 報酬合計を再計算（チェック項目 + 入力のある自由記入欄）
             const newTotal = checklistItems.reduce((total, item) => {
+                if (item.isFreeText) {
+                    return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
+                }
                 return total + (newState[item.id] ? item.reward : 0)
             }, 0)
             setTimeout(() => {
                 onRewardChange?.(newTotal)
                 // 状態を親に通知
-                onStateChange?.({ checkedItems: newState, memo: reportText, items: checklistItems })
+                onStateChange?.({ checkedItems: newState, freeTextValues, memo: reportText, items: checklistItems })
             }, 0)
             return newState
         })
@@ -143,11 +153,14 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     const handleMemoChange = (text: string) => {
         setReportText(text)
         setTimeout(() => {
-            onStateChange?.({ checkedItems, memo: text, items: checklistItems })
+            onStateChange?.({ checkedItems, freeTextValues, memo: text, items: checklistItems })
         }, 0)
     }
 
     const currentRewardTotal = checklistItems.reduce((total, item) => {
+        if (item.isFreeText) {
+            return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
+        }
         return total + (checkedItems[item.id] ? item.reward : 0)
     }, 0)
 
@@ -197,9 +210,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => scrollToSection(photoRef)} className="h-7 px-2 text-[10px] md:text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-100 rounded-md">
                     <ImageIcon className="w-3 h-3 mr-1" /> 写真
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => scrollToSection(memoRef)} className="h-7 px-2 text-[10px] md:text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-100 rounded-md">
-                    <MessageSquare className="w-3 h-3 mr-1" /> 報告欄
                 </Button>
             </div>
 
@@ -276,8 +286,18 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                 onChange={(e) => {
                                                     const newValues = { ...freeTextValues, [item.id]: e.target.value }
                                                     setFreeTextValues(newValues)
+
+                                                    // 報酬を再計算
+                                                    const newTotal = checklistItems.reduce((total, it) => {
+                                                        if (it.isFreeText) {
+                                                            return total + (newValues[it.id]?.trim() ? it.reward : 0)
+                                                        }
+                                                        return total + (checkedItems[it.id] ? it.reward : 0)
+                                                    }, 0)
+
                                                     setTimeout(() => {
-                                                        onStateChange?.({ checkedItems, memo: reportText, items: checklistItems })
+                                                        onRewardChange?.(newTotal)
+                                                        onStateChange?.({ checkedItems, freeTextValues: newValues, memo: reportText, items: checklistItems })
                                                     }, 0)
                                                 }}
                                                 placeholder="入力してください..."
@@ -369,32 +389,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                         <p className="text-[9px] text-slate-300 italic truncate w-full">No images uploaded</p>
                                     </div>
                                 </div>
-                            </div>
-                        </Card>
-                    </section>
-
-                    {/* 4. 業務報告メモ (Compact) */}
-                    <section ref={memoRef} className="scroll-mt-16 space-y-2">
-                        <div className="flex items-center justify-between px-1">
-                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                                <MessageSquare className="w-4 h-4 text-purple-600" /> 業務報告メモ
-                            </h3>
-                            <Badge variant="outline" className="h-4 px-1.5 text-[8px] text-purple-600 border-purple-100 bg-purple-50 flex items-center gap-0.5">
-                                <Sparkles className="w-2.5 h-2.5" /> AI解析
-                            </Badge>
-                        </div>
-                        <Card className="border-slate-200 shadow-sm overflow-hidden rounded-lg bg-white">
-                            <Textarea
-                                placeholder="特記事項、申し送りなど..."
-                                className="min-h-[100px] border-0 focus-visible:ring-0 text-xs p-3 rounded-none resize-none"
-                                value={reportText}
-                                onChange={(e) => handleMemoChange(e.target.value)}
-                            />
-                            <div className="bg-slate-50/80 border-t px-3 py-1.5 flex items-center justify-between">
-                                <p className="text-[9px] text-slate-400 italic">
-                                    入力内容はAIが解析し管理者に共有されます
-                                </p>
-                                <span className="text-[8px] text-slate-300 font-mono">{reportText.length} ✍️</span>
                             </div>
                         </Card>
                     </section>

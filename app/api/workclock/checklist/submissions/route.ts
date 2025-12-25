@@ -14,8 +14,14 @@ export async function GET(request: Request) {
         if (workerId) where.workerId = workerId
         if (startDate || endDate) {
             where.date = {}
-            if (startDate) where.date.gte = new Date(startDate)
-            if (endDate) where.date.lte = new Date(endDate)
+            if (startDate) {
+                const parts = startDate.split('-').map(Number);
+                where.date.gte = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+            }
+            if (endDate) {
+                const parts = endDate.split('-').map(Number);
+                where.date.lte = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+            }
         }
 
         const submissions = await (prisma as any).workClockChecklistSubmission.findMany({
@@ -26,7 +32,7 @@ export async function GET(request: Request) {
                 },
                 items: true,
             },
-            orderBy: { date: 'desc' },
+            orderBy: { date: 'desc' }, // 日付順
         })
 
         return NextResponse.json({ submissions })
@@ -46,40 +52,37 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
         }
 
-        const dateObj = new Date(date)
-        // 日付の開始と終了を計算（その日の0時から23時59分59秒まで）
-        const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate())
-        const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1)
+        // 日付を正規化 (yyyy-mm-dd形式の文字列から直接年月日を抽出することで、タイムゾーンのズレを防ぐ)
+        const dateParts = date.split('-').map(Number);
+        const startOfDay = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 0, 0, 0, 0);
+        const endOfDay = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 23, 59, 59, 999);
 
-        // 同じ日の既存の提出を削除（上書き保存）
+        // デバッグログ
+        console.log(`Processing submission for worker: ${workerId}, date: ${date} -> Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+
+        // 同じ日の既存の提出をすべて検索して削除（重複防止の徹底）
         const existingSubmissions = await (prisma as any).workClockChecklistSubmission.findMany({
             where: {
                 workerId,
                 date: {
                     gte: startOfDay,
-                    lt: endOfDay,
+                    lte: endOfDay,
                 },
             },
             select: { id: true },
         })
 
         if (existingSubmissions.length > 0) {
-            // 既存の項目を先に削除
+            const ids = existingSubmissions.map((s: any) => s.id)
+            // 既存の項目を一括削除
             await (prisma as any).workClockChecklistSubmissionItem.deleteMany({
-                where: {
-                    submissionId: {
-                        in: existingSubmissions.map((s: any) => s.id),
-                    },
-                },
+                where: { submissionId: { in: ids } },
             })
-            // 既存の提出を削除
+            // 既存の提出本体を一括削除
             await (prisma as any).workClockChecklistSubmission.deleteMany({
-                where: {
-                    id: {
-                        in: existingSubmissions.map((s: any) => s.id),
-                    },
-                },
+                where: { id: { in: ids } },
             })
+            console.log(`Deleted ${ids.length} existing submissions for worker ${workerId} on ${date}`)
         }
 
         // 新規作成

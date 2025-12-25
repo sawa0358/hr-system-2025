@@ -25,7 +25,9 @@ import {
     Search,
     History,
     Clock,
-    FileSearch
+    FileSearch,
+    Pencil,
+    Trash2
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { getWorkers, getTeams } from '@/lib/workclock/api-storage'
@@ -112,7 +114,11 @@ const DAILY_SUMMARIES = [
         hasPhoto: true,
         memo: 'フィルターの汚れが激しかったため、念入りに清掃しました。替えのストックが残り1つです。',
         isSafetyAlert: false,
-        createdAt: '2023-12-01T09:00:00Z'
+        createdAt: '2023-12-01T09:00:00Z',
+        items: [
+            { title: '特記事項', isFreeText: true, freeTextValue: 'ロビーの電球が切れかけています。' },
+            { title: '備品発注', isFreeText: true, freeTextValue: '洗剤2個発注済み' }
+        ]
     },
     {
         id: 'w2',
@@ -127,7 +133,8 @@ const DAILY_SUMMARIES = [
         hasPhoto: false,
         memo: '備品補充は時間が足りず未完了ですが、清掃は終わっています。',
         isSafetyAlert: false,
-        createdAt: '2023-12-02T10:00:00Z'
+        createdAt: '2023-12-02T10:00:00Z',
+        items: []
     },
     {
         id: 'w3',
@@ -142,7 +149,10 @@ const DAILY_SUMMARIES = [
         hasPhoto: true,
         memo: '脚立の使用時に少しぐらつきを感じました。点検が必要かもしれません。',
         isSafetyAlert: true,
-        createdAt: '2023-12-03T08:30:00Z'
+        createdAt: '2023-12-03T08:30:00Z',
+        items: [
+            { title: '安全確認備考', isFreeText: true, freeTextValue: '階段の滑り止めが剥がれかかっている箇所がありました。' }
+        ]
     },
 ]
 
@@ -193,6 +203,7 @@ export default function ChecklistSummaryPage() {
     const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false)
     const [newPromptName, setNewPromptName] = useState('')
     const [newPromptContent, setNewPromptContent] = useState('')
+    const [editingPromptId, setEditingPromptId] = useState<string | null>(null)
 
     // モーダル状態
     const [selectedReport, setSelectedReport] = useState<any>(null)
@@ -238,16 +249,52 @@ export default function ChecklistSummaryPage() {
 
     const handleSavePrompt = () => {
         if (!newPromptName || !newPromptContent) return
-        const newPrompt = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: newPromptName,
-            content: newPromptContent
+
+        if (editingPromptId) {
+            // 編集保存
+            setPrompts(prompts.map(p =>
+                p.id === editingPromptId
+                    ? { ...p, name: newPromptName, content: newPromptContent }
+                    : p
+            ))
+            setEditingPromptId(null)
+        } else {
+            // 新規作成
+            const newPrompt = {
+                id: Math.random().toString(36).substr(2, 9),
+                name: newPromptName,
+                content: newPromptContent
+            }
+            setPrompts([...prompts, newPrompt])
+            setSelectedPromptId(newPrompt.id)
         }
-        setPrompts([...prompts, newPrompt])
-        setSelectedPromptId(newPrompt.id)
+
         setNewPromptName('')
         setNewPromptContent('')
         setIsPromptDialogOpen(false)
+    }
+
+    const handleDeletePrompt = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (prompts.length <= 1) {
+            alert('少なくとも1つのプロンプトが必要です。')
+            return
+        }
+        if (window.confirm('このプロンプトを削除してもよろしいですか？')) {
+            const nextPrompts = prompts.filter(p => p.id !== id)
+            setPrompts(nextPrompts)
+            if (selectedPromptId === id) {
+                setSelectedPromptId(nextPrompts[0].id)
+            }
+        }
+    }
+
+    const startEditPrompt = (p: typeof INITIAL_PROMPTS[0], e: React.MouseEvent) => {
+        e.stopPropagation()
+        setEditingPromptId(p.id)
+        setNewPromptName(p.name)
+        setNewPromptContent(p.content)
+        setIsPromptDialogOpen(true)
     }
 
     const handleRunAI = () => {
@@ -449,24 +496,62 @@ export default function ChecklistSummaryPage() {
 
                                 <div className="flex items-center gap-2 bg-white px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm">
                                     <Select value={selectedPromptId} onValueChange={setSelectedPromptId}>
-                                        <SelectTrigger className="w-[130px] h-7 border-none shadow-none focus:ring-0 text-xs font-bold p-0">
+                                        <SelectTrigger className="w-[160px] h-7 border-none shadow-none focus:ring-0 text-xs font-bold p-0">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {prompts.map(p => (
-                                                <SelectItem key={p.id} value={p.id} className="text-xs">{p.name}</SelectItem>
+                                                <div key={p.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-slate-100 cursor-pointer rounded-sm" onClick={() => setSelectedPromptId(p.id)}>
+                                                    <span className={cn("text-xs flex-1", selectedPromptId === p.id && "font-bold text-indigo-600")}>
+                                                        {p.name}
+                                                    </span>
+                                                    <div className="flex items-center gap-1 ml-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-5 w-5 text-slate-400 hover:text-indigo-600 p-0"
+                                                            onClick={(e) => startEditPrompt(p, e)}
+                                                        >
+                                                            <Pencil className="w-3 h-3" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-5 w-5 text-slate-400 hover:text-red-600 p-0"
+                                                            onClick={(e) => handleDeletePrompt(p.id, e)}
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                    <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
+                                    <Dialog open={isPromptDialogOpen} onOpenChange={(open) => {
+                                        setIsPromptDialogOpen(open)
+                                        if (!open) {
+                                            setEditingPromptId(null)
+                                            setNewPromptName('')
+                                            setNewPromptContent('')
+                                        }
+                                    }}>
                                         <DialogTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-lg ml-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-slate-600 hover:bg-slate-50 rounded-lg ml-1"
+                                                onClick={() => {
+                                                    setEditingPromptId(null)
+                                                    setNewPromptName('')
+                                                    setNewPromptContent('')
+                                                }}
+                                            >
                                                 <Plus className="w-3.5 h-3.5" />
                                             </Button>
                                         </DialogTrigger>
                                         <DialogContent>
                                             <DialogHeader>
-                                                <DialogTitle>AIプロンプトの追加</DialogTitle>
+                                                <DialogTitle>{editingPromptId ? 'AIプロンプトの編集' : 'AIプロンプトの追加'}</DialogTitle>
                                             </DialogHeader>
                                             <div className="space-y-4 py-4">
                                                 <div className="space-y-2">
@@ -513,7 +598,12 @@ export default function ChecklistSummaryPage() {
                                 フィルタ: ${filterTeam !== 'all' ? `チーム:${filterTeam}` : '全チーム'} | ${filterEmployment !== 'all' ? `形態:${filterEmployment}` : '全形態'}
                                 
                                 報告データ概要:
-                                ${filteredSummaries.map(s => `- ${s.name} (${s.team}): ${s.checkedCount}完了, 報酬:¥${s.reward}, メモ:"${s.memo}"`).join('\n')}
+                                ${filteredSummaries.map(s => {
+                                    const freeTextSummary = s.items?.filter((i: any) => i.isFreeText && i.freeTextValue)
+                                        .map((i: any) => `${i.title}: "${i.freeTextValue}"`)
+                                        .join(', ') || 'なし'
+                                    return `- ${s.name} (${s.team}): ${s.checkedCount}完了, 報酬:¥${s.reward}, メモ:"${s.memo}", 自由記入欄:[${freeTextSummary}]`
+                                }).join('\n')}
                                 
                                 AIによる総括が生成されている場合:
                                 ${aiReport ? aiReport : '未生成'}

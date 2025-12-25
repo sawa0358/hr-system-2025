@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 日付を正規化するヘルパー関数
+function parseDate(dateStr: string): Date {
+    const parts = dateStr.split('-').map(Number)
+    return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0)
+}
+
+// 日付を文字列に変換するヘルパー関数
+function formatDate(date: Date): string {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+}
+
 // GET /api/workclock/ai-reports - 期間指定でレポート一覧を取得
 export async function GET(request: NextRequest) {
     try {
@@ -12,27 +26,112 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const startDate = searchParams.get('startDate')
         const endDate = searchParams.get('endDate')
+        const autoGenerate = searchParams.get('autoGenerate') === 'true'
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
 
-        const where: any = {}
+        if (!startDate || !endDate) {
+            return NextResponse.json({ error: '開始日と終了日が必要です' }, { status: 400 })
+        }
 
-        if (startDate || endDate) {
-            where.date = {}
-            if (startDate) {
-                const parts = startDate.split('-').map(Number)
-                where.date.gte = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0)
+        const startDateObj = parseDate(startDate)
+        const endDateObj = parseDate(endDate)
+        endDateObj.setHours(23, 59, 59, 999)
+
+        // autoGenerateが有効な場合、チェックリスト提出がある日でAIレポートがない日を自動生成
+        if (autoGenerate) {
+            // 1. 期間内のチェックリスト提出がある日を取得
+            const submissions = await (prisma as any).workClockChecklistSubmission.findMany({
+                where: {
+                    date: {
+                        gte: startDateObj,
+                        lte: endDateObj,
+                    }
+                },
+                include: {
+                    items: true
+                }
+            })
+
+            // 日付ごとにグループ化
+            const submissionsByDate: Record<string, any[]> = {}
+            for (const s of submissions) {
+                const dateStr = formatDate(new Date(s.date))
+                if (!submissionsByDate[dateStr]) {
+                    submissionsByDate[dateStr] = []
+                }
+                submissionsByDate[dateStr].push(s)
             }
-            if (endDate) {
-                const parts = endDate.split('-').map(Number)
-                where.date.lte = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999)
+
+            // 2. 既存のAIレポートを取得
+            const existingReports = await (prisma as any).workClockAIReport.findMany({
+                where: {
+                    date: {
+                        gte: startDateObj,
+                        lte: endDateObj,
+                    }
+                },
+                select: { date: true }
+            })
+
+            const existingDates = new Set(existingReports.map((r: any) => formatDate(new Date(r.date))))
+
+            // 3. AIレポートがない日を自動生成
+            const newReports = []
+            for (const [dateStr, subs] of Object.entries(submissionsByDate)) {
+                if (!existingDates.has(dateStr)) {
+                    // この日のサマリーを生成
+                    const workerCount = subs.length
+                    const alerts = subs.filter((s: any) => s.isSafetyAlert).length
+                    const totalReward = subs.reduce((acc: number, s: any) => {
+                        return acc + (s.items || []).reduce((itemAcc: number, item: any) => {
+                            const isEligible = item.isChecked || (item.isFreeText && item.freeTextValue?.trim())
+                            return itemAcc + (isEligible ? item.reward : 0)
+                        }, 0)
+                    }, 0)
+
+                    // 簡易的なサマリーを生成
+                    const completedCount = subs.filter((s: any) => {
+                        const mandatoryItems = (s.items || []).filter((it: any) => it.isMandatory)
+                        const checkedMandatory = mandatoryItems.filter((it: any) =>
+                            it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+                        ).length
+                        return mandatoryItems.length === 0 || checkedMandatory === mandatoryItems.length
+                    }).length
+
+                    const summary = `【自動生成レポート】
+対象者: ${workerCount}名（完了: ${completedCount}名）
+合計報酬: ¥${totalReward.toLocaleString()}
+${alerts > 0 ? `⚠️ ヒヤリハット報告: ${alerts}件` : '✅ 異常報告なし'}`
+
+                    // DBに保存
+                    const report = await (prisma as any).workClockAIReport.create({
+                        data: {
+                            date: parseDate(dateStr),
+                            summary,
+                            promptId: null,
+                            promptName: '自動生成',
+                            workerCount,
+                            alerts,
+                            totalReward,
+                            createdBy: userId,
+                        }
+                    })
+                    newReports.push(report)
+                }
             }
         }
 
-        // 総件数を取得
+        // 最終的なレポート一覧を取得
+        const where = {
+            date: {
+                gte: startDateObj,
+                lte: endDateObj,
+            }
+        }
+
         const total = await (prisma as any).workClockAIReport.count({ where })
 
-        // ページネーション付きでレポートを取得
         const reports = await (prisma as any).workClockAIReport.findMany({
             where,
             orderBy: [
@@ -43,7 +142,6 @@ export async function GET(request: NextRequest) {
             take: limit,
         })
 
-        // 日付をフォーマット
         const formattedReports = reports.map((report: any) => ({
             ...report,
             date: report.date.toISOString().split('T')[0],
@@ -81,9 +179,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: '日付とサマリーは必須です' }, { status: 400 })
         }
 
-        // 日付を正規化
-        const dateParts = date.split('-').map(Number)
-        const reportDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 0, 0, 0, 0)
+        const reportDate = parseDate(date)
 
         const report = await (prisma as any).workClockAIReport.create({
             data: {

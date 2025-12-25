@@ -250,14 +250,15 @@ export default function ChecklistSummaryPage() {
         }
     }, [currentUser])
 
-    // AIレポートの取得
-    const fetchAIReports = async (page = 1) => {
+    // AIレポートの取得（autoGenerate=trueで未生成日を自動生成）
+    const fetchAIReports = async (page = 1, autoGenerate = true) => {
         if (!currentUser?.id || !dateRange?.from || !dateRange?.to) return
         setIsLoadingReports(true)
         try {
             const startDate = format(dateRange.from, 'yyyy-MM-dd')
             const endDate = format(dateRange.to, 'yyyy-MM-dd')
-            const response = await fetch(`/api/workclock/ai-reports?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=10`, {
+            const autoGenerateParam = autoGenerate ? '&autoGenerate=true' : ''
+            const response = await fetch(`/api/workclock/ai-reports?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=10${autoGenerateParam}`, {
                 headers: { 'x-employee-id': currentUser.id }
             })
             const data = await response.json()

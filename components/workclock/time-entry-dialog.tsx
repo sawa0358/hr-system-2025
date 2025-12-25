@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ChecklistPanel } from './checklist-panel'
+import { api } from '@/lib/workclock/api'
 
 interface TimeEntryDialogProps {
   open: boolean
@@ -112,6 +113,8 @@ export function TimeEntryDialog({
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
   const [checklistReward, setChecklistReward] = useState(0)
+  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; memo: string; items: any[] } | null>(null)
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false)
 
   // UI状態管理（window.confirm/alertの代替）
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -311,7 +314,7 @@ export function TimeEntryDialog({
             </div>
             <TabsList className="grid w-full grid-cols-2 bg-slate-200/60 p-0.5 h-10 rounded-xl">
               <TabsTrigger value="time" className="text-sm font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300">
-                <Clock className="w-4 h-4 mr-2" /> 時間記録
+                <Clock className="w-4 h-4 mr-2" /> 勤務記録
               </TabsTrigger>
               <TabsTrigger value="checklist" className="text-sm font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300">
                 <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" /> 業務チェック
@@ -761,17 +764,67 @@ export function TimeEntryDialog({
               workerId={workerId}
               selectedDate={selectedDate}
               onRewardChange={setChecklistReward}
+              onStateChange={setChecklistState}
             />
             <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
               <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
                 キャンセル
               </Button>
-              <Button onClick={() => {
-                alert('【デモ】本日の業務報告を全て保存しました！')
-                onOpenChange(false)
-              }} size="sm" className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6">
+              <Button
+                onClick={async () => {
+                  // 勤務記録があるか確認
+                  if (existingEntries.length === 0) {
+                    const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
+                    if (!proceed) return
+                  }
+
+                  if (!checklistState || !currentUser?.id) {
+                    console.warn('チェックリスト状態がありません')
+                    onOpenChange(false)
+                    return
+                  }
+
+                  // チェックされた項目があるか確認
+                  const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
+                  if (checkedCount === 0) {
+                    const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
+                    if (!proceed) return
+                  }
+
+                  setIsSavingChecklist(true)
+                  try {
+                    // チェックリスト提出を保存
+                    const submissionItems = checklistState.items.map(item => ({
+                      itemId: item.id,
+                      title: item.title,
+                      isChecked: !!checklistState.checkedItems[item.id],
+                      reward: checklistState.checkedItems[item.id] ? item.reward : 0,
+                      isMandatory: item.isMandatory,
+                    }))
+
+                    await api.checklist.submissions.create({
+                      workerId,
+                      date: dateStr,
+                      patternId: worker?.checklistPatternId,
+                      items: submissionItems,
+                      memo: checklistState.memo,
+                      totalReward: checklistReward,
+                    })
+
+                    onClose()
+                  } catch (error) {
+                    console.error('チェックリスト保存エラー:', error)
+                    alert('チェックリストの保存に失敗しました')
+                  } finally {
+                    setIsSavingChecklist(false)
+                  }
+                }}
+                size="sm"
+                className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"
+                disabled={isSavingChecklist}
+              >
                 <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                報告を送信して完了
+                {isSavingChecklist ? '保存中...' : '報告を送信して完了'}
               </Button>
             </div>
           </TabsContent>

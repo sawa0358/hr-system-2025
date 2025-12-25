@@ -18,9 +18,10 @@ interface ChecklistPanelProps {
     workerId: string
     selectedDate: Date
     onRewardChange?: (reward: number) => void
+    onStateChange?: (state: { checkedItems: Record<string, boolean>; memo: string; items: ChecklistItem[] }) => void
 }
 
-export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange }: ChecklistPanelProps) {
+export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
     const [reportText, setReportText] = useState('')
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
@@ -72,8 +73,16 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange 
                 return total + (newState[item.id] ? item.reward : 0)
             }, 0)
             onRewardChange?.(newTotal)
+            // 状態を親に通知
+            onStateChange?.({ checkedItems: newState, memo: reportText, items: checklistItems })
             return newState
         })
+    }
+
+    // メモ変更時も親に通知
+    const handleMemoChange = (text: string) => {
+        setReportText(text)
+        onStateChange?.({ checkedItems, memo: text, items: checklistItems })
     }
 
     const currentRewardTotal = checklistItems.reduce((total, item) => {
@@ -281,7 +290,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange 
                                 placeholder="特記事項、申し送りなど..."
                                 className="min-h-[100px] border-0 focus-visible:ring-0 text-xs p-3 rounded-none resize-none"
                                 value={reportText}
-                                onChange={(e) => setReportText(e.target.value)}
+                                onChange={(e) => handleMemoChange(e.target.value)}
                             />
                             <div className="bg-slate-50/80 border-t px-3 py-1.5 flex items-center justify-between">
                                 <p className="text-[9px] text-slate-400 italic">

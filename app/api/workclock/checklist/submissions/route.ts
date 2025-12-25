@@ -5,6 +5,11 @@ import { prisma } from '@/lib/prisma'
 // GET /api/workclock/checklist/submissions
 export async function GET(request: Request) {
     try {
+        const userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
+        if (!userId) {
+            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+        }
+
         const { searchParams } = new URL(request.url)
         const workerId = searchParams.get('workerId')
         const startDate = searchParams.get('startDate')
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
             where,
             include: {
                 worker: {
-                    select: { name: true, teams: true, role: true }
+                    select: { name: true, teams: true, role: true, companyName: true }
                 },
                 items: true,
             },
@@ -45,6 +50,11 @@ export async function GET(request: Request) {
 // POST /api/workclock/checklist/submissions
 export async function POST(request: Request) {
     try {
+        const userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
+        if (!userId) {
+            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+        }
+
         const body = await request.json()
         const { workerId, date, memo, hasPhoto, isSafetyAlert, items } = body
 

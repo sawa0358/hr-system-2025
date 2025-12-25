@@ -215,6 +215,8 @@ export default function ChecklistSummaryPage() {
     })
 
     const isInitialMount = useRef(true)
+    const [realSummaries, setRealSummaries] = useState<any[]>([])
+    const [isLoadingData, setIsLoadingData] = useState(false)
 
     // AIプロンプトの永続化（localStorage）
     useEffect(() => {
@@ -225,7 +227,7 @@ export default function ChecklistSummaryPage() {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     setPrompts(parsed)
                     // 初期選択プロンプトの整合性チェック
-                    if (selectedPromptId && !parsed.find(p => p.id === selectedPromptId)) {
+                    if (selectedPromptId && !parsed.find((p: any) => p.id === selectedPromptId)) {
                         setSelectedPromptId(parsed[0].id)
                     }
                 }
@@ -251,16 +253,113 @@ export default function ChecklistSummaryPage() {
         }
     }, [currentUser])
 
+    // データの取得
+    const fetchSummaries = async () => {
+        if (!currentUser?.id) return
+        setIsLoadingData(true)
+        try {
+            const dateStr = format(filterDate, 'yyyy-MM-dd')
+            const options = {
+                headers: {
+                    'x-employee-id': currentUser.id
+                }
+            }
+
+            // 1. 全ワーカーを取得
+            const workers = await getWorkers(currentUser.id)
+
+            // 2. 提出データを取得
+            const response = await fetch(`/api/workclock/checklist/submissions?startDate=${dateStr}&endDate=${dateStr}`, options)
+            const data = await response.json()
+            const submissions = data.submissions || []
+            const submissionMap = submissions.reduce((acc: any, s: any) => {
+                acc[s.workerId] = s
+                return acc
+            }, {})
+
+            // 3. 勤務時間を取得してマッピング
+            const timeEntriesRes = await fetch(`/api/workclock/time-entries?startDate=${dateStr}&endDate=${dateStr}`, options)
+            const timeData = await timeEntriesRes.json()
+            const timeEntries = Array.isArray(timeData) ? timeData : (timeData?.entries || [])
+            const timeMap = timeEntries.reduce((acc: any, entry: any) => {
+                acc[entry.workerId] = `${entry.startTime} - ${entry.endTime}`
+                return acc
+            }, {})
+
+            // 4. 全ワーカーをベースにマッピング（未提出者を含む）
+            const mapped = workers.map((w: any) => {
+                const s = submissionMap[w.id]
+                const totalItems = s?.items?.length || 0
+                const checkedItems = (s?.items || []).filter((it: any) =>
+                    it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+                ).length
+                const mandatoryItems = (s?.items || []).filter((it: any) => it.isMandatory)
+                const checkedMandatory = mandatoryItems.filter((it: any) =>
+                    it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+                ).length
+
+                const isCompleted = mandatoryItems.length > 0 ? (checkedMandatory === mandatoryItems.length) : (s ? true : false)
+
+                let parsedTeams: string[] = []
+                try {
+                    parsedTeams = typeof w.teams === 'string' ? JSON.parse(w.teams) : (w.teams || [])
+                } catch (e) {
+                    parsedTeams = []
+                }
+
+                return {
+                    id: s?.id || `no-submission-${w.id}`,
+                    workerId: w.id,
+                    name: w.name || '不明',
+                    team: parsedTeams[0] || '未所属',
+                    teams: parsedTeams,
+                    employmentType: w.companyName || '業務委託',
+                    role: w.role || 'worker',
+                    time: timeMap[w.id] || '未登録',
+                    status: s ? (isCompleted ? 'completed' : 'partial') : 'none',
+                    checkedCount: s ? `${checkedItems}/${totalItems}` : '未報告',
+                    reward: s?.items?.reduce((acc: number, it: any) => {
+                        const isEligible = it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+                        return acc + (isEligible ? it.reward : 0)
+                    }, 0) || 0,
+                    hasPhoto: s?.hasPhoto || false,
+                    memo: s?.memo || '',
+                    isSafetyAlert: s?.isSafetyAlert || false,
+                    createdAt: s?.createdAt || null,
+                    items: s?.items || []
+                }
+            })
+            setRealSummaries(mapped)
+        } catch (error) {
+            console.error('Failed to fetch summaries:', error)
+            setRealSummaries([])
+        } finally {
+            setIsLoadingData(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchSummaries()
+    }, [filterDate, currentUser])
+
     const selectedPrompt = prompts.find(p => p.id === selectedPromptId) || prompts[0]
 
-    const filteredSummaries = DAILY_SUMMARIES.filter(row => {
-        if (filterTeam !== 'all' && row.team !== filterTeam) return false
+    const filteredSummaries = realSummaries.filter(row => {
+        if (filterTeam !== 'all' && !row.teams.includes(filterTeam)) return false
         if (filterEmployment !== 'all' && row.employmentType !== filterEmployment) return false
         if (filterRole !== 'all' && row.role !== filterRole) return false
         return true
     }).sort((a, b) => {
-        if (sortOrder === 'newest') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        if (sortOrder === 'oldest') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        if (sortOrder === 'newest') {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            return dateB - dateA
+        }
+        if (sortOrder === 'oldest') {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : Infinity
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : Infinity
+            return dateA - dateB
+        }
         if (sortOrder === 'name_asc') return a.name.localeCompare(b.name, 'ja')
         if (sortOrder === 'team_asc') return a.team.localeCompare(b.team, 'ja')
         if (sortOrder === 'role_desc') return (a.role === 'admin' ? 0 : 1) - (b.role === 'admin' ? 0 : 1)
@@ -770,7 +869,16 @@ export default function ChecklistSummaryPage() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {filteredSummaries.length === 0 ? (
+                                                {isLoadingData ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="py-20 text-center text-slate-400">
+                                                            <div className="flex flex-col items-center gap-4">
+                                                                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                                                <p className="text-sm font-medium animate-pulse">解析中...</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : filteredSummaries.length === 0 ? (
                                                     <TableRow>
                                                         <TableCell colSpan={5} className="text-center py-20 text-slate-400">
                                                             該当する報告がありません
@@ -802,8 +910,10 @@ export default function ChecklistSummaryPage() {
                                                                     <div className="flex items-center gap-2">
                                                                         {row.status === 'completed' ? (
                                                                             <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                                                        ) : (
+                                                                        ) : row.status === 'partial' ? (
                                                                             <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                                                        ) : (
+                                                                            <div className="w-2 h-2 rounded-full bg-slate-300" />
                                                                         )}
                                                                         <span className="text-sm font-bold text-slate-700">{row.checkedCount}</span>
                                                                     </div>

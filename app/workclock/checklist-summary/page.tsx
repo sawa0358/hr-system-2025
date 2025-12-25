@@ -22,7 +22,10 @@ import {
     Bot,
     Calendar as CalendarIcon,
     Filter,
-    Search
+    Search,
+    History,
+    Clock,
+    FileSearch
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { getWorkers, getTeams } from '@/lib/workclock/api-storage'
@@ -56,10 +59,43 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
 import { AIAskButton } from '@/components/ai-ask-button'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { DateRange } from 'react-day-picker'
+
+// 歴史的AIレポートのモック
+const HISTORICAL_REPORTS = [
+    {
+        date: subDays(new Date(), 1),
+        summary: "全完了。清掃クオリティが非常に高く、クレームゼロでした。特にAチームの連携が良好です。",
+        workerCount: 12,
+        alerts: 0,
+        reward: 12500
+    },
+    {
+        date: subDays(new Date(), 2),
+        summary: "一部未完了あり。Bチームで欠員が出ていましたが、他チームのバックアップで概ねカバーされました。",
+        workerCount: 11,
+        alerts: 1,
+        reward: 10800
+    },
+    {
+        date: subDays(new Date(), 3),
+        summary: "ヒヤリハット報告1件あり。脚立の安全性に問題が見つかったため、明日の朝礼で周知が必要です。",
+        workerCount: 13,
+        alerts: 1,
+        reward: 14200
+    },
+    {
+        date: subDays(new Date(), 4),
+        summary: "順調。マニュアル通りの運用が徹底されており、作業時間が平均15%短縮されました。",
+        workerCount: 12,
+        alerts: 0,
+        reward: 13000
+    },
+]
 
 // モックデータ: 日次のチェックリスト提出状況
 const DAILY_SUMMARIES = [
@@ -161,6 +197,11 @@ export default function ChecklistSummaryPage() {
     // モーダル状態
     const [selectedReport, setSelectedReport] = useState<any>(null)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [viewMode, setViewMode] = useState<'daily' | 'period'>('daily')
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: subDays(new Date(), 7),
+        to: new Date()
+    })
 
     useEffect(() => {
         if (currentUser?.id) {
@@ -184,6 +225,17 @@ export default function ChecklistSummaryPage() {
         return 0
     })
 
+    const filteredHistoricalReports = HISTORICAL_REPORTS.filter(report => {
+        if (!dateRange?.from || !dateRange?.to) return true
+        const d = new Date(report.date)
+        d.setHours(0, 0, 0, 0)
+        const from = new Date(dateRange.from)
+        from.setHours(0, 0, 0, 0)
+        const to = new Date(dateRange.to)
+        to.setHours(23, 59, 59, 999)
+        return d >= from && d <= to
+    }).sort((a, b) => b.date.getTime() - a.date.getTime())
+
     const handleSavePrompt = () => {
         if (!newPromptName || !newPromptContent) return
         const newPrompt = {
@@ -201,12 +253,13 @@ export default function ChecklistSummaryPage() {
     const handleRunAI = () => {
         setIsSummarizing(true)
         setTimeout(() => {
-            const workerCount = filteredSummaries.length
-            const completedCount = filteredSummaries.filter(s => s.status === 'completed').length
-            const totalReward = filteredSummaries.reduce((acc, s) => acc + s.reward, 0)
-            const alerts = filteredSummaries.filter(s => s.isSafetyAlert).map(s => `${s.name}: ${s.memo}`).join('\n')
+            if (viewMode === 'daily') {
+                const workerCount = filteredSummaries.length
+                const completedCount = filteredSummaries.filter((s: any) => s.status === 'completed').length
+                const totalReward = filteredSummaries.reduce((acc: number, s: any) => acc + s.reward, 0)
+                const alerts = filteredSummaries.filter((s: any) => s.isSafetyAlert).map((s: any) => `${s.name}: ${s.memo}`).join('\n')
 
-            setAiReport(`
+                setAiReport(`
 【${selectedPrompt.name} に基づく分析】
 プロンプト: ${selectedPrompt.content}
 
@@ -218,6 +271,27 @@ export default function ChecklistSummaryPage() {
 ・特筆すべき点: ${alerts || '不具合報告はありません。'}
 ・AIの見解: 稼働率が安定しており、${selectedPrompt.id === '2' ? '備品管理の自動化を検討すべきです。' : '全体的に良好なコンディションです。'}
       `)
+            } else {
+                const reportCount = filteredHistoricalReports.length
+                const totalWorkerCount = filteredHistoricalReports.reduce((acc, r) => acc + r.workerCount, 0)
+                const totalReward = filteredHistoricalReports.reduce((acc, r) => acc + r.reward, 0)
+                const totalAlerts = filteredHistoricalReports.reduce((acc, r) => acc + r.alerts, 0)
+
+                setAiReport(`
+【${selectedPrompt.name} に基づく期間分析】
+プロンプト: ${selectedPrompt.content}
+
+対象期間: ${dateRange?.from ? format(dateRange.from, 'yyyy/MM/dd') : ''} 〜 ${dateRange?.to ? format(dateRange.to, 'yyyy/MM/dd') : ''}
+対象レポート数: ${reportCount}件（延べ作業者数: ${totalWorkerCount}名）
+合計報酬: ¥${totalReward.toLocaleString()}
+
+【期間総括】
+・選択された期間において、計${reportCount}件のAIレポートを統合分析しました。
+・リスク報告（${totalAlerts}件）の傾向を分析し、安全管理のさらなる強化が必要です。
+・AIによる改善提案: 
+  ${selectedPrompt.id === '2' ? '特定の工程における遅延が常態化している可能性があります。' : '安定した出力が得られていますが、インセンティブ配分の最適化による更なる意欲向上の余地があります。'}
+      `)
+            }
             setIsSummarizing(false)
         }, 1500)
     }
@@ -283,13 +357,45 @@ export default function ChecklistSummaryPage() {
                 <div className="container mx-auto p-4 md:p-8 space-y-6 max-w-6xl">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div className="space-y-1">
-                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">業務チェック集計</h1>
+                            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                                {viewMode === 'daily' ? '業務チェック集計' : 'AI総括レポート履歴'}
+                            </h1>
                             <p className="text-sm text-slate-500 font-medium">
-                                {format(filterDate, 'yyyy年MM月dd日 (E)', { locale: ja })} の報告状況とAI分析
+                                {viewMode === 'daily'
+                                    ? `${format(filterDate, 'yyyy年MM月dd日 (E)', { locale: ja })} の報告状況とAI分析`
+                                    : `${dateRange?.from ? format(dateRange.from, 'yyyy/MM/dd') : ''} 〜 ${dateRange?.to ? format(dateRange.to, 'yyyy/MM/dd') : ''} の期間分析`
+                                }
                             </p>
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex bg-white/40 backdrop-blur-sm border border-white/60 p-1 rounded-2xl shadow-sm">
+                                <Button
+                                    variant={viewMode === 'daily' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    className={cn(
+                                        "rounded-xl px-4 h-8 text-xs font-bold transition-all duration-300",
+                                        viewMode === 'daily' ? "bg-indigo-600 text-white shadow-md hover:bg-indigo-700" : "text-slate-500 hover:text-indigo-600"
+                                    )}
+                                    onClick={() => setViewMode('daily')}
+                                >
+                                    <Clock className="w-3.5 h-3.5 mr-2" />
+                                    日次
+                                </Button>
+                                <Button
+                                    variant={viewMode === 'period' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    className={cn(
+                                        "rounded-xl px-4 h-8 text-xs font-bold transition-all duration-300",
+                                        viewMode === 'period' ? "bg-indigo-600 text-white shadow-md hover:bg-indigo-700" : "text-slate-500 hover:text-indigo-600"
+                                    )}
+                                    onClick={() => setViewMode('period')}
+                                >
+                                    <History className="w-3.5 h-3.5 mr-2" />
+                                    期間
+                                </Button>
+                            </div>
+
                             <div className="flex flex-wrap items-center gap-2 p-1.5 bg-white/40 backdrop-blur-sm border border-white/60 rounded-2xl shadow-sm">
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -297,21 +403,47 @@ export default function ChecklistSummaryPage() {
                                             variant="outline"
                                             className={cn(
                                                 "h-10 px-4 justify-start text-left font-bold text-xs bg-white rounded-xl border-slate-100 shadow-sm transition-all hover:bg-slate-50",
-                                                !filterDate && "text-muted-foreground"
+                                                !(viewMode === 'daily' ? filterDate : dateRange) && "text-muted-foreground"
                                             )}
                                         >
                                             <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                                            {filterDate ? format(filterDate, "yyyy/MM/dd") : <span>日付を選択</span>}
+                                            {viewMode === 'daily' ? (
+                                                filterDate ? format(filterDate, "yyyy/MM/dd") : <span>日付を選択</span>
+                                            ) : (
+                                                dateRange?.from ? (
+                                                    dateRange.to ? (
+                                                        <>
+                                                            {format(dateRange.from, "MM/dd")} - {format(dateRange.to, "MM/dd")}
+                                                        </>
+                                                    ) : (
+                                                        format(dateRange.from, "MM/dd")
+                                                    )
+                                                ) : (
+                                                    <span>期間を選択</span>
+                                                )
+                                            )}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="end">
-                                        <Calendar
-                                            mode="single"
-                                            selected={filterDate}
-                                            onSelect={(date) => date && setFilterDate(date)}
-                                            initialFocus
-                                            locale={ja}
-                                        />
+                                        {viewMode === 'daily' ? (
+                                            <Calendar
+                                                mode="single"
+                                                selected={filterDate}
+                                                onSelect={(date) => date && setFilterDate(date)}
+                                                initialFocus
+                                                locale={ja}
+                                            />
+                                        ) : (
+                                            <Calendar
+                                                initialFocus
+                                                mode="range"
+                                                defaultMonth={dateRange?.from}
+                                                selected={dateRange}
+                                                onSelect={setDateRange}
+                                                numberOfMonths={2}
+                                                locale={ja}
+                                            />
+                                        )}
                                     </PopoverContent>
                                 </Popover>
 
@@ -364,7 +496,7 @@ export default function ChecklistSummaryPage() {
                                 </div>
                                 <Button
                                     onClick={handleRunAI}
-                                    disabled={isSummarizing || filteredSummaries.length === 0}
+                                    disabled={isSummarizing || (viewMode === 'daily' ? filteredSummaries.length === 0 : filteredHistoricalReports.length === 0)}
                                     className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md h-10 px-5 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-95"
                                 >
                                     <Sparkles className="w-3.5 h-3.5 mr-2" />
@@ -390,201 +522,277 @@ export default function ChecklistSummaryPage() {
                         </div>
                     </div>
 
-                    {/* フィルタエリア */}
-                    <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
-                        <CardContent className="p-4">
-                            <div className="flex flex-wrap gap-4">
-                                <div className="flex-1 min-w-[140px] space-y-1.5">
-                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">チーム</Label>
-                                    <Select value={filterTeam} onValueChange={setFilterTeam}>
-                                        <SelectTrigger className="bg-white border-slate-200 h-9">
-                                            <SelectValue placeholder="すべて" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">すべて</SelectItem>
-                                            {teams.map((team) => (
-                                                <SelectItem key={team} value={team}>{team}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex-1 min-w-[140px] space-y-1.5">
-                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">雇用形態</Label>
-                                    <Select value={filterEmployment} onValueChange={setFilterEmployment}>
-                                        <SelectTrigger className="bg-white border-slate-200 h-9">
-                                            <SelectValue placeholder="すべて" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">すべて</SelectItem>
-                                            <SelectItem value="業務委託">業務委託</SelectItem>
-                                            <SelectItem value="外注先">外注先</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex-1 min-w-[140px] space-y-1.5">
-                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">権限</Label>
-                                    <Select value={filterRole} onValueChange={setFilterRole}>
-                                        <SelectTrigger className="bg-white border-slate-200 h-9">
-                                            <SelectValue placeholder="すべて" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">すべて</SelectItem>
-                                            <SelectItem value="admin">リーダー</SelectItem>
-                                            <SelectItem value="worker">業務委託・外注先</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex-1 min-w-[140px] space-y-1.5">
-                                    <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">並び順</Label>
-                                    <Select value={sortOrder} onValueChange={setSortOrder}>
-                                        <SelectTrigger className="bg-white border-slate-200 h-9">
-                                            <SelectValue placeholder="登録日時（新しい順）" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="newest">登録日時（新しい順）</SelectItem>
-                                            <SelectItem value="oldest">登録日時（古い順）</SelectItem>
-                                            <SelectItem value="name_asc">名前順</SelectItem>
-                                            <SelectItem value="team_asc">チーム名順</SelectItem>
-                                            <SelectItem value="role_desc">権限順</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* AIレポート表示エリア */}
-                    {aiReport && (
-                        <Card className="border-2 border-purple-200 bg-purple-50/50 shadow-md animate-in fade-in slide-in-from-top-4 duration-500">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-purple-700 flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles className="w-5 h-5" /> AI総括レポート
+                    {viewMode === 'daily' ? (
+                        <>
+                            {/* フィルタエリア */}
+                            <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
+                                <CardContent className="p-4">
+                                    <div className="flex flex-wrap gap-4">
+                                        <div className="flex-1 min-w-[140px] space-y-1.5">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">チーム</Label>
+                                            <Select value={filterTeam} onValueChange={setFilterTeam}>
+                                                <SelectTrigger className="bg-white border-slate-200 h-9">
+                                                    <SelectValue placeholder="すべて" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">すべて</SelectItem>
+                                                    {teams.map((team) => (
+                                                        <SelectItem key={team} value={team}>{team}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        {/* ... other filters ... */}
+                                        <div className="flex-1 min-w-[140px] space-y-1.5">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">雇用形態</Label>
+                                            <Select value={filterEmployment} onValueChange={setFilterEmployment}>
+                                                <SelectTrigger className="bg-white border-slate-200 h-9">
+                                                    <SelectValue placeholder="すべて" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">すべて</SelectItem>
+                                                    <SelectItem value="業務委託">業務委託</SelectItem>
+                                                    <SelectItem value="外注先">外注先</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex-1 min-w-[140px] space-y-1.5">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">権限</Label>
+                                            <Select value={filterRole} onValueChange={setFilterRole}>
+                                                <SelectTrigger className="bg-white border-slate-200 h-9">
+                                                    <SelectValue placeholder="すべて" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">すべて</SelectItem>
+                                                    <SelectItem value="admin">リーダー</SelectItem>
+                                                    <SelectItem value="worker">業務委託・外注先</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="flex-1 min-w-[140px] space-y-1.5">
+                                            <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">並び順</Label>
+                                            <Select value={sortOrder} onValueChange={setSortOrder}>
+                                                <SelectTrigger className="bg-white border-slate-200 h-9">
+                                                    <SelectValue placeholder="登録日時（新しい順）" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="newest">登録日時（新しい順）</SelectItem>
+                                                    <SelectItem value="oldest">登録日時（古い順）</SelectItem>
+                                                    <SelectItem value="name_asc">名前順</SelectItem>
+                                                    <SelectItem value="team_asc">チーム名順</SelectItem>
+                                                    <SelectItem value="role_desc">権限順</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
                                     </div>
-                                    <Badge variant="outline" className="text-[10px] bg-white/50 border-purple-200 text-purple-600">
-                                        対象: {filteredSummaries.length}名
-                                    </Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="whitespace-pre-wrap text-slate-700 leading-relaxed bg-white/60 p-4 rounded-lg border border-purple-100 italic font-medium">
-                                    {aiReport}
-                                </div>
-                                <div className="flex gap-4 mt-4">
-                                    <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
-                                        <FileText className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                                        マニュアル作成案を生成
-                                    </Button>
-                                    <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
-                                        <ChevronRight className="w-3.5 h-3.5 mr-2 text-purple-600" />
-                                        翌日のタスクを割り当て
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="ml-auto text-[11px] h-8 text-slate-400" onClick={() => setAiReport(null)}>
-                                        閉じる
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                                </CardContent>
+                            </Card>
 
-                    <div className="grid grid-cols-1 gap-6">
-                        <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
-                            <CardHeader className="pb-0 border-b border-slate-100 bg-white/50">
-                                <div className="flex items-center justify-between mb-4">
-                                    <CardTitle className="text-lg">ワーカー別 報告一覧</CardTitle>
-                                    <span className="text-xs text-slate-400 font-medium">該当件数: {filteredSummaries.length}件</span>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                                            <TableHead className="w-[180px] text-xs font-bold py-3 pl-6">ワーカー名 / チーム</TableHead>
-                                            <TableHead className="text-xs font-bold py-3">完了 / 全体</TableHead>
-                                            <TableHead className="text-xs font-bold py-3">獲得寸志</TableHead>
-                                            <TableHead className="text-xs font-bold py-3">画像・メモ</TableHead>
-                                            <TableHead className="text-right pr-6 py-3">操作</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {filteredSummaries.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="text-center py-20 text-slate-400">
-                                                    該当する報告がありません
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            filteredSummaries.map((row) => (
-                                                <TableRow
-                                                    key={row.id}
-                                                    className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
-                                                    onClick={() => {
-                                                        setSelectedReport(row)
-                                                        setIsDetailModalOpen(true)
-                                                    }}
-                                                >
-                                                    <TableCell className="pl-6 py-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-bold text-slate-900">{row.name}</span>
-                                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                                <Badge variant="outline" className="text-[10px] px-1 h-4 bg-slate-50 border-slate-200 text-slate-500 font-normal">
-                                                                    {row.team}
+                            {/* AIレポート表示エリア */}
+                            {aiReport && (
+                                <Card className="border-2 border-purple-200 bg-purple-50/50 shadow-md animate-in fade-in slide-in-from-top-4 duration-500">
+                                    <CardHeader className="pb-2">
+                                        <CardTitle className="text-purple-700 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Sparkles className="w-5 h-5" /> AI総括レポート
+                                            </div>
+                                            <Badge variant="outline" className="text-[10px] bg-white/50 border-purple-200 text-purple-600">
+                                                対象: {filteredSummaries.length}名
+                                            </Badge>
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="whitespace-pre-wrap text-slate-700 leading-relaxed bg-white/60 p-4 rounded-lg border border-purple-100 italic font-medium">
+                                            {aiReport}
+                                        </div>
+                                        <div className="flex gap-4 mt-4">
+                                            <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
+                                                <FileText className="w-3.5 h-3.5 mr-2 text-purple-600" />
+                                                マニュアル作成案を生成
+                                            </Button>
+                                            <Button variant="outline" size="sm" className="bg-white text-[11px] h-8">
+                                                <ChevronRight className="w-3.5 h-3.5 mr-2 text-purple-600" />
+                                                翌日のタスクを割り当て
+                                            </Button>
+                                            <Button variant="ghost" size="sm" className="ml-auto text-[11px] h-8 text-slate-400" onClick={() => setAiReport(null)}>
+                                                閉じる
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
+                            <div className="grid grid-cols-1 gap-6">
+                                <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
+                                    <CardHeader className="pb-0 border-b border-slate-100 bg-white/50">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <CardTitle className="text-lg">ワーカー別 報告一覧</CardTitle>
+                                            <span className="text-xs text-slate-400 font-medium">該当件数: {filteredSummaries.length}件</span>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-0">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                                                    <TableHead className="w-[180px] text-xs font-bold py-3 pl-6">ワーカー名 / チーム</TableHead>
+                                                    <TableHead className="text-xs font-bold py-3">完了 / 全体</TableHead>
+                                                    <TableHead className="text-xs font-bold py-3">獲得寸志</TableHead>
+                                                    <TableHead className="text-xs font-bold py-3">画像・メモ</TableHead>
+                                                    <TableHead className="text-right pr-6 py-3">操作</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {filteredSummaries.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} className="text-center py-20 text-slate-400">
+                                                            該当する報告がありません
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    filteredSummaries.map((row) => (
+                                                        <TableRow
+                                                            key={row.id}
+                                                            className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
+                                                            onClick={() => {
+                                                                setSelectedReport(row)
+                                                                setIsDetailModalOpen(true)
+                                                            }}
+                                                        >
+                                                            <TableCell className="pl-6 py-4">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-slate-900">{row.name}</span>
+                                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                                        <Badge variant="outline" className="text-[10px] px-1 h-4 bg-slate-50 border-slate-200 text-slate-500 font-normal">
+                                                                            {row.team}
+                                                                        </Badge>
+                                                                        <span className="text-[10px] text-slate-400">{row.employmentType}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="py-4">
+                                                                <div className="flex flex-col gap-1">
+                                                                    <div className="flex items-center gap-2">
+                                                                        {row.status === 'completed' ? (
+                                                                            <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                                                                        ) : (
+                                                                            <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                                                                        )}
+                                                                        <span className="text-sm font-bold text-slate-700">{row.checkedCount}</span>
+                                                                    </div>
+                                                                    <span className="text-[10px] text-slate-400 lowercase">{row.time}</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="py-4">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-yellow-600 text-sm">¥{row.reward.toLocaleString()}</span>
+                                                                    <span className="text-[9px] text-slate-300 font-mono">INC_DAILY</span>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="py-4">
+                                                                <div className="flex flex-col gap-1.5 min-w-[300px] max-w-[600px]">
+                                                                    <div className="flex gap-1">
+                                                                        {row.hasPhoto && (
+                                                                            <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-blue-100 text-[9px] h-4">画像あり</Badge>
+                                                                        )}
+                                                                        {row.isSafetyAlert && (
+                                                                            <Badge className="bg-red-50 text-red-600 hover:bg-red-50 border-red-100 text-[9px] h-4 flex items-center gap-0.5">
+                                                                                <AlertTriangle className="w-2 h-2" /> ヒヤリハット
+                                                                            </Badge>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className="text-xs text-slate-500 italic leading-snug break-words">
+                                                                        "{row.memo}"
+                                                                    </p>
+                                                                </div>
+                                                            </TableCell>
+                                                            <TableCell className="text-right pr-6 py-4">
+                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <Search className="w-4 h-4 text-slate-400" />
+                                                                </Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="space-y-6">
+                            <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
+                                <CardHeader className="pb-4 bg-white/50 border-b border-slate-100">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <History className="w-5 h-5 text-indigo-600" /> AI総括レポート履歴
+                                        </CardTitle>
+                                        <div className="flex items-center gap-2">
+                                            <Button variant="outline" size="sm" className="h-8 text-[11px] font-bold bg-white border-slate-200">
+                                                <FileSearch className="w-3.5 h-3.5 mr-1" /> 歴史データの取得
+                                            </Button>
+                                            <Badge variant="outline" className="bg-white/50 text-[10px]">過去の分析結果一覧</Badge>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="divide-y divide-slate-100">
+                                        {filteredHistoricalReports.length === 0 ? (
+                                            <div className="py-20 text-center text-slate-400">
+                                                <FileSearch className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                                                <p>選択された期間のレポートはありません</p>
+                                            </div>
+                                        ) : filteredHistoricalReports.map((report, idx) => (
+                                            <div key={idx} className="p-6 hover:bg-white/90 transition-all cursor-pointer group">
+                                                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                                                    <div className="space-y-3 flex-1">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-sm font-bold text-slate-900 bg-slate-100 px-3 py-1 rounded-full">
+                                                                {format(report.date, 'yyyy年MM月dd日 (E)', { locale: ja })}
+                                                            </span>
+                                                            <div className="flex gap-2">
+                                                                <Badge className="bg-blue-50 text-blue-600 border-blue-100 text-[10px]">
+                                                                    {report.workerCount}名 報告
                                                                 </Badge>
-                                                                <span className="text-[10px] text-slate-400">{row.employmentType}</span>
-                                                            </div>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center gap-2">
-                                                                {row.status === 'completed' ? (
-                                                                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                                                                ) : (
-                                                                    <div className="w-2 h-2 rounded-full bg-yellow-400" />
-                                                                )}
-                                                                <span className="text-sm font-bold text-slate-700">{row.checkedCount}</span>
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-400 lowercase">{row.time}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-bold text-yellow-600 text-sm">¥{row.reward.toLocaleString()}</span>
-                                                            <span className="text-[9px] text-slate-300 font-mono">INC_DAILY</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="py-4">
-                                                        <div className="flex flex-col gap-1.5 min-w-[300px] max-w-[600px]">
-                                                            <div className="flex gap-1">
-                                                                {row.hasPhoto && (
-                                                                    <Badge className="bg-blue-50 text-blue-600 hover:bg-blue-50 border-blue-100 text-[9px] h-4">画像あり</Badge>
-                                                                )}
-                                                                {row.isSafetyAlert && (
-                                                                    <Badge className="bg-red-50 text-red-600 hover:bg-red-50 border-red-100 text-[9px] h-4 flex items-center gap-0.5">
-                                                                        <AlertTriangle className="w-2 h-2" /> ヒヤリハット
+                                                                {report.alerts > 0 && (
+                                                                    <Badge className="bg-red-50 text-red-600 border-red-100 text-[10px]">
+                                                                        リスク {report.alerts}件
                                                                     </Badge>
                                                                 )}
                                                             </div>
-                                                            <p className="text-xs text-slate-500 italic leading-snug break-words">
-                                                                "{row.memo}"
+                                                        </div>
+                                                        <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-100/50">
+                                                            <p className="text-sm text-slate-700 leading-relaxed italic">
+                                                                "{report.summary}"
                                                             </p>
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right pr-6 py-4">
-                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <Search className="w-4 h-4 text-slate-400" />
+                                                        <div className="flex items-center gap-4 text-[11px] text-slate-400 font-medium pl-1">
+                                                            <span className="flex items-center gap-1">
+                                                                <Search className="w-3 h-3" /> 詳細を確認
+                                                            </span>
+                                                            <span className="flex items-center gap-1">
+                                                                <MessageSquare className="w-3 h-3" /> この日のAIに質問
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col items-end gap-2 text-right">
+                                                        <div className="text-xs text-slate-400">合計インセンティブ</div>
+                                                        <div className="text-xl font-bold text-indigo-600">¥{report.reward.toLocaleString()}</div>
+                                                        <Button variant="ghost" size="sm" className="mt-2 text-indigo-400 group-hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-all">
+                                                            <ChevronRight className="w-5 h-5" />
                                                         </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
-                    </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    )}
                 </div>
             </main>
+
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
                 <DialogContent className="max-w-3xl overflow-hidden p-0 gap-0 bg-[#f8fafc] border-none shadow-2xl">
                     <DialogHeader className="p-6 bg-white border-b border-slate-100">
@@ -724,6 +932,6 @@ export default function ChecklistSummaryPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }

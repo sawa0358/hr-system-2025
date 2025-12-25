@@ -233,7 +233,8 @@ export function CalendarView({
 
                 // 日付文字列を生成
                 const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-                const hasChecklistOnly = !hasEntries && checklistDates.includes(dateStr)
+                const hasChecklist = checklistDates.includes(dateStr)
+                const hasChecklistOnly = !hasEntries && hasChecklist
 
                 return (
                   <button
@@ -263,35 +264,54 @@ export function CalendarView({
                     </div>
                     {hasEntries ? (
                       <div className="space-y-0.5">
-                        {/* 各勤務の「◯h ＋ 作業内容」を1行ずつ表示（折り返さず truncate） */}
-                        {dayEntries.map((entry) => {
-                          const duration = calculateDuration(
-                            entry.startTime,
-                            entry.endTime,
-                            entry.breakMinutes
-                          )
-                          const hoursDecimal =
-                            duration.hours + duration.minutes / 60
-                          const hoursLabel = `${hoursDecimal
-                            .toFixed(1)
-                            .replace(/\.0$/, '')}h`
+                        {/* モバイル表示：勤務記録+チェックリストがある場合は緑チェックのみ */}
+                        {hasChecklist && (
+                          <div className="flex items-center text-green-600 lg:hidden">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                        )}
+                        {/* 大画面表示：詳細を表示 */}
+                        <div className={hasChecklist ? 'hidden lg:block' : ''}>
+                          {dayEntries.map((entry) => {
+                            const duration = calculateDuration(
+                              entry.startTime,
+                              entry.endTime,
+                              entry.breakMinutes
+                            )
+                            const hoursDecimal =
+                              duration.hours + duration.minutes / 60
+                            const hoursLabel = `${hoursDecimal
+                              .toFixed(1)
+                              .replace(/\.0$/, '')}h`
 
-                          return (
-                            <div
-                              key={entry.id}
-                              className="flex items-center gap-1 text-[10px] text-foreground"
-                            >
-                              <span className="flex-shrink-0 font-semibold">
-                                {hoursLabel}
-                              </span>
-                              {entry.notes && (
-                                <span className="truncate max-w-full">
-                                  {entry.notes}
+                            return (
+                              <div
+                                key={entry.id}
+                                className="flex items-center gap-1 text-[10px] text-foreground"
+                              >
+                                <span className="flex-shrink-0 font-semibold">
+                                  {hoursLabel}
                                 </span>
-                              )}
+                                {entry.notes && (
+                                  <span className="truncate max-w-full">
+                                    {entry.notes}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                          {/* 大画面でチェックリストありの場合は緑チェックも表示 */}
+                          {hasChecklist && (
+                            <div className="flex items-center text-green-600 text-[10px] mt-0.5">
+                              <svg className="w-3 h-3 mr-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              チェック済
                             </div>
-                          )
-                        })}
+                          )}
+                        </div>
                       </div>
                     ) : hasChecklistOnly ? (
                       <div className="flex items-center justify-center text-green-600">

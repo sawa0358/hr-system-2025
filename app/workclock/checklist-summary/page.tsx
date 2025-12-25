@@ -214,6 +214,8 @@ export default function ChecklistSummaryPage() {
     const [historicalReports, setHistoricalReports] = useState<AIReport[]>([])
     const [reportPagination, setReportPagination] = useState<AIReportPagination>({ page: 1, limit: 10, total: 0, totalPages: 0 })
     const [isLoadingReports, setIsLoadingReports] = useState(false)
+    const [selectedAIReport, setSelectedAIReport] = useState<AIReport | null>(null)
+    const [isAIReportModalOpen, setIsAIReportModalOpen] = useState(false)
 
     // AIプロンプトの永続化（localStorage）
     useEffect(() => {
@@ -974,9 +976,23 @@ export default function ChecklistSummaryPage() {
                                                                             </Badge>
                                                                         )}
                                                                     </div>
-                                                                    <p className="text-xs text-slate-500 italic leading-snug break-words">
-                                                                        "{row.memo}"
-                                                                    </p>
+                                                                    {(() => {
+                                                                        // memoがあればそれを表示、なければitemsの自由記入欄を表示
+                                                                        const memo = row.memo?.trim()
+                                                                        const freeTexts = (row.items || [])
+                                                                            .filter((it: any) => it.isFreeText && it.freeTextValue?.trim())
+                                                                            .map((it: any) => it.freeTextValue)
+                                                                            .join(' / ')
+                                                                        const displayText = memo || freeTexts
+
+                                                                        return displayText ? (
+                                                                            <p className="text-xs text-slate-500 leading-snug break-words line-clamp-2">
+                                                                                {displayText}
+                                                                            </p>
+                                                                        ) : (
+                                                                            <p className="text-xs text-slate-300 italic">記入なし</p>
+                                                                        )
+                                                                    })()}
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-right pr-6 py-4">
@@ -1009,7 +1025,14 @@ export default function ChecklistSummaryPage() {
                                                 <p className="text-sm">選択された期間のレポートはありません</p>
                                             </div>
                                         ) : filteredHistoricalReports.map((report, idx) => (
-                                            <div key={report.id || idx} className="px-4 py-2 hover:bg-slate-50/80 transition-colors cursor-pointer flex items-center gap-3">
+                                            <div
+                                                key={report.id || idx}
+                                                className="px-4 py-2 hover:bg-slate-50/80 transition-colors cursor-pointer flex items-center gap-3"
+                                                onClick={() => {
+                                                    setSelectedAIReport(report)
+                                                    setIsAIReportModalOpen(true)
+                                                }}
+                                            >
                                                 {/* 日付 */}
                                                 <div className="w-32 flex-shrink-0">
                                                     <span className="text-xs font-bold text-slate-700">
@@ -1224,6 +1247,87 @@ export default function ChecklistSummaryPage() {
                         </Button>
                         <Button className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-6 shadow-md rounded-xl">
                             承認して保存
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* AIレポート詳細モーダル */}
+            <Dialog open={isAIReportModalOpen} onOpenChange={setIsAIReportModalOpen}>
+                <DialogContent className="max-w-2xl overflow-hidden p-0 gap-0 bg-[#f8fafc] border-none shadow-2xl">
+                    <DialogHeader className="p-6 bg-white border-b border-slate-100">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <DialogTitle className="text-xl font-bold text-slate-900 flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                                        <Bot className="w-6 h-6" />
+                                    </div>
+                                    AI総括レポート詳細
+                                </DialogTitle>
+                                {selectedAIReport && (
+                                    <p className="text-sm text-slate-400 flex items-center gap-2">
+                                        <CalendarIcon className="w-4 h-4" />
+                                        {format(new Date(selectedAIReport.date), 'yyyy年MM月dd日 (E)', { locale: ja })}
+                                        <span className="text-slate-300">|</span>
+                                        <Clock className="w-4 h-4" />
+                                        {format(new Date(selectedAIReport.createdAt), 'HH:mm')}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </DialogHeader>
+
+                    <ScrollArea className="max-h-[60vh]">
+                        <div className="p-6 space-y-4">
+                            {/* 統計カード */}
+                            <div className="grid grid-cols-3 gap-4">
+                                <Card className="p-4 bg-white border-slate-100 shadow-sm">
+                                    <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">報告者数</Label>
+                                    <div className="mt-2">
+                                        <span className="text-2xl font-bold text-blue-600">{selectedAIReport?.workerCount}</span>
+                                        <span className="text-sm text-slate-400 ml-1">名</span>
+                                    </div>
+                                </Card>
+                                <Card className="p-4 bg-white border-slate-100 shadow-sm">
+                                    <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">リスク報告</Label>
+                                    <div className="mt-2">
+                                        {selectedAIReport?.alerts && selectedAIReport.alerts > 0 ? (
+                                            <span className="text-2xl font-bold text-red-600">{selectedAIReport.alerts}件</span>
+                                        ) : (
+                                            <span className="text-sm text-green-600 font-medium">なし ✓</span>
+                                        )}
+                                    </div>
+                                </Card>
+                                <Card className="p-4 bg-white border-slate-100 shadow-sm">
+                                    <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">合計インセンティブ</Label>
+                                    <div className="mt-2">
+                                        <span className="text-2xl font-bold text-indigo-600">¥{selectedAIReport?.totalReward.toLocaleString()}</span>
+                                    </div>
+                                </Card>
+                            </div>
+
+                            {/* プロンプト名 */}
+                            {selectedAIReport?.promptName && (
+                                <div className="flex items-center gap-2">
+                                    <Badge className="bg-purple-50 text-purple-600 border-purple-100">
+                                        {selectedAIReport.promptName}
+                                    </Badge>
+                                </div>
+                            )}
+
+                            {/* サマリー全文 */}
+                            <Card className="p-6 bg-white border-slate-100 shadow-sm">
+                                <Label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-3 block">AIレポート内容</Label>
+                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    {selectedAIReport?.summary}
+                                </p>
+                            </Card>
+                        </div>
+                    </ScrollArea>
+
+                    <DialogFooter className="p-4 bg-slate-50/80 border-t border-slate-100">
+                        <Button variant="ghost" onClick={() => setIsAIReportModalOpen(false)} className="text-xs font-bold text-slate-400 hover:text-slate-600">
+                            閉じる
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -1,323 +1,253 @@
-# 業務チェック機能 実装引き継ぎ書
+# 業務チェック機能 引き継ぎ書
 
-## 📋 概要
-
-WorkClock（時間管理システム）に業務チェックリスト機能を実装しました。
-ワーカーが日々の業務項目をチェックし、チェック項目に応じた報酬が自動計算されます。
-
-**ブランチ**: `feature/business-checklist-ui`  
-**最新コミット**: `c38e403`
+**最終更新**: 2025-12-25 23:18
+**現在のコミット**: `23a1c389ba1785c7d0cbc6c3789277e2dcddfa37`
+**ブランチ**: `feature/business-checklist-ui`
 
 ---
 
-## 🎯 実装済み機能
+## 1. 機能概要
 
-### 1. チェックリストパターン管理
-- **場所**: `/workclock/admin/checklist-patterns`
-- **機能**:
-  - チェックリストパターンの作成・編集・削除
-  - 各パターンに複数のチェック項目を設定
-  - 項目ごとに報酬額、必須/任意、カテゴリを設定
-  - ドラッグ&ドロップで項目の並び替え
+業務チェック機能は、ワーカーが日々のタスク完了状況を報告し、管理者がそれを分析・管理するためのシステムです。
 
-### 2. ワーカーへのパターン割り当て
-- **場所**: ワーカー登録・編集モーダル
-- **機能**:
-  - 「業務チェック有効化」トグル
-  - チェックリストパターンの選択
+### 主要コンポーネント
 
-### 3. 日次チェックリスト入力
-- **場所**: カレンダーの日付クリック → 「業務チェック」タブ
-- **機能**:
-  - チェック項目の選択（チェックボックス）
-  - 報酬の自動計算・表示
-  - メモ入力
-  - 保存機能（同日再保存で上書き）
-  - 保存済みデータの復元表示
-
-### 4. カレンダー表示
-- **機能**:
-  - 勤務記録のみ: 水色背景
-  - 業務チェックのみ: 薄緑色背景 + チェックアイコン
-  - 両方あり:
-    - モバイル: 緑チェックアイコンのみ
-    - 大画面: 勤務時間+備考+「チェック済」表示
-
-### 5. 月次集計
-- **場所**: WorkerSummary（今月の報酬見込カード）
-- **機能**:
-  - 月間のチェックリスト報酬を自動集計
-  - 「+ 業務チェック報酬 ¥XXX」として表示（緑色）
-
-### 6. PDF出力
-- **機能**:
-  - サマリー欄に「業務チェック報酬」を追加
-  - 源泉なし小計に含まれる
-  - 下部の詳細テーブルは削除済み（サマリーに表示されているため）
+| コンポーネント | パス | 説明 |
+|--------------|------|------|
+| ワーカー個別ページ | `app/workclock/worker/[id]/page.tsx` | チェックリスト入力UI（ChecklistPanel） |
+| 管理画面 | `app/workclock/checklist-summary/page.tsx` | 日次/期間分析、AIレポート |
+| チェックリストAPI | `app/api/workclock/checklist-submissions/route.ts` | 提出データのCRUD |
+| AIレポートAPI | `app/api/workclock/ai-reports/route.ts` | AI分析レポート生成・取得 |
 
 ---
 
-## 🗂️ データベーススキーマ
+## 2. データベース構造
 
-### WorkClockChecklistPattern
-```prisma
-model WorkClockChecklistPattern {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  items       WorkClockChecklistItem[]
-  workers     WorkClockWorker[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-```
+### workclock_checklist_submissions テーブル
 
-### WorkClockChecklistItem
-```prisma
-model WorkClockChecklistItem {
-  id          String   @id @default(cuid())
-  patternId   String
-  pattern     WorkClockChecklistPattern @relation(...)
-  title       String
-  reward      Float    @default(0)
-  isMandatory Boolean  @default(false)
-  category    String?
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-```
-
-### WorkClockChecklistSubmission
 ```prisma
 model WorkClockChecklistSubmission {
   id            String   @id @default(cuid())
   workerId      String
-  worker        WorkClockWorker @relation(...)
   date          DateTime
+  items         Json     // チェック項目の配列
   memo          String?
   hasPhoto      Boolean  @default(false)
   isSafetyAlert Boolean  @default(false)
-  items         WorkClockChecklistSubmissionItem[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@unique([workerId, date])
+  @@map("workclock_checklist_submissions")
 }
 ```
 
-### WorkClockChecklistSubmissionItem
-```prisma
-model WorkClockChecklistSubmissionItem {
-  id           String   @id @default(cuid())
-  submissionId String
-  submission   WorkClockChecklistSubmission @relation(...)
-  title        String
-  reward       Float    @default(0)
-  isMandatory  Boolean  @default(false)
-  isChecked    Boolean  @default(false)
-  category     String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-```
-
----
-
-## 📁 主要ファイル
-
-### API Routes
-- `app/api/workclock/checklist/patterns/route.ts` - パターン一覧・作成
-- `app/api/workclock/checklist/patterns/[id]/route.ts` - パターン取得・更新・削除
-- `app/api/workclock/checklist/submissions/route.ts` - 提出一覧・作成（上書き保存対応）
-
-### Components
-- `components/workclock/checklist-panel.tsx` - チェックリスト入力UI
-- `components/workclock/time-entry-dialog.tsx` - 勤務記録+チェックリストのモーダル
-- `components/workclock/calendar-view.tsx` - カレンダー表示（チェック済み日の色分け）
-- `components/workclock/worker-summary.tsx` - 月次サマリー（チェックリスト報酬表示）
-- `app/workclock/admin/checklist-patterns/page.tsx` - パターン管理画面
-
-### Libraries
-- `lib/workclock/api.ts` - API呼び出し関数
-- `lib/workclock/pdf-export.tsx` - PDF生成（チェックリスト報酬対応）
-
----
-
-## 🔧 重要な実装ポイント
-
-### 1. React State管理の注意点
-**問題**: `onStateChange`を直接呼ぶとReactの警告が出る
-**解決**: `setTimeout(() => onStateChange(...), 0)` で遅延実行
-
-```tsx
-// checklist-panel.tsx
-const handleToggle = (id: string) => {
-  setCheckedItems(prev => {
-    const newState = { ...prev, [id]: !prev[id] }
-    setTimeout(() => {
-      onStateChange?.({ checkedItems: newState, memo: reportText, items: checklistItems })
-    }, 0)
-    return newState
-  })
-}
-```
-
-### 2. 重複保存の防止
-**問題**: 同じ日に何度も保存すると重複データが蓄積
-**解決**: 保存時に既存データを削除してから新規作成
+### items JSON構造
 
 ```typescript
-// app/api/workclock/checklist/submissions/route.ts
-// 同じ日の既存提出を検索
-const existingSubmissions = await prisma.workClockChecklistSubmission.findMany({
-  where: {
-    workerId,
-    date: { gte: startOfDay, lt: endOfDay }
-  }
-})
-
-// 既存があれば削除
-if (existingSubmissions.length > 0) {
-  await prisma.workClockChecklistSubmissionItem.deleteMany(...)
-  await prisma.workClockChecklistSubmission.deleteMany(...)
+interface ChecklistItem {
+  title: string           // 項目名
+  reward: number          // 報酬（寸志）
+  isChecked: boolean      // チェック状態
+  isFreeText: boolean     // 自由記入欄かどうか
+  freeTextValue?: string  // 自由記入内容
 }
-
-// 新規作成
-await prisma.workClockChecklistSubmission.create(...)
 ```
 
-### 3. 保存済みデータの復元
-**実装場所**: `checklist-panel.tsx` の `useEffect`
+### workclock_ai_reports テーブル
 
-```tsx
-// 既存の提出データを取得
-const submissionRes = await api.checklist.submissions.getAll({
-  workerId,
-  startDate: dateStr,
-  endDate: dateStr,
-})
+```prisma
+model WorkClockAIReport {
+  id          String   @id @default(cuid())
+  date        DateTime
+  summary     String   // AIが生成したサマリー
+  promptId    String?
+  promptName  String?
+  workerCount Int
+  alerts      Int      @default(0)
+  totalReward Int
+  createdAt   DateTime @default(now())
 
-// チェック状態を復元（タイトルでマッチング）
-const checkedMap: Record<string, boolean> = {}
-submission.items.forEach((item: any) => {
-  const matchingItem = items.find(i => i.title === item.title)
-  if (matchingItem && item.isChecked) {
-    checkedMap[matchingItem.id] = true
-  }
-})
-setCheckedItems(checkedMap)
-```
-
-### 4. 月次集計の計算
-**実装場所**: `app/workclock/worker/[id]/page.tsx`
-
-```tsx
-const submissionRes = await api.checklist.submissions.getAll({
-  workerId,
-  startDate: firstDay,
-  endDate: lastDay,
-})
-
-const totalChecklist = submissionRes.submissions.reduce((total, sub) => {
-  if (sub.items) {
-    return total + sub.items.reduce((itemTotal: number, item: any) => {
-      return itemTotal + (item.isChecked ? (item.reward || 0) : 0)
-    }, 0)
-  }
-  return total
-}, 0)
-setChecklistReward(totalChecklist)
+  @@map("workclock_ai_reports")
+}
 ```
 
 ---
 
-## 🐛 既知の問題・制限事項
+## 3. 実装済み機能
 
-### 1. テスト中の重複データ
-- **状況**: 開発中に同じ日に複数回保存したため重複データが存在
-- **対処**: 手動でSQLクエリで削除済み
-- **今後**: 上書き保存機能により新規発生しない
+### ✅ ワーカー側（ChecklistPanel）
+- チェックボックス式タスク報告
+- 自由記入欄（freeTextValue）
+- 寸志（報酬）の自動計算
+- ヒヤリハット報告フラグ
+- 1日1回の提出制限（上書き可能）
 
-### 2. チェックリストパターンの削除
-- **制限**: ワーカーに割り当て済みのパターンは削除不可
-- **理由**: 外部キー制約
-- **対処**: 削除前にワーカーの割り当てを解除する必要あり
+### ✅ 管理画面（checklist-summary）
+- **日次モード**: 特定日のワーカー別報告一覧
+- **期間モード**: 日付範囲指定でのAIレポート履歴表示
+- フィルター機能（チーム、雇用形態、検索）
+- カレンダーによる日付/期間選択
 
-### 3. PDF出力の源泉徴収
-- **仕様**: チェックリスト報酬は源泉なし小計に含まれる
-- **理由**: `isWithholding: false` で設定
-- **変更方法**: `pdf-export.tsx` の `breakdowns.push()` で `isWithholding: true` に変更
+### ✅ AIレポート機能
+- プロンプト選択・カスタム保存（localStorage）
+- 日次/期間での自動レポート生成
+- Gemini API連携（フォールバックあり）
+- 自由記入欄の内容を抽出してレポートに含める
 
----
-
-## 📝 今後の拡張案
-
-### 1. チェックリスト項目の追加機能
-- パターン管理画面で項目を追加・編集
-- カテゴリ別の集計表示
-- 写真添付機能の実装
-
-### 2. 統計・レポート機能
-- ワーカー別のチェック達成率
-- 項目別の実施率グラフ
-- 月次・年次のトレンド分析
-
-### 3. 通知機能
-- 未チェック項目のリマインダー
-- 必須項目の未完了アラート
-
-### 4. モバイルアプリ対応
-- PWA化
-- オフライン対応
-- カメラ連携
+### ✅ 表示改善
+- 「画像・メモ」列に自由記入欄（freeTextValue）を表示
+- AIレポート行クリックで詳細モーダル表示
+- ローディング表示「レポートを集計しています...」
 
 ---
 
-## 🚀 デプロイ前チェックリスト
+## 4. 現在の課題・未解決事項
 
-- [ ] `npm run build` でビルドエラーがないか確認
-- [ ] Prisma migration を本番環境で実行
-  ```bash
-  npx prisma migrate deploy
-  ```
-- [ ] 環境変数の確認（DATABASE_URLなど）
-- [ ] 既存データのバックアップ
-- [ ] ロールバック手順の確認
+### � 重要な問題
 
----
+1. **期間モードでremoveChildエラー**
+   - ブラウザの自動翻訳機能とReact DOMが競合
+   - 対策: `layout.tsx`に`translate="no"`を追加（ただしrevert済み）
+   - 本番環境では問題なし（翻訳機能OFF）
 
-## 📞 トラブルシューティング
+2. **AIレポートの重複生成**
+   - 「AIレポート」ボタンを押すたびに新しいレポートが追加される
+   - 同じ日に複数のレポートが蓄積する
+   - **対策案**: 同じ日のレポートは上書きするか、重複チェックを追加
 
-### チェックリストが保存されない
-1. ブラウザのコンソールでエラーを確認
-2. `checklistState` が null でないか確認
-3. APIレスポンスを確認（Network タブ）
+### 🟡 改善すべき点
 
-### 報酬が正しく計算されない
-1. データベースで重複がないか確認
-   ```sql
-   SELECT workerId, date, COUNT(*) 
-   FROM workclock_checklist_submissions 
-   GROUP BY workerId, date 
-   HAVING COUNT(*) > 1;
-   ```
-2. 集計ロジックを確認（`worker/[id]/page.tsx`）
+1. **期間モードのAIレポートボタン**
+   - 現在はChatGPTライクな静的テンプレートを返すだけ
+   - Gemini AIを使った実際の分析機能が未実装
 
-### カレンダーに色が表示されない
-1. `checklistDates` が正しく渡されているか確認
-2. 日付フォーマットが `YYYY-MM-DD` か確認
+2. **「AIに聞く」ボタン**
+   - 日次モードでは動作確認済み
+   - 期間モードでのコンテキスト設定が未完全
 
 ---
 
-## 📚 参考資料
+## 5. API仕様
 
-- Prisma Documentation: https://www.prisma.io/docs
-- Next.js App Router: https://nextjs.org/docs/app
-- React Hook Form: https://react-hook-form.com/
-- Tailwind CSS: https://tailwindcss.com/docs
+### GET /api/workclock/checklist-submissions
+
+```
+Query: date, workerId
+Response: { submissions: [...] }
+```
+
+### POST /api/workclock/checklist-submissions
+
+```json
+{
+  "workerId": "string",
+  "date": "YYYY-MM-DD",
+  "items": [...],
+  "memo": "string",
+  "hasPhoto": boolean,
+  "isSafetyAlert": boolean
+}
+```
+
+### GET /api/workclock/ai-reports
+
+```
+Query: startDate, endDate, page, limit, autoGenerate
+Response: { reports: [...], pagination: {...} }
+```
+
+autoGenerate=trueの場合、チェックリスト提出があるがAIレポートがない日は自動生成
+
+### POST /api/workclock/ai-reports
+
+```json
+{
+  "date": "YYYY-MM-DD",
+  "summary": "string",
+  "promptId": "string",
+  "promptName": "string",
+  "workerCount": number,
+  "alerts": number,
+  "totalReward": number
+}
+```
 
 ---
 
-**作成日**: 2025-12-25  
-**作成者**: AI Assistant  
-**ブランチ**: feature/business-checklist-ui  
-**最終コミット**: c38e403
+## 6. ファイル構成
+
+```
+app/
+├── workclock/
+│   ├── worker/[id]/page.tsx         # ワーカー個別ページ
+│   └── checklist-summary/page.tsx   # 管理画面
+├── api/workclock/
+│   ├── checklist-submissions/route.ts
+│   └── ai-reports/route.ts
+components/
+├── checklist-panel.tsx              # チェックリスト入力コンポーネント
+├── ai-ask-button.tsx                # AIに聞くボタン
+└── ui/                              # shadcn/uiコンポーネント
+```
+
+---
+
+## 7. 次のステップ候補
+
+1. **AIレポート重複問題の解決**
+   - 同じ日のレポートは更新（upsert）するように変更
+   - または「この日のレポートを再生成しますか？」確認ダイアログ追加
+
+2. **期間モードのAI分析強化**
+   - Gemini APIを使って履歴レポートを統合分析
+   - プロンプト選択が機能するように修正
+
+3. **removeChildエラーの根本対策**
+   - `translate="no"`メタタグを適切に追加
+   - ErrorBoundaryでの復帰処理改善
+
+4. **PDF出力機能**
+   - チェックリスト報告のPDF化
+   - 期間サマリーのPDF化
+
+---
+
+## 8. テスト用コマンド
+
+```bash
+# 開発サーバー起動
+npm run dev
+
+# AIレポート一覧取得（自動生成あり）
+curl -H "x-employee-id: YOUR_ID" \
+  "http://localhost:3000/api/workclock/ai-reports?startDate=2025-12-20&endDate=2025-12-25&autoGenerate=true"
+
+# 既存AIレポート削除
+echo "DELETE FROM workclock_ai_reports;" | sqlite3 prisma/dev.db
+
+# チェックリスト提出確認
+echo "SELECT * FROM workclock_checklist_submissions;" | sqlite3 prisma/dev.db
+```
+
+---
+
+## 9. 環境変数
+
+```env
+# Gemini AI（オプション - なくてもフォールバック動作）
+GEMINI_API_KEY=your_key_here
+```
+
+---
+
+## 10. 注意事項
+
+- **ブランチ**: `feature/business-checklist-ui`で作業中
+- **本番デプロイ前に**: mainブランチにマージが必要
+- **DBスキーマ変更時**: `npx prisma migrate dev`を実行
+- **型エラー発生時**: `npx prisma generate`を実行
+
+---
+
+*この引き継ぎ書は新しい開発セッションで参照してください*

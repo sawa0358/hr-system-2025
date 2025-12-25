@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
         const endDate = searchParams.get('endDate')
         const autoGenerate = searchParams.get('autoGenerate') === 'true'
         const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '10')
+        const requestedLimit = parseInt(searchParams.get('limit') || '10')
+        const limit = Math.min(Math.max(requestedLimit, 1), 500) // 1〜500件の範囲で制限
 
         if (!startDate || !endDate) {
             return NextResponse.json({ error: '開始日と終了日が必要です' }, { status: 400 })

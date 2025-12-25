@@ -61,6 +61,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import { Toaster, toast } from 'sonner'
 import { AIAskButton } from '@/components/ai-ask-button'
 import { format, subDays } from 'date-fns'
 import { ja } from 'date-fns/locale'
@@ -212,9 +213,11 @@ export default function ChecklistSummaryPage() {
 
     // AIレポート履歴用state
     const [historicalReports, setHistoricalReports] = useState<AIReport[]>([])
-    const [reportPagination, setReportPagination] = useState<AIReportPagination>({ page: 1, limit: 10, total: 0, totalPages: 0 })
+    const [reportPagination, setReportPagination] = useState<AIReportPagination>({ page: 1, limit: 20, total: 0, totalPages: 0 })
+    const [reportLimit, setReportLimit] = useState(20) // 1ページの表示件数
     const [isLoadingReports, setIsLoadingReports] = useState(false)
     const [selectedAIReport, setSelectedAIReport] = useState<AIReport | null>(null)
+    const [isPeriodSummarizing, setIsPeriodSummarizing] = useState(false)
     const [isAIReportModalOpen, setIsAIReportModalOpen] = useState(false)
 
     // AIプロンプトの永続化（localStorage）
@@ -253,14 +256,14 @@ export default function ChecklistSummaryPage() {
     }, [currentUser])
 
     // AIレポートの取得（autoGenerate=trueで未生成日を自動生成）
-    const fetchAIReports = async (page = 1, autoGenerate = true) => {
+    const fetchAIReports = async (page = 1, autoGenerate = true, limit = reportLimit) => {
         if (!currentUser?.id || !dateRange?.from || !dateRange?.to) return
         setIsLoadingReports(true)
         try {
             const startDate = format(dateRange.from, 'yyyy-MM-dd')
             const endDate = format(dateRange.to, 'yyyy-MM-dd')
             const autoGenerateParam = autoGenerate ? '&autoGenerate=true' : ''
-            const response = await fetch(`/api/workclock/ai-reports?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=10${autoGenerateParam}`, {
+            const response = await fetch(`/api/workclock/ai-reports?startDate=${startDate}&endDate=${endDate}&page=${page}&limit=${limit}${autoGenerateParam}`, {
                 headers: { 'x-employee-id': currentUser.id }
             })
             const data = await response.json()
@@ -275,10 +278,71 @@ export default function ChecklistSummaryPage() {
         }
     }
 
+    // 表示件数の変更
+    const handleLimitChange = (newLimit: string) => {
+        const limit = parseInt(newLimit)
+        setReportLimit(limit)
+        fetchAIReports(1, true, limit)
+    }
+
+    // 期間統合AIレポート生成
+    const handlePeriodSummarize = async () => {
+        if (!currentUser?.id || !dateRange?.from || !dateRange?.to) {
+            console.error('[handlePeriodSummarize] Missing required data:', { userId: currentUser?.id, dateRange })
+            return
+        }
+
+        setIsPeriodSummarizing(true)
+        setIsSummarizing(true) // ボタンのローディング状態も同期
+
+        try {
+            const startDate = format(dateRange.from, 'yyyy-MM-dd')
+            const endDate = format(dateRange.to, 'yyyy-MM-dd')
+
+            console.log('[handlePeriodSummarize] Fetching for:', startDate, 'to', endDate)
+
+            const response = await fetch('/api/workclock/ai-reports/summarize-period', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-employee-id': currentUser.id
+                },
+                body: JSON.stringify({
+                    startDate,
+                    endDate,
+                    promptName: selectedPrompt.name,
+                    promptContent: selectedPrompt.content
+                })
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'APIエラーが発生しました')
+            }
+
+            const data = await response.json()
+            if (data.summary) {
+                setAiReport(data.summary)
+                toast.success('統合分析が完了しました')
+                // 履歴リストを更新
+                fetchAIReports(1, true, reportLimit)
+            } else {
+                setAiReport('レポートが見つかりませんでした。')
+            }
+        } catch (error: any) {
+            console.error('Failed to generate period summary:', error)
+            setAiReport(`エラー: ${error.message || '期間統合レポートの生成に失敗しました。'}`)
+            toast.error(error.message || '分析に失敗しました')
+        } finally {
+            setIsPeriodSummarizing(false)
+            setIsSummarizing(false)
+        }
+    }
+
     // 期間モードに切り替わった時、または日付範囲が変更された時にレポートを取得
     useEffect(() => {
         if (viewMode === 'period' && dateRange?.from && dateRange?.to && currentUser?.id) {
-            fetchAIReports(1)
+            fetchAIReports(1, true, reportLimit)
         }
     }, [viewMode, dateRange, currentUser?.id])
 
@@ -448,10 +512,14 @@ export default function ChecklistSummaryPage() {
         setIsPromptDialogOpen(true)
     }
 
-    const handleRunAI = () => {
-        setIsSummarizing(true)
-        setTimeout(async () => {
-            if (viewMode === 'daily') {
+    const handleRunAI = async () => {
+        if (viewMode === 'period') {
+            // 期間モードの場合は統合APIを直接呼び出す
+            await handlePeriodSummarize()
+        } else {
+            // 日次モードの場合
+            setIsSummarizing(true)
+            try {
                 const workerCount = filteredSummaries.length
                 const completedCount = filteredSummaries.filter((s: any) => s.status === 'completed').length
                 const totalReward = filteredSummaries.reduce((acc: number, s: any) => acc + s.reward, 0)
@@ -494,33 +562,15 @@ export default function ChecklistSummaryPage() {
                         console.error('Failed to save AI report:', error)
                     }
                 }
-            } else {
-                const reportCount = filteredHistoricalReports.length
-                const totalWorkerCount = filteredHistoricalReports.reduce((acc, r) => acc + r.workerCount, 0)
-                const totalReward = filteredHistoricalReports.reduce((acc, r) => acc + r.totalReward, 0)
-                const totalAlerts = filteredHistoricalReports.reduce((acc, r) => acc + r.alerts, 0)
-
-                setAiReport(`
-【${selectedPrompt.name} に基づく期間分析】
-プロンプト: ${selectedPrompt.content}
-
-対象期間: ${dateRange?.from ? format(dateRange.from, 'yyyy/MM/dd') : ''} 〜 ${dateRange?.to ? format(dateRange.to, 'yyyy/MM/dd') : ''}
-対象レポート数: ${reportCount}件（延べ作業者数: ${totalWorkerCount}名）
-合計報酬: ¥${totalReward.toLocaleString()}
-
-【期間総括】
-・選択された期間において、計${reportCount}件のAIレポートを統合分析しました。
-・リスク報告（${totalAlerts}件）の傾向を分析し、安全管理のさらなる強化が必要です。
-・AIによる改善提案: 
-  ${selectedPrompt.id === '2' ? '特定の工程における遅延が常態化している可能性があります。' : '安定した出力が得られていますが、インセンティブ配分の最適化による更なる意欲向上の余地があります。'}
-      `)
+            } finally {
+                setIsSummarizing(false)
             }
-            setIsSummarizing(false)
-        }, 1500)
+        }
     }
 
     return (
-        <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }}>
+        <div className="flex h-screen" style={{ backgroundColor: '#bddcd9' }} translate="no">
+            <Toaster position="top-center" richColors />
             {isMobile ? (
                 <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <div className="fixed left-1/2 -translate-x-1/2 top-4 z-50">
@@ -764,11 +814,22 @@ export default function ChecklistSummaryPage() {
                                 </div>
                                 <Button
                                     onClick={handleRunAI}
-                                    disabled={isSummarizing || (viewMode === 'daily' ? filteredSummaries.length === 0 : filteredHistoricalReports.length === 0)}
-                                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md h-10 px-5 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-95"
+                                    disabled={isSummarizing || isPeriodSummarizing}
+                                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md h-10 px-5 rounded-xl text-xs font-bold transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <Sparkles className="w-3.5 h-3.5 mr-2" />
-                                    {isSummarizing ? '分析中...' : 'AIレポート'}
+                                    {isSummarizing || isPeriodSummarizing ? (
+                                        <>
+                                            <Bot className="w-3.5 h-3.5 mr-2 animate-bounce" />
+                                            <span>統合分析中...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-3.5 h-3.5 mr-2" />
+                                            <span>
+                                                {viewMode === 'period' ? `全${reportPagination.total}件を統合分析` : 'AIレポートを生成'}
+                                            </span>
+                                        </>
+                                    )}
                                 </Button>
                             </div>
 
@@ -1011,6 +1072,47 @@ export default function ChecklistSummaryPage() {
                         </>
                     ) : (
                         <div className="space-y-6">
+                            {/* 期間統合AIレポートの表示エリア */}
+                            {aiReport && (
+                                <Card className="shadow-lg border-none bg-gradient-to-br from-indigo-50 to-purple-50 overflow-hidden relative group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Bot className="w-32 h-32 -mr-8 -mt-8 rotate-12" />
+                                    </div>
+                                    <CardHeader className="pb-3 border-b border-indigo-100/50 bg-white/40">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="text-lg font-bold text-indigo-900 flex items-center gap-2">
+                                                <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+                                                AI期間統合分析レポート
+                                            </CardTitle>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setAiReport('')}
+                                                className="h-8 w-8 p-0 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100/50 rounded-full"
+                                            >
+                                                <Plus className="w-4 h-4 rotate-45" />
+                                            </Button>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="p-6">
+                                        <div className="prose prose-sm max-w-none">
+                                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white shadow-inner min-h-[100px] whitespace-pre-wrap leading-relaxed text-slate-700 font-medium text-sm">
+                                                {aiReport}
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-1.5 px-3 py-1 bg-white/80 rounded-full border border-indigo-100 text-[10px] text-indigo-600 font-bold">
+                                                    <CalendarIcon className="w-3 h-3" />
+                                                    {format(dateRange?.from || new Date(), 'MM/dd')} - {format(dateRange?.to || new Date(), 'MM/dd')}
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-slate-400 font-medium">※このレポートは期間内の日次総括を元に生成されました</p>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
                                 <CardHeader className="pb-4 bg-white/50 border-b border-slate-100">
                                     <CardTitle className="text-lg flex items-center gap-2">
@@ -1081,37 +1183,79 @@ export default function ChecklistSummaryPage() {
                                         ))}
                                     </div>
                                 </CardContent>
-                                {/* ページネーション */}
-                                {reportPagination.totalPages > 1 && (
-                                    <div className="px-6 py-4 border-t border-slate-100 bg-white/50 flex items-center justify-between">
+                                {/* ページネーションと表示件数選択 */}
+                                <div className="px-6 py-4 border-t border-slate-100 bg-white/50 flex items-center justify-between flex-wrap gap-3">
+                                    <div className="flex items-center gap-3">
                                         <span className="text-xs text-slate-400">
-                                            全{reportPagination.total}件中 {((reportPagination.page - 1) * reportPagination.limit) + 1} - {Math.min(reportPagination.page * reportPagination.limit, reportPagination.total)}件を表示
+                                            全{reportPagination.total}件中 {reportPagination.total > 0 ? ((reportPagination.page - 1) * reportPagination.limit) + 1 : 0} - {Math.min(reportPagination.page * reportPagination.limit, reportPagination.total)}件を表示
                                         </span>
                                         <div className="flex items-center gap-2">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 text-xs"
-                                                disabled={reportPagination.page <= 1 || isLoadingReports}
-                                                onClick={() => fetchAIReports(reportPagination.page - 1)}
-                                            >
-                                                <ChevronLeft className="w-4 h-4 mr-1" /> 前へ
-                                            </Button>
-                                            <span className="text-xs text-slate-500 px-2">
-                                                {reportPagination.page} / {reportPagination.totalPages}
-                                            </span>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="h-8 text-xs"
-                                                disabled={reportPagination.page >= reportPagination.totalPages || isLoadingReports}
-                                                onClick={() => fetchAIReports(reportPagination.page + 1)}
-                                            >
-                                                次へ <ChevronRight className="w-4 h-4 ml-1" />
-                                            </Button>
+                                            <span className="text-xs text-slate-400">表示:</span>
+                                            <Select value={String(reportLimit)} onValueChange={handleLimitChange}>
+                                                <SelectTrigger className="w-[80px] h-7 text-xs bg-white">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="10">10件</SelectItem>
+                                                    <SelectItem value="20">20件</SelectItem>
+                                                    <SelectItem value="50">50件</SelectItem>
+                                                    <SelectItem value="100">100件</SelectItem>
+                                                    <SelectItem value="200">200件</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
-                                )}
+                                    {reportPagination.totalPages > 1 && (
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-8 w-8 text-xs"
+                                                disabled={reportPagination.page <= 1 || isLoadingReports}
+                                                onClick={() => fetchAIReports(reportPagination.page - 1, false)}
+                                            >
+                                                <ChevronLeft className="w-4 h-4" />
+                                            </Button>
+                                            {/* ページ番号を表示 */}
+                                            {Array.from({ length: reportPagination.totalPages }, (_, i) => i + 1)
+                                                .filter(p => {
+                                                    // 現在のページの前後2ページと最初・最後を表示
+                                                    const current = reportPagination.page
+                                                    return p === 1 || p === reportPagination.totalPages ||
+                                                        (p >= current - 1 && p <= current + 1)
+                                                })
+                                                .map((p, idx, arr) => (
+                                                    <>
+                                                        {idx > 0 && arr[idx - 1] !== p - 1 && (
+                                                            <span key={`ellipsis-${p}`} className="text-xs text-slate-300 px-1">...</span>
+                                                        )}
+                                                        <Button
+                                                            key={p}
+                                                            variant={p === reportPagination.page ? "default" : "outline"}
+                                                            size="sm"
+                                                            className={cn(
+                                                                "h-8 w-8 text-xs p-0",
+                                                                p === reportPagination.page && "bg-indigo-600 text-white"
+                                                            )}
+                                                            disabled={isLoadingReports}
+                                                            onClick={() => fetchAIReports(p, false)}
+                                                        >
+                                                            {p}
+                                                        </Button>
+                                                    </>
+                                                ))}
+                                            <Button
+                                                variant="outline"
+                                                size="icon"
+                                                className="h-8 w-8 text-xs"
+                                                disabled={reportPagination.page >= reportPagination.totalPages || isLoadingReports}
+                                                onClick={() => fetchAIReports(reportPagination.page + 1, false)}
+                                            >
+                                                <ChevronRight className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                             </Card>
                         </div>
                     )}

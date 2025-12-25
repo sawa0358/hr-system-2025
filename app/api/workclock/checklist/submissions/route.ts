@@ -46,10 +46,47 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: '必須項目が不足しています' }, { status: 400 })
         }
 
+        const dateObj = new Date(date)
+        // 日付の開始と終了を計算（その日の0時から23時59分59秒まで）
+        const startOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate())
+        const endOfDay = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1)
+
+        // 同じ日の既存の提出を削除（上書き保存）
+        const existingSubmissions = await (prisma as any).workClockChecklistSubmission.findMany({
+            where: {
+                workerId,
+                date: {
+                    gte: startOfDay,
+                    lt: endOfDay,
+                },
+            },
+            select: { id: true },
+        })
+
+        if (existingSubmissions.length > 0) {
+            // 既存の項目を先に削除
+            await (prisma as any).workClockChecklistSubmissionItem.deleteMany({
+                where: {
+                    submissionId: {
+                        in: existingSubmissions.map((s: any) => s.id),
+                    },
+                },
+            })
+            // 既存の提出を削除
+            await (prisma as any).workClockChecklistSubmission.deleteMany({
+                where: {
+                    id: {
+                        in: existingSubmissions.map((s: any) => s.id),
+                    },
+                },
+            })
+        }
+
+        // 新規作成
         const submission = await (prisma as any).workClockChecklistSubmission.create({
             data: {
                 workerId,
-                date: new Date(date),
+                date: startOfDay,
                 memo,
                 hasPhoto: !!hasPhoto,
                 isSafetyAlert: !!isSafetyAlert,

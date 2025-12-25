@@ -836,53 +836,7 @@ export function generatePDFContent(
     html += '<div class="no-data">この期間の勤務記録はありません</div>'
   }
 
-  // 特別報酬・経費の詳細を表示
-  if (rewards.length > 0) {
-    // dateを正規化してソート（ISO文字列またはDateオブジェクトに対応）
-    const sortedRewards = [...rewards].sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateA - dateB
-    })
-    html += `
-      <div class="details" style="margin-top: 20px;">
-        <h2>特別報酬・経費の詳細</h2>
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 170px;">日付</th>
-              <th>内容</th>
-              <th style="width: 120px;">金額</th>
-            </tr>
-          </thead>
-          <tbody>
-    `
-
-    sortedRewards.forEach((reward) => {
-      // dateをDateオブジェクトとして扱い、YYYY-MM-DD形式に変換
-      let dateStr = ''
-      if (reward.date) {
-        const d = new Date(reward.date)
-        const year = d.getFullYear()
-        const month = String(d.getMonth() + 1).padStart(2, '0')
-        const day = String(d.getDate()).padStart(2, '0')
-        dateStr = `${year}-${month}-${day}`
-      }
-      html += `
-            <tr>
-              <td class="date-cell" style="text-align: center;">${dateStr ? formatDateLabel(dateStr) : '-'}</td>
-              <td>${reward.description || '特別報酬・経費'}</td>
-              <td style="text-align: right; font-weight: 600;">¥${reward.amount.toLocaleString()}</td>
-            </tr>
-      `
-    })
-
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `
-  }
+  // 特別報酬・経費の詳細はサマリー欄に表示しているため、別テーブルは省略
 
   html += `
       <div class="footer">

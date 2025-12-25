@@ -202,6 +202,8 @@ export async function PUT(
       withholdingMonthlyFixed,
       billingClientId,
       allowPastEntryEdit,
+      checklistPatternId,
+      isChecklistEnabled,
     } = body
 
     console.log('[WorkClock API] PUT payload:', JSON.stringify(body))
@@ -313,7 +315,9 @@ export async function PUT(
         transferDestination,
         billingClientId: billingClientId !== undefined ? (billingClientId || null) : undefined,
         allowPastEntryEdit: allowPastEntryEdit !== undefined ? Boolean(allowPastEntryEdit) : undefined,
-      },
+        checklistPatternId: checklistPatternId !== undefined ? (checklistPatternId || null) : undefined,
+        isChecklistEnabled: isChecklistEnabled !== undefined ? Boolean(isChecklistEnabled) : undefined,
+      } as any,
       include: {
         employee: {
           select: {

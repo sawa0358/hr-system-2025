@@ -41,7 +41,8 @@ import { Plus, Pencil, Trash2, CheckCircle2, Coins, Settings, Layout, Copy, Menu
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { getWorkers } from '@/lib/workclock/api-storage'
-import { Worker } from '@/lib/workclock/types'
+import { Worker, ChecklistPattern, ChecklistItem } from '@/lib/workclock/types'
+import { api } from '@/lib/workclock/api'
 import { useEffect } from 'react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
@@ -52,31 +53,13 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet'
 
-// 初期モックデータ
-const INITIAL_PATTERNS = [
-    {
-        id: 'p1',
-        name: '通常清掃パターン',
-        items: [
-            { id: '1', title: '玄関の施錠確認', reward: 0, isMandatory: true, category: 'security' },
-            { id: '2', title: '機材の電源OFF', reward: 0, isMandatory: true, category: 'security' },
-            { id: '3', title: 'フィルター清掃実施', reward: 500, isMandatory: false, category: 'maintenance' },
-        ]
-    },
-    {
-        id: 'p2',
-        name: '特別メンテナンス',
-        items: [
-            { id: '4', title: '備品の在庫補充', reward: 300, isMandatory: false, category: 'maintenance' },
-            { id: '5', title: '日報の丁寧な記入', reward: 200, isMandatory: false, category: 'admin' },
-        ]
-    }
-]
+// 以前の mock data は削除
 
 export default function ChecklistSettingsPage() {
     const { currentUser } = useAuth()
-    const [patterns, setPatterns] = useState(INITIAL_PATTERNS)
-    const [selectedPatternId, setSelectedPatternId] = useState('p1')
+    const [patterns, setPatterns] = useState<ChecklistPattern[]>([])
+    const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
 
     // ダイアログ状態: パターン作成用
     const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false)
@@ -89,8 +72,24 @@ export default function ChecklistSettingsPage() {
     useEffect(() => {
         if (currentUser?.id) {
             getWorkers(currentUser.id).then(setWorkers)
+            fetchPatterns()
         }
     }, [currentUser])
+
+    const fetchPatterns = async () => {
+        try {
+            setIsLoading(true)
+            const res = await api.checklist.patterns.getAll(true) as { patterns: ChecklistPattern[] }
+            setPatterns(res.patterns)
+            if (res.patterns.length > 0 && !selectedPatternId) {
+                setSelectedPatternId(res.patterns[0].id)
+            }
+        } catch (error) {
+            console.error('Failed to fetch patterns:', error)
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
     // モバイル時のスクロールでメニューを閉じる
     useEffect(() => {
@@ -114,43 +113,63 @@ export default function ChecklistSettingsPage() {
         category: 'general'
     })
 
-    const selectedPattern = patterns.find(p => p.id === selectedPatternId) || patterns[0]
+    const selectedPattern = patterns.find(p => p.id === selectedPatternId) || patterns[0] || { id: '', name: '', items: [] }
 
-    const handleAddPattern = () => {
+    const handleAddPattern = async () => {
         if (!newPatternName) return
-        const newPattern = {
-            id: Math.random().toString(36).substr(2, 9),
-            name: newPatternName,
-            items: []
+        try {
+            const res = await api.checklist.patterns.create(newPatternName) as { pattern: ChecklistPattern }
+            const newPattern = { ...res.pattern, items: [] }
+            setPatterns([...patterns, newPattern])
+            setSelectedPatternId(newPattern.id)
+            setNewPatternName('')
+            setIsPatternDialogOpen(false)
+        } catch (error) {
+            alert('パターンの作成に失敗しました')
         }
-        setPatterns([...patterns, newPattern])
-        setSelectedPatternId(newPattern.id)
-        setNewPatternName('')
-        setIsPatternDialogOpen(false)
     }
 
-    const handleDuplicatePattern = () => {
+    const handleDuplicatePattern = async () => {
         const patternToCopy = patterns.find(p => p.id === selectedPatternId)
         if (!patternToCopy) return
-        const newPattern = {
-            ...patternToCopy,
-            id: Math.random().toString(36).substr(2, 9),
-            name: `${patternToCopy.name} (コピー)`,
-            items: [...patternToCopy.items.map(item => ({ ...item, id: Math.random().toString(36).substr(2, 9) }))]
+        try {
+            const res = await api.checklist.patterns.create(`${patternToCopy.name} (コピー)`) as { pattern: ChecklistPattern }
+            const newPattern = res.pattern
+
+            // 項目もコピー
+            if (patternToCopy.items && patternToCopy.items.length > 0) {
+                for (const item of patternToCopy.items) {
+                    await api.checklist.items.create(newPattern.id, {
+                        title: item.title,
+                        reward: item.reward,
+                        isMandatory: item.isMandatory,
+                        category: item.category,
+                        position: item.position
+                    })
+                }
+            }
+
+            fetchPatterns() // 全体再取得が確実
+            setSelectedPatternId(newPattern.id)
+        } catch (error) {
+            alert('パターンの複製に失敗しました')
         }
-        setPatterns([...patterns, newPattern])
-        setSelectedPatternId(newPattern.id)
     }
 
-    const handleDeletePattern = () => {
-        if (patterns.length <= 1) {
+    const handleDeletePattern = async () => {
+        if (!selectedPatternId || patterns.length <= 1) {
             alert('最後の1つのパターンは削除できません。')
             return
         }
         if (confirm(`パターン「${selectedPattern.name}」を削除してもよろしいですか？`)) {
-            const newPatterns = patterns.filter(p => p.id !== selectedPatternId)
-            setPatterns(newPatterns)
-            setSelectedPatternId(newPatterns[0].id)
+            try {
+                await api.checklist.patterns.delete(selectedPatternId)
+                const newPatterns = patterns.filter(p => p.id !== selectedPatternId)
+                setPatterns(newPatterns)
+                setSelectedPatternId(newPatterns[0].id)
+            } catch (error) {
+                alert('パターンの削除に失敗しました')
+            }
         }
     }
 
@@ -170,50 +189,41 @@ export default function ChecklistSettingsPage() {
         setIsItemDialogOpen(true)
     }
 
-    const handleSaveItem = () => {
-        if (!itemFormData.title) return
+    const handleSaveItem = async () => {
+        if (!itemFormData.title || !selectedPatternId) return
 
-        const updatedPatterns = patterns.map(p => {
-            if (p.id === selectedPatternId) {
-                if (editingItem) {
-                    return {
-                        ...p,
-                        items: p.items.map(item => item.id === editingItem.id ? {
-                            ...item,
-                            title: itemFormData.title,
-                            reward: Number(itemFormData.reward),
-                            isMandatory: itemFormData.isMandatory,
-                            category: itemFormData.category
-                        } : item)
-                    }
-                } else {
-                    return {
-                        ...p,
-                        items: [...p.items, {
-                            id: Math.random().toString(36).substr(2, 9),
-                            title: itemFormData.title,
-                            reward: Number(itemFormData.reward),
-                            isMandatory: itemFormData.isMandatory,
-                            category: itemFormData.category
-                        }]
-                    }
-                }
+        try {
+            if (editingItem) {
+                await api.checklist.items.update(editingItem.id, {
+                    title: itemFormData.title,
+                    reward: Number(itemFormData.reward),
+                    isMandatory: itemFormData.isMandatory,
+                    category: itemFormData.category
+                })
+            } else {
+                await api.checklist.items.create(selectedPatternId, {
+                    title: itemFormData.title,
+                    reward: Number(itemFormData.reward),
+                    isMandatory: itemFormData.isMandatory,
+                    category: itemFormData.category,
+                    position: (selectedPattern.items?.length || 0)
+                })
             }
-            return p
-        })
-        setPatterns(updatedPatterns)
-        setIsItemDialogOpen(false)
+            fetchPatterns()
+            setIsItemDialogOpen(false)
+        } catch (error) {
+            alert('項目の保存に失敗しました')
+        }
     }
 
-    const handleDeleteItem = (itemId: string) => {
+    const handleDeleteItem = async (itemId: string) => {
         if (confirm('この項目を削除してもよろしいですか？')) {
-            const updatedPatterns = patterns.map(p => {
-                if (p.id === selectedPatternId) {
-                    return { ...p, items: p.items.filter(item => item.id !== itemId) }
-                }
-                return p
-            })
-            setPatterns(updatedPatterns)
+            try {
+                await api.checklist.items.delete(itemId)
+                fetchPatterns()
+            } catch (error) {
+                alert('項目の削除に失敗しました')
+            }
         }
     }
 
@@ -284,12 +294,12 @@ export default function ChecklistSettingsPage() {
                         <div className="bg-white border p-3 rounded-xl shadow-sm flex items-center gap-4">
                             <div className="flex flex-col">
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Items</span>
-                                <span className="text-2xl font-black text-slate-700 leading-none">{selectedPattern.items.length}</span>
+                                <span className="text-2xl font-black text-slate-700 leading-none">{selectedPattern.items?.length || 0}</span>
                             </div>
                             <div className="w-[1px] h-8 bg-slate-100 mx-2" />
                             <div className="flex flex-col">
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Mandatory</span>
-                                <span className="text-2xl font-black text-red-500 leading-none">{selectedPattern.items.filter(i => i.isMandatory).length}</span>
+                                <span className="text-2xl font-black text-red-500 leading-none">{selectedPattern.items?.filter((i: any) => i.isMandatory).length || 0}</span>
                             </div>
                         </div>
                     </div>
@@ -300,14 +310,14 @@ export default function ChecklistSettingsPage() {
                             <Layout className="w-4 h-4 text-slate-400" />
                             <span className="text-sm font-bold text-slate-700">編集中のパターン:</span>
                         </div>
-                        <Select value={selectedPatternId} onValueChange={setSelectedPatternId}>
+                        <Select value={selectedPatternId || ''} onValueChange={setSelectedPatternId}>
                             <SelectTrigger className="w-[280px] h-10 font-bold bg-slate-50 border-slate-200">
-                                <SelectValue />
+                                <SelectValue placeholder="パターンを選択" />
                             </SelectTrigger>
                             <SelectContent>
                                 {patterns.map(p => (
                                     <SelectItem key={p.id} value={p.id} className="font-medium">
-                                        {p.name} ({p.items.length}項目)
+                                        {p.name} ({p._count?.items || p.items?.length || 0}項目)
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -374,7 +384,13 @@ export default function ChecklistSettingsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {selectedPattern.items.length > 0 ? (
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-32 text-center text-slate-400">
+                                                読み込み中...
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : selectedPattern.items && selectedPattern.items.length > 0 ? (
                                         selectedPattern.items.map((item) => (
                                             <TableRow key={item.id} className="hover:bg-slate-50/50 group">
                                                 <TableCell className="font-medium pl-6">

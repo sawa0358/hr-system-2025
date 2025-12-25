@@ -76,6 +76,10 @@ export interface Worker {
   billingClientName?: string // 請求先名（API経由で取得）
   // 過去記録の編集許可フラグ
   allowPastEntryEdit?: boolean
+
+  // 業務チェックリスト設定
+  checklistPatternId?: string
+  isChecklistEnabled?: boolean
 }
 
 export interface WorkSummary {
@@ -103,4 +107,49 @@ export interface RewardPreset {
   isEnabled: boolean
   createdAt?: string
   updatedAt?: string
+}
+
+export interface ChecklistItem {
+  id: string
+  patternId: string
+  title: string
+  reward: number
+  isMandatory: boolean
+  category?: string
+  position: number
+}
+
+export interface ChecklistPattern {
+  id: string
+  name: string
+  items?: ChecklistItem[]
+  _count?: {
+    items: number
+  }
+}
+
+export interface ChecklistSubmissionItem {
+  id: string
+  submissionId: string
+  title: string
+  reward: number
+  isMandatory: boolean
+  isChecked: boolean
+  category?: string
+}
+
+export interface ChecklistSubmission {
+  id: string
+  workerId: string
+  worker?: {
+    name: string
+    teams: string[]
+    role: string
+  }
+  date: string
+  memo?: string
+  hasPhoto: boolean
+  isSafetyAlert: boolean
+  items?: ChecklistSubmissionItem[]
+  createdAt?: string
 }

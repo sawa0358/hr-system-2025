@@ -117,6 +117,9 @@ export default function SettingsPage() {
   const [standardTaxRate, setStandardTaxRate] = useState<string>('10')
   const [isLoadingTax, setIsLoadingTax] = useState(false)
   const [isSavingTax, setIsSavingTax] = useState(false)
+  // チェックリストパターン
+  const [checklistPatterns, setChecklistPatterns] = useState<any[]>([])
+  const [isLoadingChecklistPatterns, setIsLoadingChecklistPatterns] = useState(false)
   // 源泉徴収率設定
   const [withholdingRateUnder1M, setWithholdingRateUnder1M] = useState<string>('10.21')
   const [withholdingRateOver1M, setWithholdingRateOver1M] = useState<string>('20.42')
@@ -251,6 +254,19 @@ export default function SettingsPage() {
           }
         } catch (e) {
           console.warn('源泉徴収率の読み込みに失敗:', e)
+        }
+      })()
+
+      // チェックリストパターンの読み込み
+      ; (async () => {
+        try {
+          setIsLoadingChecklistPatterns(true)
+          const res = await api.checklist.patterns.getAll() as { patterns: any[] }
+          setChecklistPatterns(res.patterns || [])
+        } catch (e) {
+          console.warn('チェックリストパターンの読み込みに失敗:', e)
+        } finally {
+          setIsLoadingChecklistPatterns(false)
         }
       })()
   }, [currentUser])
@@ -559,6 +575,8 @@ export default function SettingsPage() {
             // 請求先ID
             billingClientId: formData.billingClientId || undefined,
             allowPastEntryEdit: formData.allowPastEntryEdit,
+            checklistPatternId: formData.checklistPatternId || undefined,
+            isChecklistEnabled: formData.isChecklistEnabled,
           },
           userId
         )
@@ -646,6 +664,8 @@ export default function SettingsPage() {
           // 請求先ID
           billingClientId: formData.billingClientId || undefined,
           allowPastEntryEdit: formData.allowPastEntryEdit,
+          checklistPatternId: formData.checklistPatternId || undefined,
+          isChecklistEnabled: formData.isChecklistEnabled,
         }
         await addWorker(payload, userId)
         // 新規ワーカーの場合も、employeeIdをキーに月額固定メタ情報を保存
@@ -862,7 +882,7 @@ export default function SettingsPage() {
   const canEditCompensation = ['hr', 'admin'].includes(currentUser?.role || '')
   const canEditCompValues = canEditCompensation && isWorkerEditUnlocked
 
-  const filteredWorkers = workers.filter((worker) => {
+  const filteredWorkers = workers.filter((worker: any) => {
     const matchesTeam =
       filterTeam === 'all' || (worker.teams || []).includes(filterTeam)
 
@@ -880,7 +900,7 @@ export default function SettingsPage() {
           : worker.role === 'worker'
 
     return matchesTeam && matchesEmployment && matchesRole
-  }).sort((a, b) => {
+  }).sort((a: any, b: any) => {
     // 並び替えロジック
     switch (sortOrder) {
       case 'name_asc':
@@ -1249,7 +1269,16 @@ export default function SettingsPage() {
                         })
                         if (res.ok) {
                           const data = await res.json()
-                          setWorkerCandidates(data.candidates || [])
+                          const workersWithTeams = await Promise.all(
+                            data.candidates.map(async (worker: any) => {
+                              // Assuming worker.teams might be a JSON string or an array
+                              return {
+                                ...worker,
+                                teams: Array.isArray(worker.teams) ? worker.teams : (typeof worker.teams === 'string' ? JSON.parse(worker.teams) : []),
+                              }
+                            })
+                          )
+                          setWorkerCandidates(workersWithTeams || [])
                         } else {
                           console.error('ワーカー候補の取得に失敗:', res.status)
                           setWorkerCandidates([])
@@ -1579,9 +1608,9 @@ export default function SettingsPage() {
                             <Button
                               type="button"
                               variant="outline"
-                              size="xs"
+                              size="sm"
                               onClick={() => setIsWorkerPasswordDialogOpen(true)}
-                              className="mt-1"
+                              className="mt-1 h-7 px-2 text-[10px]"
                             >
                               編集を有効化
                             </Button>
@@ -2003,9 +2032,10 @@ export default function SettingsPage() {
                                     <SelectValue placeholder="パターンを選択" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="p1">通常清掃パターン</SelectItem>
-                                    <SelectItem value="p2">特別メンテナンス</SelectItem>
                                     <SelectItem value="none">適用なし</SelectItem>
+                                    {checklistPatterns.map((p) => (
+                                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                    ))}
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -2078,7 +2108,7 @@ export default function SettingsPage() {
                       }}
                       onVerified={handleWorkerEditVerified}
                       currentUser={currentUser}
-                      actionType="workclock-worker"
+                      actionType={"workclock-worker" as any}
                     />
                     <DialogFooter>
                       <Button
@@ -2483,12 +2513,10 @@ export default function SettingsPage() {
           {/* 税率設定用パスワード認証ダイアログ */}
           <PasswordVerificationDialog
             open={isTaxRatePasswordDialogOpen}
-            onOpenChange={(open) => {
-              setIsTaxRatePasswordDialogOpen(open)
-            }}
+            onOpenChange={setIsTaxRatePasswordDialogOpen}
             onVerified={handleTaxRateEditVerified}
             currentUser={currentUser}
-            actionType="workclock-worker"
+            actionType={"workclock-worker" as any}
           />
 
           <Card>

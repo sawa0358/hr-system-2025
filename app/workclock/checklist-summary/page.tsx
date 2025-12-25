@@ -638,7 +638,7 @@ export default function ChecklistSummaryPage() {
                                                     <TableHead className="text-xs font-bold py-3">完了 / 全体</TableHead>
                                                     <TableHead className="text-xs font-bold py-3">獲得寸志</TableHead>
                                                     <TableHead className="text-xs font-bold py-3">画像・メモ</TableHead>
-                                                    <TableHead className="text-right pr-6 py-3">操作</TableHead>
+                                                    <TableHead className="text-right pr-6 py-3">詳細</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -706,7 +706,7 @@ export default function ChecklistSummaryPage() {
                                                                 </div>
                                                             </TableCell>
                                                             <TableCell className="text-right pr-6 py-4">
-                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                                                     <Search className="w-4 h-4 text-slate-400" />
                                                                 </Button>
                                                             </TableCell>

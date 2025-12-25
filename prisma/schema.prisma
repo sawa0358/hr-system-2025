@@ -860,6 +860,12 @@ model WorkClockWorker {
   rewards                WorkClockReward[]
   rewardPresets          WorkClockRewardPreset[]
 
+  // 業務チェックリスト関係
+  checklistPatternId     String?
+  checklistPattern       WorkClockChecklistPattern? @relation(fields: [checklistPatternId], references: [id], onDelete: SetNull)
+  isChecklistEnabled     Boolean  @default(false)
+  checklistSubmissions   WorkClockChecklistSubmission[]
+
   @@map("workclock_workers")
 }
 
@@ -930,4 +936,72 @@ model WorkClockTeam {
   updatedAt DateTime @updatedAt
 
   @@map("workclock_teams")
+}
+
+// ==========================
+// 業務チェックリスト用モデル
+// ==========================
+
+// 業務チェックリストパターン
+model WorkClockChecklistPattern {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items     WorkClockChecklistItem[]
+  workers   WorkClockWorker[]
+
+  @@map("workclock_checklist_patterns")
+}
+
+// 業務チェックリスト項目
+model WorkClockChecklistItem {
+  id          String   @id @default(cuid())
+  patternId   String
+  pattern     WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  title       String
+  reward      Float    @default(0)
+  isMandatory Boolean  @default(false)
+  category    String?
+  position    Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([patternId])
+  @@map("workclock_checklist_items")
+}
+
+// 業務チェックリスト提出（報告）
+model WorkClockChecklistSubmission {
+  id           String   @id @default(cuid())
+  workerId     String
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  date         DateTime
+  memo         String?
+  hasPhoto     Boolean  @default(false)
+  isSafetyAlert Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  items        WorkClockChecklistSubmissionItem[]
+
+  @@index([workerId, date])
+  @@map("workclock_checklist_submissions")
+}
+
+// 提出時のチェック項目スナップショット
+model WorkClockChecklistSubmissionItem {
+  id           String   @id @default(cuid())
+  submissionId String
+  submission   WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  title        String
+  reward       Float
+  isMandatory  Boolean
+  isChecked    Boolean
+  category     String?
+  createdAt    DateTime @default(now())
+
+  @@index([submissionId])
+  @@map("workclock_checklist_submission_items")
 }

@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     console.log(`[WorkClock API] Found ${workers.length} workers`)
 
     // teamsをJSONから配列に変換
-    const formattedWorkers = workers.map((worker) => {
+    const formattedWorkers = workers.map((worker: any) => {
       let teams: string[] = []
       if (worker.teams) {
         try {
@@ -107,11 +107,11 @@ export async function GET(request: NextRequest) {
 
     // WorkClock 上で「管理者（=リーダー）」ロールを持つワーカーは、
     // 自分と「同じチームに所属するワーカー／管理者」だけを閲覧できるように絞り込む
-    const viewerWorker = formattedWorkers.find((w) => w.employeeId === userId)
+    const viewerWorker: any = formattedWorkers.find((w: any) => w.employeeId === userId)
     if (viewerWorker && viewerWorker.role === 'admin') {
       const viewerTeams: string[] = viewerWorker.teams || []
       if (viewerTeams.length > 0) {
-        const limitedWorkers = formattedWorkers.filter((w) => {
+        const limitedWorkers = formattedWorkers.filter((w: any) => {
           if (w.id === viewerWorker.id) return true
           const wTeams: string[] = w.teams || []
           return wTeams.some((t) => viewerTeams.includes(t))
@@ -241,6 +241,8 @@ export async function POST(request: NextRequest) {
       withholdingCountC,
       withholdingMonthlyFixed,
       billingClientId,
+      checklistPatternId,
+      isChecklistEnabled,
     } = body
 
     // 必須項目チェック（社員・氏名のみ必須）
@@ -348,6 +350,8 @@ export async function POST(request: NextRequest) {
         notes,
         transferDestination,
         billingClientId: billingClientId || null,
+        checklistPatternId: checklistPatternId || null,
+        isChecklistEnabled: isChecklistEnabled ?? false,
       },
       include: {
         employee: {

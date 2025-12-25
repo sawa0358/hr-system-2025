@@ -12,25 +12,25 @@ const API_BASE = '/api/workclock'
  */
 function getAuthHeaders(): HeadersInit {
   if (typeof window === 'undefined') return {}
-  
+
   // まずlocalStorageをチェック、なければsessionStorageをチェック
   let savedUser = localStorage.getItem('currentUser')
   if (!savedUser) {
     savedUser = sessionStorage.getItem('currentUser')
   }
-  
+
   if (!savedUser) {
     console.warn('[WorkClock API] currentUser not found in storage')
     return { 'Content-Type': 'application/json' }
   }
-  
+
   try {
     const user = JSON.parse(savedUser)
     if (!user.id) {
       console.warn('[WorkClock API] user.id not found')
       return { 'Content-Type': 'application/json' }
     }
-    
+
     return {
       'Content-Type': 'application/json',
       'x-employee-id': user.id,
@@ -117,7 +117,7 @@ export const api = {
       if (params?.workerId) searchParams.append('workerId', params.workerId)
       if (params?.year) searchParams.append('year', params.year.toString())
       if (params?.month) searchParams.append('month', params.month.toString())
-      
+
       const url = `${API_BASE}/time-entries${searchParams.toString() ? `?${searchParams}` : ''}`
       const response = await fetch(url, {
         method: 'GET',
@@ -307,6 +307,106 @@ export const api = {
         body: JSON.stringify(data),
       })
       return handleResponse(response)
+    },
+  },
+
+  // Checklist
+  checklist: {
+    patterns: {
+      getAll: async (includeItems = false) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns?items=${includeItems}`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        })
+        return handleResponse(response)
+      },
+
+      getById: async (id: string) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns/${id}`, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        })
+        return handleResponse(response)
+      },
+
+      create: async (name: string) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name }),
+        })
+        return handleResponse(response)
+      },
+
+      update: async (id: string, name: string) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns/${id}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name }),
+        })
+        return handleResponse(response)
+      },
+
+      delete: async (id: string) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        })
+        return handleResponse(response)
+      },
+    },
+
+    items: {
+      create: async (patternId: string, data: any) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns/${patternId}/items`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data),
+        })
+        return handleResponse(response)
+      },
+
+      update: async (id: string, data: any) => {
+        const response = await fetch(`${API_BASE}/checklist/items/${id}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data),
+        })
+        return handleResponse(response)
+      },
+
+      delete: async (id: string) => {
+        const response = await fetch(`${API_BASE}/checklist/items/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        })
+        return handleResponse(response)
+      },
+    },
+
+    submissions: {
+      getAll: async (params?: { workerId?: string; startDate?: string; endDate?: string }) => {
+        const searchParams = new URLSearchParams()
+        if (params?.workerId) searchParams.append('workerId', params.workerId)
+        if (params?.startDate) searchParams.append('startDate', params.startDate)
+        if (params?.endDate) searchParams.append('endDate', params.endDate)
+
+        const url = `${API_BASE}/checklist/submissions${searchParams.toString() ? `?${searchParams}` : ''}`
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders(),
+        })
+        return handleResponse(response)
+      },
+
+      create: async (data: any) => {
+        const response = await fetch(`${API_BASE}/checklist/submissions`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(data),
+        })
+        return handleResponse(response)
+      },
     },
   },
 }

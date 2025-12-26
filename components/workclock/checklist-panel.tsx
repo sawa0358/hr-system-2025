@@ -342,7 +342,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         <div className="flex items-center justify-between p-3 px-4 rounded-xl bg-gradient-to-r from-yellow-50 to-white border border-yellow-200 shadow-sm relative overflow-hidden">
                             <div className="relative z-10">
                                 <h3 className="text-sm font-bold text-yellow-900 flex items-center gap-1.5">
-                                    <Coins className="w-4 h-4" /> 本日の獲得予定寸志
+                                    <Coins className="w-4 h-4" /> 本日の獲得予定リワード
                                 </h3>
                                 <p className="text-[10px] text-yellow-700/70">全ての業務を完了してボーナスを獲得</p>
                             </div>

@@ -412,7 +412,7 @@ export function Sidebar() {
               <Building2 className="w-6 h-6 text-blue-600" />
               <div className="flex items-baseline gap-2">
                 <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-muted-foreground/50">v3.9.5</span>
+                <span className="text-xs text-muted-foreground/50">v3.9.6</span>
               </div>
             </div>
           )}

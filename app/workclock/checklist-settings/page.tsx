@@ -340,7 +340,7 @@ export default function ChecklistSettingsPage() {
                     <div className="flex items-end justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-slate-900">業務チェック設定</h1>
-                            <p className="text-slate-500">パターンの作成と各項目の寸志（インセンティブ）を設定します</p>
+                            <p className="text-slate-500">パターンの作成と各項目のリワード（インセンティブ）を設定します</p>
                         </div>
                         <div className="bg-white border p-3 rounded-xl shadow-sm flex items-center gap-4">
                             <div className="flex flex-col">
@@ -414,21 +414,21 @@ export default function ChecklistSettingsPage() {
                     </div>
 
                     <Card className="shadow-sm border-slate-200 overflow-hidden">
-                        <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4">
+                        <CardHeader className="flex flex-col md:flex-row md:items-center justify-between border-b bg-slate-50/50 py-4 gap-4">
                             <div>
                                 <CardTitle className="text-lg">「{selectedPattern.name}」のチェック項目一覧</CardTitle>
                                 <CardDescription>このパターンを割り当てられたワーカーに表示されます。</CardDescription>
                             </div>
-                            <div className="flex gap-2">
-                                <Button onClick={() => handleOpenItemDialog(undefined, true, false)} variant="outline" className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200">
+                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                <Button onClick={() => handleOpenItemDialog(undefined, true, false)} variant="outline" className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200 flex-1 md:flex-none">
                                     <Plus className="w-4 h-4 mr-2" />
                                     自由欄追加
                                 </Button>
-                                <Button onClick={() => handleOpenItemDialog(undefined, false, true)} variant="outline" className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
+                                <Button onClick={() => handleOpenItemDialog(undefined, false, true)} variant="outline" className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 flex-1 md:flex-none">
                                     <Plus className="w-4 h-4 mr-2" />
                                     説明文追加
                                 </Button>
-                                <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800">
+                                <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800 flex-1 md:flex-none">
                                     <Plus className="w-4 h-4 mr-2" />
                                     項目を追加
                                 </Button>
@@ -441,7 +441,7 @@ export default function ChecklistSettingsPage() {
                                         <TableHead className="w-12 pl-4"></TableHead>
                                         <TableHead className="">項目名</TableHead>
                                         <TableHead>ステータス</TableHead>
-                                        <TableHead>寸志金額</TableHead>
+                                        <TableHead>リワード</TableHead>
                                         <TableHead className="text-right pr-6">操作</TableHead>
                                     </TableRow>
                                 </TableHeader>

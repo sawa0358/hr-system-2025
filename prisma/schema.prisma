@@ -945,17 +945,18 @@ model WorkClockChecklistPattern {
 
 // 業務チェックリスト項目
 model WorkClockChecklistItem {
-  id          String                    @id @default(cuid())
-  patternId   String
-  pattern     WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
-  title       String
-  reward      Float                     @default(0)
-  isMandatory Boolean                   @default(false)
-  isFreeText  Boolean                   @default(false) // 自由記入欄かどうか
-  category    String?
-  position    Int                       @default(0)
-  createdAt   DateTime                  @default(now())
-  updatedAt   DateTime                  @updatedAt
+  id            String                    @id @default(cuid())
+  patternId     String
+  pattern       WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  title         String
+  reward        Float                     @default(0)
+  isMandatory   Boolean                   @default(false)
+  isFreeText    Boolean                   @default(false) // 自由記入欄かどうか
+  isDescription Boolean                   @default(false) // 説明文かどうか（表示のみ）
+  category      String?
+  position      Int                       @default(0)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
 
   @@index([patternId])
   @@map("workclock_checklist_items")
@@ -991,6 +992,7 @@ model WorkClockChecklistSubmissionItem {
   isMandatory   Boolean
   isChecked     Boolean
   isFreeText    Boolean                      @default(false) // 自由記入欄かどうか
+  isDescription Boolean                      @default(false) // 説明文かどうか
   freeTextValue String? // 自由記入欄の入力値
   category      String?
   createdAt     DateTime                     @default(now())

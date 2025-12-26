@@ -116,6 +116,7 @@ export interface ChecklistItem {
   reward: number
   isMandatory: boolean
   isFreeText?: boolean  // 自由記入欄かどうか
+  isDescription?: boolean  // 説明文かどうか
   category?: string
   position: number
 }
@@ -137,6 +138,7 @@ export interface ChecklistSubmissionItem {
   isMandatory: boolean
   isChecked: boolean
   isFreeText?: boolean  // 自由記入欄かどうか
+  isDescription?: boolean  // 説明文かどうか
   freeTextValue?: string  // 自由記入欄の入力値
   category?: string
 }

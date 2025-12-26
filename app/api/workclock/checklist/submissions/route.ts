@@ -143,6 +143,7 @@ export async function POST(request: Request) {
                         isMandatory: !!item.isMandatory,
                         isChecked: !!item.isChecked,
                         isFreeText: !!item.isFreeText,
+                        isDescription: !!item.isDescription,
                         freeTextValue: item.freeTextValue || null,
                         category: item.category,
                     }))

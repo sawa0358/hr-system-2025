@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: Request, { params }: { params: { id: string } }) {
     try {
         const body = await request.json()
-        const { title, reward, isMandatory, isFreeText, category, position } = body
+        const { title, reward, isMandatory, isFreeText, isDescription, category, position } = body
 
         if (!title) {
             return NextResponse.json({ error: '項目名は必須です' }, { status: 400 })
@@ -19,6 +19,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
                 reward: Number(reward) || 0,
                 isMandatory: !!isMandatory,
                 isFreeText: !!isFreeText,
+                isDescription: !!isDescription,
                 category,
                 position: position || 0,
             },

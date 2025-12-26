@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2, Plus } from 'lucide-react'
+import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2, Plus, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/workclock/api'
 import { ChecklistItem, Worker } from '@/lib/workclock/types'
@@ -388,7 +388,14 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {checklistItems.map(item => (
-                                    item.isFreeText ? (
+                                    item.isDescription ? (
+                                        <div key={item.id} className="px-3 py-2 transition-colors" style={{ backgroundColor: '#e2edf0' }}>
+                                            <div className="flex items-center gap-2">
+                                                <Info className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                                                <p className="text-[11px] text-slate-700 leading-relaxed">{item.title}</p>
+                                            </div>
+                                        </div>
+                                    ) : item.isFreeText ? (
                                         <div key={item.id} className={cn("group flex flex-col px-3 py-2 transition-colors relative", readOnly ? "bg-slate-50 cursor-not-allowed" : "bg-purple-50/30 hover:bg-purple-50/50")}>
                                             <div className={cn("absolute left-0 top-0 bottom-0 w-0.5", readOnly ? "bg-slate-300" : "bg-purple-400")} />
                                             <div className="flex items-center justify-between mb-1.5">

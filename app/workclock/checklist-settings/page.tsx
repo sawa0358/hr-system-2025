@@ -49,6 +49,7 @@ import { Badge } from '@/components/ui/badge'
 import { getWorkers } from '@/lib/workclock/api-storage'
 import { Worker, ChecklistPattern, ChecklistItem } from '@/lib/workclock/types'
 import { api } from '@/lib/workclock/api'
+import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
     Sheet,
@@ -119,6 +120,7 @@ export default function ChecklistSettingsPage() {
         reward: '0',
         isMandatory: false,
         isFreeText: false,
+        isDescription: false,
         category: 'general'
     })
 
@@ -216,7 +218,7 @@ export default function ChecklistSettingsPage() {
         }
     }
 
-    const handleOpenItemDialog = (item?: any, isFreeText = false) => {
+    const handleOpenItemDialog = (item?: any, isFreeText = false, isDescription = false) => {
         if (item) {
             setEditingItem(item)
             setItemFormData({
@@ -224,11 +226,12 @@ export default function ChecklistSettingsPage() {
                 reward: String(item.reward),
                 isMandatory: item.isMandatory,
                 isFreeText: item.isFreeText || false,
+                isDescription: item.isDescription || false,
                 category: item.category
             })
         } else {
             setEditingItem(null)
-            setItemFormData({ title: '', reward: '0', isMandatory: false, isFreeText, category: 'general' })
+            setItemFormData({ title: '', reward: '0', isMandatory: false, isFreeText, isDescription, category: 'general' })
         }
         setIsItemDialogOpen(true)
     }
@@ -243,6 +246,7 @@ export default function ChecklistSettingsPage() {
                     reward: Number(itemFormData.reward),
                     isMandatory: itemFormData.isMandatory,
                     isFreeText: itemFormData.isFreeText,
+                    isDescription: itemFormData.isDescription,
                     category: itemFormData.category
                 })
             } else {
@@ -251,6 +255,7 @@ export default function ChecklistSettingsPage() {
                     reward: Number(itemFormData.reward),
                     isMandatory: itemFormData.isMandatory,
                     isFreeText: itemFormData.isFreeText,
+                    isDescription: itemFormData.isDescription,
                     category: itemFormData.category,
                     position: (selectedPattern.items?.length || 0)
                 })
@@ -415,9 +420,13 @@ export default function ChecklistSettingsPage() {
                                 <CardDescription>このパターンを割り当てられたワーカーに表示されます。</CardDescription>
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={() => handleOpenItemDialog(undefined, true)} variant="outline" className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200">
+                                <Button onClick={() => handleOpenItemDialog(undefined, true, false)} variant="outline" className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200">
                                     <Plus className="w-4 h-4 mr-2" />
                                     自由欄追加
+                                </Button>
+                                <Button onClick={() => handleOpenItemDialog(undefined, false, true)} variant="outline" className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    説明文追加
                                 </Button>
                                 <Button onClick={() => handleOpenItemDialog()} className="bg-slate-900 hover:bg-slate-800">
                                     <Plus className="w-4 h-4 mr-2" />
@@ -445,7 +454,7 @@ export default function ChecklistSettingsPage() {
                                         </TableRow>
                                     ) : selectedPattern.items && selectedPattern.items.length > 0 ? (
                                         selectedPattern.items.map((item, index) => (
-                                            <TableRow key={item.id} className="hover:bg-slate-50/50 group bg-white">
+                                            <TableRow key={item.id} className={cn("hover:bg-slate-50/50 group", item.isDescription && "!bg-[#e2edf0]")}>
                                                 <TableCell className="pl-4 py-2">
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
@@ -476,7 +485,9 @@ export default function ChecklistSettingsPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {item.isFreeText ? (
+                                                    {item.isDescription ? (
+                                                        <Badge className="bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-50 shadow-none font-bold text-[10px]">説明文</Badge>
+                                                    ) : item.isFreeText ? (
                                                         <Badge className="bg-purple-50 text-purple-600 border-purple-100 hover:bg-purple-50 shadow-none font-bold text-[10px]">自由欄</Badge>
                                                     ) : item.isMandatory ? (
                                                         <Badge className="bg-red-50 text-red-600 border-red-100 hover:bg-red-50 shadow-none font-bold text-[10px]">必須</Badge>
@@ -521,36 +532,40 @@ export default function ChecklistSettingsPage() {
                 <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
                         <DialogTitle>
-                            {itemFormData.isFreeText ? '自由記入欄を追加' : (editingItem ? '項目の編集' : '新しい項目を追加')}
+                            {itemFormData.isDescription ? '説明文を追加' : itemFormData.isFreeText ? '自由記入欄を追加' : (editingItem ? '項目の編集' : '新しい項目を追加')}
                         </DialogTitle>
                         <DialogDescription>
-                            {itemFormData.isFreeText
-                                ? 'ワーカーが自由にテキストを入力できる欄を追加します。'
-                                : 'チェック項目の内容と、達成時の寸志を設定します。'}
+                            {itemFormData.isDescription
+                                ? 'ワーカーに表示される説明文を追加します。'
+                                : itemFormData.isFreeText
+                                    ? 'ワーカーが自由にテキストを入力できる欄を追加します。'
+                                    : 'チェック項目の内容と、達成時の寸志を設定します。'}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-1.5">
                             <Label htmlFor="title" className="text-xs font-bold text-slate-500">
-                                {itemFormData.isFreeText ? '記入欄のタイトル' : '項目名'}
+                                {itemFormData.isDescription ? '説明文' : itemFormData.isFreeText ? '記入欄のタイトル' : '項目名'}
                             </Label>
                             <Input
                                 id="title"
                                 value={itemFormData.title}
                                 onChange={(e) => setItemFormData({ ...itemFormData, title: e.target.value })}
-                                placeholder={itemFormData.isFreeText ? "例: 特記事項・申し送り" : "例: フィルター清掃実施"}
+                                placeholder={itemFormData.isDescription ? "例: ※洗浄時は必ず手袋を着用してください" : itemFormData.isFreeText ? "例: 特記事項・申し送り" : "例: フィルター清掃実施"}
                             />
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="reward" className="text-xs font-bold text-slate-500">寸志金額 (円)</Label>
-                            <Input
-                                id="reward"
-                                type="number"
-                                value={itemFormData.reward}
-                                onChange={(e) => setItemFormData({ ...itemFormData, reward: e.target.value })}
-                            />
-                        </div>
-                        {!itemFormData.isFreeText && (
+                        {!itemFormData.isDescription && (
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="reward" className="text-xs font-bold text-slate-500">寸志金額 (円)</Label>
+                                <Input
+                                    id="reward"
+                                    type="number"
+                                    value={itemFormData.reward}
+                                    onChange={(e) => setItemFormData({ ...itemFormData, reward: e.target.value })}
+                                />
+                            </div>
+                        )}
+                        {!itemFormData.isFreeText && !itemFormData.isDescription && (
                             <div className="flex items-center justify-between space-x-2 border p-3 rounded-xl bg-slate-50">
                                 <div className="space-y-0.5">
                                     <Label htmlFor="isMandatory" className="text-sm font-bold">必須項目にする</Label>

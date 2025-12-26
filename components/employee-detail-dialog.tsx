@@ -32,7 +32,11 @@ interface FamilyMember {
 type PendingVerificationAction =
   | { type: "employee-my-number" }
   | { type: "family-my-number"; id: string }
+  | { type: "employee-my-number" }
+  | { type: "family-my-number"; id: string }
   | { type: "join-date" }
+  | { type: "employment-type" }
+  | { type: "status-change" }
 
 interface EmployeeDetailDialogProps {
   open: boolean
@@ -46,32 +50,32 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const { currentUser } = useAuth()
   const permissions = usePermissions()
   const [latestEmployee, setLatestEmployee] = useState(employee)
-  
+
 
   const isOwnProfile = currentUser?.id === employee?.id
   const isNewEmployee = !employee
 
   // 管理者・総務権限の場合は全項目を表示
   const isAdminOrHR = currentUser?.role === 'admin' || currentUser?.role === 'hr'
-  
+
   // 見えないTOPの社員かどうかの判定
   const isInvisibleTopEmployee = employee?.isInvisibleTop || employee?.employeeNumber === '000'
-  
+
   // 見えないTOPの社員の編集・削除は管理者のみ可能
   const canEditInvisibleTop = isInvisibleTopEmployee ? currentUser?.role === 'admin' : true
-  
+
   // コピー社員かどうかの判定
   const isCopyEmployee = employee?.status === 'copy'
-  
+
   // 総務が管理者を編集しようとしているかの判定
   const isViewingAdminAsHR = currentUser?.role === 'hr' && employee?.role === 'admin' && !isNewEmployee
-  
+
   // 編集可能かどうかの判定（総務が管理者を編集する場合は不可）
   const canEdit = !isViewingAdminAsHR && canEditInvisibleTop
-  
+
   // 全入力欄を無効化するかどうかの判定（総務が管理者を編集する場合）
   const isAllInputDisabled = isViewingAdminAsHR
-  
+
   // ダイアログが開かれた時に最新の社員データを取得
   useEffect(() => {
     if (open && employee?.id) {
@@ -94,7 +98,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('新規登録モーダルを開きました: avatarTextをリセットしました')
     }
   }, [open, employee?.id, employee])
-  
+
   // デバッグ用：現在のユーザー情報をコンソールに出力
   console.log('Current User:', currentUser)
   console.log('Is Admin or HR:', isAdminOrHR)
@@ -135,7 +139,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           if (typeof window !== 'undefined') {
             try {
               localStorage.setItem(`employee-avatar-text-${employeeId}`, settings['avatar-text'])
-            } catch {}
+            } catch { }
           }
         } else {
           // avatar-textが存在しない場合は空文字列を設定（他の社員の値が残らないように）
@@ -216,7 +220,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.error('ユーザー設定保存エラー:', error)
     }
   }
-  
+
   const canViewProfile = isOwnProfile || permissions.permissions.viewSubordinateProfiles || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canEditProfile = canEdit && isAdminOrHR && !isCopyEmployee // 通常の編集権限（総務が管理者を編集する場合は不可）
   const canEditCopyEmployee = currentUser?.role === 'admin' && isCopyEmployee // コピー社員の編集権限（管理者のみ）
@@ -225,7 +229,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const canEditUserInfo = canEdit && (isCopyEmployee ? canEditCopyEmployee : (permissions.permissions.editAllProfiles || isAdminOrHR)) // コピー社員は管理者のみ編集可能（総務が管理者を編集する場合は不可）
   const canViewFamily = isOwnProfile || permissions.permissions.viewAllProfiles || isAdminOrHR
   const canViewFiles = (currentUser?.department?.includes('総務') || currentUser?.role === 'admin')
-  
+
   // デバッグ用：権限チェック結果をコンソールに出力
   console.log('Permission Check Results:', {
     canViewProfile,
@@ -244,9 +248,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // フォーム状態管理
   const [formData, setFormData] = useState(() => {
     const initialData = {
-    name: employee?.name || '',
-    furigana: employee?.furigana || '',
-    email: employee?.email || '',
+      name: employee?.name || '',
+      furigana: employee?.furigana || '',
+      email: employee?.email || '',
       phone: employee?.phone || '',
       phoneInternal: employee?.phoneInternal || '',
       phoneMobile: employee?.phoneMobile || '',
@@ -290,7 +294,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
       console.log('formData更新 - employeeType:', latestEmployee.employeeType)
       console.log('formData更新 - description:', latestEmployee.description)
-      
+
       // 家族構成も更新
       if (latestEmployee.familyMembers && Array.isArray(latestEmployee.familyMembers)) {
         const mappedFamilyMembers = latestEmployee.familyMembers.map((member: any) => {
@@ -308,7 +312,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               console.error('誕生日の変換エラー:', error, member.birthDate);
             }
           }
-          
+
           return {
             id: member.id || `temp-${Date.now()}-${Math.random()}`,
             name: member.name || '',
@@ -334,25 +338,25 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   useEffect(() => {
     if (latestEmployee && !isNewEmployee) {
       // 組織、部署、役職の配列を設定（latestEmployeeから取得）
-      setOrganizations(latestEmployee.organizations && latestEmployee.organizations.length > 0 ? latestEmployee.organizations : 
-                      latestEmployee.organization ? [latestEmployee.organization] : [""])
-      setDepartments(latestEmployee.departments && latestEmployee.departments.length > 0 ? latestEmployee.departments : 
-                    latestEmployee.department ? [latestEmployee.department] : [""])
-      setPositions(latestEmployee.positions && latestEmployee.positions.length > 0 ? latestEmployee.positions : 
-                  latestEmployee.position ? [latestEmployee.position] : [""])
-      
+      setOrganizations(latestEmployee.organizations && latestEmployee.organizations.length > 0 ? latestEmployee.organizations :
+        latestEmployee.organization ? [latestEmployee.organization] : [""])
+      setDepartments(latestEmployee.departments && latestEmployee.departments.length > 0 ? latestEmployee.departments :
+        latestEmployee.department ? [latestEmployee.department] : [""])
+      setPositions(latestEmployee.positions && latestEmployee.positions.length > 0 ? latestEmployee.positions :
+        latestEmployee.position ? [latestEmployee.position] : [""])
+
       // avatarTextを一旦リセットしてから、正しい値を取得（他の社員の値が残らないように）
       setAvatarText('')
-      
+
       // ユーザー設定も再取得（avatarTextなど）
       fetchUserSettings(latestEmployee.id)
-      
+
       // アップロード済みファイルも再取得
       fetchUploadedFiles(latestEmployee.id)
-      
+
       // カスタムフォルダも再取得
       fetchCustomFolders(latestEmployee.id)
-      
+
       console.log('組織・部署・役職の状態を更新しました')
       console.log('organizations:', latestEmployee.organizations || latestEmployee.organization)
       console.log('departments:', latestEmployee.departments || latestEmployee.department)
@@ -394,7 +398,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         description: employee.description || '',
         parentEmployeeId: employee.parentEmployeeId || null,
       })
-      
+
       // 家族構成の初期化
       console.log('=== 家族構成データ初期化開始 ===');
       console.log('現在時刻:', new Date().toISOString());
@@ -406,14 +410,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('latestEmployee.familyMembersの型:', typeof latestEmployee?.familyMembers);
       console.log('employee.familyMembersは配列か:', Array.isArray(employee?.familyMembers));
       console.log('latestEmployee.familyMembersは配列か:', Array.isArray(latestEmployee?.familyMembers));
-      
+
       // latestEmployeeのfamilyMembersを優先的に使用（nullチェック付き）
       let familyMembersData = (latestEmployee?.familyMembers) || (employee?.familyMembers);
       console.log('使用するfamilyMembers:', familyMembersData);
       console.log('familyMembersDataの型:', typeof familyMembersData);
       console.log('familyMembersDataは配列か:', Array.isArray(familyMembersData));
       console.log('familyMembersDataの長さ:', familyMembersData?.length);
-      
+
       // リロード時の詳細チェック
       if (!familyMembersData || familyMembersData.length === 0) {
         console.log('=== リロード時の問題診断 ===');
@@ -421,11 +425,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         console.log('latestEmployee.id:', latestEmployee?.id);
         console.log('employee === latestEmployee:', employee === latestEmployee);
         console.log('employee.familyMembers === latestEmployee.familyMembers:', employee?.familyMembers === latestEmployee?.familyMembers);
-        
+
         // latestEmployeeがundefinedの場合、employeeから直接家族構成を取得
         if (!latestEmployee && employee?.id) {
           console.log('latestEmployeeがundefinedのため、employeeから家族構成を取得します');
-          
+
           // 非同期関数を定義して実行
           const fetchFamilyData = async () => {
             try {
@@ -433,7 +437,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               if (response.ok) {
                 const familyData = await response.json();
                 console.log('APIから取得した家族構成データ:', familyData);
-                
+
                 // 取得したデータで家族構成を再設定
                 if (familyData && Array.isArray(familyData)) {
                   const mappedFamilyMembers = familyData.map((member: any) => {
@@ -451,7 +455,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         console.error('誕生日の変換エラー:', error, member.birthDate);
                       }
                     }
-                    
+
                     return {
                       id: member.id || `temp-${Date.now()}-${Math.random()}`,
                       name: member.name || '',
@@ -464,7 +468,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       description: member.description || '',
                     };
                   });
-                  
+
                   console.log('API取得後の変換された家族構成データ:', mappedFamilyMembers);
                   setFamilyMembers(mappedFamilyMembers);
                 }
@@ -473,16 +477,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               console.error('家族構成データの取得に失敗:', error);
             }
           };
-          
+
           fetchFamilyData();
           return; // 早期リターンで後続の処理をスキップ
         }
       }
-      
+
       if (familyMembersData && Array.isArray(familyMembersData)) {
         console.log('フロントエンドで受け取った家族構成データ:', familyMembersData);
         console.log('家族構成データの長さ:', familyMembersData.length);
-        
+
         const mappedFamilyMembers = familyMembersData.map((member: any) => {
           let birthday = '';
           console.log('個別メンバーの変換処理:', {
@@ -491,7 +495,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             birthDate: member.birthDate,
             birthDateType: typeof member.birthDate
           });
-          
+
           if (member.birthDate) {
             try {
               // ISO文字列をyyyy/MM/dd形式に変換
@@ -501,7 +505,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 date: date,
                 isValid: !isNaN(date.getTime())
               });
-              
+
               if (!isNaN(date.getTime())) {
                 const year = date.getFullYear();
                 const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -520,7 +524,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           } else {
             console.log('birthDateが存在しません:', member);
           }
-          
+
           const result = {
             id: member.id || `temp-${Date.now()}-${Math.random()}`,
             name: member.name || '',
@@ -532,7 +536,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             myNumber: member.myNumber || '',
             description: member.description || '',
           };
-          
+
           console.log('変換結果:', result);
           return result;
         });
@@ -540,7 +544,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         console.log('setFamilyMembersを実行します');
         setFamilyMembers(mappedFamilyMembers);
         console.log('setFamilyMembers完了');
-        
+
         // 状態設定後の確認
         setTimeout(() => {
           console.log('=== setFamilyMembers後の状態確認 ===');
@@ -553,28 +557,28 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         console.log('Array.isArray(familyMembersData):', Array.isArray(familyMembersData));
         setFamilyMembers([])
       }
-      
+
       // 組織、部署、役職の配列を設定（APIから取得した配列を使用）
-      setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations : 
-                      employee.organization ? [employee.organization] : [""])
-      setDepartments(employee.departments && employee.departments.length > 0 ? employee.departments : 
-                    employee.department ? [employee.department] : [""])
-      setPositions(employee.positions && employee.positions.length > 0 ? employee.positions : 
-                  employee.position ? [employee.position] : [""])
-      
+      setOrganizations(employee.organizations && employee.organizations.length > 0 ? employee.organizations :
+        employee.organization ? [employee.organization] : [""])
+      setDepartments(employee.departments && employee.departments.length > 0 ? employee.departments :
+        employee.department ? [employee.department] : [""])
+      setPositions(employee.positions && employee.positions.length > 0 ? employee.positions :
+        employee.position ? [employee.position] : [""])
+
       // ユーザー設定をデータベースから取得
       fetchUserSettings(employee.id)
-      
+
       // 家族データの更新は別のuseEffectで処理（競合を避けるため削除）
-      
+
       // 家族構成データをデータベースから取得（一時的に無効化）
       // fetchFamilyMembers(employee.id)
       console.log('fetchFamilyMembers呼び出しを無効化しました。fetchLatestEmployeeのデータを使用します。')
-      
-      
+
+
       // カスタムフォルダをデータベースから取得
       fetchCustomFolders(employee.id)
-      
+
       // アップロード済みファイルを取得
       fetchUploadedFiles(employee.id)
     } else if (!employee) {
@@ -615,7 +619,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setFamilyMembers([]) // 新規登録時は家族構成を空にする
       if (typeof window !== 'undefined') {
         // 新規登録時は古いフォルダデータをクリア
-        const oldKeys = Object.keys(localStorage).filter(key => 
+        const oldKeys = Object.keys(localStorage).filter(key =>
           key.startsWith('employee-folders-')
         )
         oldKeys.forEach(key => {
@@ -643,6 +647,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
   const [isJoinDateEditingEnabled, setIsJoinDateEditingEnabled] = useState(isNewEmployee)
+  const [isEmploymentTypeEditingEnabled, setIsEmploymentTypeEditingEnabled] = useState(isNewEmployee)
+  const [isStatusEditingEnabled, setIsStatusEditingEnabled] = useState(isNewEmployee)
   const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false)
   const [pendingVerificationAction, setPendingVerificationAction] = useState<PendingVerificationAction | null>(null)
   const [saving, setSaving] = useState(false)
@@ -655,6 +661,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   useEffect(() => {
     if (open) {
       setIsJoinDateEditingEnabled(!requiresJoinDateVerification)
+      setIsEmploymentTypeEditingEnabled(!requiresJoinDateVerification)
+      setIsStatusEditingEnabled(!requiresJoinDateVerification)
     }
   }, [open, requiresJoinDateVerification])
 
@@ -666,7 +674,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     console.log('isAdminOrHR:', isAdminOrHR)
     console.log('formData:', formData)
     console.log('employee:', employee)
-    
+
     if (!canEditUserInfo && !isNewEmployee) {
       console.log('権限が不足しています')
       alert('編集権限がありません。総務は管理者のユーザー情報を編集できません。')
@@ -680,12 +688,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       window.location.reload()
       return
     }
-    
+
     setSaving(true)
     try {
       const url = isNewEmployee ? '/api/employees' : `/api/employees/${employee.id}`
       const method = isNewEmployee ? 'POST' : 'PUT'
-      
+
       console.log('API呼び出し:', { url, method, formData })
       console.log('送信するbirthDate:', formData.birthDate)
       console.log('送信するisSuspended:', formData.isSuspended)
@@ -696,7 +704,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       console.log('送信するorganizations:', organizations)
       console.log('送信するdepartments:', departments)
       console.log('送信するpositions:', positions)
-      
+
       const requestBody = {
         ...formData,
         familyMembers: familyMembers,
@@ -728,7 +736,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         // 備考欄を送信
         description: formData.description,
       }
-      
+
       console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))
       console.log('furiganaフィールドの送信値:', {
         formData: formData.furigana,
@@ -742,7 +750,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         hasDescription: 'description' in requestBody,
         requestBodyKeys: Object.keys(requestBody)
       })
-      
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -756,12 +764,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       if (response.ok) {
         const result = await response.json()
         console.log('保存成功:', result)
-        
+
         // 家族データを更新
         if (result.employee && result.employee.familyMembers) {
           setFamilyMembers(result.employee.familyMembers)
         }
-        
+
         // formDataを更新（特にisSuspendedとdescriptionの状態を反映）
         if (result.employee) {
           setFormData(prev => ({
@@ -776,7 +784,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           await saveCustomFolders(result.employee.id)
           await saveUserSettings(result.employee.id)
         }
-        
+
         // マスターデータ更新イベントを発火（検索セクションの更新用）
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('masterDataChanged'))
@@ -791,7 +799,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             window.dispatchEvent(new CustomEvent('employmentTypesChanged'))
           }
         }
-        
+
         onOpenChange(false)
         // リフレッシュを呼び出してテーブルを更新
         if (onRefresh) {
@@ -845,11 +853,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // 削除処理
   const handleDelete = async () => {
     if (!employee || !isAdminOrHR) return
-    
+
     if (!confirm(`「${employee.name}」を削除しますか？この操作は取り消せません。`)) {
       return
     }
-    
+
     setDeleting(true)
     try {
       const response = await fetch(`/api/employees/${employee.id}`, {
@@ -889,11 +897,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [copying, setCopying] = useState(false)
   const handleCopy = async () => {
     if (!employee || currentUser?.role !== 'admin') return
-    
+
     if (!confirm(`「${employee.name}」の情報をコピーしますか？コピー社員は編集できません。`)) {
       return
     }
-    
+
     setCopying(true)
     try {
       const response = await fetch(`/api/employees/${employee.id}/copy`, {
@@ -930,7 +938,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const handleRemoveFamilyMember = async (id: string) => {
     const newFamilyMembers = familyMembers.filter(member => member.id !== id)
     setFamilyMembers(newFamilyMembers)
-    
+
     // データベースに保存
     if (employee?.id) {
       try {
@@ -948,7 +956,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // 家族構成データを更新してデータベースに保存する共通関数
   const updateFamilyMembersAndSave = async (updatedMembers: FamilyMember[]) => {
     setFamilyMembers(updatedMembers)
-    
+
     // データベースに保存
     if (employee?.id) {
       try {
@@ -968,7 +976,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // アップロード済みファイルを取得
   const fetchUploadedFiles = async (employeeId: string) => {
     if (!employeeId) return
-    
+
     setLoadingFiles(true)
     try {
       const response = await fetch(`/api/files/employee/${employeeId}`)
@@ -989,25 +997,25 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const handleFileUploadRetry = async (employeeId: string) => {
     console.log('ファイルアップロード再試行開始:', employeeId)
     const filesToUpload = [...files]
-    
+
     if (filesToUpload.length === 0) {
       console.log('アップロードするファイルがありません')
       return
     }
-    
+
     // ファイルリストをクリア
     setFiles([])
-    
+
     // 各ファイルをアップロード
     for (const file of filesToUpload) {
       try {
         console.log('ファイルアップロード開始:', file.name)
-        
+
         const formData = new FormData()
         formData.append('file', file)
         formData.append('category', 'employee')
         formData.append('folder', currentFolder)
-        
+
         const response = await fetch('/api/files/upload', {
           method: 'POST',
           headers: {
@@ -1015,11 +1023,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           },
           body: formData
         })
-        
+
         if (response.ok) {
           const result = await response.json()
           console.log('ファイルアップロード成功:', result)
-          
+
           // アップロード済みファイルリストを再取得
           setTimeout(() => {
             fetchUploadedFiles(employeeId)
@@ -1040,26 +1048,26 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     if (selectedFiles) {
       const newFiles = Array.from(selectedFiles)
       console.log('選択されたファイル:', newFiles.map(f => f.name))
-      
+
       // 一時的にローカルファイルリストに追加（アップロード中表示用）
       setFiles([...files, ...newFiles])
-      
+
       // 各ファイルをアップロード
       for (const file of newFiles) {
         try {
           console.log('ファイルアップロード開始:', file.name)
-          
+
           // 新規登録の場合はアップロードをスキップ（保存後に再試行）
           if (!employee?.id) {
             console.log('新規登録のため、ファイルアップロードをスキップ（保存後に再試行）')
             continue
           }
-          
+
           const formData = new FormData()
           formData.append('file', file)
           formData.append('category', 'employee')
           formData.append('folder', currentFolder)
-          
+
           const response = await fetch('/api/files/upload', {
             method: 'POST',
             headers: {
@@ -1067,14 +1075,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             },
             body: formData
           })
-          
+
           if (response.ok) {
             const result = await response.json()
             console.log('ファイルアップロード成功:', result)
-            
+
             // アップロード成功したファイルをローカルリストから削除
             setFiles(prevFiles => prevFiles.filter(f => f !== file))
-            
+
             // アップロード済みファイルリストを再取得
             if (employee?.id) {
               console.log('アップロード済みファイルリストを再取得中...')
@@ -1096,7 +1104,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         }
       }
     }
-    
+
     // ファイル入力欄をリセット
     event.target.value = ''
   }
@@ -1114,14 +1122,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const handleDrop = async (event: React.DragEvent) => {
     event.preventDefault()
     setIsDragging(false)
-    
+
     const droppedFiles = event.dataTransfer.files
     if (droppedFiles) {
       const newFiles = Array.from(droppedFiles)
-      
+
       // 一時的にローカルファイルリストに追加（アップロード中表示用）
       setFiles([...files, ...newFiles])
-      
+
       // 各ファイルをアップロード
       for (const file of newFiles) {
         try {
@@ -1131,12 +1139,12 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             setFiles(prevFiles => prevFiles.filter(f => f !== file))
             continue
           }
-          
+
           const formData = new FormData()
           formData.append('file', file)
           formData.append('category', 'employee')
           formData.append('folder', currentFolder)
-          
+
           const response = await fetch('/api/files/upload', {
             method: 'POST',
             headers: {
@@ -1144,14 +1152,14 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
             },
             body: formData
           })
-          
+
           if (response.ok) {
             const result = await response.json()
             console.log('ファイルアップロード成功:', result)
-            
+
             // アップロード成功したファイルをローカルリストから削除
             setFiles(prevFiles => prevFiles.filter(f => f !== file))
-            
+
             // アップロード済みファイルリストを再取得
             if (employee?.id) {
               // 少し遅延してからファイルリストを再取得（アップロード完了を確実にするため）
@@ -1234,15 +1242,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
   const [organizations, setOrganizations] = useState<string[]>(() => {
     return employee?.organizations && employee.organizations.length > 0 ? employee.organizations :
-           employee?.organization ? [employee.organization] : [""]
+      employee?.organization ? [employee.organization] : [""]
   })
   const [departments, setDepartments] = useState<string[]>(() => {
     return employee?.departments && employee.departments.length > 0 ? employee.departments :
-           employee?.department ? [employee.department] : [""]
+      employee?.department ? [employee.department] : [""]
   })
   const [positions, setPositions] = useState<string[]>(() => {
     return employee?.positions && employee.positions.length > 0 ? employee.positions :
-           employee?.position ? [employee.position] : [""]
+      employee?.position ? [employee.position] : [""]
   })
   const [employmentTypes, setEmploymentTypes] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -1252,9 +1260,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         // employeeを除外して初期化
         return Array.isArray(types)
           ? types.filter((item: any) => {
-              const value = typeof item === 'string' ? item : (item?.value || item)
-              return value !== 'employee'
-            })
+            const value = typeof item === 'string' ? item : (item?.value || item)
+            return value !== 'employee'
+          })
           : []
       }
     }
@@ -1337,7 +1345,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           }
           console.log('部署データを設定:', deptValues)
         }
-        
+
         // 役職データの処理
         if (data.position && Array.isArray(data.position) && data.position.length > 0) {
           const posValues = data.position
@@ -1349,7 +1357,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           }
           console.log('役職データを設定:', posValues)
         }
-        
+
         // 雇用形態データの処理（employeeは除外）
         if (data.employeeType && Array.isArray(data.employeeType) && data.employeeType.length > 0) {
           const types = data.employeeType
@@ -1391,7 +1399,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
     const newFamilyMembers = [...familyMembers, newMember]
     setFamilyMembers(newFamilyMembers)
-    
+
     // データベースに保存
     if (employee?.id) {
       try {
@@ -1414,10 +1422,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         alert('このフォルダ名は既に存在します')
         return
       }
-      
+
       const newFolders = [...folders, folderName.trim()]
       setFolders(newFolders)
-      
+
       // データベースに保存（個人単位で保存される）
       if (employee?.id) {
         try {
@@ -1451,36 +1459,36 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       alert("最低1つのフォルダが必要です")
       return
     }
-    
+
     // 管理者・総務でない場合は削除不可
     if (!isAdminOrHR) {
       alert('フォルダの削除は管理者または総務のみ可能です')
       return
     }
-    
+
     // パスワード確認ダイアログ（管理者・総務のパスワードで検証）
     const password = prompt(`フォルダ「${folderName}」を削除するために、${currentUser?.role === 'admin' ? '管理者' : '総務'}のパスワードを入力してください:`)
     if (!password) {
       return // キャンセルされた場合
     }
-    
+
     // パスワード検証（現在のユーザー（管理者・総務）のパスワードで検証）
     try {
       const verifyResponse = await fetch('/api/auth/verify-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           employeeId: currentUser?.id, // 現在のユーザー（管理者・総務）のID
-          password: password 
+          password: password
         })
       })
-      
+
       if (!verifyResponse.ok) {
         const errorData = await verifyResponse.json()
         alert(errorData.error || 'パスワードが正しくありません')
         return
       }
-      
+
       const verifyData = await verifyResponse.json()
       if (!verifyData.valid) {
         alert('パスワードが正しくありません')
@@ -1491,16 +1499,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       alert('パスワード確認に失敗しました')
       return
     }
-    
+
     // パスワード認証成功後に削除
     const newFolders = folders.filter(f => f !== folderName)
     setFolders(newFolders)
-    
+
     // 現在のフォルダが削除される場合は、最初のフォルダに切り替え
     if (currentFolder === folderName) {
       setCurrentFolder(newFolders[0] || '')
     }
-    
+
     // データベースに保存
     if (employee?.id) {
       try {
@@ -1551,6 +1559,33 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     setIsVerificationDialogOpen(true)
   }
 
+  const handleRequestEmploymentTypeEdit = () => {
+    if (
+      !requiresJoinDateVerification ||
+      isEmploymentTypeEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return
+    }
+    setPendingVerificationAction({ type: "employment-type" })
+    setIsVerificationDialogOpen(true)
+  }
+
+  const handleRequestStatusChange = () => {
+    if (
+      !requiresJoinDateVerification ||
+      isStatusEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return Promise.resolve(true)
+    }
+    setPendingVerificationAction({ type: "status-change" })
+    setIsVerificationDialogOpen(true)
+    return Promise.resolve(false)
+  }
+
   const handleJoinDateInputInteraction = (
     event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>
   ) => {
@@ -1565,7 +1600,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
     event.preventDefault()
     event.stopPropagation()
-    ;(event.target as HTMLInputElement).blur()
+      ; (event.target as HTMLInputElement).blur()
     handleRequestJoinDateEdit()
   }
 
@@ -1583,6 +1618,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setShowFamilyMyNumber({ ...showFamilyMyNumber, [pendingVerificationAction.id]: true })
     } else if (pendingVerificationAction?.type === "join-date") {
       setIsJoinDateEditingEnabled(true)
+    } else if (pendingVerificationAction?.type === "employment-type") {
+      setIsEmploymentTypeEditingEnabled(true)
+    } else if (pendingVerificationAction?.type === "status-change") {
+      setIsStatusEditingEnabled(true)
     }
     setPendingVerificationAction(null)
   }
@@ -1590,10 +1629,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   // パスワード表示のトグル機能（管理者・総務のみ）
   const handleTogglePassword = async () => {
     if (!isAdminOrHR) return
-    
+
     const newShowPassword = !showPassword
     setShowPassword(newShowPassword)
-    
+
     // データベースに保存
     if (employee?.id) {
       try {
@@ -1612,7 +1651,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto user-detail-dialog">
-          
+
           <DialogHeader>
             <DialogTitle className="text-2xl flex items-center gap-3">
               ユーザー詳細
@@ -1643,7 +1682,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>名前(登録名) <span className="text-red-500">*</span></Label>
-                    <Input 
+                    <Input
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)}
@@ -1652,7 +1691,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
                   <div className="space-y-2">
                     <Label>フリガナ</Label>
-                    <Input 
+                    <Input
                       value={formData.furigana}
                       onChange={(e) => setFormData({ ...formData, furigana: e.target.value })}
                       disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee && !canEditCopyEmployee)}
@@ -1671,7 +1710,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         <Input
                           type={showEmployeeMyNumber ? "text" : "password"}
                           value={formData.myNumber}
-                          onChange={(e) => setFormData({...formData, myNumber: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, myNumber: e.target.value })}
                           placeholder="マイナンバー（12桁）"
                           className={`font-mono ${(!showEmployeeMyNumber || !canEditUserInfo) ? "text-[#374151] bg-[#edeaed]" : ""}`}
                           disabled={isAllInputDisabled || !showEmployeeMyNumber || !canEditUserInfo}
@@ -1693,8 +1732,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                       <div className="space-y-2">
                         <Label>生年月日</Label>
-                        <Input 
-                          type="date" 
+                        <Input
+                          type="date"
                           value={privacySettings.birthDate ? formData.birthDate : ''}
                           onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
                           disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee) || !privacySettings.birthDate}
@@ -1719,9 +1758,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <>
                       <div className="col-span-2 space-y-2">
                         <Label>権限設定</Label>
-                        <Select 
-                          value={formData.role} 
-                          onValueChange={(value) => setFormData({...formData, role: value})}
+                        <Select
+                          value={formData.role}
+                          onValueChange={(value) => setFormData({ ...formData, role: value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="権限を選択してください" />
@@ -1744,7 +1783,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           <br />※ 総務権限：給与管理・社員情報の閲覧・編集可能
                           <br />※ 一般ユーザー：自分の情報とタスクのみ閲覧・編集可能
                         </p>
-                        
+
                         {/* 組織図表示設定 */}
                         {isAdminOrHR && (
                           <div className="flex items-center justify-between">
@@ -1754,7 +1793,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             </div>
                             <Switch
                               checked={formData.showInOrgChart}
-                              onCheckedChange={(checked) => setFormData({...formData, showInOrgChart: checked})}
+                              onCheckedChange={(checked) => setFormData({ ...formData, showInOrgChart: checked })}
                               className="data-[state=checked]:bg-blue-600"
                               disabled={isAllInputDisabled}
                             />
@@ -1788,11 +1827,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 </div>
                               )}
                             </div>
-                            <Input 
-                              type={showPassword ? "text" : "password"} 
+                            <Input
+                              type={showPassword ? "text" : "password"}
                               value={formData.password}
-                              onChange={(e) => setFormData({...formData, password: e.target.value})}
-                              placeholder="半角の英字と数字を含む、4文字以上の文字列" 
+                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                              placeholder="半角の英字と数字を含む、4文字以上の文字列"
                             />
                           </div>
                         )}
@@ -1811,8 +1850,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         )
                       )}
                     </div>
-                    <Input 
-                      type="date" 
+                    <Input
+                      type="date"
                       value={formData.joinDate}
                       onChange={(e) => handleJoinDateChange(e.target.value)}
                       disabled={
@@ -1834,7 +1873,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
                   <div className="space-y-2">
                     <Label>社員番号</Label>
-                    <Input 
+                    <Input
                       value={formData.employeeNumber || ''}
                       onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
                       placeholder="社員番号を入力"
@@ -1844,8 +1883,23 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>雇用形態</Label>
-                      {(canEditUserInfo || isNewEmployee) && (
+                      <div className="flex items-center gap-2">
+                        <Label>雇用形態</Label>
+                        {requiresJoinDateVerification && canEditUserInfo && (
+                          isEmploymentTypeEditingEnabled ? (
+                            <span className="text-xs text-emerald-600">認証済み</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleRequestEmploymentTypeEdit}
+                              className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-sm"
+                            >
+                              <Lock className="w-4 h-4 text-amber-600 cursor-pointer" />
+                            </button>
+                          )
+                        )}
+                      </div>
+                      {currentUser?.role === 'admin' && (
                         <Button
                           type="button"
                           variant="outline"
@@ -1856,17 +1910,26 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         </Button>
                       )}
                     </div>
-                    <Select 
-                      value={formData.employeeType} 
-                      onValueChange={(value) => setFormData({...formData, employeeType: value})}
-                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
+                    <Select
+                      value={formData.employeeType}
+                      onValueChange={(value) => setFormData({ ...formData, employeeType: value })}
+                      disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee) || (requiresJoinDateVerification && !isEmploymentTypeEditingEnabled)}
                     >
-                      <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
+                      <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) || (requiresJoinDateVerification && !isEmploymentTypeEditingEnabled) ? "text-[#374151] bg-[#edeaed]" : ""}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {employmentTypes
                           .filter((type: any) => type.value && type.value.trim() !== '')
+                          .filter((type: any) => {
+                            // "管理"を含む項目はadmin権限のみ表示
+                            const label = typeof type.label === 'string' ? type.label : '';
+                            const value = typeof type.value === 'string' ? type.value : '';
+                            if (label.includes('管理') || value.includes('管理')) {
+                              return currentUser?.role === 'admin';
+                            }
+                            return true;
+                          })
                           .map((type: any) => (
                             <SelectItem key={type.value} value={type.value}>
                               {type.label}
@@ -1874,12 +1937,15 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           ))}
                       </SelectContent>
                     </Select>
+                    {requiresJoinDateVerification && !isEmploymentTypeEditingEnabled && canEditUserInfo && (
+                      <p className="text-xs text-slate-500">※ 変更するにはログインパスワードの入力が必要です（鍵アイコンをクリック）</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>ステータス</Label>
-                    <Select 
-                      value={formData.status} 
-                      onValueChange={(value) => setFormData({...formData, status: value})}
+                    <Select
+                      value={formData.status}
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
                       disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                     >
                       <SelectTrigger className={(!canEditUserInfo && !isNewEmployee) ? "text-[#374151] bg-[#edeaed]" : ""}>
@@ -1898,7 +1964,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         <Input
                           type="date"
                           value={formData.retirementDate || ''}
-                          onChange={(e) => setFormData({...formData, retirementDate: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, retirementDate: e.target.value })}
                           disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                         />
                       </div>
@@ -1921,9 +1987,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>表示名</Label>
-                    <Input 
-                      value={privacySettings.displayName ? formData.name : '非公開'} 
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    <Input
+                      value={privacySettings.displayName ? formData.name : '非公開'}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile || !privacySettings.displayName}
                       className={(!canEditProfile || !privacySettings.displayName) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
@@ -1948,19 +2014,17 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                     <div className="flex items-center gap-3">
                       <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
                         {avatarText ? (
-                          <span className={`font-medium text-slate-700 whitespace-nowrap overflow-hidden ${
-                            /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-lg' : 'text-sm'
-                          }`}>{avatarText.slice(0, 3)}</span>
+                          <span className={`font-medium text-slate-700 whitespace-nowrap overflow-hidden ${/^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-lg' : 'text-sm'
+                            }`}>{avatarText.slice(0, 3)}</span>
                         ) : employee?.avatar ? (
-                          <img 
-                            src={employee.avatar} 
-                            alt={employee?.name || "プロフィール画像"} 
+                          <img
+                            src={employee.avatar}
+                            alt={employee?.name || "プロフィール画像"}
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className={`whitespace-nowrap overflow-hidden ${
-                            /^[a-zA-Z\s]+$/.test(employee?.name?.slice(0, 3) || "?") ? 'text-2xl' : 'text-lg'
-                          }`}>{employee?.name?.slice(0, 3) || "?"}</span>
+                          <span className={`whitespace-nowrap overflow-hidden ${/^[a-zA-Z\s]+$/.test(employee?.name?.slice(0, 3) || "?") ? 'text-2xl' : 'text-lg'
+                            }`}>{employee?.name?.slice(0, 3) || "?"}</span>
                         )}
                       </div>
                       {canEditProfile && (
@@ -2013,10 +2077,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   <div className="flex items-center justify-between">
                     <Label>組織名</Label>
                     {canEditProfile && isAdminOrHR && (
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setOrganizations([...organizations, ""])}
                       >
                         <Plus className="w-4 h-4 mr-1" />
@@ -2033,7 +2097,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           const newOrgs = [...organizations]
                           newOrgs[index] = e.target.value
                           setOrganizations(newOrgs)
-                          setFormData({...formData, organization: e.target.value})
+                          setFormData({ ...formData, organization: e.target.value })
                         }}
                         disabled={isAllInputDisabled || !canEditProfile}
                         className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
@@ -2081,10 +2145,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         </Button>
                       )}
                       {canEditProfile && isAdminOrHR && (
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setDepartments([...departments, ""])}
                         >
                           <Plus className="w-4 h-4 mr-1" />
@@ -2106,7 +2170,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           const newDepts = [...departments]
                           newDepts[index] = value
                           setDepartments(newDepts)
-                          setFormData({...formData, department: value})
+                          setFormData({ ...formData, department: value })
                         }}
                         disabled={isAllInputDisabled || !canEditProfile}
                       >
@@ -2182,7 +2246,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             const newPos = [...positions]
                             newPos[index] = value
                             setPositions(newPos)
-                            setFormData({...formData, position: value})
+                            setFormData({ ...formData, position: value })
                           }}
                           disabled={isAllInputDisabled || !canEditProfile}
                         >
@@ -2206,7 +2270,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             const newPos = [...positions]
                             newPos[index] = e.target.value
                             setPositions(newPos)
-                            setFormData({...formData, position: e.target.value})
+                            setFormData({ ...formData, position: e.target.value })
                           }}
                           disabled={isAllInputDisabled || !canEditProfile}
                           className="flex-1"
@@ -2242,10 +2306,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>URL</Label>
-                    <Input 
-                      type="url" 
+                    <Input
+                      type="url"
                       value={formData.url}
-                      onChange={(e) => setFormData({...formData, url: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile}
                       className={!canEditProfile ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
@@ -2265,9 +2329,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 {(currentUser?.department?.includes('総務') || currentUser?.role === 'admin') && (
                   <div className="space-y-2">
                     <Label>備考欄</Label>
-                    <Textarea 
+                    <Textarea
                       value={formData.description || ''}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile}
                       placeholder="自由項目として備考を入力"
                       rows={3}
@@ -2282,9 +2346,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         <Label>住所</Label>
                         {isOwnProfile && <span className="text-xs text-blue-600">あなただけに表示されています</span>}
                       </div>
-                      <Input 
+                      <Input
                         value={formData.address}
-                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                         disabled={isAllInputDisabled || !canEditProfile}
                         placeholder="住所を入力"
                       />
@@ -2296,10 +2360,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>メールアドレス</Label>
-                    <Input 
-                      type="email" 
+                    <Input
+                      type="email"
                       value={privacySettings.email ? formData.email : '非公開'}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile || !privacySettings.email}
                       className={(!canEditProfile || !privacySettings.email) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
@@ -2321,10 +2385,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号（勤務先or勤務携帯・公開）</Label>
-                    <Input 
-                      type="tel" 
+                    <Input
+                      type="tel"
                       value={privacySettings.workPhone ? formData.phone : '非公開'}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile || !privacySettings.workPhone}
                       className={(!canEditProfile || !privacySettings.workPhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
@@ -2346,10 +2410,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                   <div className="space-y-2">
                     <Label>電話番号（勤務先・内線）</Label>
-                    <Input 
-                      type="tel" 
+                    <Input
+                      type="tel"
                       value={privacySettings.extension ? formData.phoneInternal : '非公開'}
-                      onChange={(e) => setFormData({...formData, phoneInternal: e.target.value})}
+                      onChange={(e) => setFormData({ ...formData, phoneInternal: e.target.value })}
                       disabled={isAllInputDisabled || !canEditProfile || !privacySettings.extension}
                       className={(!canEditProfile || !privacySettings.extension) ? "text-[#374151] bg-[#edeaed]" : ""}
                     />
@@ -2373,10 +2437,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-center">
                     <div className="space-y-2">
                       <Label>電話番号（携帯・非公開です）</Label>
-                      <Input 
-                        type="tel" 
+                      <Input
+                        type="tel"
                         value={privacySettings.mobilePhone ? formData.phoneMobile : '非公開'}
-                        onChange={(e) => setFormData({...formData, phoneMobile: e.target.value})}
+                        onChange={(e) => setFormData({ ...formData, phoneMobile: e.target.value })}
                         disabled={isAllInputDisabled || !canEditProfile || !privacySettings.mobilePhone}
                         className={(!canEditProfile || !privacySettings.mobilePhone) ? "text-[#374151] bg-[#edeaed]" : ""}
                       />
@@ -2408,7 +2472,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               });
               return canViewFamily && (isOwnProfile || isAdminOrHR);
             })() && (
-              <div className="space-y-4">
+                <div className="space-y-4">
                   <div className="border-b pb-2 flex justify-between items-center">
                     <div>
                       <div className="flex items-center gap-2">
@@ -2418,7 +2482,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <p className="text-xs text-slate-500 mt-1">※ マイナンバーは一切公開されません</p>
                     </div>
                     {canEditProfile && isAdminOrHR && familyMembers.length > 0 && (
-                      <Button 
+                      <Button
                         onClick={addFamilyMember}
                         size="sm"
                       >
@@ -2429,193 +2493,193 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   </div>
 
 
-                {familyMembers.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <p>家族情報が登録されていません</p>
-                    {canEditProfile && isAdminOrHR && (
-                      <Button 
-                        onClick={addFamilyMember}
-                        size="sm"
-                        className="mt-2"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        家族を追加
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {familyMembers.map((member, index) => (
-                      <div key={member.id} className="border rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-medium">家族 {index + 1}</h4>
-                          {canEditProfile && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveFamilyMember(member.id)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-2">
-                            <Label>氏名</Label>
-                            <Input 
-                              value={member.name}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, name: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="氏名" 
-                              disabled={isAllInputDisabled || !canEditProfile} 
-                            />
+                  {familyMembers.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                      <p>家族情報が登録されていません</p>
+                      {canEditProfile && isAdminOrHR && (
+                        <Button
+                          onClick={addFamilyMember}
+                          size="sm"
+                          className="mt-2"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          家族を追加
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {familyMembers.map((member, index) => (
+                        <div key={member.id} className="border rounded-lg p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium">家族 {index + 1}</h4>
+                            {canEditProfile && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveFamilyMember(member.id)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
-                          <div className="space-y-2">
-                            <Label>続柄</Label>
-                            <Select 
-                              value={member.relationship}
-                              onValueChange={(value) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, relationship: value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              disabled={isAllInputDisabled || !canEditProfile}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="選択" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="配偶者">配偶者</SelectItem>
-                                <SelectItem value="子">子</SelectItem>
-                                <SelectItem value="父">父</SelectItem>
-                                <SelectItem value="母">母</SelectItem>
-                                <SelectItem value="その他">その他</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>電話番号</Label>
-                            <Input 
-                              type="tel" 
-                              value={member.phone}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, phone: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="電話番号" 
-                              disabled={isAllInputDisabled || !canEditProfile} 
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>誕生日</Label>
-                            <Input 
-                              type="date" 
-                              value={member.birthday ? (member.birthday.includes('/') ? member.birthday.replace(/\//g, '-') : member.birthday) : ''}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { 
-                                    ...m, 
-                                    birthday: e.target.value ? e.target.value.replace(/-/g, '/') : '',
-                                    birthDate: e.target.value ? new Date(e.target.value).toISOString() : null
-                                  } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              disabled={isAllInputDisabled || !canEditProfile} 
-                            />
-                          </div>
-                          {canViewMyNumber && (
-                            <div className="col-span-2 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Label>マイナンバー</Label>
-                                <Lock className="w-3 h-3 text-amber-600" />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type={showFamilyMyNumber[member.id] ? "text" : "password"}
-                                  value={member.myNumber || ''}
-                                  onChange={(e) => {
-                                    const updatedMembers = familyMembers.map(m => 
-                                      m.id === member.id ? { ...m, myNumber: e.target.value } : m
-                                    )
-                                    updateFamilyMembersAndSave(updatedMembers)
-                                  }}
-                                  placeholder="マイナンバー（12桁）"
-                                  className="font-mono"
-                                  disabled={!showFamilyMyNumber[member.id] || !canEditProfile}
-                                />
-                                <Button
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => handleToggleMyNumber("family", member.id)}
-                                  className="flex-shrink-0"
-                                  disabled={isAllInputDisabled}
-                                >
-                                  {showFamilyMyNumber[member.id] ? (
-                                    <EyeOff className="w-4 h-4" />
-                                  ) : (
-                                    <Eye className="w-4 h-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                          <div className="col-span-2 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Switch 
-                                id={`separate-${member.id}`} 
-                                checked={member.livingSeparately}
-                                onCheckedChange={(checked) => {
-                                  const updatedMembers = familyMembers.map(m => 
-                                    m.id === member.id ? { ...m, livingSeparately: checked } : m
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                              <Label>氏名</Label>
+                              <Input
+                                value={member.name}
+                                onChange={(e) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? { ...m, name: e.target.value } : m
                                   )
                                   updateFamilyMembersAndSave(updatedMembers)
                                 }}
-                                disabled={isAllInputDisabled || !canEditProfile} 
+                                placeholder="氏名"
+                                disabled={isAllInputDisabled || !canEditProfile}
                               />
-                              <Label htmlFor={`separate-${member.id}`}>別居</Label>
                             </div>
-                            <Input 
-                              value={member.address || ''}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, address: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="別居の場合は住所を入力" 
-                              disabled={isAllInputDisabled || !canEditProfile}
-                            />
-                          </div>
-                          <div className="col-span-2 space-y-2">
-                            <Label>備考</Label>
-                            <Textarea 
-                              value={member.description || ''}
-                              onChange={(e) => {
-                                const updatedMembers = familyMembers.map(m => 
-                                  m.id === member.id ? { ...m, description: e.target.value } : m
-                                )
-                                updateFamilyMembersAndSave(updatedMembers)
-                              }}
-                              placeholder="備考を入力（任意）" 
-                              rows={2}
-                              disabled={isAllInputDisabled || !canEditProfile}
-                            />
+                            <div className="space-y-2">
+                              <Label>続柄</Label>
+                              <Select
+                                value={member.relationship}
+                                onValueChange={(value) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? { ...m, relationship: value } : m
+                                  )
+                                  updateFamilyMembersAndSave(updatedMembers)
+                                }}
+                                disabled={isAllInputDisabled || !canEditProfile}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="選択" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="配偶者">配偶者</SelectItem>
+                                  <SelectItem value="子">子</SelectItem>
+                                  <SelectItem value="父">父</SelectItem>
+                                  <SelectItem value="母">母</SelectItem>
+                                  <SelectItem value="その他">その他</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>電話番号</Label>
+                              <Input
+                                type="tel"
+                                value={member.phone}
+                                onChange={(e) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? { ...m, phone: e.target.value } : m
+                                  )
+                                  updateFamilyMembersAndSave(updatedMembers)
+                                }}
+                                placeholder="電話番号"
+                                disabled={isAllInputDisabled || !canEditProfile}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>誕生日</Label>
+                              <Input
+                                type="date"
+                                value={member.birthday ? (member.birthday.includes('/') ? member.birthday.replace(/\//g, '-') : member.birthday) : ''}
+                                onChange={(e) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? {
+                                      ...m,
+                                      birthday: e.target.value ? e.target.value.replace(/-/g, '/') : '',
+                                      birthDate: e.target.value ? new Date(e.target.value).toISOString() : null
+                                    } : m
+                                  )
+                                  updateFamilyMembersAndSave(updatedMembers)
+                                }}
+                                disabled={isAllInputDisabled || !canEditProfile}
+                              />
+                            </div>
+                            {canViewMyNumber && (
+                              <div className="col-span-2 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Label>マイナンバー</Label>
+                                  <Lock className="w-3 h-3 text-amber-600" />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type={showFamilyMyNumber[member.id] ? "text" : "password"}
+                                    value={member.myNumber || ''}
+                                    onChange={(e) => {
+                                      const updatedMembers = familyMembers.map(m =>
+                                        m.id === member.id ? { ...m, myNumber: e.target.value } : m
+                                      )
+                                      updateFamilyMembersAndSave(updatedMembers)
+                                    }}
+                                    placeholder="マイナンバー（12桁）"
+                                    className="font-mono"
+                                    disabled={!showFamilyMyNumber[member.id] || !canEditProfile}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => handleToggleMyNumber("family", member.id)}
+                                    className="flex-shrink-0"
+                                    disabled={isAllInputDisabled}
+                                  >
+                                    {showFamilyMyNumber[member.id] ? (
+                                      <EyeOff className="w-4 h-4" />
+                                    ) : (
+                                      <Eye className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            <div className="col-span-2 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  id={`separate-${member.id}`}
+                                  checked={member.livingSeparately}
+                                  onCheckedChange={(checked) => {
+                                    const updatedMembers = familyMembers.map(m =>
+                                      m.id === member.id ? { ...m, livingSeparately: checked } : m
+                                    )
+                                    updateFamilyMembersAndSave(updatedMembers)
+                                  }}
+                                  disabled={isAllInputDisabled || !canEditProfile}
+                                />
+                                <Label htmlFor={`separate-${member.id}`}>別居</Label>
+                              </div>
+                              <Input
+                                value={member.address || ''}
+                                onChange={(e) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? { ...m, address: e.target.value } : m
+                                  )
+                                  updateFamilyMembersAndSave(updatedMembers)
+                                }}
+                                placeholder="別居の場合は住所を入力"
+                                disabled={isAllInputDisabled || !canEditProfile}
+                              />
+                            </div>
+                            <div className="col-span-2 space-y-2">
+                              <Label>備考</Label>
+                              <Textarea
+                                value={member.description || ''}
+                                onChange={(e) => {
+                                  const updatedMembers = familyMembers.map(m =>
+                                    m.id === member.id ? { ...m, description: e.target.value } : m
+                                  )
+                                  updateFamilyMembersAndSave(updatedMembers)
+                                }}
+                                placeholder="備考を入力（任意）"
+                                rows={2}
+                                disabled={isAllInputDisabled || !canEditProfile}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
             {canViewFiles && (
               <div className="space-y-4">
@@ -2662,10 +2726,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                   {folders.map((folder) => (
                     <TabsContent key={folder} value={folder} className="space-y-4">
                       {canEditProfile && (
-                        <div 
-                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                            isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-300'
-                          }`}
+                        <div
+                          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-300'
+                            }`}
                           onDragOver={handleDragOver}
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
@@ -2680,7 +2743,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             className="hidden"
                             id="file-upload"
                           />
-                          <Button 
+                          <Button
                             variant="outline"
                             onClick={() => document.getElementById('file-upload')?.click()}
                           >
@@ -2722,45 +2785,16 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                 </div>
                               </div>
                             ))}
-                            
+
                             {/* アップロード済みファイル（現在のフォルダのみ） */}
                             {uploadedFiles
                               .filter(file => file.folderName === currentFolder)
                               .map((file, index) => (
-                              <div key={`uploaded-${file.id}`} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                                <div 
-                                  className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded p-1 flex-1"
-                                  onClick={async () => {
-                                    // アップロード済みファイルのダウンロード処理
-                                    try {
-                                      const response = await fetch(`/api/files/${file.id}/download`, {
-                                        headers: {
-                                          'x-employee-id': employee.id,
-                                        },
-                                      })
-                                      if (response.ok) {
-                                        const blob = await response.blob()
-                                        const url = window.URL.createObjectURL(blob)
-                                        window.open(url, '_blank')
-                                      } else {
-                                        console.error('ファイルダウンロードエラー:', await response.text())
-                                      }
-                                    } catch (error) {
-                                      console.error('ファイルダウンロードエラー:', error)
-                                    }
-                                  }}
-                                >
-                                  <Folder className="w-4 h-4 text-slate-400" />
-                                  <span className="text-sm">{file.originalName || file.filename || 'Unknown File'}</span>
-                                  <span className="text-xs text-slate-500">
-                                    ({file.fileSize && typeof file.fileSize === 'number' ? (file.fileSize / 1024).toFixed(1) : '0'} KB)
-                                  </span>
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
+                                <div key={`uploaded-${file.id}`} className="flex items-center justify-between p-2 bg-slate-50 rounded">
+                                  <div
+                                    className="flex items-center gap-2 cursor-pointer hover:bg-slate-100 rounded p-1 flex-1"
                                     onClick={async () => {
+                                      // アップロード済みファイルのダウンロード処理
                                       try {
                                         const response = await fetch(`/api/files/${file.id}/download`, {
                                           headers: {
@@ -2770,19 +2804,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                         if (response.ok) {
                                           const blob = await response.blob()
                                           const url = window.URL.createObjectURL(blob)
-                                          const a = document.createElement('a')
-                                          a.href = url
-                                          a.download = file.originalName || file.filename || 'download'
-                                          document.body.appendChild(a)
-                                          a.click()
-                                          
-                                          // 安全に削除（ブラウザが処理するまで少し待つ）
-                                          setTimeout(() => {
-                                            if (a.parentNode === document.body) {
-                                              document.body.removeChild(a)
-                                            }
-                                            window.URL.revokeObjectURL(url)
-                                          }, 100)
+                                          window.open(url, '_blank')
                                         } else {
                                           console.error('ファイルダウンロードエラー:', await response.text())
                                         }
@@ -2790,43 +2812,84 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                                         console.error('ファイルダウンロードエラー:', error)
                                       }
                                     }}
-                                    title="ダウンロード"
                                   >
-                                    <Upload className="w-4 h-4" />
-                                  </Button>
-                                  {canEditProfile && (
+                                    <Folder className="w-4 h-4 text-slate-400" />
+                                    <span className="text-sm">{file.originalName || file.filename || 'Unknown File'}</span>
+                                    <span className="text-xs text-slate-500">
+                                      ({file.fileSize && typeof file.fileSize === 'number' ? (file.fileSize / 1024).toFixed(1) : '0'} KB)
+                                    </span>
+                                  </div>
+                                  <div className="flex gap-1">
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={async () => {
-                                        // アップロード済みファイルの削除処理
                                         try {
-                                          const response = await fetch(`/api/files/${file.id}/delete`, {
-                                            method: 'DELETE',
+                                          const response = await fetch(`/api/files/${file.id}/download`, {
                                             headers: {
                                               'x-employee-id': employee.id,
                                             },
                                           })
                                           if (response.ok) {
-                                            // ファイルリストを再取得
-                                            if (employee?.id) {
-                                              fetchUploadedFiles(employee.id)
-                                            }
+                                            const blob = await response.blob()
+                                            const url = window.URL.createObjectURL(blob)
+                                            const a = document.createElement('a')
+                                            a.href = url
+                                            a.download = file.originalName || file.filename || 'download'
+                                            document.body.appendChild(a)
+                                            a.click()
+
+                                            // 安全に削除（ブラウザが処理するまで少し待つ）
+                                            setTimeout(() => {
+                                              if (a.parentNode === document.body) {
+                                                document.body.removeChild(a)
+                                              }
+                                              window.URL.revokeObjectURL(url)
+                                            }, 100)
                                           } else {
-                                            console.error('ファイル削除エラー:', await response.text())
+                                            console.error('ファイルダウンロードエラー:', await response.text())
                                           }
                                         } catch (error) {
-                                          console.error('ファイル削除エラー:', error)
+                                          console.error('ファイルダウンロードエラー:', error)
                                         }
                                       }}
-                                      title="削除"
+                                      title="ダウンロード"
                                     >
-                                      <X className="w-4 h-4" />
+                                      <Upload className="w-4 h-4" />
                                     </Button>
-                                  )}
+                                    {canEditProfile && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                          // アップロード済みファイルの削除処理
+                                          try {
+                                            const response = await fetch(`/api/files/${file.id}/delete`, {
+                                              method: 'DELETE',
+                                              headers: {
+                                                'x-employee-id': employee.id,
+                                              },
+                                            })
+                                            if (response.ok) {
+                                              // ファイルリストを再取得
+                                              if (employee?.id) {
+                                                fetchUploadedFiles(employee.id)
+                                              }
+                                            } else {
+                                              console.error('ファイル削除エラー:', await response.text())
+                                            }
+                                          } catch (error) {
+                                            console.error('ファイル削除エラー:', error)
+                                          }
+                                        }}
+                                        title="削除"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         )}
                       </div>
@@ -2839,24 +2902,31 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
 
           <div className="flex justify-between items-center mt-6 pt-6 border-t">
             {!isNewEmployee && (currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin') && canEditInvisibleTop && (
-              <Button 
+              <Button
                 variant={formData.isSuspended ? "default" : "destructive"}
-                onClick={() => {
+                onClick={async () => {
+                  if (requiresJoinDateVerification && !isStatusEditingEnabled) {
+                    await handleRequestStatusChange()
+                    return
+                  }
                   console.log('現在のisSuspended:', formData.isSuspended)
                   console.log('employee.isSuspended:', employee?.isSuspended)
                   const newSuspendedState = !formData.isSuspended
                   console.log('新しいisSuspended:', newSuspendedState)
-                  setFormData({...formData, isSuspended: newSuspendedState})
+                  setFormData({ ...formData, isSuspended: newSuspendedState })
                 }}
                 className={formData.isSuspended ? "bg-green-600 hover:bg-green-700" : ""}
                 disabled={isAllInputDisabled}
               >
+                {requiresJoinDateVerification && !isStatusEditingEnabled && (
+                  <Lock className="w-3 h-3 mr-1" />
+                )}
                 {formData.isSuspended ? '稼働させる' : '停止させる'}
               </Button>
             )}
             <div className="flex gap-3 ml-auto">
               {employee && (isAdminOrHR || currentUser?.role === 'manager') && canEditInvisibleTop && !isCopyEmployee && (
-                <Button 
+                <Button
                   variant="outline"
                   onClick={handleCopy}
                   disabled={isAllInputDisabled || copying}
@@ -2867,8 +2937,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 </Button>
               )}
               {employee && isAdminOrHR && canEditInvisibleTop && (
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   onClick={handleDelete}
                   disabled={isAllInputDisabled || deleting}
                 >
@@ -2879,8 +2949,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                 戻る
               </Button>
               {((!isCopyEmployee && (canEditUserInfo || isNewEmployee)) || canEditCopyEmployee) && canEditInvisibleTop && (
-                <Button 
-                  onClick={handleSave} 
+                <Button
+                  onClick={handleSave}
                   disabled={saving}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
@@ -2933,13 +3003,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               }
               return { value: t.value || t, label: t.label || t.value || t }
             })
-          
+
           console.log('マスターデータ保存リクエスト:', {
             departments: filteredDepts,
             positions: filteredPos,
             employmentTypes: filteredEmpTypes
           })
-          
+
           fetch('/api/master-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2991,13 +3061,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               }
               return { value: t.value || t, label: t.label || t.value || t }
             })
-          
+
           console.log('マスターデータ保存リクエスト:', {
             departments: filteredDepts,
             positions: filteredPos,
             employmentTypes: filteredEmpTypes
           })
-          
+
           fetch('/api/master-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -3035,7 +3105,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           // APIへも保存（空文字や'[]'をフィルタリング）
           const filteredDepts = availableDepartments.filter((d: string) => d && d.trim() !== '' && d !== '[]')
           const filteredPos = availablePositions.filter((p: string) => p && p.trim() !== '' && p !== '[]')
-          
+
           // 雇用形態は{value, label}形式で送信（API側でラベルも保存するため）
           const filteredEmpTypes = newTypes
             .filter((t: any) => {
@@ -3050,13 +3120,13 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
               }
               return { value: t.value || t, label: t.label || t.value || t }
             })
-          
+
           console.log('マスターデータ保存リクエスト:', {
             departments: filteredDepts,
             positions: filteredPos,
             employmentTypes: filteredEmpTypes
           })
-          
+
           fetch('/api/master-data', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

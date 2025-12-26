@@ -12,7 +12,7 @@ interface PasswordVerificationDialogProps {
   onOpenChange: (open: boolean) => void
   onVerified: () => void
   currentUser?: any
-  actionType?: "employee-my-number" | "family-my-number" | "join-date" | "workclock-billing" | "orgchart-card-move"
+  actionType?: "employee-my-number" | "family-my-number" | "join-date" | "workclock-billing" | "workclock-worker" | "orgchart-card-move" | "employment-type" | "status-change"
 }
 
 export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser, actionType }: PasswordVerificationDialogProps) {
@@ -23,6 +23,8 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
   const isWorkClockContext = actionType === "workclock-billing"
   const isWorkClockWorkerContext = actionType === "workclock-worker"
   const isOrgChartCardMoveContext = actionType === "orgchart-card-move"
+  const isEmploymentTypeContext = actionType === "employment-type"
+  const isStatusChangeContext = actionType === "status-change"
 
   const descriptionText = isJoinDateContext
     ? "入社日を変更するには、ログインパスワードの入力が必要です。"
@@ -32,7 +34,11 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
         ? ""
         : isOrgChartCardMoveContext
           ? "組織図のカード移動ロックを解除するには、ログインパスワードの入力が必要です。"
-          : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
+          : isEmploymentTypeContext
+            ? "雇用形態を変更するには、ログインパスワードの入力が必要です。"
+            : isStatusChangeContext
+              ? "ステータスを変更するには、ログインパスワードの入力が必要です。"
+              : "マイナンバーを表示するには、ログインパスワードの入力が必要です。"
 
   const warningText = isJoinDateContext
     ? "入社日は勤怠管理や年次有給の付与に影響します。変更内容を十分に確認してください。"
@@ -42,7 +48,11 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
         ? ""
         : isOrgChartCardMoveContext
           ? "組織図の社員カードを移動できるようになります。誤操作にご注意ください。"
-          : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
+          : isEmploymentTypeContext
+            ? "雇用形態の変更は、報酬や権限に影響する可能性があります。変更内容を確認してください。"
+            : isStatusChangeContext
+              ? "社員の稼働・停止状態を変更します。停止すると一部の機能が利用できなくなる可能性があります。"
+              : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
 
   const handleVerify = () => {
     // 現在のユーザーのパスワードと照合

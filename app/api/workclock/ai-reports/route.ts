@@ -274,18 +274,43 @@ export async function POST(request: NextRequest) {
 
         const reportDate = parseDate(date)
 
-        const report = await (prisma as any).workClockAIReport.create({
-            data: {
-                date: reportDate,
-                summary,
-                promptId: promptId || null,
-                promptName: promptName || null,
-                workerCount: workerCount || 0,
-                alerts: alerts || 0,
-                totalReward: totalReward || 0,
-                createdBy: userId,
+        // 既存のレポートがあるか確認
+        const existingReport = await (prisma as any).workClockAIReport.findFirst({
+            where: {
+                date: reportDate
             }
         })
+
+        let report
+        if (existingReport) {
+            // 更新
+            report = await (prisma as any).workClockAIReport.update({
+                where: { id: existingReport.id },
+                data: {
+                    summary,
+                    promptId: promptId || null,
+                    promptName: promptName || null,
+                    workerCount: workerCount || 0,
+                    alerts: alerts || 0,
+                    totalReward: totalReward || 0,
+                    createdBy: userId, // 更新者として記録
+                }
+            })
+        } else {
+            // 新規作成
+            report = await (prisma as any).workClockAIReport.create({
+                data: {
+                    date: reportDate,
+                    summary,
+                    promptId: promptId || null,
+                    promptName: promptName || null,
+                    workerCount: workerCount || 0,
+                    alerts: alerts || 0,
+                    totalReward: totalReward || 0,
+                    createdBy: userId,
+                }
+            })
+        }
 
         return NextResponse.json({
             report: {

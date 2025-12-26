@@ -36,6 +36,7 @@ export async function GET(request: Request) {
                     select: { name: true, teams: true, role: true, companyName: true }
                 },
                 items: true,
+                photos: true,
             },
             orderBy: { date: 'desc' }, // 日付順
         })
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { workerId, date, memo, photoUrl, hasPhoto, isSafetyAlert, items } = body
+        const { workerId, date, memo, photoUrl, photos, hasPhoto, isSafetyAlert, items } = body
 
         if (!workerId || !date || !items || !Array.isArray(items)) {
             return NextResponse.json({ message: '必須項目が不足しています' }, { status: 400 })
@@ -96,11 +97,22 @@ export async function POST(request: Request) {
             await (prisma as any).workClockChecklistSubmissionItem.deleteMany({
                 where: { submissionId: { in: ids } },
             })
+            // 既存の写真も一括削除（カスケード設定はあるが念のため）
+            await (prisma as any).workClockChecklistPhoto.deleteMany({
+                where: { submissionId: { in: ids } },
+            })
             // 既存の提出本体を一括削除
             await (prisma as any).workClockChecklistSubmission.deleteMany({
                 where: { id: { in: ids } },
             })
             console.log(`Deleted ${ids.length} existing submissions for worker ${workerId} on ${date}`)
+        }
+
+        // 写真データの準備
+        // レガシー互換性: photoUrlがあればそれもphotos配列に加える（重複なければ）
+        const photoUrls: string[] = Array.isArray(photos) ? photos : [];
+        if (photoUrl && !photoUrls.includes(photoUrl)) {
+            photoUrls.unshift(photoUrl);
         }
 
         // 新規作成
@@ -109,8 +121,8 @@ export async function POST(request: Request) {
                 workerId,
                 date: startOfDay,
                 memo,
-                photoUrl,
-                hasPhoto: !!hasPhoto || !!photoUrl,
+                photoUrl: photoUrls.length > 0 ? photoUrls[0] : null, // 互換性のため最初の1枚を入れる
+                hasPhoto: photoUrls.length > 0,
                 isSafetyAlert: !!isSafetyAlert,
                 items: {
                     create: items.map((item: any) => ({
@@ -122,10 +134,16 @@ export async function POST(request: Request) {
                         freeTextValue: item.freeTextValue || null,
                         category: item.category,
                     }))
+                },
+                photos: {
+                    create: photoUrls.map((url: string) => ({
+                        url: url
+                    }))
                 }
             },
             include: {
-                items: true
+                items: true,
+                photos: true
             }
         })
 

@@ -974,7 +974,8 @@ model WorkClockChecklistSubmission {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  items WorkClockChecklistSubmissionItem[]
+  items  WorkClockChecklistSubmissionItem[]
+  photos WorkClockChecklistPhoto[]
 
   @@index([workerId, date])
   @@map("workclock_checklist_submissions")
@@ -996,6 +997,18 @@ model WorkClockChecklistSubmissionItem {
 
   @@index([submissionId])
   @@map("workclock_checklist_submission_items")
+}
+
+// 業務チェックリスト写真（複数枚対応）
+model WorkClockChecklistPhoto {
+  id           String                       @id @default(cuid())
+  submissionId String
+  submission   WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  url          String
+  createdAt    DateTime                     @default(now())
+
+  @@index([submissionId])
+  @@map("workclock_checklist_photos")
 }
 
 // WorkClock AI Report Model

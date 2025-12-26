@@ -113,7 +113,7 @@ export function TimeEntryDialog({
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
   const [checklistReward, setChecklistReward] = useState(0)
-  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; items: any[] } | null>(null)
+  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: any[] } | null>(null)
   const [isSavingChecklist, setIsSavingChecklist] = useState(false)
 
   // UI状態管理（window.confirm/alertの代替）
@@ -840,6 +840,7 @@ export function TimeEntryDialog({
                       items: submissionItems,
                       memo: checklistState.memo,
                       photoUrl: checklistState.photoUrl,
+                      photos: checklistState.photos || [],
                       totalReward: finalTotalReward, // 厳密に計算した値を送る
                     })
 

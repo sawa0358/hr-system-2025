@@ -18,29 +18,44 @@ interface ChecklistPanelProps {
     workerId: string
     selectedDate: Date
     onRewardChange?: (reward: number) => void
-    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; items: ChecklistItem[] }) => void
+    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: ChecklistItem[] }) => void
 }
 
 export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
-    const [freeTextValues, setFreeTextValues] = useState<Record<string, string>>({})  // 自由記入欄の値
+    const [freeTextValues, setFreeTextValues] = useState<Record<string, string>>({})
     const [reportText, setReportText] = useState('')
     const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isUploading, setIsUploading] = useState(false)
-    const [photoUrl, setPhotoUrl] = useState('')
+    const [photos, setPhotos] = useState<string[]>([])
     const [existingSubmissionId, setExistingSubmissionId] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const rewardRef = useRef<HTMLDivElement>(null)
     const listRef = useRef<HTMLDivElement>(null)
     const photoRef = useRef<HTMLDivElement>(null)
-    const memoRef = useRef<HTMLDivElement>(null)
 
-    // 日付文字列を生成
     const dateStr = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
 
-    // チェックリストパターンを読み込み、既存の提出データも取得
+    const notifyParent = (
+        currentCheckedItems: Record<string, boolean>,
+        currentFreeTextValues: Record<string, string>,
+        currentMemo: string,
+        currentPhotos: string[],
+        currentItems: ChecklistItem[]
+    ) => {
+        const legacyPhotoUrl = currentPhotos.length > 0 ? currentPhotos[0] : ''
+        onStateChange?.({
+            checkedItems: currentCheckedItems,
+            freeTextValues: currentFreeTextValues,
+            memo: currentMemo,
+            photoUrl: legacyPhotoUrl,
+            photos: currentPhotos,
+            items: currentItems
+        })
+    }
+
     useEffect(() => {
         const loadData = async () => {
             if (!worker?.isChecklistEnabled || !worker?.checklistPatternId) {
@@ -52,7 +67,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             try {
                 setIsLoading(true)
 
-                // パターンのアイテムを取得
                 const patternRes = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
                 let items: ChecklistItem[] = []
                 if (patternRes.pattern?.items) {
@@ -60,7 +74,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     setChecklistItems(items)
                 }
 
-                // 既存の提出データを取得
                 const submissionRes = await api.checklist.submissions.getAll({
                     workerId,
                     startDate: dateStr,
@@ -71,14 +84,19 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     const submission = submissionRes.submissions[0]
                     setExistingSubmissionId(submission.id)
                     setReportText(submission.memo || '')
-                    setPhotoUrl(submission.photoUrl || '')
 
-                    // チェック済み項目と自由記入欄の値を復元
+                    let loadedPhotos: string[] = []
+                    if (submission.photos && Array.isArray(submission.photos)) {
+                        loadedPhotos = submission.photos.map((p: any) => p.url)
+                    } else if (submission.photoUrl) {
+                        loadedPhotos = [submission.photoUrl]
+                    }
+                    setPhotos(loadedPhotos)
+
                     const updatedCheckedItems: Record<string, boolean> = {}
                     const updatedFreeTextValues: Record<string, string> = {}
                     if (submission.items && Array.isArray(submission.items)) {
                         submission.items.forEach((subItem: any) => {
-                            // タイトルでマッチング（前後の空白を除去して比較）
                             const subTitle = subItem.title?.trim()
                             const matchingItem = items.find(i => i.title?.trim() === subTitle)
 
@@ -95,7 +113,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     setCheckedItems(updatedCheckedItems)
                     setFreeTextValues(updatedFreeTextValues)
 
-                    // 報酬を再計算
                     const totalReward = items.reduce((total, item) => {
                         if (item.isFreeText) {
                             return total + (updatedFreeTextValues[item.id]?.trim() ? item.reward : 0)
@@ -103,15 +120,13 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         return total + (updatedCheckedItems[item.id] ? item.reward : 0)
                     }, 0)
 
-                    // 親に通知
                     setTimeout(() => {
                         onRewardChange?.(totalReward)
-                        onStateChange?.({ checkedItems: updatedCheckedItems, freeTextValues: updatedFreeTextValues, memo: submission.memo || '', photoUrl: submission.photoUrl || '', items })
+                        notifyParent(updatedCheckedItems, updatedFreeTextValues, submission.memo || '', loadedPhotos, items)
                     }, 0)
                 } else {
-                    // 初期状態を親に通知
                     setTimeout(() => {
-                        onStateChange?.({ checkedItems: {}, freeTextValues: {}, memo: '', photoUrl: '', items })
+                        notifyParent({}, {}, '', [], items)
                     }, 0)
                 }
             } catch (error) {
@@ -135,7 +150,6 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 ...prev,
                 [id]: !prev[id]
             }
-            // 報酬合計を再計算
             const newTotal = checklistItems.reduce((total, item) => {
                 if (item.isFreeText) {
                     return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
@@ -144,44 +158,76 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             }, 0)
             setTimeout(() => {
                 onRewardChange?.(newTotal)
-                onStateChange?.({ checkedItems: newState, freeTextValues, memo: reportText, photoUrl, items: checklistItems })
+                notifyParent(newState, freeTextValues, reportText, photos, checklistItems)
             }, 0)
             return newState
         })
     }
 
-    // 画像圧縮とアップロード
-    const handleUpload = async (file: File) => {
-        if (!file.type.startsWith('image/')) return
+    const handleUpload = async (files: FileList | null) => {
+        if (!files || files.length === 0) return
 
         try {
             setIsUploading(true)
+            const newPhotoUrls: string[] = []
 
-            // 1. 画像圧縮 (Canvasを使用)
-            const compressed = await compressImage(file)
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i]
+                if (!file.type.startsWith('image/')) continue
 
-            // 2. アップロード
-            const formData = new FormData()
-            formData.append('file', compressed, file.name)
+                const compressed = await compressImage(file)
+                const formData = new FormData()
+                formData.append('file', compressed, file.name)
 
-            const res = await fetch('/api/workclock/checklist/upload', {
-                method: 'POST',
-                body: formData
-            })
+                const res = await fetch('/api/workclock/checklist/upload', {
+                    method: 'POST',
+                    body: formData
+                })
 
-            if (!res.ok) throw new Error('Upload failed')
+                if (!res.ok) throw new Error(`Upload failed for ${file.name}`)
 
-            const data = await res.json()
-            if (data.url) {
-                setPhotoUrl(data.url)
-                onStateChange?.({ checkedItems, freeTextValues, memo: reportText, photoUrl: data.url, items: checklistItems })
+                const data = await res.json()
+                if (data.url) {
+                    newPhotoUrls.push(data.url)
+                }
+            }
+
+            if (newPhotoUrls.length > 0) {
+                setPhotos(prev => {
+                    const nextPhotos = [...prev, ...newPhotoUrls]
+                    notifyParent(checkedItems, freeTextValues, reportText, nextPhotos, checklistItems)
+                    return nextPhotos
+                })
             }
         } catch (error) {
             console.error('Photo upload error:', error)
             alert('画像のアップロードに失敗しました')
         } finally {
             setIsUploading(false)
+            if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+            }
         }
+    }
+
+    const handleDeletePhoto = (index: number) => {
+        if (!confirm('この写真を削除してもよろしいですか？')) return
+
+        setPhotos(prev => {
+            const nextPhotos = prev.filter((_, i) => i !== index)
+            notifyParent(checkedItems, freeTextValues, reportText, nextPhotos, checklistItems)
+            return nextPhotos
+        })
+    }
+
+    const handleDownloadPhoto = (url: string) => {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = url.split('/').pop() || 'photo.jpg'
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
     }
 
     const compressImage = (file: File): Promise<Blob> => {
@@ -193,8 +239,8 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                 img.src = e.target?.result as string
                 img.onload = () => {
                     const canvas = document.createElement('canvas')
-                    const MAX_WIDTH = 1024
-                    const MAX_HEIGHT = 1024
+                    const MAX_WIDTH = 1200
+                    const MAX_HEIGHT = 1200
                     let width = img.width
                     let height = img.height
 
@@ -217,29 +263,19 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
 
                     canvas.toBlob((blob) => {
                         resolve(blob || file)
-                    }, 'image/jpeg', 0.7) // 品質を0.7に設定して軽量化
+                    }, 'image/jpeg', 0.8)
                 }
             }
         })
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (file) handleUpload(file)
+        handleUpload(e.target.files)
     }
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault()
-        const file = e.dataTransfer.files?.[0]
-        if (file) handleUpload(file)
-    }
-
-    // メモ変更時も親に通知
-    const handleMemoChange = (text: string) => {
-        setReportText(text)
-        setTimeout(() => {
-            onStateChange?.({ checkedItems, freeTextValues, memo: text, photoUrl, items: checklistItems })
-        }, 0)
+        handleUpload(e.dataTransfer.files)
     }
 
     const currentRewardTotal = checklistItems.reduce((total, item) => {
@@ -364,7 +400,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                     }, 0)
                                                     setTimeout(() => {
                                                         onRewardChange?.(newTotal)
-                                                        onStateChange?.({ checkedItems, freeTextValues: newValues, memo: reportText, photoUrl, items: checklistItems })
+                                                        notifyParent(checkedItems, newValues, reportText, photos, checklistItems)
                                                     }, 0)
                                                 }}
                                                 placeholder="入力してください..."
@@ -392,35 +428,60 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     </section>
 
                     <section ref={photoRef} className="scroll-mt-16 space-y-2">
-                        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5 px-1">
-                            <ImageIcon className="w-4 h-4 text-green-600" /> 報告用写真
-                        </h3>
-                        <Card className={cn("overflow-hidden border-slate-200 shadow-sm rounded-lg bg-white transition-all", isUploading && "opacity-50 pointer-events-none")} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
-                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
-                            <div className="grid grid-cols-1 md:grid-cols-2">
-                                <div className="p-4 py-8 bg-slate-50/50 flex flex-col items-center justify-center border-r border-slate-100 cursor-pointer hover:bg-slate-100/80 transition-colors group" onClick={() => fileInputRef.current?.click()}>
-                                    <div className="bg-white p-4 rounded-full mb-3 shadow-md border border-slate-100 group-hover:scale-110 transition-transform">
-                                        {isUploading ? <Loader2 className="w-6 h-6 text-green-500 animate-spin" /> : <Camera className="w-6 h-6 text-slate-400 group-hover:text-green-500" />}
+                        <div className="flex items-center justify-between px-1">
+                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                                <ImageIcon className="w-4 h-4 text-green-600" /> 報告用写真
+                            </h3>
+                            <span className="text-[10px] text-slate-400">{photos.length}枚 アップロード済み</span>
+                        </div>
+                        <Card className={cn("overflow-hidden border-slate-200 shadow-sm rounded-lg bg-white transition-all p-3", isUploading && "opacity-50 pointer-events-none")} onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
+                            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileChange} />
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {/* アップロードボタン */}
+                                <div
+                                    className="aspect-square bg-slate-50 border border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-slate-100 hover:border-slate-400 transition-all group"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <div className="bg-white p-2.5 rounded-full mb-2 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform">
+                                        {isUploading ? <Loader2 className="w-5 h-5 text-green-500 animate-spin" /> : <Plus className="w-5 h-5 text-slate-400 group-hover:text-green-500" />}
                                     </div>
-                                    <p className="text-xs font-bold text-slate-600">{isUploading ? "アップロード中..." : "写真撮影 / アップロード"}</p>
-                                    <p className="text-[10px] text-slate-400 mt-1">タップしてカメラ起動・ドラッグ＆ドロップ可</p>
+                                    <p className="text-[10px] font-bold text-slate-500">写真を追加</p>
                                 </div>
-                                <div className="p-4 flex flex-col items-center justify-center min-h-[160px]">
-                                    {photoUrl ? (
-                                        <div className="relative group w-full h-full flex items-center justify-center bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
-                                            <img src={photoUrl} alt="Report" className="max-w-full max-h-[140px] object-contain shadow-sm" />
-                                            <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => { setPhotoUrl(''); onStateChange?.({ checkedItems, freeTextValues, memo: reportText, photoUrl: '', items: checklistItems }) }}>
-                                                <Plus className="w-3 h-3 rotate-45" />
+
+                                {/* 写真一覧 */}
+                                {photos.map((url, index) => (
+                                    <div key={url} className="relative aspect-square group bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                        <img src={url} alt={`Report ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+
+                                        {/* オーバーレイアクション */}
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                className="h-7 text-[10px] bg-white/90 hover:bg-white text-slate-700"
+                                                onClick={() => handleDownloadPhoto(url)}
+                                            >
+                                                保存
+                                            </Button>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                className="h-7 text-[10px] bg-red-500/90 hover:bg-red-600 text-white"
+                                                onClick={() => handleDeletePhoto(index)}
+                                            >
+                                                削除
                                             </Button>
                                         </div>
-                                    ) : (
-                                        <div className="border border-dashed border-slate-200 rounded-lg p-6 w-full h-full flex flex-col items-center justify-center bg-slate-50/30">
-                                            <ImageIcon className="w-10 h-10 text-slate-100 mb-2" />
-                                            <p className="text-[11px] text-slate-400 italic font-medium">画像がありません</p>
-                                        </div>
-                                    )}
-                                </div>
+                                    </div>
+                                ))}
                             </div>
+
+                            {photos.length === 0 && !isUploading && (
+                                <div className="mt-4 text-center py-4 border-t border-slate-100">
+                                    <p className="text-[11px] text-slate-400 italic">まだ写真がありません</p>
+                                </div>
+                            )}
                         </Card>
                     </section>
                 </div>

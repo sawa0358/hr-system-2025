@@ -407,6 +407,9 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                             </div>
                                             <Textarea
                                                 id={`freetext-${item.id}`}
+                                                name={`freetext-${item.id}`}
+                                                autoComplete="off"
+                                                spellCheck={false}
                                                 value={freeTextValues[item.id] || ''}
                                                 onChange={(e) => {
                                                     if (readOnly) return

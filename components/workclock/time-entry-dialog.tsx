@@ -312,13 +312,15 @@ export function TimeEntryDialog({
                 </DialogHeader>
               </div>
             </div>
-            <TabsList className="grid w-full grid-cols-2 bg-slate-200/60 p-0.5 h-10 rounded-xl">
+            <TabsList className={`grid w-full bg-slate-200/60 p-0.5 h-10 rounded-xl ${worker?.isChecklistEnabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
               <TabsTrigger value="time" className="text-sm font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300">
                 <Clock className="w-4 h-4 mr-2" /> 勤務記録
               </TabsTrigger>
-              <TabsTrigger value="checklist" className="text-sm font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300">
-                <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" /> 業務チェック
-              </TabsTrigger>
+              {worker?.isChecklistEnabled && (
+                <TabsTrigger value="checklist" className="text-sm font-bold rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300">
+                  <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" /> 業務チェック
+                </TabsTrigger>
+              )}
             </TabsList>
           </div>
 
@@ -769,114 +771,116 @@ export function TimeEntryDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="checklist" className="flex-1 min-h-0 overflow-hidden flex flex-col p-0 m-0 data-[state=inactive]:hidden bg-[#f8fafc]">
-            <ChecklistPanel
-              worker={worker}
-              workerId={workerId}
-              selectedDate={selectedDate}
-              onRewardChange={setChecklistReward}
-              onStateChange={setChecklistState}
-              readOnly={readOnly}
-            />
-            <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
-              <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
-                キャンセル
-              </Button>
-              <Button
-                onClick={async () => {
-                  console.log('=== チェックリスト保存開始 ===')
-                  console.log('checklistState:', checklistState)
-                  console.log('currentUser:', currentUser)
-                  console.log('workerId:', workerId)
-                  console.log('worker:', worker)
+          {worker?.isChecklistEnabled && (
+            <TabsContent value="checklist" className="flex-1 min-h-0 overflow-hidden flex flex-col p-0 m-0 data-[state=inactive]:hidden bg-[#f8fafc]">
+              <ChecklistPanel
+                worker={worker}
+                workerId={workerId}
+                selectedDate={selectedDate}
+                onRewardChange={setChecklistReward}
+                onStateChange={setChecklistState}
+                readOnly={readOnly}
+              />
+              <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
+                <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
+                  キャンセル
+                </Button>
+                <Button
+                  onClick={async () => {
+                    console.log('=== チェックリスト保存開始 ===')
+                    console.log('checklistState:', checklistState)
+                    console.log('currentUser:', currentUser)
+                    console.log('workerId:', workerId)
+                    console.log('worker:', worker)
 
-                  // 勤務記録があるか確認
-                  if (existingEntries.length === 0) {
-                    const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
-                    if (!proceed) return
-                  }
+                    // 勤務記録があるか確認
+                    if (existingEntries.length === 0) {
+                      const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
+                      if (!proceed) return
+                    }
 
-                  if (!checklistState || !currentUser?.id) {
-                    console.error('チェックリスト状態:', checklistState, 'currentUser:', currentUser?.id)
-                    alert('チェックリストの状態を取得できませんでした。項目をチェックしてから保存してください。')
-                    return
-                  }
+                    if (!checklistState || !currentUser?.id) {
+                      console.error('チェックリスト状態:', checklistState, 'currentUser:', currentUser?.id)
+                      alert('チェックリストの状態を取得できませんでした。項目をチェックしてから保存してください。')
+                      return
+                    }
 
-                  // チェックされた項目があるか確認
-                  const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
-                  console.log('checkedCount:', checkedCount)
-                  if (checkedCount === 0) {
-                    const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
-                    if (!proceed) return
-                  }
+                    // チェックされた項目があるか確認
+                    const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
+                    console.log('checkedCount:', checkedCount)
+                    if (checkedCount === 0) {
+                      const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
+                      if (!proceed) return
+                    }
 
-                  setIsSavingChecklist(true)
-                  try {
-                    // チェックリスト提出を保存
-                    const submissionItems = checklistState.items.map(item => {
-                      const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
-                      const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
+                    setIsSavingChecklist(true)
+                    try {
+                      // チェックリスト提出を保存
+                      const submissionItems = checklistState.items.map(item => {
+                        const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
+                        const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
 
-                      // 報酬の計算ルール: 
-                      // 1. 自由記入欄の場合は、文字が入力されていれば報酬加算
-                      // 2. 通常項目の場合は、チェックが入っていれば報酬加算
-                      let reward = 0
-                      if (item.isFreeText) {
-                        if (freeTextValue && freeTextValue.trim() !== '') {
+                        // 報酬の計算ルール: 
+                        // 1. 自由記入欄の場合は、文字が入力されていれば報酬加算
+                        // 2. 通常項目の場合は、チェックが入っていれば報酬加算
+                        let reward = 0
+                        if (item.isFreeText) {
+                          if (freeTextValue && freeTextValue.trim() !== '') {
+                            reward = item.reward
+                          }
+                        } else if (isChecked) {
                           reward = item.reward
                         }
-                      } else if (isChecked) {
-                        reward = item.reward
-                      }
 
-                      return {
-                        itemId: item.id,
-                        title: item.title,
-                        isChecked,
-                        reward,
-                        isMandatory: item.isMandatory,
-                        isFreeText: !!item.isFreeText,
-                        freeTextValue,
-                      }
-                    })
+                        return {
+                          itemId: item.id,
+                          title: item.title,
+                          isChecked,
+                          reward,
+                          isMandatory: item.isMandatory,
+                          isFreeText: !!item.isFreeText,
+                          freeTextValue,
+                        }
+                      })
 
-                    // 送信用データの合計報酬を再計算（厳密な一貫性のため）
-                    const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
+                      // 送信用データの合計報酬を再計算（厳密な一貫性のため）
+                      const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
 
-                    console.log('報酬計算結果:', { finalTotalReward, submissionItems })
+                      console.log('報酬計算結果:', { finalTotalReward, submissionItems })
 
-                    const result = await api.checklist.submissions.create({
-                      workerId,
-                      date: dateStr,
-                      patternId: worker?.checklistPatternId,
-                      items: submissionItems,
-                      memo: checklistState.memo,
-                      photoUrl: checklistState.photoUrl,
-                      photos: checklistState.photos || [],
-                      totalReward: finalTotalReward, // 厳密に計算した値を送る
-                    })
+                      const result = await api.checklist.submissions.create({
+                        workerId,
+                        date: dateStr,
+                        patternId: worker?.checklistPatternId,
+                        items: submissionItems,
+                        memo: checklistState.memo,
+                        photoUrl: checklistState.photoUrl,
+                        photos: checklistState.photos || [],
+                        totalReward: finalTotalReward, // 厳密に計算した値を送る
+                      })
 
-                    console.log('保存結果:', result)
-                    alert('チェックリストを保存しました！')
-                    onClose()
-                  } catch (error) {
-                    console.error('チェックリスト保存エラー:', error)
-                    alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
-                  } finally {
-                    setIsSavingChecklist(false)
-                  }
-                }}
-                size="sm"
-                className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"
-                disabled={isSavingChecklist}
-              >
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                {isSavingChecklist ? '保存中...' : '報告を送信して完了'}
-              </Button>
-            </div>
-          </TabsContent>
+                      console.log('保存結果:', result)
+                      alert('チェックリストを保存しました！')
+                      onClose()
+                    } catch (error) {
+                      console.error('チェックリスト保存エラー:', error)
+                      alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
+                    } finally {
+                      setIsSavingChecklist(false)
+                    }
+                  }}
+                  size="sm"
+                  className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"
+                  disabled={isSavingChecklist}
+                >
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                  {isSavingChecklist ? '保存中...' : '報告を送信して完了'}
+                </Button>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }

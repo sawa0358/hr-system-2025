@@ -5,15 +5,21 @@ import { prisma } from '@/lib/prisma'
 // GET /api/workclock/checklist/submissions
 export async function GET(request: Request) {
     try {
-        const userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
-        if (!userId) {
-            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
-        }
+        let userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
 
         const { searchParams } = new URL(request.url)
         const workerId = searchParams.get('workerId')
         const startDate = searchParams.get('startDate')
         const endDate = searchParams.get('endDate')
+
+        // 認証IDがない場合でも、workerIdが指定されていれば許可する（打刻機モードなどの考慮）
+        if (!userId && workerId) {
+            userId = workerId
+        }
+
+        if (!userId) {
+            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+        }
 
         const where: any = {}
         if (workerId) where.workerId = workerId
@@ -51,13 +57,19 @@ export async function GET(request: Request) {
 // POST /api/workclock/checklist/submissions
 export async function POST(request: Request) {
     try {
-        const userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
-        if (!userId) {
-            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
-        }
+        let userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
 
         const body = await request.json()
         const { workerId, date, memo, photoUrl, photos, hasPhoto, isSafetyAlert, items } = body
+
+        // 認証IDがない場合でも、workerIdが指定されていれば許可する
+        if (!userId && workerId) {
+            userId = workerId
+        }
+
+        if (!userId) {
+            return NextResponse.json({ error: '認証が必要です' }, { status: 401 })
+        }
 
         if (!workerId || !date || !items || !Array.isArray(items)) {
             return NextResponse.json({ message: '必須項目が不足しています' }, { status: 400 })

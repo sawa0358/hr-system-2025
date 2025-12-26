@@ -17,7 +17,7 @@ import { TimeEntry, Worker } from '@/lib/workclock/types'
 import { addTimeEntry, updateTimeEntry, deleteTimeEntry } from '@/lib/workclock/api-storage'
 import { getWagePatternLabels } from '@/lib/workclock/wage-patterns'
 import { calculateDuration, formatDuration } from '@/lib/workclock/time-utils'
-import { Trash2, Plus, Clock, CheckCircle2 } from 'lucide-react'
+import { Trash2, Plus, Clock, CheckCircle2, Info } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/lib/auth-context'
 import {
@@ -468,6 +468,17 @@ export function TimeEntryDialog({
                           </Card>
                         )
                       })}
+                  </div>
+                </div>
+              )}
+
+              {existingEntries.length === 0 && readOnly && (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 bg-white/50 rounded-xl border-2 border-dashed border-slate-200">
+                  <Clock className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="font-semibold text-lg text-slate-500">勤務記録はありません</p>
+                  <div className="flex items-center mt-2 text-sm text-amber-600 bg-amber-50 px-3 py-1 rounded-full">
+                    <Info className="w-4 h-4 mr-1.5" />
+                    <span>編集期間外のため追加できません</span>
                   </div>
                 </div>
               )}

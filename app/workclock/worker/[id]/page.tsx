@@ -52,15 +52,20 @@ export default function WorkerPage() {
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false)
   const isMobile = useIsMobile()
 
-  // HR-systemのroleが一般ユーザー（viewer, general）の場合はSidebarNavを非表示
-  const isWorkerOnly = currentUser && (currentUser.role === 'viewer' || currentUser.role === 'general')
-
   // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
   const ownWorker = useMemo(
     () => workers.find((w) => w.employeeId === currentUser?.id) || null,
     [workers, currentUser?.id],
   )
   const isLeader = ownWorker?.role === 'admin'
+
+  // HR-systemのroleが一般ユーザー（viewer, general）の場合、
+  // かつ WorkClock 上でリーダーでない場合は SidebarNav を非表示（Worker専用画面とする）
+  const isWorkerOnly = useMemo(() => {
+    if (!currentUser) return true
+    const isGeneralHR = currentUser.role === 'viewer' || currentUser.role === 'general'
+    return isGeneralHR && !isLeader
+  }, [currentUser, isLeader])
 
   // 「今月の報酬見込」のサマリーをクリックできる権限チェック（店長・マネージャー・総務・管理者のみ）
   const canClickRewardSummary = useMemo(() => {

@@ -882,7 +882,22 @@ export default function SettingsPage() {
   const canEditCompensation = ['hr', 'admin'].includes(currentUser?.role || '')
   const canEditCompValues = canEditCompensation && isWorkerEditUnlocked
 
+  // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
+  const ownWorker = useMemo(
+    () => workers.find((w) => w.employeeId === currentUser?.id) || null,
+    [workers, currentUser?.id],
+  )
+  const isLeader = ownWorker?.role === 'admin'
+
   const filteredWorkers = workers.filter((worker: any) => {
+    // リーダー権限の場合は自分のチーム所属者のみ（自身含む）
+    if (isLeader) {
+      const ownTeams = ownWorker?.teams || []
+      const workerTeams = worker.teams || []
+      const isSameTeam = workerTeams.some((t: string) => ownTeams.includes(t))
+      if (!isSameTeam && worker.id !== ownWorker?.id) return false
+    }
+
     const matchesTeam =
       filterTeam === 'all' || (worker.teams || []).includes(filterTeam)
 
@@ -900,7 +915,9 @@ export default function SettingsPage() {
           : worker.role === 'worker'
 
     return matchesTeam && matchesEmployment && matchesRole
-  }).sort((a: any, b: any) => {
+  })
+
+  const sortedWorkers = [...filteredWorkers].sort((a: any, b: any) => {
     // 並び替えロジック
     switch (sortOrder) {
       case 'name_asc':
@@ -920,20 +937,17 @@ export default function SettingsPage() {
         return aRole - bRole
       case 'oldest':
         // 登録日時の古い順（APIから取得した順序の逆）
-        return 1 // 逆順なので後続の処理で reverse() が適用される想定
+        return 1
       case 'newest':
       default:
         // 登録日時の新しい順（APIデフォルト）
-        return 0 // 元の順序を維持
+        return 0
     }
   })
 
-  // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
-  const ownWorker = useMemo(
-    () => workers.find((w) => w.employeeId === currentUser?.id) || null,
-    [workers, currentUser?.id],
-  )
-  const isLeader = ownWorker?.role === 'admin'
+  if (sortOrder === 'oldest') {
+    sortedWorkers.reverse()
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: '#bddcd9' }}>
@@ -2536,11 +2550,18 @@ export default function SettingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">すべて</SelectItem>
-                      {teams.map((team) => (
-                        <SelectItem key={team} value={team}>
-                          {team}
-                        </SelectItem>
-                      ))}
+                      {teams
+                        .filter(team => {
+                          if (isLeader) {
+                            return (ownWorker?.teams || []).includes(team)
+                          }
+                          return true
+                        })
+                        .map((team) => (
+                          <SelectItem key={team} value={team}>
+                            {team}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -2599,7 +2620,7 @@ export default function SettingsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredWorkers.map((worker) => (
+                  {sortedWorkers.map((worker) => (
                     <TableRow key={worker.id}>
                       <TableCell className="font-medium">{worker.name}</TableCell>
                       <TableCell>¥{worker.hourlyRate.toLocaleString()}</TableCell>

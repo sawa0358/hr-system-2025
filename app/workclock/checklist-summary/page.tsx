@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -167,6 +167,12 @@ export default function ChecklistSummaryPage() {
             getWorkers(currentUser.id).then(setWorkers)
         }
     }, [currentUser])
+
+    const ownWorker = useMemo(
+        () => workers.find((w) => w.employeeId === currentUser?.id) || null,
+        [workers, currentUser?.id],
+    )
+    const isLeader = ownWorker?.role === 'admin'
 
     // モバイル時のスクロールでメニューを閉じる
     useEffect(() => {
@@ -439,6 +445,15 @@ export default function ChecklistSummaryPage() {
     const selectedPrompt = prompts.find(p => p.id === selectedPromptId) || prompts[0]
 
     const filteredSummaries = realSummaries.filter(row => {
+        // リーダー権限の場合は自分のチーム所属者のみ（自身含む）
+        if (isLeader) {
+            const ownTeams = ownWorker?.teams || []
+            const workerTeams = row.teams || []
+            const isSameTeam = workerTeams.some((t: any) => ownTeams.includes(t))
+            const isMe = row.workerId === ownWorker?.id
+            if (!isSameTeam && !isMe) return false
+        }
+
         if (filterTeam !== 'all' && !row.teams.includes(filterTeam)) return false
         if (filterEmployment !== 'all' && row.employmentType !== filterEmployment) return false
         if (filterRole !== 'all' && row.role !== filterRole) return false
@@ -871,9 +886,16 @@ export default function ChecklistSummaryPage() {
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="all">すべて</SelectItem>
-                                                    {teams.map((team) => (
-                                                        <SelectItem key={team} value={team}>{team}</SelectItem>
-                                                    ))}
+                                                    {teams
+                                                        .filter(team => {
+                                                            if (isLeader) {
+                                                                return (ownWorker?.teams || []).includes(team)
+                                                            }
+                                                            return true
+                                                        })
+                                                        .map((team) => (
+                                                            <SelectItem key={team} value={team}>{team}</SelectItem>
+                                                        ))}
                                                 </SelectContent>
                                             </Select>
                                         </div>

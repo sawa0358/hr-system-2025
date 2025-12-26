@@ -21,28 +21,7 @@ export async function GET(request: NextRequest) {
 
 
 
-    // 権限チェック: サブマネージャー以上、または業務委託・外注先のワーカー
-    const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
-    const isAdmin = allowedRoles.includes(user.role || '')
-    const employeeType = user.employeeType || ''
-    const isWorker = employeeType.includes('業務委託') || employeeType.includes('外注先')
-
-    if (!isAdmin && !isWorker) {
-      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
-    }
-
-    // Prisma Clientが古く、WorkClockWorkerモデルを持っていない場合の防御
-    const hasWorkClockModel =
-      (prisma as any)?.workClockWorker &&
-      typeof (prisma as any).workClockWorker.findMany === 'function'
-
-    if (!hasWorkClockModel) {
-      console.warn('[WorkClock API] prisma.workClockWorker が未定義です。Prisma Client の再生成が必要です。')
-      // フロントが落ちないよう一旦空配列を返す（メンテ表示は別途検討）
-      return NextResponse.json([], { status: 200 })
-    }
-
-    // 自分自身の WorkClockWorker レコードを取得（存在すればリーダー判定に使用）
+    // 自分自身の WorkClockWorker レコードを取得（リーダー判定、およびアクセス可否判定に利用）
     let viewerWorkerRecord: any = null
     try {
       viewerWorkerRecord = await (prisma as any).workClockWorker.findUnique({
@@ -51,6 +30,19 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       console.warn('[WorkClock API] viewerWorkerRecord の取得に失敗しました:', e)
     }
+
+    // 権限チェック: サブマネージャー以上、または業務委託・外注先のワーカー、
+    // もしくはすでに WorkClockWorker として登録されているユーザー
+    const allowedRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
+    const isAdmin = allowedRoles.includes(user.role || '')
+    const employeeType = user.employeeType || ''
+    const isWorkerType = employeeType.includes('業務委託') || employeeType.includes('外注先')
+    const isRegisteredWorker = viewerWorkerRecord !== null
+
+    if (!isAdmin && !isWorkerType && !isRegisteredWorker) {
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+    }
+
     const isWorkClockLeader = viewerWorkerRecord?.role === 'admin'
 
     // ワーカー権限のユーザーの場合は、本来は自分だけだが、

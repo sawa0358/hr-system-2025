@@ -146,6 +146,15 @@ export function SidebarNav({
   const allowedAdminRoles = ['sub_manager', 'store_manager', 'manager', 'hr', 'admin']
   const isHrAdmin = hrRole ? allowedAdminRoles.includes(hrRole) : false
 
+  // 業務チェック設定ボタンが見えるのは「マネージャー」「hr」「admin 」のみ
+  const canViewChecklistSettings = hrRole && ['manager', 'hr', 'admin'].includes(hrRole)
+
+  // 業務チェック集計ボタンが見えるのは「閲覧のみ（viewer）以外」の権限者
+  // かつユーザー詳細>"雇用形態"が「業務委託」・「外注先」以外
+  const currentEmploymentType = currentUser?.employeeType || ''
+  const isOutsourcedUser = currentEmploymentType.includes('業務委託') || currentEmploymentType.includes('外注先')
+  const canViewChecklistSummary = hrRole && hrRole !== 'viewer' && !isOutsourcedUser
+
   // WorkClock上のroleか、HRシステム上のroleのどちらかが管理者なら、管理メニュー（ダッシュボードや絞り込みUI）を表示
   const isAdminView = currentRole === 'admin' || isHrAdmin
   // 「設定」メニューはHRシステム上の管理ロールのみ表示（WorkClockリーダー単体では非表示）
@@ -360,24 +369,28 @@ export function SidebarNav({
 
           {isAdminView && (
             <>
-              <Link href="/workclock/checklist-settings">
-                <Button
-                  variant={pathname === '/workclock/checklist-settings' ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
-                >
-                  <CheckSquare className="h-4 w-4" />
-                  {!effectiveCollapsed && <span className="ml-2">業務チェック設定</span>}
-                </Button>
-              </Link>
-              <Link href="/workclock/checklist-summary">
-                <Button
-                  variant={pathname === '/workclock/checklist-summary' ? 'secondary' : 'ghost'}
-                  className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  {!effectiveCollapsed && <span className="ml-2">業務チェック集計</span>}
-                </Button>
-              </Link>
+              {canViewChecklistSettings && (
+                <Link href="/workclock/checklist-settings">
+                  <Button
+                    variant={pathname === '/workclock/checklist-settings' ? 'secondary' : 'ghost'}
+                    className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
+                  >
+                    <CheckSquare className="h-4 w-4" />
+                    {!effectiveCollapsed && <span className="ml-2">業務チェック設定</span>}
+                  </Button>
+                </Link>
+              )}
+              {canViewChecklistSummary && (
+                <Link href="/workclock/checklist-summary">
+                  <Button
+                    variant={pathname === '/workclock/checklist-summary' ? 'secondary' : 'ghost'}
+                    className={cn('w-full justify-start', effectiveCollapsed && 'justify-center px-2')}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    {!effectiveCollapsed && <span className="ml-2">業務チェック集計</span>}
+                  </Button>
+                </Link>
+              )}
             </>
           )}
 
@@ -409,11 +422,18 @@ export function SidebarNav({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">すべて</SelectItem>
-                      {teams.map((team) => (
-                        <SelectItem key={team} value={team}>
-                          {team}
-                        </SelectItem>
-                      ))}
+                      {teams
+                        .filter(team => {
+                          if (isCurrentUserLeader && currentUserTeams.length > 0) {
+                            return currentUserTeams.includes(team)
+                          }
+                          return true
+                        })
+                        .map((team) => (
+                          <SelectItem key={team} value={team}>
+                            {team}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -19,9 +19,10 @@ interface ChecklistPanelProps {
     selectedDate: Date
     onRewardChange?: (reward: number) => void
     onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: ChecklistItem[] }) => void
+    readOnly?: boolean
 }
 
-export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange }: ChecklistPanelProps) {
+export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange, readOnly = false }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
     const [freeTextValues, setFreeTextValues] = useState<Record<string, string>>({})
     const [reportText, setReportText] = useState('')
@@ -145,6 +146,8 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     }
 
     const handleToggle = (id: string) => {
+        if (readOnly) return
+
         setCheckedItems(prev => {
             const newState = {
                 ...prev,
@@ -358,14 +361,21 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                         <div className="flex items-center justify-between px-1">
                             <div className="flex items-center gap-2">
                                 <h3 className="text-sm font-bold text-slate-800">業務チェック項目</h3>
-                                {isAllMandatoryChecked ? (
-                                    <Badge variant="outline" className="h-5 px-1.5 text-[9px] bg-green-50 text-green-600 border-green-200 font-bold">
-                                        <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> 必須完了
+                                {readOnly && (
+                                    <Badge variant="outline" className="h-5 px-1.5 text-[9px] bg-slate-100 text-slate-500 border-slate-200 font-bold">
+                                        <AlertCircle className="w-2.5 h-2.5 mr-0.5" /> 編集不可
                                     </Badge>
-                                ) : (
-                                    <Badge variant="destructive" className="h-5 px-1.5 text-[9px] font-bold animate-pulse">
-                                        未完了 ({pendingMandatoryItems.length})
-                                    </Badge>
+                                )}
+                                {!readOnly && (
+                                    isAllMandatoryChecked ? (
+                                        <Badge variant="outline" className="h-5 px-1.5 text-[9px] bg-green-50 text-green-600 border-green-200 font-bold">
+                                            <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" /> 必須完了
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="destructive" className="h-5 px-1.5 text-[9px] font-bold animate-pulse">
+                                            未完了 ({pendingMandatoryItems.length})
+                                        </Badge>
+                                    )
                                 )}
                             </div>
                         </div>
@@ -379,19 +389,20 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                             <div className="divide-y divide-slate-100">
                                 {checklistItems.map(item => (
                                     item.isFreeText ? (
-                                        <div key={item.id} className="group flex flex-col px-3 py-2 bg-purple-50/30 hover:bg-purple-50/50 transition-colors relative">
-                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-purple-400" />
+                                        <div key={item.id} className={cn("group flex flex-col px-3 py-2 transition-colors relative", readOnly ? "bg-slate-50 cursor-not-allowed" : "bg-purple-50/30 hover:bg-purple-50/50")}>
+                                            <div className={cn("absolute left-0 top-0 bottom-0 w-0.5", readOnly ? "bg-slate-300" : "bg-purple-400")} />
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <Label htmlFor={`freetext-${item.id}`} className="text-[11px] font-bold text-purple-700 flex items-center gap-1">
+                                                <Label htmlFor={`freetext-${item.id}`} className={cn("text-[11px] font-bold flex items-center gap-1", readOnly ? "text-slate-500" : "text-purple-700")}>
                                                     <MessageSquare className="w-3 h-3" />
                                                     {item.title}
                                                 </Label>
-                                                {item.reward > 0 && <span className="font-mono text-[9px] font-bold text-purple-600">+¥{item.reward}</span>}
+                                                {item.reward > 0 && <span className={cn("font-mono text-[9px] font-bold", readOnly ? "text-slate-400" : "text-purple-600")}>+¥{item.reward}</span>}
                                             </div>
                                             <Input
                                                 id={`freetext-${item.id}`}
                                                 value={freeTextValues[item.id] || ''}
                                                 onChange={(e) => {
+                                                    if (readOnly) return
                                                     const newValues = { ...freeTextValues, [item.id]: e.target.value }
                                                     setFreeTextValues(newValues)
                                                     const newTotal = checklistItems.reduce((total, it) => {
@@ -403,22 +414,29 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                         notifyParent(checkedItems, newValues, reportText, photos, checklistItems)
                                                     }, 0)
                                                 }}
-                                                placeholder="入力してください..."
-                                                className="text-xs h-8 bg-white border-purple-200 focus:border-purple-400"
+                                                placeholder={readOnly ? "入力済み" : "入力してください..."}
+                                                disabled={readOnly}
+                                                className={cn("text-xs h-8 bg-white", readOnly ? "border-slate-200 text-slate-500" : "border-purple-200 focus:border-purple-400")}
                                             />
                                         </div>
                                     ) : (
-                                        <div key={item.id} onClick={() => handleToggle(item.id)} className={cn("group flex items-center px-3 py-1.5 min-h-[36px] cursor-pointer transition-colors duration-75 relative", checkedItems[item.id] ? "bg-blue-50/40" : "bg-white hover:bg-slate-50/50", item.isMandatory && !checkedItems[item.id] && "bg-red-50/10")}>
-                                            {item.isMandatory && <div className={cn("absolute left-0 top-0 bottom-0 w-0.5 transition-colors", checkedItems[item.id] ? "bg-green-400" : "bg-red-400")} />}
-                                            <div className="w-10 flex justify-center mr-2" onClick={(e) => e.stopPropagation()}>
-                                                <Switch id={`item-${item.id}`} checked={!!checkedItems[item.id]} onCheckedChange={() => handleToggle(item.id)} className="scale-[0.65] data-[state=checked]:bg-green-500" />
+                                        <div key={item.id} onClick={() => !readOnly && handleToggle(item.id)} className={cn(
+                                            "group flex items-center px-3 py-1.5 min-h-[36px] transition-colors duration-75 relative",
+                                            readOnly ? "cursor-default opacity-80" : "cursor-pointer",
+                                            checkedItems[item.id] ? (readOnly ? "bg-slate-50" : "bg-blue-50/40") : "bg-white",
+                                            !readOnly && !checkedItems[item.id] && "hover:bg-slate-50/50",
+                                            !readOnly && item.isMandatory && !checkedItems[item.id] && "bg-red-50/10"
+                                        )}>
+                                            {item.isMandatory && <div className={cn("absolute left-0 top-0 bottom-0 w-0.5 transition-colors", checkedItems[item.id] ? (readOnly ? "bg-slate-400" : "bg-green-400") : (readOnly ? "bg-slate-300" : "bg-red-400"))} />}
+                                            <div className="w-10 flex justify-center mr-2" onClick={(e) => !readOnly && e.stopPropagation()}>
+                                                <Switch id={`item-${item.id}`} checked={!!checkedItems[item.id]} onCheckedChange={() => !readOnly && handleToggle(item.id)} disabled={readOnly} className={cn("scale-[0.65]", !readOnly && "data-[state=checked]:bg-green-500")} />
                                             </div>
                                             <div className="flex-1 py-0.5">
-                                                <Label htmlFor={`item-${item.id}`} className={cn("text-[11px] font-medium leading-tight block transition-all", checkedItems[item.id] ? "text-slate-300 line-through" : "text-slate-600")}>{item.title}</Label>
-                                                {item.isMandatory && !checkedItems[item.id] && <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5"><AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目</span>}
+                                                <Label htmlFor={`item-${item.id}`} className={cn("text-[11px] font-medium leading-tight block transition-all", checkedItems[item.id] ? "text-slate-400 line-through" : (readOnly ? "text-slate-500" : "text-slate-600"))}>{item.title}</Label>
+                                                {item.isMandatory && !checkedItems[item.id] && !readOnly && <span className="inline-flex items-center text-[8px] font-bold text-red-400 mt-0.5"><AlertCircle className="w-2 h-2 mr-0.5" /> 必須項目</span>}
                                             </div>
                                             <div className="w-16 text-right">
-                                                {item.reward > 0 ? <span className={cn("font-mono text-[9px] font-bold", checkedItems[item.id] ? "text-yellow-600" : "text-slate-300")}>+¥{item.reward}</span> : <span className="text-[9px] text-slate-200 font-mono">-</span>}
+                                                {item.reward > 0 ? <span className={cn("font-mono text-[9px] font-bold", checkedItems[item.id] ? (readOnly ? "text-slate-500" : "text-yellow-600") : "text-slate-300")}>+¥{item.reward}</span> : <span className="text-[9px] text-slate-200 font-mono">-</span>}
                                             </div>
                                         </div>
                                     )

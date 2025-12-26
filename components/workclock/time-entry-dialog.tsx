@@ -776,6 +776,7 @@ export function TimeEntryDialog({
               selectedDate={selectedDate}
               onRewardChange={setChecklistReward}
               onStateChange={setChecklistState}
+              readOnly={readOnly}
             />
             <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
               <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">

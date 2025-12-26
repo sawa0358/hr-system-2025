@@ -405,7 +405,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                 </Label>
                                                 {item.reward > 0 && <span className={cn("font-mono text-[9px] font-bold", readOnly ? "text-slate-400" : "text-purple-600")}>+¥{item.reward}</span>}
                                             </div>
-                                            <Input
+                                            <Textarea
                                                 id={`freetext-${item.id}`}
                                                 value={freeTextValues[item.id] || ''}
                                                 onChange={(e) => {
@@ -423,7 +423,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                 }}
                                                 placeholder={readOnly ? "入力済み" : "入力してください..."}
                                                 disabled={readOnly}
-                                                className={cn("text-xs h-8 bg-white", readOnly ? "border-slate-200 text-slate-500" : "border-purple-200 focus:border-purple-400")}
+                                                className={cn("text-xs bg-white min-h-[60px] max-h-[150px] resize-y overflow-y-auto leading-relaxed scrollbar-thin scrollbar-thumb-purple-200", readOnly ? "border-slate-200 text-slate-500 resize-none" : "border-purple-200 focus:border-purple-400")}
                                             />
                                         </div>
                                     ) : (

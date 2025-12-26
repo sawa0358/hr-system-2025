@@ -91,6 +91,15 @@ export function TimeEntryDialog({
   })()
 
 
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen && isChecklistDirty) {
+      if (!window.confirm('チェックリストの変更が保存されていません。保存せずに閉じると変更内容は破棄されます。\nよろしいですか？')) {
+        return
+      }
+    }
+    onOpenChange(isOpen)
+  }
+
   const getInitialTimes = () => {
     if (initialStartTime && initialEndTime) {
       return { startTime: initialStartTime, endTime: initialEndTime }
@@ -115,6 +124,7 @@ export function TimeEntryDialog({
   const [checklistReward, setChecklistReward] = useState(0)
   const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: any[] } | null>(null)
   const [isSavingChecklist, setIsSavingChecklist] = useState(false)
+  const [isChecklistDirty, setIsChecklistDirty] = useState(false)
 
   // UI状態管理（window.confirm/alertの代替）
   const [validationError, setValidationError] = useState<string | null>(null)
@@ -162,6 +172,7 @@ export function TimeEntryDialog({
   // モーダルを開くたびに、開始・終了時刻を最新のドラッグ／クリック結果で初期化する
   useEffect(() => {
     if (!open) return
+    setIsChecklistDirty(false)
 
     // 新規追加時は常にAパターンで初期化（選択されているパターンが無効な場合もAにフォールバック）
     if (wagePattern === 'B' && !worker?.hourlyRateB) {
@@ -300,7 +311,7 @@ export function TimeEntryDialog({
   const totalDayRemainMinutes = totalDayMinutes % 60
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-6xl max-h-[95vh] h-[92vh] overflow-hidden flex flex-col bg-slate-100 text-slate-900 p-0 gap-0 border-none shadow-2xl rounded-2xl">
         <Tabs defaultValue="time" className="flex flex-col h-full w-full">
           <div className="px-6 pt-5 pb-3 flex-none bg-[#bed8d8]/30 backdrop-blur-sm border-b border-slate-200">
@@ -758,7 +769,7 @@ export function TimeEntryDialog({
                   )}
 
                   <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="outline" onClick={() => onOpenChange(false)} size="lg" disabled={isSaving}>
+                    <Button variant="outline" onClick={() => handleOpenChange(false)} size="lg" disabled={isSaving}>
                       キャンセル
                     </Button>
                     <Button onClick={handleAddEntry} size="lg" className="min-w-[120px]" disabled={isSaving}>
@@ -778,11 +789,14 @@ export function TimeEntryDialog({
                 workerId={workerId}
                 selectedDate={selectedDate}
                 onRewardChange={setChecklistReward}
-                onStateChange={setChecklistState}
+                onStateChange={(state) => {
+                  setChecklistState(state)
+                  setIsChecklistDirty(true)
+                }}
                 readOnly={readOnly}
               />
               <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
-                <Button variant="ghost" onClick={() => onOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
+                <Button variant="ghost" onClick={() => handleOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
                   キャンセル
                 </Button>
                 <Button

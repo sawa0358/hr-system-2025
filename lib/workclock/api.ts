@@ -404,6 +404,7 @@ export const api = {
         const response = await fetch(url, {
           method: 'GET',
           headers: getAuthHeaders(),
+          cache: 'no-store', // 常に最新データを取得
         })
         return handleResponse(response)
       },

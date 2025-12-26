@@ -354,6 +354,15 @@ export const api = {
         })
         return handleResponse(response)
       },
+
+      reorder: async (id: string, itemIds: string[]) => {
+        const response = await fetch(`${API_BASE}/checklist/patterns/${id}/reorder`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ itemIds }),
+        })
+        return handleResponse(response)
+      },
     },
 
     items: {

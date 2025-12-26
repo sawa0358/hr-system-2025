@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,14 +36,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Pencil, Trash2, CheckCircle2, Coins, Settings, Layout, Copy, Menu } from 'lucide-react'
+import { Plus, Pencil, Trash2, CheckCircle2, Coins, Settings, Layout, Copy, Menu, GripVertical, ArrowUpToLine, ArrowUp, ArrowDown, ArrowDownToLine } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { getWorkers } from '@/lib/workclock/api-storage'
 import { Worker, ChecklistPattern, ChecklistItem } from '@/lib/workclock/types'
 import { api } from '@/lib/workclock/api'
-import { useEffect } from 'react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import {
     Sheet,
@@ -52,8 +57,6 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet'
-
-// 以前の mock data は削除
 
 export default function ChecklistSettingsPage() {
     const { currentUser } = useAuth()
@@ -80,9 +83,14 @@ export default function ChecklistSettingsPage() {
         try {
             setIsLoading(true)
             const res = await api.checklist.patterns.getAll(true) as { patterns: ChecklistPattern[] }
-            setPatterns(res.patterns)
-            if (res.patterns.length > 0 && !selectedPatternId) {
-                setSelectedPatternId(res.patterns[0].id)
+            // itemsをposition順にソートしておく
+            const sortedPatterns = res.patterns.map(p => ({
+                ...p,
+                items: p.items ? [...p.items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) : []
+            }))
+            setPatterns(sortedPatterns)
+            if (sortedPatterns.length > 0 && !selectedPatternId) {
+                setSelectedPatternId(sortedPatterns[0].id)
             }
         } catch (error) {
             console.error('Failed to fetch patterns:', error)
@@ -116,6 +124,38 @@ export default function ChecklistSettingsPage() {
 
     const selectedPattern = patterns.find(p => p.id === selectedPatternId) || patterns[0] || { id: '', name: '', items: [] }
 
+    const handleMoveItem = async (itemId: string, direction: 'top' | 'up' | 'down' | 'bottom') => {
+        if (!selectedPatternId) return
+
+        setPatterns(prev => prev.map(pattern => {
+            if (pattern.id !== selectedPatternId || !pattern.items) return pattern
+
+            const items = [...pattern.items]
+            const currentIndex = items.findIndex(i => i.id === itemId)
+            if (currentIndex === -1) return pattern
+
+            let newIndex = currentIndex
+            switch (direction) {
+                case 'top': newIndex = 0; break;
+                case 'up': newIndex = Math.max(0, currentIndex - 1); break;
+                case 'down': newIndex = Math.min(items.length - 1, currentIndex + 1); break;
+                case 'bottom': newIndex = items.length - 1; break;
+            }
+
+            if (newIndex === currentIndex) return pattern
+
+            // 入替え
+            const [movedItem] = items.splice(currentIndex, 1)
+            items.splice(newIndex, 0, movedItem)
+
+            // API保存
+            const itemIds = items.map(i => i.id)
+            api.checklist.patterns.reorder(selectedPatternId, itemIds).catch(console.error)
+
+            return { ...pattern, items }
+        }))
+    }
+
     const handleAddPattern = async () => {
         if (!newPatternName) return
         try {
@@ -139,7 +179,9 @@ export default function ChecklistSettingsPage() {
 
             // 項目もコピー
             if (patternToCopy.items && patternToCopy.items.length > 0) {
-                for (const item of patternToCopy.items) {
+                // 同じ順序で作成
+                const sortedItems = [...patternToCopy.items].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+                for (const item of sortedItems) {
                     await api.checklist.items.create(newPattern.id, {
                         title: item.title,
                         reward: item.reward,
@@ -387,7 +429,8 @@ export default function ChecklistSettingsPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-white hover:bg-white border-0">
-                                        <TableHead className="w-[45%] pl-6">項目名</TableHead>
+                                        <TableHead className="w-12 pl-4"></TableHead>
+                                        <TableHead className="">項目名</TableHead>
                                         <TableHead>ステータス</TableHead>
                                         <TableHead>寸志金額</TableHead>
                                         <TableHead className="text-right pr-6">操作</TableHead>
@@ -396,14 +439,37 @@ export default function ChecklistSettingsPage() {
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-32 text-center text-slate-400">
+                                            <TableCell colSpan={5} className="h-32 text-center text-slate-400">
                                                 読み込み中...
                                             </TableCell>
                                         </TableRow>
                                     ) : selectedPattern.items && selectedPattern.items.length > 0 ? (
-                                        selectedPattern.items.map((item) => (
-                                            <TableRow key={item.id} className="hover:bg-slate-50/50 group">
-                                                <TableCell className="font-medium pl-6">
+                                        selectedPattern.items.map((item, index) => (
+                                            <TableRow key={item.id} className="hover:bg-slate-50/50 group bg-white">
+                                                <TableCell className="pl-4 py-2">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button className="p-1.5 text-slate-300 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors outline-none">
+                                                                <GripVertical className="w-5 h-5" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="start">
+                                                            <DropdownMenuItem onClick={() => handleMoveItem(item.id, 'top')} disabled={index === 0}>
+                                                                <ArrowUpToLine className="w-4 h-4 mr-2 opacity-50" /> 最上へ移動
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleMoveItem(item.id, 'up')} disabled={index === 0}>
+                                                                <ArrowUp className="w-4 h-4 mr-2 opacity-50" /> 上へ移動
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleMoveItem(item.id, 'down')} disabled={index === (selectedPattern.items?.length || 0) - 1}>
+                                                                <ArrowDown className="w-4 h-4 mr-2 opacity-50" /> 下へ移動
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem onClick={() => handleMoveItem(item.id, 'bottom')} disabled={index === (selectedPattern.items?.length || 0) - 1}>
+                                                                <ArrowDownToLine className="w-4 h-4 mr-2 opacity-50" /> 最下へ移動
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                </TableCell>
+                                                <TableCell className="font-medium">
                                                     <div className="flex flex-col">
                                                         <span className="text-slate-700">{item.title}</span>
                                                         <span className="text-[10px] text-slate-400 capitalize">{item.category}</span>
@@ -439,7 +505,7 @@ export default function ChecklistSettingsPage() {
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-32 text-center text-slate-400 italic">
+                                            <TableCell colSpan={5} className="h-32 text-center text-slate-400 italic">
                                                 項目が登録されていません。右上のボタンから追加してください。
                                             </TableCell>
                                         </TableRow>

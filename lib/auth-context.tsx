@@ -23,8 +23,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ユーザー情報をストレージから読み込む関数
   const loadUserFromStorage = () => {
     try {
-      // 永続保持（Persistent）のためlocalStorageのみを使用
-      const savedUser = localStorage.getItem("currentUser")
+      // 永続保持（Persistent）のためlocalStorageを優先
+      let savedUser = localStorage.getItem("currentUser")
+
+      // localStorageにない場合はsessionStorage（旧方式の互換性）をチェック
+      if (!savedUser) {
+        savedUser = sessionStorage.getItem("currentUser")
+      }
 
       if (savedUser) {
         const user = JSON.parse(savedUser)
@@ -33,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (user.expiresAt && new Date().getTime() > user.expiresAt) {
           console.log("Session expired for user:", user.name)
           localStorage.removeItem("currentUser")
+          sessionStorage.removeItem("currentUser")
           return null
         }
 
@@ -45,15 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user.id === "cmgtj2n3o00008zcwnsyk1k4n") {
           console.log("Clearing old cached user data:", user.id)
           localStorage.removeItem("currentUser")
+          sessionStorage.removeItem("currentUser")
           return null
         } else {
-          console.log(`[v0] Loaded user from localStorage:`, user.name, user.id)
+          console.log(`[v0] Loaded user from storage:`, user.name, user.id)
           return user
         }
       }
     } catch (error) {
       console.error("[v0] Failed to parse saved user:", error)
       localStorage.removeItem("currentUser")
+      sessionStorage.removeItem("currentUser")
     }
     return null
   }
@@ -95,10 +103,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
             return prevUser
           })
-        } else {
-          // 有効期限切れなどでuserが取得できなかった場合、ログアウト状態にする
-          setCurrentUser(null)
-          setIsAuthenticated(false)
         }
       }
     }
@@ -116,9 +120,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return prevUser
         })
-      } else {
-        setCurrentUser(null)
-        setIsAuthenticated(false)
       }
     }
 

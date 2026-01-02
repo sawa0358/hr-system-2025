@@ -23,43 +23,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ユーザー情報をストレージから読み込む関数
   const loadUserFromStorage = () => {
     try {
-      // 永続保持（Persistent）のためlocalStorageを優先
-      let savedUser = localStorage.getItem("currentUser")
+      if (typeof window === 'undefined') return null;
 
-      // localStorageにない場合はsessionStorage（旧方式の互換性）をチェック
+      // 1. localStorage（永続保持）を優先チェック
+      let savedUser = localStorage.getItem("currentUser")
+      let storageSource = 'localStorage'
+
+      // 2. localStorageにない場合はsessionStorage（旧セッション）をチェック
       if (!savedUser) {
         savedUser = sessionStorage.getItem("currentUser")
+        storageSource = 'sessionStorage'
       }
 
       if (savedUser) {
         const user = JSON.parse(savedUser)
 
-        // 有効期限のチェック（セキュリティ配慮）
+        // 有効期限のチェック（30日）
         if (user.expiresAt && new Date().getTime() > user.expiresAt) {
-          console.log("Session expired for user:", user.name)
+          console.log("[Auth] Session expired for user:", user.name)
           localStorage.removeItem("currentUser")
           sessionStorage.removeItem("currentUser")
           return null
         }
 
-        // 古い形式のID（"admin"など）や無効なIDの場合はキャッシュをクリア
-        if (user.id === "admin" || user.id === "manager" || user.id === "sub" ||
-          user.id === "ippan" || user.id === "etsuran" ||
-          user.id === "001" || user.id === "002" || user.id === "003" ||
-          user.id === "cmgkljr1000008z81edjq66sl" ||
-          user.id === "cmgorkhkh00008z11nhm08dt7" ||
-          user.id === "cmgtj2n3o00008zcwnsyk1k4n") {
-          console.log("Clearing old cached user data:", user.id)
-          localStorage.removeItem("currentUser")
-          sessionStorage.removeItem("currentUser")
-          return null
-        } else {
-          console.log(`[v0] Loaded user from storage:`, user.name, user.id)
-          return user
+        // sessionStorageにあった場合はlocalStorageに移行して永続化する
+        if (storageSource === 'sessionStorage') {
+          console.log("[Auth] Migrating session to localStorage for persistence")
+          localStorage.setItem("currentUser", JSON.stringify({
+            ...user,
+            expiresAt: user.expiresAt || (new Date().getTime() + AUTH_EXPIRATION_DAYS * 24 * 60 * 60 * 1000)
+          }))
+          // 移行後はsessionStorageを消しても良いが、安全のため残しておくか検討。
+          // ここでは一旦そのままにし、次回からはlocalStorageが優先される。
         }
+
+        console.log(`[Auth] User loaded from ${storageSource}:`, user.name)
+        return user
       }
     } catch (error) {
-      console.error("[v0] Failed to parse saved user:", error)
+      console.error("[Auth] Failed to load user storage:", error)
       localStorage.removeItem("currentUser")
       sessionStorage.removeItem("currentUser")
     }

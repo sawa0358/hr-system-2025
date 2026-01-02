@@ -269,8 +269,8 @@ export function Sidebar() {
     // すべてのスクロール可能な要素を監視（横スクロール対応）
     const scrollableElements = document.querySelectorAll('[style*="overflow"], [class*="overflow"]')
     scrollableElements.forEach((element) => {
-      element.addEventListener('scroll', handleScroll, { passive: true })
-      element.addEventListener('wheel', handleWheel, { passive: true })
+      element.addEventListener('scroll', handleScroll as EventListener, { passive: true })
+      element.addEventListener('wheel', handleWheel as EventListener, { passive: true })
     })
 
     // 少し遅延させて、展開ボタンのクリックイベントが先に処理されるようにする
@@ -295,8 +295,8 @@ export function Sidebar() {
         mainElementForCleanup.removeEventListener('wheel', handleWheel)
       }
       scrollableElements.forEach((element) => {
-        element.removeEventListener('scroll', handleScroll)
-        element.removeEventListener('wheel', handleWheel)
+        element.removeEventListener('scroll', handleScroll as EventListener)
+        element.removeEventListener('wheel', handleWheel as EventListener)
       })
       clearTimeout(timeoutId)
       document.removeEventListener('click', handleClick)
@@ -418,7 +418,7 @@ export function Sidebar() {
               </div>
               <div className="flex flex-col justify-center">
                 <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">HR System</span>
-                <span className="text-xs text-muted-foreground/50">v3.9.8</span>
+                <span className="text-xs text-muted-foreground/50">v3.9.9</span>
               </div>
             </div>
           )}

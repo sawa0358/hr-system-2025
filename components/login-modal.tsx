@@ -13,17 +13,15 @@ import { Building2, AlertCircle } from "lucide-react"
 
 interface LoginModalProps {
   open: boolean
-  onLoginSuccess: (employee: any, rememberMe: boolean) => void
+  onLoginSuccess: (employee: any) => void
 }
 
 export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
   const router = useRouter()
   const nameId = useId()
   const passwordId = useId()
-  const rememberId = useId()
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
-  const [rememberMe, setRememberMe] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
@@ -37,13 +35,13 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
       console.log("Fetching employees from API...")
       const response = await fetch('/api/employees')
       console.log("API response status:", response.status)
-      
+
       if (response.ok) {
         const employees = await response.json()
         console.log("Found employees:", employees.length)
         const employee = employees.find((emp: any) => emp.name === name && emp.password === password && emp.role)
         console.log("Found employee:", employee ? `${employee.name} (ID: ${employee.id}, Role: ${employee.role})` : "None")
-        
+
         if (employee) {
           // 停止中ユーザーのログインをブロック
           if (employee.isSuspended || employee.status === 'suspended') {
@@ -51,15 +49,15 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
             setIsLoading(false)
             return
           }
-          
+
           // 休職・退職ユーザーのログインをブロック
           if (employee.status === 'leave' || employee.status === 'retired') {
             setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
             setIsLoading(false)
             return
           }
-          
-          onLoginSuccess(employee, rememberMe)
+
+          onLoginSuccess(employee)
           setIsLoading(false)
           // ログイン成功後、少し待ってからタスク管理ページにリダイレクト
           setTimeout(() => {
@@ -82,7 +80,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={() => { }}>
       <DialogContent className="sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
@@ -118,20 +116,6 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id={rememberId}
-              checked={rememberMe}
-              onCheckedChange={(checked) => setRememberMe(checked === true)}
-            />
-            <label
-              htmlFor={rememberId}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              ログイン情報を保存
-            </label>
           </div>
 
           {error && (

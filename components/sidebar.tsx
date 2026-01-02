@@ -408,11 +408,17 @@ export function Sidebar() {
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
           {!collapsed && (
-            <div className="flex items-center gap-2">
-              <Building2 className="w-6 h-6 text-blue-600" />
-              <div className="flex items-baseline gap-2">
-                <span className="font-bold text-slate-900">HR System</span>
-                <span className="text-xs text-muted-foreground/50">v3.9.6</span>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 bg-white rounded-xl shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
+                <img
+                  src="/sidebar-logo.png"
+                  alt="HR System"
+                  className="w-full h-full object-cover scale-[2.0] translate-y-2"
+                />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">HR System</span>
+                <span className="text-xs text-muted-foreground/50">v3.9.7</span>
               </div>
             </div>
           )}

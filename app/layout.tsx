@@ -22,6 +22,11 @@ export const metadata: Metadata = {
   title: "HR System",
   description: "Human Resources Management System",
   generator: "Next.js",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
 }
 
 export const dynamic = 'force-dynamic'

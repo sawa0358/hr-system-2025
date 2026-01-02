@@ -24,6 +24,7 @@ export const metadata: Metadata = {
   generator: "Next.js",
   icons: {
     icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",

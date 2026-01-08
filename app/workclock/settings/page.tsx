@@ -170,7 +170,7 @@ export default function SettingsPage() {
     billingClientId: '', // 請求先ID
     allowPastEntryEdit: false, // 過去記録の編集許可
     isChecklistEnabled: false, // 業務チェックリスト対象者
-    checklistPatternId: '', // 選択中のチェックリストパターン
+    checklistPatternIds: [] as string[], // 選択中のチェックリストパターン
   })
   const { toast } = useToast()
   const router = useRouter()
@@ -445,7 +445,7 @@ export default function SettingsPage() {
       billingClientId: '',
       allowPastEntryEdit: false,
       isChecklistEnabled: false,
-      checklistPatternId: '',
+      checklistPatternIds: [],
     })
     setEditingWorker(null)
     setIsWorkerEditUnlocked(false)
@@ -575,7 +575,7 @@ export default function SettingsPage() {
             // 請求先ID
             billingClientId: formData.billingClientId || undefined,
             allowPastEntryEdit: formData.allowPastEntryEdit,
-            checklistPatternId: formData.checklistPatternId || undefined,
+            checklistPatternIds: formData.checklistPatternIds,
             isChecklistEnabled: formData.isChecklistEnabled,
           },
           userId
@@ -664,7 +664,7 @@ export default function SettingsPage() {
           // 請求先ID
           billingClientId: formData.billingClientId || undefined,
           allowPastEntryEdit: formData.allowPastEntryEdit,
-          checklistPatternId: formData.checklistPatternId || undefined,
+          checklistPatternIds: formData.checklistPatternIds,
           isChecklistEnabled: formData.isChecklistEnabled,
         }
         await addWorker(payload, userId)
@@ -781,7 +781,7 @@ export default function SettingsPage() {
       billingClientId: worker.billingClientId || '',
       allowPastEntryEdit: worker.allowPastEntryEdit ?? false,
       isChecklistEnabled: (worker as any).isChecklistEnabled ?? false,
-      checklistPatternId: (worker as any).checklistPatternId || '',
+      checklistPatternIds: (worker as any).checklistPatternIds || [],
     })
     // 既存ワーカー編集時は、パスワード認証が通るまで編集をロック
     setIsWorkerEditUnlocked(false)
@@ -2036,22 +2036,14 @@ export default function SettingsPage() {
 
                             {formData.isChecklistEnabled && (
                               <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                <Label className="text-xs font-bold text-slate-500">適用するチェックリストパターン</Label>
-                                <Select
-                                  value={formData.checklistPatternId}
-                                  onValueChange={(val) => setFormData({ ...formData, checklistPatternId: val })}
-                                  disabled={!isWorkerEditUnlocked}
-                                >
-                                  <SelectTrigger className="bg-white border-slate-200">
-                                    <SelectValue placeholder="パターンを選択" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">適用なし</SelectItem>
-                                    {checklistPatterns.map((p) => (
-                                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                <Label className="text-xs font-bold text-slate-500">適用するチェックリストパターン（複数選択可）</Label>
+                                <MultiSelect
+                                  options={checklistPatterns.map(p => ({ label: p.name, value: p.id }))}
+                                  selected={formData.checklistPatternIds}
+                                  onChange={(selected) => setFormData({ ...formData, checklistPatternIds: selected })}
+                                  placeholder="パターンを選択"
+                                  readOnly={!isWorkerEditUnlocked}
+                                />
                               </div>
                             )}
                           </div>

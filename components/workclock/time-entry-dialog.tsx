@@ -92,7 +92,8 @@ export function TimeEntryDialog({
 
 
   const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen && isChecklistDirty) {
+    const hasAnyDirty = Object.values(isChecklistDirtyByPatternId).some(Boolean)
+    if (!isOpen && hasAnyDirty) {
       if (!window.confirm('チェックリストの変更が保存されていません。保存せずに閉じると変更内容は破棄されます。\nよろしいですか？')) {
         return
       }
@@ -122,12 +123,15 @@ export function TimeEntryDialog({
   const [count, setCount] = useState('1')
   const [billingType, setBillingType] = useState<'hourly' | 'count' | 'both' | 'none'>('hourly')
   const [checklistReward, setChecklistReward] = useState(0)
-  const [checklistState, setChecklistState] = useState<{ checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: any[] } | null>(null)
+  // 各パターンごとの状態を保持するMap
+  const [checklistStateByPatternId, setChecklistStateByPatternId] = useState<Record<string, { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: any[] }>>({}
+  )
   const [isSavingChecklist, setIsSavingChecklist] = useState(false)
-  const [isChecklistDirty, setIsChecklistDirty] = useState(false)
+  const [isChecklistDirtyByPatternId, setIsChecklistDirtyByPatternId] = useState<Record<string, boolean>>({})
 
   // UI状態管理（window.confirm/alertの代替）
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [selectedChecklistPatternId, setSelectedChecklistPatternId] = useState<string | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
@@ -172,9 +176,9 @@ export function TimeEntryDialog({
   // モーダルを開くたびに、開始・終了時刻を最新のドラッグ／クリック結果で初期化する
   useEffect(() => {
     if (!open) return
-    setIsChecklistDirty(false)
-
-    // 新規追加時は常にAパターンで初期化（選択されているパターンが無効な場合もAにフォールバック）
+    // 全パターンのDirty状態をリセット
+    setIsChecklistDirtyByPatternId({})
+    setChecklistStateByPatternId({})
     if (wagePattern === 'B' && !worker?.hourlyRateB) {
       setWagePattern('A')
     } else if (wagePattern === 'C' && !worker?.hourlyRateC) {
@@ -207,6 +211,15 @@ export function TimeEntryDialog({
       const times = getInitialTimes()
       setStartTime(times.startTime)
       setEndTime(times.endTime)
+    }
+
+    // チェックリストパターンの初期化
+    if (worker?.checklistPatterns && worker.checklistPatterns.length > 0) {
+      setSelectedChecklistPatternId(worker.checklistPatterns[0].id)
+    } else if (worker?.checklistPatternId) {
+      setSelectedChecklistPatternId(worker.checklistPatternId)
+    } else {
+      setSelectedChecklistPatternId(null)
     }
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern, hasCountPattern])
 
@@ -274,31 +287,39 @@ export function TimeEntryDialog({
     }
   }
 
-  // 内部的な保存ロジック（Checklist）
-  const saveChecklistInternal = async (silent: boolean = false): Promise<boolean> => {
-    console.log('[saveChecklistInternal] Start. Silent:', silent, 'Dirty:', isChecklistDirty)
+  // 内部的な保存ロジック（Checklist）- 全パターンを保存
+  const saveAllChecklistsInternal = async (silent: boolean = false): Promise<boolean> => {
+    console.log('[saveAllChecklistsInternal] Start. Silent:', silent)
 
-    if (!checklistState || !currentUser?.id) {
-      console.warn('[saveChecklistInternal] State or User missing', { checklistState, userId: currentUser?.id })
-      if (!silent) alert('チェックリストの状態を取得できませんでした。')
+    if (!currentUser?.id) {
+      console.warn('[saveAllChecklistsInternal] User missing')
+      if (!silent) alert('ユーザー情報を取得できませんでした。')
       return false
     }
 
-    // チェックされた項目があるか確認
-    const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
-    const hasFreeText = Object.values(checklistState.freeTextValues).some(v => v.trim() !== '')
-    const hasContent = checkedCount > 0 || hasFreeText
+    // 保存対象のパターンを収集（Dirty状態または内容があるもの）
+    const patternsToSave: { patternId: string; state: typeof checklistStateByPatternId[string] }[] = []
 
-    console.log('[saveChecklistInternal] Check Content:', { checkedCount, hasFreeText, hasContent })
+    for (const [patternId, state] of Object.entries(checklistStateByPatternId)) {
+      if (!state || !state.items || state.items.length === 0) continue
 
-    // コンテンツがない場合でも、変更があった(dirty)なら保存（クリア操作の反映）
-    // ただし、自動保存(silent)かつ変更もなし(not dirty)かつ空なら保存しない
-    if (!hasContent && !isChecklistDirty) {
-      if (silent) {
-        console.log('[saveChecklistInternal] Silent save skipped: No content and not dirty')
-        return false
+      const isDirty = isChecklistDirtyByPatternId[patternId] ?? false
+      const checkedCount = Object.values(state.checkedItems).filter(Boolean).length
+      const hasFreeText = Object.values(state.freeTextValues).some((v: string) => v.trim() !== '')
+      const hasContent = checkedCount > 0 || hasFreeText
+
+      if (hasContent || isDirty) {
+        patternsToSave.push({ patternId, state })
       }
+    }
 
+    console.log('[saveAllChecklistsInternal] Patterns to save:', patternsToSave.length)
+
+    if (patternsToSave.length === 0) {
+      if (silent) {
+        console.log('[saveAllChecklistsInternal] Silent save skipped: No patterns to save')
+        return true
+      }
       // 手動保存時は確認
       const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
       if (!proceed) return false
@@ -306,55 +327,54 @@ export function TimeEntryDialog({
 
     setIsSavingChecklist(true)
     try {
-      const submissionItems = checklistState.items.map(item => {
-        const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
-        const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
+      for (const { patternId, state } of patternsToSave) {
+        const submissionItems = state.items.map((item: any) => {
+          const isChecked = item.isFreeText ? false : !!state.checkedItems[item.id]
+          const freeTextValue = item.isFreeText ? (state.freeTextValues?.[item.id] || '') : null
 
-        let reward = 0
-        if (item.isFreeText) {
-          if (freeTextValue && freeTextValue.trim() !== '') {
+          let reward = 0
+          if (item.isFreeText) {
+            if (freeTextValue && freeTextValue.trim() !== '') {
+              reward = item.reward
+            }
+          } else if (isChecked) {
             reward = item.reward
           }
-        } else if (isChecked) {
-          reward = item.reward
-        }
 
-        return {
-          itemId: item.id,
-          title: item.title,
-          isChecked,
-          reward,
-          isMandatory: item.isMandatory,
-          isFreeText: !!item.isFreeText,
-          freeTextValue,
-        }
-      })
+          return {
+            itemId: item.id,
+            title: item.title,
+            isChecked,
+            reward,
+            isMandatory: item.isMandatory,
+            isFreeText: !!item.isFreeText,
+            freeTextValue,
+          }
+        })
 
-      const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
-      console.log('[saveChecklistInternal] Submitting items:', submissionItems.length, 'Total Reward:', finalTotalReward)
+        const finalTotalReward = submissionItems.reduce((acc: number, item: any) => acc + item.reward, 0)
+        console.log(`[saveAllChecklistsInternal] Saving pattern ${patternId}: ${submissionItems.length} items, Total Reward: ${finalTotalReward}`)
 
-      await api.checklist.submissions.create({
-        workerId,
-        date: dateStr,
-        patternId: worker?.checklistPatternId,
-        items: submissionItems,
-        memo: checklistState.memo,
-        photoUrl: checklistState.photoUrl,
-        photos: checklistState.photos || [],
-        totalReward: finalTotalReward,
-      })
-
-      console.log('[saveChecklistInternal] API Success')
-
-      if (!silent) {
-        // alert('チェックリストを保存しました！') // 完了メッセージは不要なら削除。元コードにはあったので残すか迷うが、今回は残す
-        alert('チェックリストを保存しました！')
+        await api.checklist.submissions.create({
+          workerId,
+          date: dateStr,
+          patternId,
+          items: submissionItems,
+          memo: state.memo,
+          photoUrl: state.photoUrl,
+          photos: state.photos || [],
+          totalReward: finalTotalReward,
+        })
       }
+
+      console.log('[saveAllChecklistsInternal] All patterns saved successfully')
+      // 保存完了後、全てのDirty状態をクリア
+      setIsChecklistDirtyByPatternId({})
+
       return true
     } catch (error) {
       console.error('チェックリスト保存エラー:', error)
       if (!silent) alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
-      // 自動保存失敗時もコンソールには出すが、ユーザーへのアラートは抑制する（UXのため）
       return false
     } finally {
       setIsSavingChecklist(false)
@@ -370,11 +390,18 @@ export function TimeEntryDialog({
       return
     }
 
-    if (worker?.isChecklistEnabled && checklistState) {
-      const hasChecks = Object.values(checklistState.checkedItems).some(Boolean)
-      const hasFreeText = Object.values(checklistState.freeTextValues).some(v => v.trim() !== '')
-      if (hasChecks || hasFreeText || isChecklistDirty) {
-        await saveChecklistInternal(true) // silent save
+    // 業務チェックリストが有効な場合、全パターンを保存
+    if (worker?.isChecklistEnabled) {
+      const hasAnyContent = Object.values(checklistStateByPatternId).some(state => {
+        if (!state) return false
+        const hasChecks = Object.values(state.checkedItems).some(Boolean)
+        const hasFreeText = Object.values(state.freeTextValues).some((v: string) => v.trim() !== '')
+        return hasChecks || hasFreeText
+      })
+      const hasAnyDirty = Object.values(isChecklistDirtyByPatternId).some(Boolean)
+
+      if (hasAnyContent || hasAnyDirty) {
+        await saveAllChecklistsInternal(true) // silent save
       }
     }
 
@@ -888,14 +915,40 @@ export function TimeEntryDialog({
 
           {worker?.isChecklistEnabled && (
             <TabsContent value="checklist" className="flex-1 min-h-0 overflow-hidden flex flex-col p-0 m-0 data-[state=inactive]:hidden bg-[#f8fafc]">
+              {worker?.checklistPatterns && worker.checklistPatterns.length > 1 && (
+                <div className="px-6 py-2 bg-slate-50 border-b flex items-center gap-2 flex-none">
+                  <Label className="whitespace-nowrap text-xs font-bold text-slate-500">パターン切替:</Label>
+                  <Select value={selectedChecklistPatternId || ''} onValueChange={setSelectedChecklistPatternId}>
+                    <SelectTrigger className="h-8 text-xs bg-white w-[200px]">
+                      <SelectValue placeholder="パターンを選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {worker.checklistPatterns.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <ChecklistPanel
                 worker={worker}
                 workerId={workerId}
+                patternId={selectedChecklistPatternId}
                 selectedDate={selectedDate}
                 onRewardChange={setChecklistReward}
-                onStateChange={(state) => {
-                  setChecklistState(state)
-                  setIsChecklistDirty(true)
+                onStateChange={(state, isUserAction) => {
+                  if (selectedChecklistPatternId) {
+                    setChecklistStateByPatternId(prev => ({
+                      ...prev,
+                      [selectedChecklistPatternId]: state
+                    }))
+                    if (isUserAction) {
+                      setIsChecklistDirtyByPatternId(prev => ({
+                        ...prev,
+                        [selectedChecklistPatternId]: true
+                      }))
+                    }
+                  }
                 }}
                 readOnly={readOnly}
               />
@@ -924,7 +977,8 @@ export function TimeEntryDialog({
                       if (!proceed) return
                     }
 
-                    await saveChecklistInternal()
+                    // 3. 全パターンを保存
+                    await saveAllChecklistsInternal()
                     onClose()
                   }}
                   size="sm"

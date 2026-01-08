@@ -6,8 +6,10 @@ import { X, CheckIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
+export type MultiSelectOption = string | { label: string; value: string }
+
 interface MultiSelectProps {
-  options: string[]
+  options: MultiSelectOption[]
   selected: string[]
   onChange: (selected: string[]) => void
   placeholder?: string
@@ -25,17 +27,27 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false)
 
-  const handleSelect = (option: string) => {
+  // Normalize options to { label, value } format
+  const normalizedOptions = React.useMemo(() => {
+    return options.map(opt => {
+      if (typeof opt === 'string') {
+        return { label: opt, value: opt }
+      }
+      return opt
+    })
+  }, [options])
+
+  const handleSelect = (value: string) => {
     if (readOnly) return
-    const newSelected = selected.includes(option)
-      ? selected.filter((s) => s !== option)
-      : [...selected, option]
+    const newSelected = selected.includes(value)
+      ? selected.filter((s) => s !== value)
+      : [...selected, value]
     onChange(newSelected)
   }
 
-  const handleRemove = (option: string) => {
+  const handleRemove = (value: string) => {
     if (readOnly) return
-    onChange(selected.filter((s) => s !== option))
+    onChange(selected.filter((s) => s !== value))
   }
 
   return (
@@ -44,7 +56,7 @@ export function MultiSelect({
         <button
           type="button"
           className={cn(
-            "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 h-9",
+            "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 h-auto min-h-9",
             !selected.length && "text-muted-foreground",
             readOnly && "cursor-pointer opacity-60"
           )}
@@ -59,34 +71,38 @@ export function MultiSelect({
             {selected.length === 0 ? (
               <span>{placeholder}</span>
             ) : (
-              selected.map((item) => (
-                <Badge key={item} variant="secondary" className="mr-1">
-                  {item}
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer hover:opacity-70"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
+              selected.map((itemValue) => {
+                const option = normalizedOptions.find(o => o.value === itemValue)
+                const label = option ? option.label : itemValue
+                return (
+                  <Badge key={itemValue} variant="secondary" className="mr-1">
+                    {label}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer hover:opacity-70"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          handleRemove(itemValue)
+                        }
+                      }}
+                      onMouseDown={(e) => {
                         e.preventDefault()
-                        handleRemove(item)
-                      }
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      handleRemove(item)
-                    }}
-                    aria-label={`${item}を削除`}
-                  >
-                    <X className="h-3 w-3" />
-                  </span>
-                </Badge>
-              ))
+                        e.stopPropagation()
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleRemove(itemValue)
+                      }}
+                      aria-label={`${label}を削除`}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  </Badge>
+                )
+              })
             )}
           </div>
           <svg
@@ -113,21 +129,21 @@ export function MultiSelect({
           align="start"
           sideOffset={4}
         >
-          {options.length === 0 ? (
+          {normalizedOptions.length === 0 ? (
             <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              チームが登録されていません
+              選択肢がありません
             </div>
           ) : (
-            options.map((option) => {
-              const isSelected = selected.includes(option)
+            normalizedOptions.map((option) => {
+              const isSelected = selected.includes(option.value)
               return (
                 <div
-                  key={option}
+                  key={option.value}
                   className={cn(
                     "relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
                     isSelected && "bg-accent text-accent-foreground"
                   )}
-                  onClick={() => handleSelect(option)}
+                  onClick={() => handleSelect(option.value)}
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <div
@@ -142,7 +158,7 @@ export function MultiSelect({
                         <CheckIcon className="h-3 w-3 text-primary-foreground" />
                       )}
                     </div>
-                    <span>{option}</span>
+                    <span>{option.label}</span>
                   </div>
                 </div>
               )

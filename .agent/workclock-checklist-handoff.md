@@ -1,7 +1,7 @@
 # 業務チェック機能 引き継ぎ書
 
-**最終更新**: 2025-12-25 23:18
-**現在のコミット**: `23a1c389ba1785c7d0cbc6c3789277e2dcddfa37`
+**最終更新**: 2026-01-08 16:55
+**現在のコミット**: `(latest local changes)`
 **ブランチ**: `feature/business-checklist-ui`
 
 ---
@@ -18,6 +18,7 @@
 | 管理画面 | `app/workclock/checklist-summary/page.tsx` | 日次/期間分析、AIレポート |
 | チェックリストAPI | `app/api/workclock/checklist-submissions/route.ts` | 提出データのCRUD |
 | AIレポートAPI | `app/api/workclock/ai-reports/route.ts` | AI分析レポート生成・取得 |
+| **勤務報告モーダル** | `components/workclock/time-entry-dialog.tsx` | **勤務記録と業務チェックの同時保存制御** |
 
 ---
 
@@ -83,6 +84,11 @@ model WorkClockAIReport {
 - ヒヤリハット報告フラグ
 - 1日1回の提出制限（上書き可能）
 
+### ✅ 勤務記録・業務チェックの同時保存（TimeEntryDialog）
+- **勤務記録タブからの保存**: 勤務記録を追加する際、業務チェックに未保存の変更（または既存の内容）があれば、**自動的に業務チェックも保存**されます。
+- **業務チェックタブからの保存**: チェックリスト完了ボタンを押す際、勤務記録（メモなど）が入力されていれば、**自動的に勤務記録も追加**されます。
+- **「勤務記録なし」警告**: 勤務記録が未入力の状態でチェックリストのみ完了しようとすると警告が出ますが、上記自動保存が成功した場合は警告をスキップします。
+
 ### ✅ 管理画面（checklist-summary）
 - **日次モード**: 特定日のワーカー別報告一覧
 - **期間モード**: 日付範囲指定でのAIレポート履歴表示
@@ -104,7 +110,7 @@ model WorkClockAIReport {
 
 ## 4. 現在の課題・未解決事項
 
-### � 重要な問題
+### 🟠 重要な問題
 
 1. **期間モードでremoveChildエラー**
    - ブラウザの自動翻訳機能とReact DOMが競合
@@ -186,7 +192,8 @@ app/
 │   ├── checklist-submissions/route.ts
 │   └── ai-reports/route.ts
 components/
-├── checklist-panel.tsx              # チェックリスト入力コンポーネント
+├── checklist-panel.tsx              # チェックリスト入力コンポーネント (ChecklistPanel)
+├── time-entry-dialog.tsx            # ★勤務報告モーダル (同時保存ロジックを含む)
 ├── ai-ask-button.tsx                # AIに聞くボタン
 └── ui/                              # shadcn/uiコンポーネント
 ```
@@ -247,6 +254,7 @@ GEMINI_API_KEY=your_key_here
 - **本番デプロイ前に**: mainブランチにマージが必要
 - **DBスキーマ変更時**: `npx prisma migrate dev`を実行
 - **型エラー発生時**: `npx prisma generate`を実行
+- **同時保存について**: `time-entry-dialog.tsx`内の`saveTimeEntryInternal`と`saveChecklistInternal`関数が中核ロジックです。片方を修正する際は、もう片方への影響（自動呼び出し時の挙動など）を確認してください。
 
 ---
 

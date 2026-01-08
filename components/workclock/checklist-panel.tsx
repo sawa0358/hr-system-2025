@@ -148,23 +148,22 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
     const handleToggle = (id: string) => {
         if (readOnly) return
 
-        setCheckedItems(prev => {
-            const newState = {
-                ...prev,
-                [id]: !prev[id]
+        const newState = {
+            ...checkedItems,
+            [id]: !checkedItems[id]
+        }
+
+        setCheckedItems(newState)
+
+        const newTotal = checklistItems.reduce((total, item) => {
+            if (item.isFreeText) {
+                return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
             }
-            const newTotal = checklistItems.reduce((total, item) => {
-                if (item.isFreeText) {
-                    return total + (freeTextValues[item.id]?.trim() ? item.reward : 0)
-                }
-                return total + (newState[item.id] ? item.reward : 0)
-            }, 0)
-            setTimeout(() => {
-                onRewardChange?.(newTotal)
-                notifyParent(newState, freeTextValues, reportText, photos, checklistItems)
-            }, 0)
-            return newState
-        })
+            return total + (newState[item.id] ? item.reward : 0)
+        }, 0)
+
+        onRewardChange?.(newTotal)
+        notifyParent(newState, freeTextValues, reportText, photos, checklistItems)
     }
 
     const handleUpload = async (files: FileList | null) => {
@@ -419,10 +418,8 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                                                         if (it.isFreeText) return total + (newValues[it.id]?.trim() ? it.reward : 0)
                                                         return total + (checkedItems[it.id] ? it.reward : 0)
                                                     }, 0)
-                                                    setTimeout(() => {
-                                                        onRewardChange?.(newTotal)
-                                                        notifyParent(checkedItems, newValues, reportText, photos, checklistItems)
-                                                    }, 0)
+                                                    onRewardChange?.(newTotal)
+                                                    notifyParent(checkedItems, newValues, reportText, photos, checklistItems)
                                                 }}
                                                 placeholder={readOnly ? "入力済み" : "入力してください..."}
                                                 disabled={readOnly}

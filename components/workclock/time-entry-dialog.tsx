@@ -210,17 +210,17 @@ export function TimeEntryDialog({
     }
   }, [open, dateStr, initialHour, initialStartTime, initialEndTime, worker, hasAnyPattern, hasHourlyPattern, hasCountPattern])
 
-  const handleAddEntry = async () => {
+  // 内部的な保存ロジック（Time Entry）
+  const saveTimeEntryInternal = async (): Promise<boolean> => {
     // バリデーション
     setValidationError(null)
     if (!notes.trim()) {
-      setValidationError('作業内容を入力してください（メモは必須です）。')
-      return
+      return false
     }
     if (!currentUser?.id) {
       setValidationError('ユーザー情報が取得できません。ページを再読み込みしてください。')
       console.error('WorkClock: currentUser.idが取得できません')
-      return
+      return false
     }
 
     setIsSaving(true)
@@ -236,22 +236,18 @@ export function TimeEntryDialog({
 
       // 報酬計上方法に応じて保存項目を分岐
       if (billingType === 'hourly' && hasHourlyPattern) {
-        // 時給パターンで計上（回数は使わない）
         entryData.wagePattern = wagePattern
         entryData.countPattern = null
         entryData.count = null
       } else if (billingType === 'count' && hasCountPattern) {
-        // 回数パターンで計上（時給パターンは付けない）
         entryData.wagePattern = null
         entryData.countPattern = countPattern
         entryData.count = parseInt(count) || 1
       } else if (billingType === 'both' && hasHourlyPattern && hasCountPattern) {
-        // 時給＋回数の両方で計上
         entryData.wagePattern = wagePattern
         entryData.countPattern = countPattern
         entryData.count = parseInt(count) || 1
       } else {
-        // 月額固定のみ等、パターンを持たない場合はどちらも保存しない
         entryData.wagePattern = null
         entryData.countPattern = null
         entryData.count = null
@@ -259,7 +255,7 @@ export function TimeEntryDialog({
 
       await addTimeEntry(entryData, currentUser.id)
 
-      // Reset form
+      // 成功したらフォームをリセット
       setStartTime('09:00')
       setEndTime('18:00')
       setBreakMinutes('0')
@@ -268,13 +264,121 @@ export function TimeEntryDialog({
       setCountPattern('A')
       setCount('1')
       setValidationError(null)
-      onClose()
+      return true
     } catch (error) {
       console.error('勤務記録の追加エラー:', error)
       setValidationError('保存に失敗しました。もう一度お試しください。')
+      return false
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // 内部的な保存ロジック（Checklist）
+  const saveChecklistInternal = async (silent: boolean = false): Promise<boolean> => {
+    console.log('[saveChecklistInternal] Start. Silent:', silent, 'Dirty:', isChecklistDirty)
+
+    if (!checklistState || !currentUser?.id) {
+      console.warn('[saveChecklistInternal] State or User missing', { checklistState, userId: currentUser?.id })
+      if (!silent) alert('チェックリストの状態を取得できませんでした。')
+      return false
+    }
+
+    // チェックされた項目があるか確認
+    const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
+    const hasFreeText = Object.values(checklistState.freeTextValues).some(v => v.trim() !== '')
+    const hasContent = checkedCount > 0 || hasFreeText
+
+    console.log('[saveChecklistInternal] Check Content:', { checkedCount, hasFreeText, hasContent })
+
+    // コンテンツがない場合でも、変更があった(dirty)なら保存（クリア操作の反映）
+    // ただし、自動保存(silent)かつ変更もなし(not dirty)かつ空なら保存しない
+    if (!hasContent && !isChecklistDirty) {
+      if (silent) {
+        console.log('[saveChecklistInternal] Silent save skipped: No content and not dirty')
+        return false
+      }
+
+      // 手動保存時は確認
+      const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
+      if (!proceed) return false
+    }
+
+    setIsSavingChecklist(true)
+    try {
+      const submissionItems = checklistState.items.map(item => {
+        const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
+        const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
+
+        let reward = 0
+        if (item.isFreeText) {
+          if (freeTextValue && freeTextValue.trim() !== '') {
+            reward = item.reward
+          }
+        } else if (isChecked) {
+          reward = item.reward
+        }
+
+        return {
+          itemId: item.id,
+          title: item.title,
+          isChecked,
+          reward,
+          isMandatory: item.isMandatory,
+          isFreeText: !!item.isFreeText,
+          freeTextValue,
+        }
+      })
+
+      const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
+      console.log('[saveChecklistInternal] Submitting items:', submissionItems.length, 'Total Reward:', finalTotalReward)
+
+      await api.checklist.submissions.create({
+        workerId,
+        date: dateStr,
+        patternId: worker?.checklistPatternId,
+        items: submissionItems,
+        memo: checklistState.memo,
+        photoUrl: checklistState.photoUrl,
+        photos: checklistState.photos || [],
+        totalReward: finalTotalReward,
+      })
+
+      console.log('[saveChecklistInternal] API Success')
+
+      if (!silent) {
+        // alert('チェックリストを保存しました！') // 完了メッセージは不要なら削除。元コードにはあったので残すか迷うが、今回は残す
+        alert('チェックリストを保存しました！')
+      }
+      return true
+    } catch (error) {
+      console.error('チェックリスト保存エラー:', error)
+      if (!silent) alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
+      // 自動保存失敗時もコンソールには出すが、ユーザーへのアラートは抑制する（UXのため）
+      return false
+    } finally {
+      setIsSavingChecklist(false)
+    }
+  }
+
+  const handleAddEntry = async () => {
+    const timeEntrySuccess = await saveTimeEntryInternal()
+    if (!timeEntrySuccess) {
+      if (!notes.trim()) {
+        setValidationError('作業内容を入力してください（メモは必須です）。')
+      }
+      return
+    }
+
+    if (worker?.isChecklistEnabled && checklistState) {
+      const hasChecks = Object.values(checklistState.checkedItems).some(Boolean)
+      const hasFreeText = Object.values(checklistState.freeTextValues).some(v => v.trim() !== '')
+      if (hasChecks || hasFreeText || isChecklistDirty) {
+        await saveChecklistInternal(true) // silent save
+      }
+    }
+
+    onClose()
   }
 
   const handleDeleteEntry = async (id: string) => {
@@ -802,86 +906,26 @@ export function TimeEntryDialog({
                 <Button
                   onClick={async () => {
                     console.log('=== チェックリスト保存開始 ===')
-                    console.log('checklistState:', checklistState)
-                    console.log('currentUser:', currentUser)
-                    console.log('workerId:', workerId)
-                    console.log('worker:', worker)
 
-                    // 勤務記録があるか確認
-                    if (existingEntries.length === 0) {
+                    // 1. Time Entryの入力を確認し、あれば保存
+                    let timeEntrySaved = false
+                    if (notes && notes.trim() !== '') {
+                      console.log('Time Entryの入力があります。自動保存します。')
+                      const success = await saveTimeEntryInternal()
+                      if (success) {
+                        timeEntrySaved = true
+                      }
+                    }
+
+                    // 2. 勤務記録があるか確認 (今回の自動保存も含める)
+                    const hasEntriesIncludingNow = existingEntries.length > 0 || timeEntrySaved
+                    if (!hasEntriesIncludingNow) {
                       const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
                       if (!proceed) return
                     }
 
-                    if (!checklistState || !currentUser?.id) {
-                      console.error('チェックリスト状態:', checklistState, 'currentUser:', currentUser?.id)
-                      alert('チェックリストの状態を取得できませんでした。項目をチェックしてから保存してください。')
-                      return
-                    }
-
-                    // チェックされた項目があるか確認
-                    const checkedCount = Object.values(checklistState.checkedItems).filter(Boolean).length
-                    console.log('checkedCount:', checkedCount)
-                    if (checkedCount === 0) {
-                      const proceed = window.confirm('チェックされた項目がありません。そのまま保存しますか？')
-                      if (!proceed) return
-                    }
-
-                    setIsSavingChecklist(true)
-                    try {
-                      // チェックリスト提出を保存
-                      const submissionItems = checklistState.items.map(item => {
-                        const isChecked = item.isFreeText ? false : !!checklistState.checkedItems[item.id]
-                        const freeTextValue = item.isFreeText ? (checklistState.freeTextValues?.[item.id] || '') : null
-
-                        // 報酬の計算ルール: 
-                        // 1. 自由記入欄の場合は、文字が入力されていれば報酬加算
-                        // 2. 通常項目の場合は、チェックが入っていれば報酬加算
-                        let reward = 0
-                        if (item.isFreeText) {
-                          if (freeTextValue && freeTextValue.trim() !== '') {
-                            reward = item.reward
-                          }
-                        } else if (isChecked) {
-                          reward = item.reward
-                        }
-
-                        return {
-                          itemId: item.id,
-                          title: item.title,
-                          isChecked,
-                          reward,
-                          isMandatory: item.isMandatory,
-                          isFreeText: !!item.isFreeText,
-                          freeTextValue,
-                        }
-                      })
-
-                      // 送信用データの合計報酬を再計算（厳密な一貫性のため）
-                      const finalTotalReward = submissionItems.reduce((acc, item) => acc + item.reward, 0)
-
-                      console.log('報酬計算結果:', { finalTotalReward, submissionItems })
-
-                      const result = await api.checklist.submissions.create({
-                        workerId,
-                        date: dateStr,
-                        patternId: worker?.checklistPatternId,
-                        items: submissionItems,
-                        memo: checklistState.memo,
-                        photoUrl: checklistState.photoUrl,
-                        photos: checklistState.photos || [],
-                        totalReward: finalTotalReward, // 厳密に計算した値を送る
-                      })
-
-                      console.log('保存結果:', result)
-                      alert('チェックリストを保存しました！')
-                      onClose()
-                    } catch (error) {
-                      console.error('チェックリスト保存エラー:', error)
-                      alert('チェックリストの保存に失敗しました: ' + (error as any)?.message)
-                    } finally {
-                      setIsSavingChecklist(false)
-                    }
+                    await saveChecklistInternal()
+                    onClose()
                   }}
                   size="sm"
                   className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"

@@ -849,9 +849,8 @@ model WorkClockWorker {
   rewardPresets          WorkClockRewardPreset[]
 
   // 業務チェックリスト関係
-  checklistPatternId   String?
-  checklistPattern     WorkClockChecklistPattern?     @relation(fields: [checklistPatternId], references: [id], onDelete: SetNull)
-  isChecklistEnabled   Boolean                        @default(false)
+  checklistPatterns    WorkClockChecklistPattern[]
+  isChecklistEnabled   Boolean                     @default(false)
   checklistSubmissions WorkClockChecklistSubmission[]
 
   @@map("workclock_workers")
@@ -937,8 +936,9 @@ model WorkClockChecklistPattern {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  items   WorkClockChecklistItem[]
-  workers WorkClockWorker[]
+  items       WorkClockChecklistItem[]
+  workers     WorkClockWorker[]
+  submissions WorkClockChecklistSubmission[]
 
   @@map("workclock_checklist_patterns")
 }
@@ -968,6 +968,11 @@ model WorkClockChecklistSubmission {
   workerId      String
   worker        WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date          DateTime
+  
+  // どのパターンで提出したか
+  patternId     String?
+  pattern       WorkClockChecklistPattern? @relation(fields: [patternId], references: [id], onDelete: SetNull)
+
   memo          String?
   photoUrl      String?
   hasPhoto      Boolean         @default(false)

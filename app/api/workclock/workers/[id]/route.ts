@@ -39,6 +39,12 @@ export async function GET(
             name: true,
           },
         },
+        checklistPatterns: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -95,6 +101,7 @@ export async function GET(
       ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
       billingClientName: (worker as any).billingClient?.name || null,
+      checklistPatternIds: worker.checklistPatterns?.map((p: any) => p.id) || [],
     })
   } catch (error: any) {
     console.error('WorkClock worker取得エラー:', error)
@@ -202,7 +209,7 @@ export async function PUT(
       withholdingMonthlyFixed,
       billingClientId,
       allowPastEntryEdit,
-      checklistPatternId,
+      checklistPatternIds,
       isChecklistEnabled,
     } = body
 
@@ -315,8 +322,15 @@ export async function PUT(
         transferDestination,
         billingClientId: billingClientId !== undefined ? (billingClientId || null) : undefined,
         allowPastEntryEdit: allowPastEntryEdit !== undefined ? Boolean(allowPastEntryEdit) : undefined,
-        checklistPatternId: checklistPatternId !== undefined ? (checklistPatternId || null) : undefined,
         isChecklistEnabled: isChecklistEnabled !== undefined ? Boolean(isChecklistEnabled) : undefined,
+        checklistPatterns:
+          checklistPatternIds !== undefined
+            ? {
+              set: Array.isArray(checklistPatternIds)
+                ? checklistPatternIds.map((id: string) => ({ id }))
+                : [],
+            }
+            : undefined,
       } as any,
       include: {
         employee: {
@@ -332,6 +346,7 @@ export async function PUT(
             name: true,
           },
         },
+        checklistPatterns: true,
       },
     })
 
@@ -339,6 +354,7 @@ export async function PUT(
       ...updated,
       teams: updated.teams ? JSON.parse(updated.teams) : [],
       billingClientName: (updated as any).billingClient?.name || null,
+      checklistPatternIds: updated.checklistPatterns?.map((p: any) => p.id) || [],
     })
   } catch (error: any) {
     console.error('WorkClock worker更新エラー:', error)

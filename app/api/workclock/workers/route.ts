@@ -69,6 +69,12 @@ export async function GET(request: NextRequest) {
             name: true,
           },
         },
+        checklistPatterns: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -94,6 +100,8 @@ export async function GET(request: NextRequest) {
         employeeType: worker.employee?.employeeType || null,
         furigana: worker.employee?.furigana || null,
         billingClientName: worker.billingClient?.name || null,
+        checklistPatternIds: worker.checklistPatterns?.map((p: any) => p.id) || [],
+        checklistPatterns: worker.checklistPatterns || [],
       }
     })
 
@@ -233,7 +241,7 @@ export async function POST(request: NextRequest) {
       withholdingCountC,
       withholdingMonthlyFixed,
       billingClientId,
-      checklistPatternId,
+      checklistPatternIds,
       isChecklistEnabled,
     } = body
 
@@ -342,8 +350,13 @@ export async function POST(request: NextRequest) {
         notes,
         transferDestination,
         billingClientId: billingClientId || null,
-        checklistPatternId: checklistPatternId || null,
         isChecklistEnabled: isChecklistEnabled ?? false,
+        checklistPatterns:
+          Array.isArray(checklistPatternIds) && checklistPatternIds.length > 0
+            ? {
+              connect: checklistPatternIds.map((id: string) => ({ id })),
+            }
+            : undefined,
       },
       include: {
         employee: {
@@ -353,12 +366,13 @@ export async function POST(request: NextRequest) {
             email: true,
           },
         },
+        checklistPatterns: true,
       },
     })
 
     return NextResponse.json({
-      ...worker,
       teams: worker.teams ? JSON.parse(worker.teams) : [],
+      checklistPatternIds: worker.checklistPatterns?.map((p: any) => p.id) || [],
     })
   } catch (error: any) {
     console.error('WorkClock worker作成エラー:', error)

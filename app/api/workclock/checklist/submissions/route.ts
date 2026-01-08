@@ -60,7 +60,7 @@ export async function POST(request: Request) {
         let userId = (request.headers.get('x-employee-id') || (request as any).headers?.get?.('x-employee-id'))
 
         const body = await request.json()
-        const { workerId, date, memo, photoUrl, photos, hasPhoto, isSafetyAlert, items } = body
+        const { workerId, date, patternId, memo, photoUrl, photos, hasPhoto, isSafetyAlert, items } = body
 
         // 認証IDがない場合でも、workerIdが指定されていれば許可する
         if (!userId && workerId) {
@@ -89,12 +89,13 @@ export async function POST(request: Request) {
         const endOfDay = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 23, 59, 59, 999);
 
         // デバッグログ
-        console.log(`Processing submission for worker: ${workerId}, date: ${date} -> Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
+        console.log(`Processing submission for worker: ${workerId}, date: ${date}, patternId: ${patternId} -> Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
 
-        // 同じ日の既存の提出をすべて検索して削除（重複防止の徹底）
+        // 同じ日・同じパターンの既存の提出を検索して削除（重複防止）
         const existingSubmissions = await (prisma as any).workClockChecklistSubmission.findMany({
             where: {
                 workerId,
+                patternId: patternId || null,
                 date: {
                     gte: startOfDay,
                     lte: endOfDay,
@@ -117,7 +118,7 @@ export async function POST(request: Request) {
             await (prisma as any).workClockChecklistSubmission.deleteMany({
                 where: { id: { in: ids } },
             })
-            console.log(`Deleted ${ids.length} existing submissions for worker ${workerId} on ${date}`)
+            console.log(`Deleted ${ids.length} existing submissions for worker ${workerId}, pattern ${patternId} on ${date}`)
         }
 
         // 写真データの準備
@@ -132,6 +133,7 @@ export async function POST(request: Request) {
             data: {
                 workerId,
                 date: startOfDay,
+                patternId: patternId || null,
                 memo,
                 photoUrl: photoUrls.length > 0 ? photoUrls[0] : null, // 互換性のため最初の1枚を入れる
                 hasPhoto: photoUrls.length > 0,

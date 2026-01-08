@@ -79,6 +79,8 @@ export interface Worker {
 
   // 業務チェックリスト設定
   checklistPatternId?: string
+  checklistPatternIds?: string[]
+  checklistPatterns?: { id: string; name: string }[]
   isChecklistEnabled?: boolean
 }
 
@@ -152,6 +154,11 @@ export interface ChecklistSubmission {
     role: string
   }
   date: string
+
+  // どのパターンで提出したか
+  patternId?: string
+  pattern?: ChecklistPattern
+
   memo?: string
   photoUrl?: string
   hasPhoto: boolean

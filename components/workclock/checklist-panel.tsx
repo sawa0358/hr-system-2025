@@ -16,13 +16,14 @@ import { ChecklistItem, Worker } from '@/lib/workclock/types'
 interface ChecklistPanelProps {
     worker?: Worker | null
     workerId: string
+    patternId?: string | null
     selectedDate: Date
     onRewardChange?: (reward: number) => void
-    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: ChecklistItem[] }) => void
+    onStateChange?: (state: { checkedItems: Record<string, boolean>; freeTextValues: Record<string, string>; memo: string; photoUrl: string; photos: string[]; items: ChecklistItem[] }, isUserAction: boolean) => void
     readOnly?: boolean
 }
 
-export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange, onStateChange, readOnly = false }: ChecklistPanelProps) {
+export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRewardChange, onStateChange, readOnly = false }: ChecklistPanelProps) {
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({})
     const [freeTextValues, setFreeTextValues] = useState<Record<string, string>>({})
     const [reportText, setReportText] = useState('')
@@ -44,7 +45,8 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
         currentFreeTextValues: Record<string, string>,
         currentMemo: string,
         currentPhotos: string[],
-        currentItems: ChecklistItem[]
+        currentItems: ChecklistItem[],
+        isUserAction: boolean = true
     ) => {
         const legacyPhotoUrl = currentPhotos.length > 0 ? currentPhotos[0] : ''
         onStateChange?.({
@@ -54,12 +56,14 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             photoUrl: legacyPhotoUrl,
             photos: currentPhotos,
             items: currentItems
-        })
+        }, isUserAction)
     }
 
     useEffect(() => {
         const loadData = async () => {
-            if (!worker?.isChecklistEnabled || !worker?.checklistPatternId) {
+            const targetPatternId = patternId || worker?.checklistPatternId
+
+            if (!worker?.isChecklistEnabled || !targetPatternId) {
                 setChecklistItems([])
                 setIsLoading(false)
                 return
@@ -68,7 +72,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
             try {
                 setIsLoading(true)
 
-                const patternRes = await api.checklist.patterns.getById(worker.checklistPatternId) as { pattern: any }
+                const patternRes = await api.checklist.patterns.getById(targetPatternId) as { pattern: any }
                 let items: ChecklistItem[] = []
                 if (patternRes.pattern?.items) {
                     items = patternRes.pattern.items.sort((a: ChecklistItem, b: ChecklistItem) => a.position - b.position)
@@ -81,8 +85,17 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
                     endDate: dateStr,
                 }) as { submissions: any[] }
 
+                let submission: any = null
                 if (submissionRes.submissions && submissionRes.submissions.length > 0) {
-                    const submission = submissionRes.submissions[0]
+                    // 同じパターンの提出を探す
+                    submission = submissionRes.submissions.find((s: any) => s.patternId === targetPatternId)
+                    // 古いデータでpatternIdがない場合は、workerIdと日付だけでマッチした最初のものを使う（後方互換性）
+                    if (!submission && submissionRes.submissions.length === 1 && !submissionRes.submissions[0].patternId) {
+                        submission = submissionRes.submissions[0]
+                    }
+                }
+
+                if (submission) {
                     setExistingSubmissionId(submission.id)
                     setReportText(submission.memo || '')
 
@@ -123,11 +136,18 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
 
                     setTimeout(() => {
                         onRewardChange?.(totalReward)
-                        notifyParent(updatedCheckedItems, updatedFreeTextValues, submission.memo || '', loadedPhotos, items)
+                        notifyParent(updatedCheckedItems, updatedFreeTextValues, submission.memo || '', loadedPhotos, items, false)
                     }, 0)
                 } else {
+                    // 新規パターン選択時などはリセット
+                    setCheckedItems({})
+                    setFreeTextValues({})
+                    setReportText('')
+                    setPhotos([])
+                    setExistingSubmissionId(null)
+                    onRewardChange?.(0)
                     setTimeout(() => {
-                        notifyParent({}, {}, '', [], items)
+                        notifyParent({}, {}, '', [], items, false)
                     }, 0)
                 }
             } catch (error) {
@@ -139,7 +159,7 @@ export function ChecklistPanel({ worker, workerId, selectedDate, onRewardChange,
         }
 
         loadData()
-    }, [worker?.checklistPatternId, worker?.isChecklistEnabled, workerId, dateStr])
+    }, [patternId, worker?.checklistPatternId, worker?.isChecklistEnabled, workerId, dateStr])
 
     const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
         ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })

@@ -69,6 +69,10 @@ export default function ChecklistSettingsPage() {
     const [isPatternDialogOpen, setIsPatternDialogOpen] = useState(false)
     const [newPatternName, setNewPatternName] = useState('')
 
+    // ダイアログ状態: パターン名編集用
+    const [isEditPatternDialogOpen, setIsEditPatternDialogOpen] = useState(false)
+    const [editPatternName, setEditPatternName] = useState('')
+
     const [workers, setWorkers] = useState<Worker[]>([])
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const isMobile = useIsMobile()
@@ -215,6 +219,25 @@ export default function ChecklistSettingsPage() {
             } catch (error) {
                 alert('パターンの削除に失敗しました')
             }
+        }
+    }
+
+    const handleOpenEditPatternDialog = () => {
+        if (!selectedPattern) return
+        setEditPatternName(selectedPattern.name)
+        setIsEditPatternDialogOpen(true)
+    }
+
+    const handleUpdatePattern = async () => {
+        if (!editPatternName || !selectedPatternId) return
+        try {
+            await api.checklist.patterns.update(selectedPatternId, editPatternName)
+            setPatterns(prev => prev.map(p =>
+                p.id === selectedPatternId ? { ...p, name: editPatternName } : p
+            ))
+            setIsEditPatternDialogOpen(false)
+        } catch (error) {
+            alert('パターン名の更新に失敗しました')
         }
     }
 
@@ -404,6 +427,9 @@ export default function ChecklistSettingsPage() {
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
+                            <Button variant="outline" size="sm" onClick={handleOpenEditPatternDialog} className="h-9">
+                                <Pencil className="w-4 h-4 mr-2" /> 名前編集
+                            </Button>
                             <Button variant="outline" size="sm" onClick={handleDuplicatePattern} className="h-9">
                                 <Copy className="w-4 h-4 mr-2" /> 複製
                             </Button>
@@ -582,6 +608,30 @@ export default function ChecklistSettingsPage() {
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsItemDialogOpen(false)}>キャンセル</Button>
                         <Button onClick={handleSaveItem} className="bg-blue-600">保存する</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isEditPatternDialogOpen} onOpenChange={setIsEditPatternDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>パターン名の変更</DialogTitle>
+                        <DialogDescription>
+                            新しいパターン名を入力してください
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Label htmlFor="editPatternName">パターン名</Label>
+                        <Input
+                            id="editPatternName"
+                            value={editPatternName}
+                            onChange={(e) => setEditPatternName(e.target.value)}
+                            className="mt-2"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsEditPatternDialogOpen(false)}>キャンセル</Button>
+                        <Button onClick={handleUpdatePattern} className="bg-blue-600">保存する</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

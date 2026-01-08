@@ -145,10 +145,21 @@ export default function WorkerPage() {
             setChecklistReward(totalChecklist)
 
             // チェックリストが記録されている日付を抽出
-            const dates = submissionRes.submissions.map((sub: any) => {
-              const d = new Date(sub.date)
-              return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-            })
+            // ただし、実際にチェック済みの項目または入力済みのフリーテキストがある提出のみを対象とする
+            const dates = submissionRes.submissions
+              .filter((sub: any) => {
+                if (!sub.items || sub.items.length === 0) return false
+                // 少なくとも1つのチェック済み項目または入力済みフリーテキストがあるか確認
+                return sub.items.some((item: any) => {
+                  if (item.isChecked) return true
+                  if (item.isFreeText && item.freeTextValue && item.freeTextValue.trim() !== '') return true
+                  return false
+                })
+              })
+              .map((sub: any) => {
+                const d = new Date(sub.date)
+                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+              })
             setChecklistDates(dates)
           }
         } catch (err) {

@@ -418,7 +418,7 @@ export function Sidebar() {
               </div>
               <div className="flex flex-col justify-center">
                 <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">HR System</span>
-                <span className="text-xs text-muted-foreground/50">v3.4.1</span>
+                <span className="text-xs text-muted-foreground/50">v3.4.2</span>
               </div>
             </div>
           )}

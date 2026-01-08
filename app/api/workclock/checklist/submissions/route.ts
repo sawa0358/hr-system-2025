@@ -121,6 +121,19 @@ export async function POST(request: Request) {
             console.log(`Deleted ${ids.length} existing submissions for worker ${workerId}, pattern ${patternId} on ${date}`)
         }
 
+        // 実際にチェックされた項目または入力があるフリーテキストがあるか確認
+        const hasActualContent = items.some((item: any) => {
+            if (item.isChecked) return true
+            if (item.isFreeText && item.freeTextValue && item.freeTextValue.trim() !== '') return true
+            return false
+        })
+
+        // 内容がない場合は新規作成しない（削除のみ）
+        if (!hasActualContent) {
+            console.log(`No actual content for worker ${workerId}, pattern ${patternId} on ${date}. Skipping submission creation.`)
+            return NextResponse.json({ submission: null, deleted: true })
+        }
+
         // 写真データの準備
         // レガシー互換性: photoUrlがあればそれもphotos配列に加える（重複なければ）
         const photoUrls: string[] = Array.isArray(photos) ? photos : [];

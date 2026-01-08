@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2, Plus, Info } from 'lucide-react'
+import { Camera, CheckCircle2, AlertCircle, Sparkles, Coins, ClipboardList, Image as ImageIcon, MessageSquare, Loader2, Plus, Info, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/workclock/api'
 import { ChecklistItem, Worker } from '@/lib/workclock/types'
@@ -184,6 +184,27 @@ export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRe
 
         onRewardChange?.(newTotal)
         notifyParent(newState, freeTextValues, reportText, photos, checklistItems)
+    }
+
+    // 全てのチェックを外す
+    const handleClearAll = () => {
+        if (readOnly) return
+
+        // 確認ダイアログ
+        if (!window.confirm('全てのチェックを外しますか？この操作は保存後に反映されます。')) {
+            return
+        }
+
+        // チェック項目を全てクリア
+        const clearedCheckedItems: Record<string, boolean> = {}
+        // 自由記入欄も全てクリア
+        const clearedFreeTextValues: Record<string, string> = {}
+
+        setCheckedItems(clearedCheckedItems)
+        setFreeTextValues(clearedFreeTextValues)
+
+        onRewardChange?.(0)
+        notifyParent(clearedCheckedItems, clearedFreeTextValues, reportText, photos, checklistItems)
     }
 
     const handleUpload = async (files: FileList | null) => {
@@ -397,6 +418,17 @@ export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRe
                                     )
                                 )}
                             </div>
+                            {!readOnly && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleClearAll}
+                                    className="h-7 px-2 text-[10px] md:text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-md"
+                                >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    全て外す
+                                </Button>
+                            )}
                         </div>
 
                         <Card className="overflow-hidden border-slate-200 shadow-sm rounded-lg">

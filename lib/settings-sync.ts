@@ -19,7 +19,7 @@ export interface UserSettings {
     positions: string[]
     employmentTypes: { value: string; label: string }[]
   }
-  
+
   // タスク管理設定
   taskManagement: {
     defaultCardSettings: {
@@ -39,7 +39,7 @@ export interface UserSettings {
     listColors: Record<string, string> // リストの色設定
     taskFolders: Record<string, string[]> // タスクごとのフォルダ設定 {taskId: [folder1, folder2, ...]}
   }
-  
+
   // 勤怠管理設定
   attendance: {
     templates: Array<{
@@ -50,7 +50,7 @@ export interface UserSettings {
       type?: string
     }>
   }
-  
+
   // ダッシュボード設定
   dashboard: {
     announcements: Array<{
@@ -66,13 +66,13 @@ export interface UserSettings {
       color: string
     }>
   }
-  
+
   // 社員詳細設定
   employeeDetails: {
     customFields: Record<string, any>
     preferences: Record<string, any>
   }
-  
+
   // その他の設定
   misc: {
     lastUpdated: string
@@ -174,15 +174,15 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
   if (typeof window === 'undefined') {
     return {}
   }
-  
+
   const settings: Partial<UserSettings> = {}
-  
+
   try {
     // 社員検索設定
     const departments = localStorage.getItem('available-departments')
     const positions = localStorage.getItem('available-positions')
     const employmentTypes = localStorage.getItem('employment-types')
-    
+
     if (departments) {
       settings.employeeSearch = {
         departments: JSON.parse(departments),
@@ -190,7 +190,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         employmentTypes: employmentTypes ? JSON.parse(employmentTypes) : []
       }
     }
-    
+
     // タスク管理設定
     const defaultCardSettings = localStorage.getItem('default-card-settings')
     const priorityOptions = localStorage.getItem('task-priority-options')
@@ -201,7 +201,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
     const listCollapseStates = localStorage.getItem('task-list-collapse-states')
     const cardColors = localStorage.getItem('task-card-colors')
     const listColors = localStorage.getItem('task-list-colors')
-    
+
     // タスクフォルダ設定を取得（動的キー）
     const taskFolders: Record<string, string[]> = {}
     if (typeof window !== 'undefined') {
@@ -218,10 +218,10 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         }
       }
     }
-    
-    if (defaultCardSettings || priorityOptions || statusOptions || customLabels || 
-        workspaceSelection || boardSelection || listCollapseStates || cardColors || listColors || 
-        Object.keys(taskFolders).length > 0) {
+
+    if (defaultCardSettings || priorityOptions || statusOptions || customLabels ||
+      workspaceSelection || boardSelection || listCollapseStates || cardColors || listColors ||
+      Object.keys(taskFolders).length > 0) {
       settings.taskManagement = {
         defaultCardSettings: defaultCardSettings ? JSON.parse(defaultCardSettings) : {
           labels: [],
@@ -241,7 +241,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         taskFolders: taskFolders
       }
     }
-    
+
     // 勤怠管理設定
     const attendanceTemplates = localStorage.getItem('attendance-templates')
     if (attendanceTemplates) {
@@ -249,7 +249,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         templates: JSON.parse(attendanceTemplates)
       }
     }
-    
+
     // ダッシュボード設定
     const dashboardAnnouncements = localStorage.getItem('dashboard-announcements')
     const dashboardCategories = localStorage.getItem('dashboard-categories')
@@ -259,7 +259,7 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         categories: dashboardCategories ? JSON.parse(dashboardCategories) : []
       }
     }
-    
+
     // 社員詳細設定
     const employeeCustomFields = localStorage.getItem('employee-custom-fields')
     const employeePreferences = localStorage.getItem('employee-preferences')
@@ -269,17 +269,17 @@ export function getCurrentLocalStorageSettings(): Partial<UserSettings> {
         preferences: employeePreferences ? JSON.parse(employeePreferences) : {}
       }
     }
-    
+
     // メタデータ
     settings.misc = {
       lastUpdated: new Date().toISOString(),
-          version: '2.0.0'
+      version: '2.0.0'
     }
-    
+
   } catch (error) {
     console.error('localStorage設定取得エラー:', error)
   }
-  
+
   return settings
 }
 
@@ -290,23 +290,23 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
   if (typeof window === 'undefined') {
     return
   }
-  
+
   try {
     // 設定適用中フラグを設定（無限ループ防止）
     window._isApplyingSettings = true
-    
+
     // 社員検索設定
     if (settings.employeeSearch) {
       localStorage.setItem('available-departments', JSON.stringify(settings.employeeSearch.departments))
       localStorage.setItem('available-positions', JSON.stringify(settings.employeeSearch.positions))
       localStorage.setItem('employment-types', JSON.stringify(settings.employeeSearch.employmentTypes))
     }
-    
+
     // タスク管理設定
     if (settings.taskManagement) {
       localStorage.setItem('default-card-settings', JSON.stringify(settings.taskManagement.defaultCardSettings))
       localStorage.setItem('task-priority-options', JSON.stringify(settings.taskManagement.priorityOptions))
-      
+
       if (settings.taskManagement.statusOptions) {
         localStorage.setItem('task-status-options', JSON.stringify(settings.taskManagement.statusOptions))
       }
@@ -328,7 +328,7 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
           localStorage.setItem(`task-folders-${taskId}`, JSON.stringify(folders))
         })
       }
-      
+
       if (settings.taskManagement.workspaceSelection) {
         localStorage.setItem('currentWorkspace', settings.taskManagement.workspaceSelection)
       }
@@ -336,12 +336,12 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
         localStorage.setItem('currentBoard', settings.taskManagement.boardSelection)
       }
     }
-    
+
     // 勤怠管理設定
     if (settings.attendance) {
       localStorage.setItem('attendance-templates', JSON.stringify(settings.attendance.templates))
     }
-    
+
     // ダッシュボード設定
     if (settings.dashboard) {
       if (settings.dashboard.announcements) {
@@ -351,7 +351,7 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
         localStorage.setItem('dashboard-categories', JSON.stringify(settings.dashboard.categories))
       }
     }
-    
+
     // 社員詳細設定
     if (settings.employeeDetails) {
       if (settings.employeeDetails.customFields) {
@@ -361,7 +361,7 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
         localStorage.setItem('employee-preferences', JSON.stringify(settings.employeeDetails.preferences))
       }
     }
-    
+
     console.log('設定をlocalStorageに適用しました')
   } catch (error) {
     console.error('localStorage設定適用エラー:', error)
@@ -377,10 +377,10 @@ export function applySettingsToLocalStorage(settings: UserSettings): void {
 export async function syncUserSettings(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('ユーザー設定の同期を開始:', userId)
-    
+
     // S3から設定を取得
     const result = await loadUserSettingsFromS3(userId)
-    
+
     if (result.success && result.settings) {
       // localStorageに適用
       applySettingsToLocalStorage(result.settings)
@@ -388,7 +388,7 @@ export async function syncUserSettings(userId: string): Promise<{ success: boole
       return { success: true }
     } else {
       console.log('S3に設定がないため、現在のlocalStorage設定をS3に保存します')
-      
+
       // 現在のlocalStorage設定をS3に保存
       const currentSettings = getCurrentLocalStorageSettings()
       if (Object.keys(currentSettings).length > 0) {
@@ -398,7 +398,7 @@ export async function syncUserSettings(userId: string): Promise<{ success: boole
           return { success: true }
         }
       }
-      
+
       return { success: true } // 設定がない場合も成功として扱う
     }
   } catch (error) {
@@ -415,10 +415,33 @@ export async function syncUserSettings(userId: string): Promise<{ success: boole
  */
 export async function autoSaveUserSettings(userId: string): Promise<void> {
   try {
-    const currentSettings = getCurrentLocalStorageSettings()
+    const currentSettings = getCurrentLocalStorageSettings() as UserSettings
     if (Object.keys(currentSettings).length > 0) {
-      await saveUserSettingsToS3(userId, currentSettings as UserSettings)
-      console.log('設定を自動保存しました:', userId)
+      // 以前の保存データと比較（無限ループ防止）
+      if (typeof window !== 'undefined') {
+        const settingsToCompare = { ...currentSettings }
+        // 常に変わるタイムスタンプを除外して比較
+        if (settingsToCompare.misc) {
+          settingsToCompare.misc = { ...settingsToCompare.misc, lastUpdated: '' }
+        }
+
+        const settingsStr = JSON.stringify(settingsToCompare)
+        const lastSavedStr = localStorage.getItem(`last-saved-settings-${userId}`)
+
+        if (settingsStr === lastSavedStr) {
+          // 変更がないので保存スキップ
+          return
+        }
+
+        // 保存実行
+        const result = await saveUserSettingsToS3(userId, currentSettings)
+        if (result.success) {
+          localStorage.setItem(`last-saved-settings-${userId}`, settingsStr)
+          console.log('設定を自動保存しました:', userId)
+        }
+      } else {
+        await saveUserSettingsToS3(userId, currentSettings)
+      }
     }
   } catch (error) {
     console.error('自動保存エラー:', error)
@@ -430,9 +453,9 @@ export async function autoSaveUserSettings(userId: string): Promise<void> {
  */
 export function setupAutoSave(userId: string): () => void {
   if (typeof window === 'undefined') {
-    return () => {}
+    return () => { }
   }
-  
+
   const watchedKeys = [
     'available-departments',
     'available-positions',
@@ -452,28 +475,28 @@ export function setupAutoSave(userId: string): () => void {
     'currentWorkspace',
     'currentBoard'
   ]
-  
+
   let saveTimeout: NodeJS.Timeout | null = null
-  
+
   const handleStorageChange = () => {
     // 設定適用中の場合は処理をスキップ（無限ループ防止）
     if ((window as any)._isApplyingSettings) {
       return
     }
-    
+
     // デバウンス処理（500ms後に保存）
     if (saveTimeout) {
       clearTimeout(saveTimeout)
     }
-    
+
     saveTimeout = setTimeout(() => {
       autoSaveUserSettings(userId)
     }, 500)
   }
-  
+
   // ストレージイベントを監視
   window.addEventListener('storage', handleStorageChange)
-  
+
   // カスタムイベントも監視
   const customEvents = [
     'departmentsChanged',
@@ -494,11 +517,11 @@ export function setupAutoSave(userId: string): () => void {
     'dashboardCategoriesChanged',
     'employeeDetailsChanged'
   ]
-  
+
   customEvents.forEach(eventName => {
     window.addEventListener(eventName, handleStorageChange)
   })
-  
+
   // クリーンアップ関数を返す
   return () => {
     if (saveTimeout) {

@@ -24,8 +24,8 @@ interface SharedEmployeeFiltersProps {
   style?: React.CSSProperties
 }
 
-export function SharedEmployeeFilters({ 
-  onFiltersChange, 
+export function SharedEmployeeFilters({
+  onFiltersChange,
   showStatusFilter = true,
   showClearButton = true,
   placeholder = "社員名、社員番号、部署、役職で検索...",
@@ -42,7 +42,7 @@ export function SharedEmployeeFilters({
   const [showInOrgChart, setShowInOrgChart] = useState("1")
   const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
   const [availablePositions, setAvailablePositions] = useState<string[]>([])
-  const [availableEmploymentTypes, setAvailableEmploymentTypes] = useState<{value: string, label: string}[]>([])
+  const [availableEmploymentTypes, setAvailableEmploymentTypes] = useState<{ value: string, label: string }[]>([])
 
   // マスターデータをAPIから取得
   const loadData = async () => {
@@ -50,15 +50,15 @@ export function SharedEmployeeFilters({
       // APIからマスターデータを取得
       const response = await fetch('/api/master-data')
       const result = await response.json()
-      
+
       console.log('マスターデータ取得結果:', result)
-      
+
       // APIのレスポンス形式を確認（success.data または直接データ）
       const masterData = result.data || result
-      
+
       // 部署データを設定
       if (masterData.department && Array.isArray(masterData.department)) {
-        const deptValues = masterData.department.map((item: any) => 
+        const deptValues = masterData.department.map((item: any) =>
           typeof item === 'string' ? item : item.value || item.label
         )
         setAvailableDepartments(deptValues)
@@ -66,10 +66,10 @@ export function SharedEmployeeFilters({
           localStorage.setItem('available-departments', JSON.stringify(deptValues))
         }
       }
-      
+
       // 役職データを設定
       if (masterData.position && Array.isArray(masterData.position)) {
-        const posValues = masterData.position.map((item: any) => 
+        const posValues = masterData.position.map((item: any) =>
           typeof item === 'string' ? item : item.value || item.label
         )
         setAvailablePositions(posValues)
@@ -77,11 +77,11 @@ export function SharedEmployeeFilters({
           localStorage.setItem('available-positions', JSON.stringify(posValues))
         }
       }
-      
+
       // 雇用形態データを設定
       if (masterData.employeeType && Array.isArray(masterData.employeeType)) {
         const types = masterData.employeeType
-          .map((item: any) => 
+          .map((item: any) =>
             typeof item === 'string' ? { value: item, label: item } : item
           )
           .filter((item: any) => {
@@ -108,7 +108,7 @@ export function SharedEmployeeFilters({
             console.error('部署データのパースエラー:', e)
           }
         }
-        
+
         const savedPositions = localStorage.getItem('available-positions')
         if (savedPositions) {
           try {
@@ -117,7 +117,7 @@ export function SharedEmployeeFilters({
             console.error('役職データのパースエラー:', e)
           }
         }
-        
+
         const savedEmploymentTypes = localStorage.getItem('employment-types')
         if (savedEmploymentTypes) {
           try {
@@ -158,7 +158,7 @@ export function SharedEmployeeFilters({
     window.addEventListener('departmentsChanged', handleCustomStorageChange)
     window.addEventListener('positionsChanged', handleCustomStorageChange)
     window.addEventListener('employmentTypesChanged', handleCustomStorageChange)
-    
+
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('departmentsChanged', handleCustomStorageChange)
@@ -188,11 +188,15 @@ export function SharedEmployeeFilters({
 
   // 設定変更時にS3に自動保存
   useEffect(() => {
-    if (currentUser?.id && (department !== "all" || position !== "all" || employeeType !== "all")) {
-      // 設定が変更された時にS3に保存
-      saveSettings()
+    // コンポーネントの初期ロード時は保存しない（変更があった場合のみ）
+    if (currentUser?.id && (department !== "all" || position !== "all" || employeeType !== "employee")) {
+      // 少し遅延をおいて、連続的な状態変化を待ってから保存
+      const timer = setTimeout(() => {
+        saveSettings()
+      }, 500)
+      return () => clearTimeout(timer)
     }
-  }, [department, position, employeeType, currentUser?.id, saveSettings])
+  }, [department, position, employeeType, currentUser?.id])
 
   const handleClearFilters = () => {
     setSearchQuery("")
@@ -204,8 +208,8 @@ export function SharedEmployeeFilters({
   }
 
   // グリッドの列数を動的に決定
-  const gridCols = showStatusFilter && showClearButton ? "md:grid-cols-7" : 
-                   showStatusFilter || showClearButton ? "md:grid-cols-6" : "md:grid-cols-5"
+  const gridCols = showStatusFilter && showClearButton ? "md:grid-cols-7" :
+    showStatusFilter || showClearButton ? "md:grid-cols-6" : "md:grid-cols-5"
 
   return (
     <div className={`bg-white rounded-xl border border-slate-200 p-4 shadow-sm ${className}`} style={style}>
@@ -320,7 +324,7 @@ export function SharedEmployeeFilters({
 
         {/* クリアボタン（オプション） */}
         {showClearButton && (
-          <Button 
+          <Button
             onClick={handleClearFilters}
             variant="outline"
             size="sm"

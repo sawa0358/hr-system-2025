@@ -88,10 +88,22 @@ export async function saveUserSettingsToS3(
   settings: UserSettings
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // 以前の保存でエラーが発生して同期が無効化されている場合は何もしない
-    if (typeof window !== 'undefined' && window._disableSettingsSync) {
-      console.log('ユーザー設定の同期は一時的に無効化されています（前回のエラーのため）')
-      return { success: false, error: '設定同期は無効化されています' }
+    // 内容の重複チェック（前回保存したものと同じならスキップ）
+    if (typeof window !== 'undefined') {
+      const settingsToCompare = { ...settings }
+      if (settingsToCompare.misc) {
+        settingsToCompare.misc = { ...settingsToCompare.misc, lastUpdated: '' }
+      }
+      const settingsStr = JSON.stringify(settingsToCompare)
+      const lastSavedStr = localStorage.getItem(`last-saved-settings-${userId}`)
+
+      if (settingsStr === lastSavedStr) {
+        // console.log(`ユーザー設定の変更がないため保存をスキップしました: ${userId}`)
+        return { success: true }
+      }
+
+      // 保存前に一時的に記録（連打防止）
+      localStorage.setItem(`last-saved-settings-${userId}`, settingsStr)
     }
 
     const response = await fetch('/api/user-settings', {
@@ -105,8 +117,9 @@ export async function saveUserSettingsToS3(
 
     if (!response.ok) {
       const errorData = await response.json()
-      // 連続エラーを防ぐため、このセッションでは以降の同期を無効化
+      // エラーが発生した場合は記録を削除（次回再試行できるように）
       if (typeof window !== 'undefined') {
+        localStorage.removeItem(`last-saved-settings-${userId}`)
         window._disableSettingsSync = true
       }
       return { success: false, error: errorData.error || '設定の保存に失敗しました' }

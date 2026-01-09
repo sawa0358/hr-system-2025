@@ -1037,7 +1037,7 @@ export function PayrollUploadDialog({
           <div className="mt-8 border border-blue-200 rounded-lg p-4 bg-blue-50">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="font-medium text-blue-900">時間管理システム全員分PDF</p>
+                <p className="font-medium text-blue-900">時間管理システム全員分PDF(業務委託)</p>
                 <p className="text-xs text-blue-700">
                   時間管理システムから自動保存されたPDF、または手動でアップロードしたファイルを一覧・ダウンロードできます
                 </p>

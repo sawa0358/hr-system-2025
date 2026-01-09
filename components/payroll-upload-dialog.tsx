@@ -122,10 +122,9 @@ export function PayrollUploadDialog({
           // 例: "2025年12月" -> "2025年-12月"、"全員分/2025年12月" -> "2025年-12月"
           let folderKey = ''
           if (file.folderName) {
-            // 「全員分/YYYY年MM月」形式の場合（ハイフン許容）
-            const allMatch = file.folderName.match(/全員分\/(\d{4})年-?(\d{1,2})月/)
-            if (allMatch) {
-              folderKey = `${allMatch[1]}年-${allMatch[2]}月`
+            // 「全員分/」で始まるフォルダは、下部の専用エリアで表示するためここでは除外する
+            if (file.folderName.startsWith('全員分/')) {
+              // スキップ
             } else {
               // 「YYYY年MM月」または「YYYY年-MM月」形式の場合
               const match = file.folderName.match(/(\d{4})年-?(\d{1,2})月/)
@@ -1050,7 +1049,7 @@ export function PayrollUploadDialog({
                 const yearNum = parseInt(selectedYear.replace("年", ""), 10)
                 const monthNum = parseInt(selectedMonth.replace("月", ""), 10)
                 return `${yearNum}年${monthNum}月`
-              })() : "未選択"}
+              })() : "上部で月を選択してください"}
             </div>
 
             {/* ドラッグ&ドロップエリア */}

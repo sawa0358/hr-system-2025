@@ -34,7 +34,7 @@ export function AttendanceUploadDialog({
     }
     return years
   }
-  
+
   const [yearFolders, setYearFolders] = useState<string[]>(generateYears())
   const [otherFolders, setOtherFolders] = useState<string[]>(["その他"])
   const [selectedOtherFolder, setSelectedOtherFolder] = useState("その他")
@@ -79,7 +79,7 @@ export function AttendanceUploadDialog({
     try {
       // 全員分モードの場合、対象のemployeeIDを取得
       let employeeIdToUse = employee?.id || ''
-      
+
       if (isAllEmployeesMode && !employeeIdToUse) {
         try {
           const response = await fetch('/api/attendance/all-employee-id')
@@ -110,9 +110,9 @@ export function AttendanceUploadDialog({
         const files = await response.json()
         // attendanceカテゴリのファイルのみをフォルダ別に分類
         const attendanceFiles = files.filter((f: any) => f.category === 'attendance')
-        
+
         const filesByFolder: { [key: string]: { id: string; name: string; createdAt: string }[] } = {}
-        
+
         attendanceFiles.forEach((file: any) => {
           // folderNameから年月を解析してfolderKeyを生成
           // 例: "2025年12月" -> "2025年-12月"、"2025年-12月" -> "2025年-12月"
@@ -122,8 +122,8 @@ export function AttendanceUploadDialog({
             if (file.folderName.match(/^\d{4}年-\d{1,2}月$/)) {
               folderKey = file.folderName
             } else {
-              // 「YYYY年MM月」形式の場合
-              const match = file.folderName.match(/(\d{4})年(\d{1,2})月/)
+              // 「YYYY年MM月」または「YYYY年-MM月」形式の場合
+              const match = file.folderName.match(/(\d{4})年-?(\d{1,2})月/)
               if (match) {
                 folderKey = `${match[1]}年-${match[2]}月`
               } else {
@@ -132,7 +132,7 @@ export function AttendanceUploadDialog({
               }
             }
           }
-          
+
           if (folderKey) {
             if (!filesByFolder[folderKey]) {
               filesByFolder[folderKey] = []
@@ -144,7 +144,7 @@ export function AttendanceUploadDialog({
             })
           }
         })
-        
+
         setDbFiles(filesByFolder)
         console.log('勤怠管理: DBから取得したファイル:', filesByFolder)
       }
@@ -176,7 +176,7 @@ export function AttendanceUploadDialog({
       console.log('勤怠管理: 現在の月を設定:', currentMonthStr)
       setSelectedYear(currentYearStr)
       setSelectedMonth(currentMonthStr)
-      
+
       // DBからファイル一覧を取得（デバイス間同期のため）
       fetchFilesFromDB()
     }
@@ -189,7 +189,7 @@ export function AttendanceUploadDialog({
         ...yearFolders.flatMap(year => months.map(month => `${year}-${month}`)),
         ...otherFolders.map(folder => `other-${folder}`)
       ]
-      
+
       const loadedFiles: { [key: string]: string[] } = {}
       allFolders.forEach(folderKey => {
         loadedFiles[folderKey] = loadFilesFromStorage(folderKey)
@@ -266,7 +266,7 @@ export function AttendanceUploadDialog({
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
-    
+
     // 安全に削除（ブラウザが処理するまで少し待つ）
     setTimeout(() => {
       if (link.parentNode === document.body) {
@@ -282,14 +282,14 @@ export function AttendanceUploadDialog({
     console.log('保存されているテンプレート:', templates) // デバッグ用
     const template = templates.find(t => t.name === templateName)
     console.log('検索対象テンプレート:', template) // デバッグ用
-    
+
     if (template) {
       if (template.content) {
         try {
           // バイナリファイルの場合はArrayBufferとして処理、テキストファイルの場合はstringとして処理
           let blob: Blob
           const mimeType = template.type || 'text/plain'
-          
+
           if (template.isBinary && template.content instanceof ArrayBuffer) {
             // バイナリファイルの場合
             blob = new Blob([template.content], { type: mimeType })
@@ -301,7 +301,7 @@ export function AttendanceUploadDialog({
             const uint8Array = new Uint8Array(template.content as ArrayBuffer)
             blob = new Blob([uint8Array], { type: mimeType })
           }
-          
+
           const link = document.createElement('a')
           const url = URL.createObjectURL(blob)
           link.setAttribute('href', url)
@@ -309,7 +309,7 @@ export function AttendanceUploadDialog({
           link.style.visibility = 'hidden'
           document.body.appendChild(link)
           link.click()
-          
+
           // 安全に削除（ブラウザが処理するまで少し待つ）
           setTimeout(() => {
             if (link.parentNode === document.body) {
@@ -333,7 +333,7 @@ export function AttendanceUploadDialog({
         link.style.visibility = 'hidden'
         document.body.appendChild(link)
         link.click()
-        
+
         // 安全に削除（ブラウザが処理するまで少し待つ）
         setTimeout(() => {
           if (link.parentNode === document.body) {
@@ -382,7 +382,7 @@ export function AttendanceUploadDialog({
       if (file) {
         // 全員分モードの場合、PAYROLL_ALL_EMPLOYEE_IDを取得
         let employeeIdToUse = employee?.id || ''
-        
+
         if (isAllEmployeesMode && !employeeIdToUse) {
           // 全員分モードで employee.id が無い場合、APIから取得
           try {
@@ -401,13 +401,13 @@ export function AttendanceUploadDialog({
             return
           }
         }
-        
+
         // 実際のファイルアップロード処理
         const formData = new FormData()
         formData.append('file', file)
         formData.append('category', 'attendance')
         formData.append('folder', folderKey)
-        
+
         const response = await fetch('/api/files/upload', {
           method: 'POST',
           headers: {
@@ -415,14 +415,14 @@ export function AttendanceUploadDialog({
           },
           body: formData
         })
-        
+
         if (response.ok) {
           const result = await response.json()
           console.log('ファイルアップロード成功:', result)
-          
+
           // DBからファイル一覧を再取得（他デバイスでも表示されるように）
           await fetchFilesFromDB()
-          
+
           // localStorageにも一時的に保存（即時反映のため）
           const newFiles = [...(uploadedFiles[folderKey] || []), file.name]
           setUploadedFiles({
@@ -453,7 +453,7 @@ export function AttendanceUploadDialog({
 
   const downloadFile = async (folderKey: string, fileName: string) => {
     console.log(`Downloading ${fileName} from ${folderKey}`)
-    
+
     try {
       // 勤怠管理の場合は、実際のファイルシステムからファイルを取得
       // まず、ファイルIDを取得するためにファイル一覧を取得
@@ -463,12 +463,12 @@ export function AttendanceUploadDialog({
           'x-employee-id': employee?.id || '',
         },
       })
-      
+
       if (response.ok) {
         const files = await response.json()
         // ファイル名に一致するファイルを検索
         const matchingFile = files.find((f: any) => f.originalName === fileName && f.category === 'attendance')
-        
+
         if (matchingFile) {
           // 実際のファイルをダウンロード
           const downloadResponse = await fetch(`/api/files/${matchingFile.id}/download`, {
@@ -477,7 +477,7 @@ export function AttendanceUploadDialog({
               'x-employee-id': employee?.id || '',
             },
           })
-          
+
           if (downloadResponse.ok) {
             const blob = await downloadResponse.blob()
             const url = window.URL.createObjectURL(blob)
@@ -486,7 +486,7 @@ export function AttendanceUploadDialog({
             link.download = fileName
             document.body.appendChild(link)
             link.click()
-            
+
             // 安全に削除（ブラウザが処理するまで少し待つ）
             setTimeout(() => {
               if (link.parentNode === document.body) {
@@ -501,7 +501,7 @@ export function AttendanceUploadDialog({
           }
         }
       }
-      
+
       // ファイルが見つからない場合は、ダミーファイルを作成
       const fileContent = `勤怠データ: ${fileName}\n\nこのファイルは勤怠管理システムからダウンロードされました。\n実際のファイル内容は管理者にお問い合わせください。`
       const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8;' })
@@ -512,7 +512,7 @@ export function AttendanceUploadDialog({
       link.style.visibility = 'hidden'
       document.body.appendChild(link)
       link.click()
-      
+
       // 安全に削除（ブラウザが処理するまで少し待つ）
       setTimeout(() => {
         if (link.parentNode === document.body) {
@@ -586,7 +586,7 @@ export function AttendanceUploadDialog({
               <p className="text-sm text-blue-700">標準フォーマットをダウンロード</p>
             </div>
           </div>
-          
+
           {/* 共通テンプレート一覧 */}
           {(() => {
             const templates = loadTemplatesFromStorage()
@@ -699,7 +699,7 @@ export function AttendanceUploadDialog({
                 const folderKey = `${selectedYear}-${month}`
                 const localFiles = uploadedFiles[folderKey] || []
                 const dbFileList = dbFiles[folderKey] || []
-                
+
                 // DBファイルとlocalStorageファイルを統合（重複を排除）
                 const dbFileNames = new Set(dbFileList.map(f => f.name))
                 const localOnlyFiles = localFiles.filter(name => !dbFileNames.has(name))
@@ -712,9 +712,8 @@ export function AttendanceUploadDialog({
                   <TabsContent key={month} value={month} className="space-y-4 m-0">
                     {/* ドロップエリア */}
                     <div
-                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                        isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
-                      }`}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+                        }`}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, folderKey)}
@@ -758,7 +757,7 @@ export function AttendanceUploadDialog({
                                   <div>
                                     <p className="font-medium text-slate-900">{file.name}</p>
                                     <p className="text-sm text-slate-500">
-                                      {file.createdAt 
+                                      {file.createdAt
                                         ? new Date(file.createdAt).toLocaleDateString('ja-JP')
                                         : new Date().toLocaleDateString('ja-JP')}
                                       {file.source === 'db' && (
@@ -890,7 +889,7 @@ export function AttendanceUploadDialog({
                 const folderKey = `other-${folder}`
                 const localFiles = uploadedFiles[folderKey] || []
                 const dbFileList = dbFiles[folderKey] || []
-                
+
                 // DBファイルとlocalStorageファイルを統合（重複を排除）
                 const dbFileNames = new Set(dbFileList.map(f => f.name))
                 const localOnlyFiles = localFiles.filter(name => !dbFileNames.has(name))
@@ -903,9 +902,8 @@ export function AttendanceUploadDialog({
                   <TabsContent key={folder} value={folder} className="space-y-4 m-0">
                     {/* ドロップエリア */}
                     <div
-                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                        isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
-                      }`}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? "border-blue-500 bg-blue-50" : "border-slate-300 bg-slate-50"
+                        }`}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, folderKey)}
@@ -949,7 +947,7 @@ export function AttendanceUploadDialog({
                                   <div>
                                     <p className="font-medium text-slate-900">{file.name}</p>
                                     <p className="text-sm text-slate-500">
-                                      {file.createdAt 
+                                      {file.createdAt
                                         ? new Date(file.createdAt).toLocaleDateString('ja-JP')
                                         : new Date().toLocaleDateString('ja-JP')}
                                       {file.source === 'db' && (
@@ -993,7 +991,7 @@ export function AttendanceUploadDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             閉じる
           </Button>
-          <Button 
+          <Button
             className="bg-blue-600 hover:bg-blue-700"
             onClick={() => {
               // ファイル保存処理

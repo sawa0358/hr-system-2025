@@ -50,6 +50,7 @@ export async function handleFileUpload(
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'text/plain',
+      'text/csv',
     ];
 
     if (!allowedTypes.includes(file.type)) {
@@ -58,17 +59,17 @@ export async function handleFileUpload(
 
     // ファイルをBufferに変換
     const buffer = Buffer.from(await file.arrayBuffer());
-    
+
     // ファイル名の生成（重複回避）
     const timestamp = Date.now();
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${file.name}`;
-    
+
     // AWS_S3_BUCKET_NAMEが設定されていればS3を使用（環境に関係なく）
     const isProduction = !!process.env.AWS_S3_BUCKET_NAME;
-    
+
     let uploadResult;
-    
+
     if (isProduction) {
       // 本番環境：S3にアップロード
       const s3Folder = `${employeeId}/${category || 'general'}`;
@@ -91,9 +92,9 @@ export async function handleFileUpload(
     }
 
     if (!uploadResult.success || !uploadResult.filePath) {
-      return { 
-        success: false, 
-        error: uploadResult.error || 'ファイルアップロードに失敗しました' 
+      return {
+        success: false,
+        error: uploadResult.error || 'ファイルアップロードに失敗しました'
       };
     }
 
@@ -124,7 +125,7 @@ export async function handleFileUpload(
 
         if (card) {
           const currentAttachments = card.attachments as any[] || [];
-          
+
           // ファイル情報をattachmentsに追加
           const fileInfo = {
             id: fileRecord.id,
@@ -151,8 +152,8 @@ export async function handleFileUpload(
       }
     }
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       fileId: fileRecord.id,
       category: category || 'general',
       folderName: folderName || folder || undefined,
@@ -188,7 +189,7 @@ export async function handleFileDownload(
 
     // APIエンドポイントのURLを返す（署名付きURL取得はAPIで行う）
     const fileUrl = `/api/files/download/${fileId}`;
-    
+
     return { success: true, url: fileUrl };
   } catch (error) {
     console.error('ファイルダウンロードエラー:', error);
@@ -222,14 +223,14 @@ export async function handleFileDelete(
 
     // 開発環境ではローカルファイルシステムから削除、本番環境ではS3から削除
     const isProduction = process.env.NODE_ENV === 'production' && process.env.AWS_S3_BUCKET_NAME;
-    
+
     let deleteResult;
     if (isProduction) {
       deleteResult = await deleteFileFromS3(file.filePath);
     } else {
       deleteResult = await deleteFileFromLocal(file.filePath);
     }
-    
+
     if (!deleteResult.success) {
       console.error('ファイル削除エラー:', deleteResult.error);
       // ファイル削除に失敗してもデータベースからは削除する（孤立ファイル回避）

@@ -118,39 +118,20 @@ export function PayrollUploadDialog({
         const filesByFolder: { [key: string]: { id: string; name: string; createdAt: string }[] } = {}
 
         payrollFiles.forEach((file: any) => {
-          // フォルダ名のプレフィックスによる分離ロジック
-          const isAllPayrollFolder = file.folderName && file.folderName.startsWith('全員分/')
+          // 「全員分/」で始まるファイルは下部専用エリアで表示するため、上部タブからは常に除外
+          if (file.folderName && file.folderName.startsWith('全員分/')) {
+            return
+          }
+
           let folderKey = ''
-
-          if (isAllEmployeesMode) {
-            // 全員分モードの場合: 「全員分/」で始まるファイルのみ表示
-            if (!isAllPayrollFolder) return // スキップ
-
-            // 表示用にプレフィックスを除去して解析
-            const actualFolderName = file.folderName.replace('全員分/', '')
-            const match = actualFolderName.match(/(\d{4})年-?(\d{1,2})月/)
-            if (match) {
-              folderKey = `${match[1]}年-${match[2]}月`
-            } else if (actualFolderName.includes('年末調整')) {
-              const yearMatch = actualFolderName.match(/(\d{4})年/)
-              if (yearMatch) folderKey = `${yearMatch[1]}年-年末調整`
-            } else {
-              folderKey = `other-${actualFolderName}`
-            }
-          } else {
-            // 個人モードの場合: 「全員分/」で始まるファイルは除外
-            if (isAllPayrollFolder) return // スキップ
-
-            // 通常の解析
-            const match = file.folderName.match(/(\d{4})年-?(\d{1,2})月/)
-            if (match) {
-              folderKey = `${match[1]}年-${match[2]}月`
-            } else if (file.folderName.includes('年末調整')) {
-              const yearMatch = file.folderName.match(/(\d{4})年/)
-              if (yearMatch) folderKey = `${yearMatch[1]}年-年末調整`
-            } else {
-              folderKey = `other-${file.folderName}`
-            }
+          const match = (file.folderName || '').match(/(\d{4})年-?(\d{1,2})月/)
+          if (match) {
+            folderKey = `${match[1]}年-${match[2]}月`
+          } else if (file.folderName && file.folderName.includes('年末調整')) {
+            const yearMatch = file.folderName.match(/(\d{4})年/)
+            if (yearMatch) folderKey = `${yearMatch[1]}年-年末調整`
+          } else if (file.folderName) {
+            folderKey = `other-${file.folderName}`
           }
 
           if (folderKey) {

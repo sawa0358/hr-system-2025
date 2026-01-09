@@ -1,0 +1,277 @@
+[
+  {
+    "date": "2026-01-06",
+    "submission": {
+      "id": "cmk58n8ut000w8zeb73ym6axg",
+      "workerId": "cmjmmr6tj00248zkm6vzzens2",
+      "date": "2026-01-05T15:00:00.000Z",
+      "patternId": null,
+      "memo": "",
+      "photoUrl": null,
+      "hasPhoto": false,
+      "isSafetyAlert": false,
+      "createdAt": "2026-01-08T09:21:49.206Z",
+      "updatedAt": "2026-01-08T09:21:49.206Z",
+      "items": [
+        {
+          "id": "cmk58n8uu000x8zebs1o99f54",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "締切日の確認と対処をした",
+          "reward": 5,
+          "isMandatory": true,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu000y8zebifqjmpui",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "説明文のテスト222",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu000z8zebya25zt3o",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "入札ステップへ3件まわした",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu00108zeb5kib52yh",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "入札ステップへ5件まわした",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu00118zebr8g1bty1",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "案件の同等品を3件申請した",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu00128zeb2dj71962",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "test",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        },
+        {
+          "id": "cmk58n8uu00138zebhd4pqtko",
+          "submissionId": "cmk58n8ut000w8zeb73ym6axg",
+          "title": "test111",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": true,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:21:49.206Z"
+        }
+      ],
+      "photos": []
+    }
+  },
+  {
+    "date": "2026-01-07",
+    "submission": {
+      "id": "cmk55f3ds00018zmda2455g9d",
+      "workerId": "cmjmmr6tj00248zkm6vzzens2",
+      "date": "2026-01-06T15:00:00.000Z",
+      "patternId": null,
+      "memo": "",
+      "photoUrl": null,
+      "hasPhoto": false,
+      "isSafetyAlert": false,
+      "createdAt": "2026-01-08T07:51:30.016Z",
+      "updatedAt": "2026-01-08T07:51:30.016Z",
+      "items": [
+        {
+          "id": "cmk55f3dt00028zmdg6lbnkj9",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "締切日の確認と対処をした",
+          "reward": 5,
+          "isMandatory": true,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00038zmdtzfelh77",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "説明文のテスト222",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00048zmdpeuyyjz6",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "入札ステップへ3件まわした",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00058zmdc3wjbjwo",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "入札ステップへ5件まわした",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00068zmd5rg3km3l",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "案件の同等品を3件申請した",
+          "reward": 10,
+          "isMandatory": false,
+          "isChecked": true,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00078zmd0czix49g",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "test",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        },
+        {
+          "id": "cmk55f3dt00088zmdq7eoym8c",
+          "submissionId": "cmk55f3ds00018zmda2455g9d",
+          "title": "test111",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": true,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T07:51:30.016Z"
+        }
+      ],
+      "photos": []
+    }
+  },
+  {
+    "date": "2026-01-09",
+    "submission": {
+      "id": "cmk58k5i6000h8zeb28rnpmd3",
+      "workerId": "cmjmmr6tj00248zkm6vzzens2",
+      "date": "2026-01-08T15:00:00.000Z",
+      "patternId": null,
+      "memo": "",
+      "photoUrl": null,
+      "hasPhoto": false,
+      "isSafetyAlert": false,
+      "createdAt": "2026-01-08T09:19:24.895Z",
+      "updatedAt": "2026-01-08T09:19:24.895Z",
+      "items": [
+        {
+          "id": "cmk58k5i7000i8zebgzpgpshh",
+          "submissionId": "cmk58k5i6000h8zeb28rnpmd3",
+          "title": "っっっっっっs",
+          "reward": 0,
+          "isMandatory": true,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:19:24.895Z"
+        },
+        {
+          "id": "cmk58k5i7000j8zebdkry2087",
+          "submissionId": "cmk58k5i6000h8zeb28rnpmd3",
+          "title": "テスト",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": false,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:19:24.895Z"
+        },
+        {
+          "id": "cmk58k5i7000k8zebd5nxubgj",
+          "submissionId": "cmk58k5i6000h8zeb28rnpmd3",
+          "title": "特記事項・ヒヤリハット",
+          "reward": 0,
+          "isMandatory": false,
+          "isChecked": false,
+          "isFreeText": true,
+          "isDescription": false,
+          "freeTextValue": null,
+          "category": null,
+          "createdAt": "2026-01-08T09:19:24.895Z"
+        }
+      ],
+      "photos": []
+    }
+  }
+]

@@ -503,14 +503,60 @@ export function PayrollUploadDialog({
     }
   }
 
-  const removeFile = (folderKey: string, fileName: string) => {
-    const newFiles = uploadedFiles[folderKey].filter((f) => f !== fileName)
-    setUploadedFiles({
-      ...uploadedFiles,
-      [folderKey]: newFiles,
-    })
-    // localStorageに保存
-    saveFilesToStorage(folderKey, newFiles)
+  const removeFile = async (folderKey: string, fileName: string, fileId?: string) => {
+    // 確認ダイアログを表示
+    if (!confirm(`「${fileName}」を削除してよろしいですか？\n\nこの操作は取り消せません。`)) {
+      return
+    }
+
+    try {
+      // DBに保存されているファイルの場合はAPIで削除
+      if (fileId) {
+        // 全員分モードの場合、PAYROLL_ALL_EMPLOYEE_IDを取得
+        let employeeIdToUse = employee?.id || ''
+
+        if (isAllEmployeesMode && !employeeIdToUse) {
+          try {
+            const response = await fetch('/api/payroll/all-employee-id')
+            if (response.ok) {
+              const data = await response.json()
+              employeeIdToUse = data.employeeId
+            }
+          } catch (error) {
+            console.error('全員分用のemployeeID取得エラー:', error)
+          }
+        }
+
+        const response = await fetch(`/api/files/${fileId}/delete`, {
+          method: 'DELETE',
+          headers: {
+            'x-employee-id': employeeIdToUse,
+          },
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error('ファイル削除エラー:', errorText)
+          alert('ファイルの削除に失敗しました')
+          return
+        }
+
+        // DBからファイル一覧を再取得
+        await fetchFilesFromDB()
+        alert('ファイルを削除しました')
+      }
+
+      // localStorageからも削除
+      const newFiles = (uploadedFiles[folderKey] || []).filter((f) => f !== fileName)
+      setUploadedFiles({
+        ...uploadedFiles,
+        [folderKey]: newFiles,
+      })
+      saveFilesToStorage(folderKey, newFiles)
+    } catch (error) {
+      console.error('ファイル削除エラー:', error)
+      alert('ファイルの削除に失敗しました')
+    }
   }
 
   const startEditingFolder = (folderName: string) => {
@@ -778,7 +824,7 @@ export function PayrollUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeFile(folderKey, file.name)}
+                                    onClick={() => removeFile(folderKey, file.name, file.id)}
                                     title="削除"
                                   >
                                     <Trash2 className="w-4 h-4 text-red-600" />
@@ -968,7 +1014,7 @@ export function PayrollUploadDialog({
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeFile(folderKey, file.name)}
+                                    onClick={() => removeFile(folderKey, file.name, file.id)}
                                     title="削除"
                                   >
                                     <Trash2 className="w-4 h-4 text-red-600" />

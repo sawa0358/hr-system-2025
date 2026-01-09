@@ -118,28 +118,38 @@ export function PayrollUploadDialog({
         const filesByFolder: { [key: string]: { id: string; name: string; createdAt: string }[] } = {}
 
         payrollFiles.forEach((file: any) => {
-          // folderNameから年月を解析してfolderKeyを生成
-          // 例: "2025年12月" -> "2025年-12月"、"全員分/2025年12月" -> "2025年-12月"
+          // フォルダ名のプレフィックスによる分離ロジック
+          const isAllPayrollFolder = file.folderName && file.folderName.startsWith('全員分/')
           let folderKey = ''
-          if (file.folderName) {
-            // 「全員分/」で始まるフォルダは、下部の専用エリアで表示するためここでは除外する
-            if (file.folderName.startsWith('全員分/')) {
-              // スキップ
+
+          if (isAllEmployeesMode) {
+            // 全員分モードの場合: 「全員分/」で始まるファイルのみ表示
+            if (!isAllPayrollFolder) return // スキップ
+
+            // 表示用にプレフィックスを除去して解析
+            const actualFolderName = file.folderName.replace('全員分/', '')
+            const match = actualFolderName.match(/(\d{4})年-?(\d{1,2})月/)
+            if (match) {
+              folderKey = `${match[1]}年-${match[2]}月`
+            } else if (actualFolderName.includes('年末調整')) {
+              const yearMatch = actualFolderName.match(/(\d{4})年/)
+              if (yearMatch) folderKey = `${yearMatch[1]}年-年末調整`
             } else {
-              // 「YYYY年MM月」または「YYYY年-MM月」形式の場合
-              const match = file.folderName.match(/(\d{4})年-?(\d{1,2})月/)
-              if (match) {
-                folderKey = `${match[1]}年-${match[2]}月`
-              } else if (file.folderName.includes('年末調整')) {
-                // 年末調整の場合
-                const yearMatch = file.folderName.match(/(\d{4})年/)
-                if (yearMatch) {
-                  folderKey = `${yearMatch[1]}年-年末調整`
-                }
-              } else {
-                // その他の場合
-                folderKey = `other-${file.folderName}`
-              }
+              folderKey = `other-${actualFolderName}`
+            }
+          } else {
+            // 個人モードの場合: 「全員分/」で始まるファイルは除外
+            if (isAllPayrollFolder) return // スキップ
+
+            // 通常の解析
+            const match = file.folderName.match(/(\d{4})年-?(\d{1,2})月/)
+            if (match) {
+              folderKey = `${match[1]}年-${match[2]}月`
+            } else if (file.folderName.includes('年末調整')) {
+              const yearMatch = file.folderName.match(/(\d{4})年/)
+              if (yearMatch) folderKey = `${yearMatch[1]}年-年末調整`
+            } else {
+              folderKey = `other-${file.folderName}`
             }
           }
 
@@ -361,7 +371,10 @@ export function PayrollUploadDialog({
         const formData = new FormData()
         formData.append('file', file)
         formData.append('category', 'payroll')
-        formData.append('folder', folderKey)
+
+        // 全員分モードの場合、フォルダ名の先頭に「全員分/」を付ける（DB上で分離するため）
+        const finalFolderKey = isAllEmployeesMode ? `全員分/${folderKey}` : folderKey
+        formData.append('folder', finalFolderKey)
 
         const response = await fetch('/api/files/upload', {
           method: 'POST',

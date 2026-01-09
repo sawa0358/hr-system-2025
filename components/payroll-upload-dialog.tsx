@@ -1033,14 +1033,14 @@ export function PayrollUploadDialog({
           </TabsContent>
         </Tabs>
 
-        {/* 下部: 時間管理システム全員分（自動出力PDF） */}
+        {/* 下部: 時間管理システム全員分（自動出力PDF + 手動アップロード） */}
         {isAllEmployeesMode && (
           <div className="mt-8 border border-blue-200 rounded-lg p-4 bg-blue-50">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="font-medium text-blue-900">時間管理システム全員分PDF</p>
                 <p className="text-xs text-blue-700">
-                  時間管理システムから保存された全員分勤務報告書PDFを一覧・ダウンロードできます
+                  時間管理システムから自動保存されたPDF、または手動でアップロードしたファイルを一覧・ダウンロードできます
                 </p>
               </div>
             </div>
@@ -1052,28 +1052,208 @@ export function PayrollUploadDialog({
                 return `${yearNum}年${monthNum}月`
               })() : "未選択"}
             </div>
+
+            {/* ドラッグ&ドロップエリア */}
+            {selectedYear && selectedMonth && selectedMonth.endsWith("月") && (
+              <div
+                className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors mb-4 ${isDragging ? "border-blue-500 bg-blue-100" : "border-blue-300 bg-blue-50/50"
+                  }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={async (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setIsDragging(false)
+
+                  const files = Array.from(e.dataTransfer.files)
+                  if (files.length === 0) return
+
+                  // 全員分用のemployeeIdを取得
+                  let employeeIdToUse = ''
+                  try {
+                    const response = await fetch('/api/payroll/all-employee-id')
+                    if (response.ok) {
+                      const data = await response.json()
+                      employeeIdToUse = data.employeeId
+                    } else {
+                      alert('全員分用の設定が未完了です。管理者に連絡してください。')
+                      return
+                    }
+                  } catch (error) {
+                    console.error('全員分用のemployeeID取得エラー:', error)
+                    alert('全員分用の設定取得に失敗しました')
+                    return
+                  }
+
+                  const yearNum = parseInt(selectedYear.replace("年", ""), 10)
+                  const monthNum = parseInt(selectedMonth.replace("月", ""), 10)
+                  const folderName = `全員分/${yearNum}年${monthNum}月`
+
+                  for (const file of files) {
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      formData.append('category', 'payroll')
+                      formData.append('folder', folderName)
+
+                      const uploadResponse = await fetch('/api/files/upload', {
+                        method: 'POST',
+                        headers: {
+                          'x-employee-id': employeeIdToUse,
+                        },
+                        body: formData
+                      })
+
+                      if (uploadResponse.ok) {
+                        console.log('ファイルアップロード成功:', file.name)
+                      } else {
+                        console.error('ファイルアップロード失敗:', await uploadResponse.text())
+                        alert(`ファイル「${file.name}」のアップロードに失敗しました`)
+                      }
+                    } catch (error) {
+                      console.error('ファイルアップロードエラー:', error)
+                      alert(`ファイル「${file.name}」のアップロードに失敗しました`)
+                    }
+                  }
+
+                  // アップロード後にファイル一覧を再取得
+                  const yearNumber = parseInt(selectedYear.replace("年", ""), 10)
+                  const monthNumber = parseInt(selectedMonth.replace("月", ""), 10)
+                  try {
+                    const res = await fetch(`/api/payroll/all-pdfs?year=${yearNumber}&month=${monthNumber}`)
+                    if (res.ok) {
+                      const data = await res.json()
+                      setAllPayrollFiles(Array.isArray(data.files) ? data.files : [])
+                    }
+                  } catch (error) {
+                    console.error('ファイル一覧の再取得エラー:', error)
+                  }
+                }}
+              >
+                <Upload className="w-6 h-6 mx-auto mb-2 text-blue-400" />
+                <p className="text-blue-700 text-sm mb-1">ファイルをドラッグ&ドロップ</p>
+                <p className="text-xs text-blue-600 mb-2">または</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 bg-white text-blue-700 hover:bg-blue-100"
+                  onClick={async () => {
+                    const input = document.createElement("input")
+                    input.type = "file"
+                    input.multiple = true
+                    input.accept = ".pdf,.xlsx,.xls,.csv"
+                    input.onchange = async (e) => {
+                      const files = Array.from((e.target as HTMLInputElement).files || [])
+                      if (files.length === 0) return
+
+                      // 全員分用のemployeeIdを取得
+                      let employeeIdToUse = ''
+                      try {
+                        const response = await fetch('/api/payroll/all-employee-id')
+                        if (response.ok) {
+                          const data = await response.json()
+                          employeeIdToUse = data.employeeId
+                        } else {
+                          alert('全員分用の設定が未完了です。管理者に連絡してください。')
+                          return
+                        }
+                      } catch (error) {
+                        console.error('全員分用のemployeeID取得エラー:', error)
+                        alert('全員分用の設定取得に失敗しました')
+                        return
+                      }
+
+                      const yearNum = parseInt(selectedYear.replace("年", ""), 10)
+                      const monthNum = parseInt(selectedMonth.replace("月", ""), 10)
+                      const folderName = `全員分/${yearNum}年${monthNum}月`
+
+                      for (const file of files) {
+                        try {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          formData.append('category', 'payroll')
+                          formData.append('folder', folderName)
+
+                          const uploadResponse = await fetch('/api/files/upload', {
+                            method: 'POST',
+                            headers: {
+                              'x-employee-id': employeeIdToUse,
+                            },
+                            body: formData
+                          })
+
+                          if (uploadResponse.ok) {
+                            console.log('ファイルアップロード成功:', file.name)
+                          } else {
+                            console.error('ファイルアップロード失敗:', await uploadResponse.text())
+                            alert(`ファイル「${file.name}」のアップロードに失敗しました`)
+                          }
+                        } catch (error) {
+                          console.error('ファイルアップロードエラー:', error)
+                          alert(`ファイル「${file.name}」のアップロードに失敗しました`)
+                        }
+                      }
+
+                      // アップロード後にファイル一覧を再取得
+                      const yearNumber = parseInt(selectedYear.replace("年", ""), 10)
+                      const monthNumber = parseInt(selectedMonth.replace("月", ""), 10)
+                      try {
+                        const res = await fetch(`/api/payroll/all-pdfs?year=${yearNumber}&month=${monthNumber}`)
+                        if (res.ok) {
+                          const data = await res.json()
+                          setAllPayrollFiles(Array.isArray(data.files) ? data.files : [])
+                        }
+                      } catch (error) {
+                        console.error('ファイル一覧の再取得エラー:', error)
+                      }
+                    }
+                    input.click()
+                  }}
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  ファイルを選択
+                </Button>
+                <p className="text-xs text-blue-500 mt-2">対応形式: PDF, Excel, CSV</p>
+              </div>
+            )}
+
+            {/* ファイル一覧（自動保存 + 手動アップロード統合） */}
             {isAllFilesLoading ? (
               <p className="text-sm text-blue-700">読み込み中...</p>
             ) : allFilesError ? (
               <p className="text-sm text-red-600">{allFilesError}</p>
             ) : allPayrollFiles.length === 0 ? (
-              <p className="text-sm text-blue-700">この月の全員分PDFはまだ生成されていません。</p>
+              <p className="text-sm text-blue-700">この月の全員分PDFはまだありません。上のエリアからアップロードできます。</p>
             ) : (
               <div className="space-y-2">
+                <p className="text-xs text-blue-700 mb-2">
+                  {allPayrollFiles.length}件のファイル
+                </p>
                 {allPayrollFiles.map((file) => (
                   <div
                     key={file.id}
                     className="flex items-center justify-between p-2 bg-white rounded border border-blue-200"
                   >
-                    <div className="flex flex-col">
-                      <span className="text-sm text-blue-900 font-medium">
-                        {file.originalName || file.filename}
-                      </span>
-                      {file.folderName && (
-                        <span className="text-xs text-blue-700">{file.folderName}</span>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm text-blue-900 font-medium truncate">
+                          {file.originalName || file.filename}
+                        </span>
+                        <span className="text-xs text-blue-600">
+                          {file.createdAt
+                            ? new Date(file.createdAt).toLocaleDateString('ja-JP', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                            : ''}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="outline"
                         size="sm"

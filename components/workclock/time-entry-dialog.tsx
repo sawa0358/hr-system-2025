@@ -953,41 +953,49 @@ export function TimeEntryDialog({
                 readOnly={readOnly}
               />
               <div className="flex justify-end gap-3 p-4 bg-white border-t border-slate-200 shadow-[0_-2px_8px_rgba(0,0,0,0.02)] flex-none">
+                {readOnly && (
+                  <div className="flex items-center text-sm text-amber-600 bg-amber-50 px-3 py-1 rounded-full mr-auto">
+                    <Info className="w-4 h-4 mr-1.5" />
+                    <span>編集期間外のため変更できません</span>
+                  </div>
+                )}
                 <Button variant="ghost" onClick={() => handleOpenChange(false)} size="sm" className="font-bold text-slate-500 hover:bg-slate-100 px-6 h-9">
-                  キャンセル
+                  {readOnly ? '閉じる' : 'キャンセル'}
                 </Button>
-                <Button
-                  onClick={async () => {
-                    console.log('=== チェックリスト保存開始 ===')
+                {!readOnly && (
+                  <Button
+                    onClick={async () => {
+                      console.log('=== チェックリスト保存開始 ===')
 
-                    // 1. Time Entryの入力を確認し、あれば保存
-                    let timeEntrySaved = false
-                    if (notes && notes.trim() !== '') {
-                      console.log('Time Entryの入力があります。自動保存します。')
-                      const success = await saveTimeEntryInternal()
-                      if (success) {
-                        timeEntrySaved = true
+                      // 1. Time Entryの入力を確認し、あれば保存
+                      let timeEntrySaved = false
+                      if (notes && notes.trim() !== '') {
+                        console.log('Time Entryの入力があります。自動保存します。')
+                        const success = await saveTimeEntryInternal()
+                        if (success) {
+                          timeEntrySaved = true
+                        }
                       }
-                    }
 
-                    // 2. 勤務記録があるか確認 (今回の自動保存も含める)
-                    const hasEntriesIncludingNow = existingEntries.length > 0 || timeEntrySaved
-                    if (!hasEntriesIncludingNow) {
-                      const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
-                      if (!proceed) return
-                    }
+                      // 2. 勤務記録があるか確認 (今回の自動保存も含める)
+                      const hasEntriesIncludingNow = existingEntries.length > 0 || timeEntrySaved
+                      if (!hasEntriesIncludingNow) {
+                        const proceed = window.confirm('勤務記録に何も登録されていませんが、業務チェックのみ保存しますか？')
+                        if (!proceed) return
+                      }
 
-                    // 3. 全パターンを保存
-                    await saveAllChecklistsInternal()
-                    onClose()
-                  }}
-                  size="sm"
-                  className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"
-                  disabled={isSavingChecklist}
-                >
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                  {isSavingChecklist ? '保存中...' : '報告を送信して完了'}
-                </Button>
+                      // 3. 全パターンを保存
+                      await saveAllChecklistsInternal()
+                      onClose()
+                    }}
+                    size="sm"
+                    className="min-w-[140px] bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow hover:shadow-md transition-all h-9 px-6"
+                    disabled={isSavingChecklist}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                    {isSavingChecklist ? '保存中...' : '報告を送信して完了'}
+                  </Button>
+                )}
               </div>
             </TabsContent>
           )}

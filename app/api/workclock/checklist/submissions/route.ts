@@ -2,6 +2,37 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// チェックリスト提出がロック対象か判定するヘルパー
+// - 「2日前の記録以前」をロック対象とする（勤務記録と同じロジック）
+function isLockedPastEntry(entryDate: Date, now: Date = new Date()): boolean {
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+
+    const targetDate = new Date(entryDate)
+    targetDate.setHours(0, 0, 0, 0)
+
+    // 2日前を計算
+    const twoDaysAgo = new Date(today)
+    twoDaysAgo.setDate(today.getDate() - 2)
+
+    return targetDate <= twoDaysAgo
+}
+
+// ロック対象レコードに対して、マネージャー/HR/管理者以外をブロックする
+function ensureCanEditLockedEntry(userRole: string | null | undefined) {
+    const allowedRolesForLocked = ['manager', 'hr', 'admin']
+    if (!allowedRolesForLocked.includes(userRole || '')) {
+        return NextResponse.json(
+            {
+                error:
+                    '2日前の記録以前の業務チェックは、マネージャー・総務・管理者のみ編集できます。必要な場合は上長に依頼してください。',
+            },
+            { status: 403 }
+        )
+    }
+    return null
+}
+
 // GET /api/workclock/checklist/submissions
 export async function GET(request: Request) {
     try {
@@ -83,10 +114,33 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: `指定されたワーカー(ID: ${workerId})が見つかりません。有効なワーカーを選択してください。` }, { status: 400 })
         }
 
+        // ユーザー情報を取得（ロック判定用）
+        const user = await prisma.employee.findUnique({
+            where: { id: userId },
+            select: { role: true },
+        })
+
+        // 「2日前以前」のロック判定（勤務記録と同じロジック）
+        try {
+            const dateParts = date.split('-').map(Number);
+            const entryDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 0, 0, 0, 0);
+            if (isLockedPastEntry(entryDate)) {
+                // まずworkerのallowPastEntryEdit設定を確認
+                if (!worker.allowPastEntryEdit) {
+                    const lockError = ensureCanEditLockedEntry(user?.role)
+                    if (lockError) {
+                        return lockError
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[WorkClock API] entryDate parse error (checklist submissions POST):', e)
+        }
+
         // 日付を正規化 (yyyy-mm-dd形式の文字列から直接年月日を抽出することで、タイムゾーンのズレを防ぐ)
-        const dateParts = date.split('-').map(Number);
-        const startOfDay = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 0, 0, 0, 0);
-        const endOfDay = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 23, 59, 59, 999);
+        const dateParts2 = date.split('-').map(Number);
+        const startOfDay = new Date(dateParts2[0], dateParts2[1] - 1, dateParts2[2], 0, 0, 0, 0);
+        const endOfDay = new Date(dateParts2[0], dateParts2[1] - 1, dateParts2[2], 23, 59, 59, 999);
 
         // デバッグログ
         console.log(`Processing submission for worker: ${workerId}, date: ${date}, patternId: ${patternId} -> Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);

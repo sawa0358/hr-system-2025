@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
 
     // Prisma Clientの確認
     if (!(prisma as any).workClockReward) {
-       console.error('[WorkClock API] WorkClockRewardモデルがPrismaClientに存在しません。サーバー再起動が必要です。')
-       return NextResponse.json(
-         { error: 'システムエラー: データベースモデルが読み込まれていません。開発サーバーを再起動してください。' },
-         { status: 503 }
-       )
+      console.error('[WorkClock API] WorkClockRewardモデルがPrismaClientに存在しません。サーバー再起動が必要です。')
+      return NextResponse.json(
+        { error: 'システムエラー: データベースモデルが読み込まれていません。開発サーバーを再起動してください。' },
+        { status: 503 }
+      )
     }
 
     // workerIdが指定されている場合の権限チェック
@@ -48,25 +48,35 @@ export async function GET(request: NextRequest) {
       }
 
       const isOwner = worker.employeeId === userId
-      
+
       if (!isOwner && !hasPermission) {
-          return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+        return NextResponse.json({ error: '権限がありません' }, { status: 403 })
       }
     } else if (!hasPermission) {
-       return NextResponse.json({ error: '権限がありません' }, { status: 403 })
+      return NextResponse.json({ error: '権限がありません' }, { status: 403 })
     }
 
     const where: any = {}
     if (workerId) {
       where.workerId = workerId
     }
-    
+
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1)
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59)
       where.date = {
         gte: startDate,
         lte: endDate,
+      }
+    } else {
+      const startDateParam = searchParams.get('startDate')
+      const endDateParam = searchParams.get('endDate')
+
+      if (startDateParam && endDateParam) {
+        where.date = {
+          gte: new Date(startDateParam),
+          lte: new Date(endDateParam + 'T23:59:59'),
+        }
       }
     }
 
@@ -116,11 +126,11 @@ export async function POST(request: NextRequest) {
 
     // Prisma Clientの確認
     if (!(prisma as any).workClockWorker || !(prisma as any).workClockReward) {
-        console.error('[WorkClock API] モデルがPrismaClientに存在しません。サーバー再起動が必要です。')
-        return NextResponse.json(
-          { error: 'システムエラー: データベースモデルが読み込まれていません。開発サーバーを再起動してください。' },
-          { status: 503 }
-        )
+      console.error('[WorkClock API] モデルがPrismaClientに存在しません。サーバー再起動が必要です。')
+      return NextResponse.json(
+        { error: 'システムエラー: データベースモデルが読み込まれていません。開発サーバーを再起動してください。' },
+        { status: 503 }
+      )
     }
 
     // 権限チェック
@@ -153,7 +163,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('WorkClock reward作成エラー:', error)
     if (error.code) console.error('Prisma Error Code:', error.code)
-    
+
     return NextResponse.json(
       { error: '特別報酬・経費の作成に失敗しました: ' + (error.message || '不明なエラー') },
       { status: 500 }

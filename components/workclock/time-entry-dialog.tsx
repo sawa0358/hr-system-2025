@@ -44,6 +44,7 @@ interface TimeEntryDialogProps {
   initialStartTime?: string | null
   initialEndTime?: string | null
   canEditEntries?: boolean
+  defaultTab?: 'time' | 'checklist'
 }
 
 export function TimeEntryDialog({
@@ -59,6 +60,7 @@ export function TimeEntryDialog({
   initialStartTime,
   initialEndTime,
   canEditEntries = true,
+  defaultTab = 'time',
 }: TimeEntryDialogProps) {
   const { currentUser } = useAuth()
 
@@ -444,7 +446,7 @@ export function TimeEntryDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-6xl max-h-[95vh] h-[92vh] overflow-hidden flex flex-col bg-slate-100 text-slate-900 p-0 gap-0 border-none shadow-2xl rounded-2xl">
-        <Tabs defaultValue="time" className="flex flex-col h-full w-full">
+        <Tabs defaultValue={defaultTab} className="flex flex-col h-full w-full">
           <div className="px-6 pt-5 pb-3 flex-none bg-[#bed8d8]/30 backdrop-blur-sm border-b border-slate-200">
             <div className="flex items-center justify-between mb-4">
               <div>

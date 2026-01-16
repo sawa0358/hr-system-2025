@@ -62,6 +62,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog'
+import { TimeEntryDialog } from '@/components/workclock/time-entry-dialog'
 import { Toaster, toast } from 'sonner'
 import { AIAskButton } from '@/components/ai-ask-button'
 import { format, subDays } from 'date-fns'
@@ -90,6 +91,7 @@ interface AIReportPagination {
     limit: number
     total: number
     totalPages: number
+    totalPeriodReward?: number
 }
 
 
@@ -213,6 +215,11 @@ export default function ChecklistSummaryPage() {
         from: subDays(new Date(), 7),
         to: new Date()
     })
+
+    // TimeEntryDialog用
+    const [isEntryDialogOpen, setIsEntryDialogOpen] = useState(false)
+    const [selectedEntryWorkerId, setSelectedEntryWorkerId] = useState<string | null>(null)
+    const [timeMapData, setTimeMapData] = useState<any>({}) // workerId -> TimeEntry[]
 
     const isInitialMount = useRef(true)
     const [realSummaries, setRealSummaries] = useState<any[]>([])
@@ -369,7 +376,10 @@ export default function ChecklistSummaryPage() {
             const workers = await getWorkers(currentUser.id)
 
             // 2. 提出データを取得
-            const response = await fetch(`/api/workclock/checklist/submissions?startDate=${dateStr}&endDate=${dateStr}`, options)
+            const response = await fetch(`/api/workclock/checklist/submissions?startDate=${dateStr}&endDate=${dateStr}`, {
+                ...options,
+                cache: 'no-store'
+            })
             const data = await response.json()
             const submissions = data.submissions || []
             const submissionMap = submissions.reduce((acc: any, s: any) => {
@@ -381,12 +391,36 @@ export default function ChecklistSummaryPage() {
             const timeEntriesRes = await fetch(`/api/workclock/time-entries?startDate=${dateStr}&endDate=${dateStr}`, options)
             const timeData = await timeEntriesRes.json()
             const timeEntries = Array.isArray(timeData) ? timeData : (timeData?.entries || [])
+
+            // ダイアログ用に全エントリを保存
+            const fullTimeMap = timeEntries.reduce((acc: any, entry: any) => {
+                if (!acc[entry.workerId]) acc[entry.workerId] = []
+                acc[entry.workerId].push(entry)
+                return acc
+            }, {})
+            setTimeMapData(fullTimeMap)
+
             const timeMap = timeEntries.reduce((acc: any, entry: any) => {
                 acc[entry.workerId] = `${entry.startTime} - ${entry.endTime}`
                 return acc
             }, {})
 
-            // 4. 全ワーカーをベースにマッピング（未提出者を含む）
+            // 4. 獲得寸志（Rewards）を取得
+            let rewardsMap: any = {}
+            try {
+                const rewardRes = await fetch(`/api/workclock/rewards?startDate=${dateStr}&endDate=${dateStr}`, options)
+                if (rewardRes.ok) {
+                    const rewardsData = await rewardRes.json()
+                    rewardsMap = Array.isArray(rewardsData) ? rewardsData.reduce((acc: any, r: any) => {
+                        acc[r.workerId] = (acc[r.workerId] || 0) + r.amount
+                        return acc
+                    }, {}) : {}
+                }
+            } catch (e) {
+                console.error('Failed to fetch rewards:', e)
+            }
+
+            // 5. 全ワーカーをベースにマッピング（未提出者を含む）
             const mapped = workers.map((w: any) => {
                 const s = submissionMap[w.id]
                 const totalItems = s?.items?.length || 0
@@ -407,6 +441,13 @@ export default function ChecklistSummaryPage() {
                     parsedTeams = []
                 }
 
+                const checklistReward = s?.items?.reduce((acc: number, it: any) => {
+                    const isEligible = it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
+                    return acc + (isEligible ? it.reward : 0)
+                }, 0) || 0
+
+                const sunshiReward = rewardsMap[w.id] || 0
+
                 return {
                     id: s?.id || `no-submission-${w.id}`,
                     workerId: w.id,
@@ -418,10 +459,7 @@ export default function ChecklistSummaryPage() {
                     time: timeMap[w.id] || '未登録',
                     status: s ? (isCompleted ? 'completed' : 'partial') : 'none',
                     checkedCount: s ? `${checkedItems}/${totalItems}` : '未報告',
-                    reward: s?.items?.reduce((acc: number, it: any) => {
-                        const isEligible = it.isChecked || (it.isFreeText && it.freeTextValue?.trim())
-                        return acc + (isEligible ? it.reward : 0)
-                    }, 0) || 0,
+                    reward: checklistReward + sunshiReward, // 寸志を加算
                     hasPhoto: s?.hasPhoto || false,
                     memo: s?.memo || '',
                     isSafetyAlert: s?.isSafetyAlert || false,
@@ -976,7 +1014,14 @@ export default function ChecklistSummaryPage() {
                                     <CardHeader className="pb-0 border-b border-slate-100 bg-white/50">
                                         <div className="flex items-center justify-between mb-4">
                                             <CardTitle className="text-lg">ワーカー別 報告一覧</CardTitle>
-                                            <span className="text-xs text-slate-400 font-medium">該当件数: {filteredSummaries.length}件</span>
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-xs text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded-md">
+                                                    該当件数: {filteredSummaries.length}件
+                                                </span>
+                                                <span className="text-xs text-yellow-600 font-bold bg-yellow-50 px-2 py-1 rounded-md border border-yellow-100">
+                                                    獲得寸志計: ¥{filteredSummaries.reduce((acc, r) => acc + r.reward, 0).toLocaleString()}
+                                                </span>
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent className="p-0">
@@ -1012,8 +1057,12 @@ export default function ChecklistSummaryPage() {
                                                             key={row.id}
                                                             className="hover:bg-slate-50/80 transition-colors group cursor-pointer"
                                                             onClick={() => {
-                                                                setSelectedReport(row)
-                                                                setIsDetailModalOpen(true)
+                                                                // TimeEntryDialogを開く
+                                                                setSelectedEntryWorkerId(row.workerId)
+                                                                setIsEntryDialogOpen(true)
+                                                                // 旧詳細モーダルは使わない
+                                                                // setSelectedReport(row)
+                                                                // setIsDetailModalOpen(true)
                                                             }}
                                                         >
                                                             <TableCell className="pl-6 py-4">
@@ -1142,9 +1191,16 @@ export default function ChecklistSummaryPage() {
 
                             <Card className="shadow-sm border-none bg-white/80 overflow-hidden">
                                 <CardHeader className="pb-4 bg-white/50 border-b border-slate-100">
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <History className="w-5 h-5 text-indigo-600" /> AI総括レポート履歴
-                                    </CardTitle>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <History className="w-5 h-5 text-indigo-600" /> AI総括レポート履歴
+                                        </CardTitle>
+                                        {(reportPagination.totalPeriodReward !== undefined) && (
+                                            <span className="text-xs text-yellow-600 font-bold bg-yellow-50 px-2 py-1 rounded-md border border-yellow-100">
+                                                獲得寸志計: ¥{reportPagination.totalPeriodReward.toLocaleString()}
+                                            </span>
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <div className="divide-y divide-slate-100">
@@ -1513,6 +1569,24 @@ export default function ChecklistSummaryPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {/* TimeEntryDialog: カレンダーと同じモーダルを表示 (編集ボタン非表示、デフォルト業務チェック) */}
+            {selectedEntryWorkerId && isEntryDialogOpen && (
+                <TimeEntryDialog
+                    open={isEntryDialogOpen}
+                    onOpenChange={setIsEntryDialogOpen}
+                    workerId={selectedEntryWorkerId}
+                    employeeId={workers.find(w => w.id === selectedEntryWorkerId)?.employeeId}
+                    worker={workers.find(w => w.id === selectedEntryWorkerId) || null}
+                    selectedDate={filterDate}
+                    existingEntries={timeMapData[selectedEntryWorkerId] || []}
+                    onClose={() => {
+                        setIsEntryDialogOpen(false)
+                        fetchSummaries() // 変更があった場合に再取得
+                    }}
+                    canEditEntries={false} // 編集ボタン非表示
+                    defaultTab="checklist" // デフォルトで業務チェックを表示
+                />
+            )}
         </div >
     )
 }

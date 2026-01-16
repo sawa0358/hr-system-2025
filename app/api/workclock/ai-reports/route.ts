@@ -225,6 +225,14 @@ export async function GET(request: NextRequest) {
 
         const total = await (prisma as any).workClockAIReport.count({ where })
 
+        const rewardAggregation = await (prisma as any).workClockAIReport.aggregate({
+            where,
+            _sum: {
+                totalReward: true
+            }
+        })
+        const totalPeriodReward = rewardAggregation._sum.totalReward || 0
+
         const reports = await (prisma as any).workClockAIReport.findMany({
             where,
             orderBy: [
@@ -248,7 +256,8 @@ export async function GET(request: NextRequest) {
                 page,
                 limit,
                 total,
-                totalPages: Math.ceil(total / limit)
+                totalPages: Math.ceil(total / limit),
+                totalPeriodReward
             }
         })
     } catch (error) {

@@ -2,6 +2,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+export const dynamic = 'force-dynamic'
+
 // チェックリスト提出がロック対象か判定するヘルパー
 // - 「2日前の記録以前」をロック対象とする（勤務記録と同じロジック）
 function isLockedPastEntry(entryDate: Date, now: Date = new Date()): boolean {
@@ -149,7 +151,7 @@ export async function POST(request: Request) {
         const existingSubmissions = await (prisma as any).workClockChecklistSubmission.findMany({
             where: {
                 workerId,
-                patternId: patternId || null,
+                // patternId: patternId || null, // パターンに関わらず同日の提出は1つとする
                 date: {
                     gte: startOfDay,
                     lte: endOfDay,

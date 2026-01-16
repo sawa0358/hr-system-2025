@@ -109,9 +109,17 @@ export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRe
 
                     const updatedCheckedItems: Record<string, boolean> = {}
                     const updatedFreeTextValues: Record<string, string> = {}
+
+                    // 提出データの報酬情報を反映させるためのマッピング作成
+                    const submissionItemMap = new Map<string, any>()
+
                     if (submission.items && Array.isArray(submission.items)) {
                         submission.items.forEach((subItem: any) => {
                             const subTitle = subItem.title?.trim()
+                            if (subTitle) {
+                                submissionItemMap.set(subTitle, subItem)
+                            }
+
                             const matchingItem = items.find(i => i.title?.trim() === subTitle)
 
                             if (matchingItem) {
@@ -122,6 +130,16 @@ export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRe
                                 }
                             }
                         })
+
+                        // パターンのアイテム報酬を提出時のものに上書き
+                        items = items.map(item => {
+                            const subItem = submissionItemMap.get(item.title?.trim())
+                            if (subItem && typeof subItem.reward === 'number') {
+                                return { ...item, reward: subItem.reward }
+                            }
+                            return item
+                        })
+                        setChecklistItems(items)
                     }
 
                     setCheckedItems(updatedCheckedItems)

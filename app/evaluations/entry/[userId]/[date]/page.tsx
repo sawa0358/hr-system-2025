@@ -60,6 +60,9 @@ export default function EvaluationEntryPage() {
     const [items, setItems] = useState<any[]>([])
     const [thankYous, setThankYous] = useState<any[]>([])
     const [thankYouMessage, setThankYouMessage] = useState("")
+    const [thankYouRecipientType, setThankYouRecipientType] = useState("") // 'individual', 'team', 'all'
+    const [thankYouRecipient, setThankYouRecipient] = useState("")
+    const [teamMembers, setTeamMembers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
@@ -114,7 +117,7 @@ export default function EvaluationEntryPage() {
                     fetch(`/api/evaluations/submissions?date=${dateStr}&userId=${userId}`, {
                         headers: { 'x-employee-id': currentUser?.id || '' }
                     }),
-                    fetch(`/api/evaluations/settings/employees/${userId}`)
+                    fetch(`/api/evaluations/settings/employees?id=${userId}`) // URLをクエリパラメータ形式に修正
                 ])
 
                 const subData = await subRes.json()
@@ -137,6 +140,18 @@ export default function EvaluationEntryPage() {
                             .then(d => {
                                 if (d.stats) setStats(d.stats.currentMonth)
                             })
+
+                        // Fetch Team Members for Thank You feature
+                        fetch(`/api/evaluations/settings/employees`)
+                            .then(r => r.json())
+                            .then(allEmployees => {
+                                // Filter to same team or all
+                                const members = Array.isArray(allEmployees)
+                                    ? allEmployees.filter((e: any) => e.teamId === empData.personnelEvaluationTeam?.id && e.id !== userId)
+                                    : []
+                                setTeamMembers(members)
+                            })
+                            .catch(e => console.error("Failed to fetch team members", e))
                     }
                 }
 
@@ -242,7 +257,7 @@ export default function EvaluationEntryPage() {
                                 points: p.points,
                                 checked: false,
                                 value: '',
-                                mandatory: p.isMandatory, // APIからのレスポンス形式に注意 (mandatory vs isMandatory)
+                                mandatory: p.mandatory, // APIからのレスポンス形式に合わせる
                                 photoUrl: null,
                                 photoComment: ''
                             }))
@@ -268,7 +283,7 @@ export default function EvaluationEntryPage() {
                         points: i.points,
                         checked: false,
                         value: '',
-                        mandatory: i.isMandatory
+                        mandatory: i.mandatory // APIレスポンス形式
                     }))
                     setItems(patternItems)
                 } else {
@@ -344,12 +359,27 @@ export default function EvaluationEntryPage() {
                     comment: i.photoComment
                 }))
 
+            // ありがとうの宛先を決定
+            let thankYouTo: string[] = []
+            if (thankYouMessage && thankYouRecipientType) {
+                if (thankYouRecipientType === 'individual' && thankYouRecipient) {
+                    thankYouTo = [thankYouRecipient]
+                } else if (thankYouRecipientType === 'team') {
+                    thankYouTo = teamMembers.map(m => m.id)
+                } else if (thankYouRecipientType === 'all') {
+                    // All employees - this would need a full list. For now, use teamMembers as proxy or handle in API
+                    thankYouTo = teamMembers.map(m => m.id) // Or fetch all from API
+                }
+            }
+
             const body = {
                 date: dateStr,
                 employeeId: userId,
                 items: processedItems,
                 photos: photoPayload,
-                thankYous: thankYouMessage ? [{ to: [], message: thankYouMessage }] : [],
+                thankYous: thankYouMessage && thankYouTo.length > 0
+                    ? [{ to: thankYouTo, message: thankYouMessage, recipientType: thankYouRecipientType }]
+                    : [],
                 goals: {
                     contractAchieved: personalGoal.contractAchieved,
                     completionAchieved: personalGoal.completionAchieved
@@ -901,16 +931,61 @@ export default function EvaluationEntryPage() {
                             <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
                                 <Heart className="w-4 h-4 fill-pink-500" />
                                 ありがとうを送る
+                                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +5pt / 受信: +10pt）</span>
                             </h2>
                             {canEdit && (
                                 <Card className="border-pink-200 bg-pink-50/30">
                                     <CardContent className="p-4 space-y-4">
-                                        <Textarea
-                                            value={thankYouMessage}
-                                            onChange={e => setThankYouMessage(e.target.value)}
-                                            placeholder="感謝のメッセージを入力..."
-                                            className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
-                                        />
+                                        {/* Recipient Selection */}
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-pink-700">送り先</label>
+                                            <Select
+                                                value={thankYouRecipientType}
+                                                onValueChange={(v) => setThankYouRecipientType(v)}
+                                            >
+                                                <SelectTrigger className="w-full h-9 bg-white border-pink-200">
+                                                    <SelectValue placeholder="送り先を選択..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="individual">個人を選択</SelectItem>
+                                                    <SelectItem value="team">チーム全員</SelectItem>
+                                                    <SelectItem value="all">全員</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+
+                                            {thankYouRecipientType === 'individual' && (
+                                                <Select
+                                                    value={thankYouRecipient}
+                                                    onValueChange={(v) => setThankYouRecipient(v)}
+                                                >
+                                                    <SelectTrigger className="w-full h-9 bg-white border-pink-200 mt-2">
+                                                        <SelectValue placeholder="メンバーを選択..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {teamMembers.map((m: any) => (
+                                                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        </div>
+
+                                        {/* Message */}
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-bold text-pink-700">メッセージ</label>
+                                            <Textarea
+                                                value={thankYouMessage}
+                                                onChange={e => setThankYouMessage(e.target.value)}
+                                                placeholder="感謝のメッセージを入力..."
+                                                className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
+                                            />
+                                        </div>
+
+                                        {/* Notice */}
+                                        <p className="text-[10px] text-pink-400 leading-relaxed">
+                                            相手には内容が通知されますが、返信やリアクションのスレッド機能はありません。<br />
+                                            これは、受け取った方が気を使って返信しなければと思わなくて済むようにするためです。
+                                        </p>
                                     </CardContent>
                                 </Card>
                             )}

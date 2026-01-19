@@ -164,6 +164,7 @@ model Employee {
 
   // 人事考課システム
   isPersonnelEvaluationTarget    Boolean                         @default(false)
+  isNumericGoalEnabled           Boolean                         @default(true) // 数字目標の有無
   personnelEvaluationTeamId      String?
   personnelEvaluationTeam        PersonnelEvaluationTeam?        @relation(fields: [personnelEvaluationTeamId], references: [id], onDelete: SetNull)
   personnelEvaluationPatternId   String?

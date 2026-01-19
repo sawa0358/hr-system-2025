@@ -18,12 +18,21 @@ import {
     Heart,
     AlertCircle,
     CheckCircle2,
-    Lock
+    Lock,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react"
-import { format, parseISO, endOfMonth, addMonths } from "date-fns"
+import { format, parseISO, endOfMonth, addMonths, startOfMonth, subMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 export default function EvaluationEntryPage() {
     const params = useParams()
@@ -40,7 +49,11 @@ export default function EvaluationEntryPage() {
         contractAchieved: 0,
         completionTarget: 0,
         completionAchieved: 0
-    }) // Personal Goal Stats
+    })
+    const [isNumericGoalEnabled, setIsNumericGoalEnabled] = useState(true)
+    const [calendarStats, setCalendarStats] = useState<Record<string, number>>({})
+    const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date())
+
     const [items, setItems] = useState<any[]>([])
     const [thankYous, setThankYous] = useState<any[]>([])
     const [thankYouMessage, setThankYouMessage] = useState("")
@@ -51,9 +64,9 @@ export default function EvaluationEntryPage() {
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
     const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
-    // Goal Editing Lock Logic: Locked after the end of the next month
+    // Goal Editing Lock Logic
     const isGoalLocked = (() => {
-        if (isAdminOrHr) return false // Admin/HR can always edit
+        if (isAdminOrHr) return false
 
         const targetDate = new Date(dateStr)
         const nextMonthEnd = endOfMonth(addMonths(targetDate, 1))
@@ -61,6 +74,27 @@ export default function EvaluationEntryPage() {
 
         return now > nextMonthEnd
     })()
+
+    useEffect(() => {
+        // Set initial calendar date to the entry date
+        if (dateStr) {
+            setCurrentCalendarDate(new Date(dateStr))
+        }
+    }, [dateStr])
+
+    // Load Calendar Stats whenever currentCalendarDate or userId changes
+    useEffect(() => {
+        if (!userId) return
+        const dateString = format(currentCalendarDate, 'yyyy-MM-dd')
+        fetch(`/api/evaluations/dashboard?date=${dateString}&employeeId=${userId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.calendarStats) {
+                    setCalendarStats(data.calendarStats)
+                }
+            })
+            .catch(e => console.error("Failed to load calendar stats", e))
+    }, [currentCalendarDate, userId])
 
     useEffect(() => {
         const loadData = async () => {
@@ -82,6 +116,11 @@ export default function EvaluationEntryPage() {
                     setEmployeeName(empData.name)
                     setTeamName(empData.personnelEvaluationTeam?.name || "")
 
+                    // Set Numeric Goal Flag
+                    if (empData.isNumericGoalEnabled !== undefined) {
+                        setIsNumericGoalEnabled(empData.isNumericGoalEnabled)
+                    }
+
                     // Fetch Team Stats
                     if (empData.personnelEvaluationTeamId) {
                         fetch(`/api/evaluations/dashboard?date=${dateStr}&teamId=${empData.personnelEvaluationTeamId}`)
@@ -92,8 +131,9 @@ export default function EvaluationEntryPage() {
                     }
                 }
 
+                // ... (rest of loading logic same as before but respecting isNumericGoalEnabled implicitly via UI check)
+
                 // 3. Set Personal Goals
-                // Check if API returned goal (from submission/goal table)
                 if (subData.goal) {
                     setPersonalGoal({
                         contractTarget: Number(subData.goal.contractTargetAmount),
@@ -127,19 +167,29 @@ export default function EvaluationEntryPage() {
                 // 4. Set Items (Submission or Pattern)
                 if (subData.submission) {
                     // Load from saved submission
-                    const loadedItems = subData.submission.items.map((i: any) => ({
-                        id: i.itemId || i.id,
-                        itemId: i.itemId,
-                        type: i.title === 'ありがとう送信' ? 'thank_you' : (i.title.includes('振り返り') ? 'text' : 'checkbox'),
-                        title: i.title,
-                        description: i.description,
-                        points: i.points,
-                        checked: i.isChecked,
-                        value: i.textValue || '',
-                        mandatory: false
-                    })).filter((i: any) => i.type !== 'thank_you')
+                    const loadedItems = subData.submission.items.map((i: any) => {
+                        let type = 'checkbox'
+                        // Prioritize flags if available
+                        if (i.isDescription) type = 'description'
+                        else if (i.isFreeText) type = 'text'
+                        // Fallback to title heuristics
+                        else if (i.title === 'ありがとう送信') type = 'thank_you'
+                        else if (i.title.includes('写真') || i.title === '写真') type = 'photo'
+                        else if (i.title.includes('振り返り')) type = 'text'
+                        else if (i.description && !i.isChecked && !i.points) type = 'description' // Heuristic for description items if flag missing
 
+                        return {
+                            ...i,
+                            id: i.itemId || i.id,
+                            itemId: i.itemId,
+                            type,
+                            checked: i.isChecked,
+                            value: i.textValue || '',
+                            mandatory: false
+                        }
+                    }).filter((i: any) => i.type !== 'thank_you')
                     setItems(loadedItems)
+
                 } else if (empData) {
                     // Load from Pattern
                     const patternId = empData.personnelEvaluationPatternId || empData.personnelEvaluationPattern?.id
@@ -166,7 +216,6 @@ export default function EvaluationEntryPage() {
 
                 // 5. Lock Logic
                 setIsLocked(subData.isLocked)
-                // If locked, only admin/hr/manager can edit
                 if (subData.isLocked) {
                     setCanEdit(isAdminOrHrOrManager)
                 } else {
@@ -272,316 +321,440 @@ export default function EvaluationEntryPage() {
                 </div>
             </header>
 
-            <main className="flex-1 container mx-auto p-4 max-w-3xl space-y-6">
-                {/* Stats Header (Reference Image 2 Style) */}
-                {stats && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                        {/* Contract Stats */}
-                        <div className="bg-slate-900 text-white p-4">
-                            <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                                {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
-                                <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
-                                <div>契約達成額</div>
-                                <div>契約目標額</div>
-                                <div>達成率</div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}</div>
-                                <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}</div>
-                                <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
-                            </div>
-                        </div>
-                        {/* Completion Stats */}
-                        <div className="bg-slate-900 text-white p-4">
-                            <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                                2025年11月
-                                <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
-                                <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
-                                <div>完工達成額</div>
-                                <div>完工目標額</div>
-                                <div>達成率</div>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}</div>
-                                <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}</div>
-                                <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
+            <main className="flex-1 container mx-auto p-4 max-w-6xl">
+                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
 
-                {/* Personal Goals Input Section */}
-                <Card className="border-slate-200 shadow-sm overflow-hidden">
-                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-700 text-sm">個人目標・実績管理</h3>
-                        <div className="flex items-center gap-2">
-                            {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">編集期間終了</Badge>}
-                            <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm">
-                                {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
-                            </span>
-                            <Button size="sm" onClick={handleSave} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
-                                <Save className="w-3 h-3 mr-1" />
-                                実績を保存
-                            </Button>
+                    {/* Left Column: Calendar */}
+                    <aside className="space-y-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 sticky top-4">
+                            <div className="flex flex-col gap-3">
+                                <div className="text-slate-500 text-xs font-bold pl-1">
+                                    表示年月:
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Select value={format(currentCalendarDate, 'yyyy')} onValueChange={(v) => {
+                                        const newDate = new Date(currentCalendarDate)
+                                        newDate.setFullYear(parseInt(v))
+                                        setCurrentCalendarDate(newDate)
+                                    }}>
+                                        <SelectTrigger className="w-[70px] h-8 text-xs border-slate-200 px-2">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="2026">2026</SelectItem>
+                                            <SelectItem value="2025">2025</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <span className="text-xs text-slate-500 font-bold whitespace-nowrap">年</span>
+                                    <Select value={format(currentCalendarDate, 'M')} onValueChange={(v) => {
+                                        const newDate = new Date(currentCalendarDate)
+                                        newDate.setMonth(parseInt(v) - 1)
+                                        setCurrentCalendarDate(newDate)
+                                    }}>
+                                        <SelectTrigger className="w-[50px] h-8 text-xs border-slate-200 px-2">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {[...Array(12)].map((_, i) => (
+                                                <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-1">
+                                    <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
+                                        <ChevronLeft className="w-3 h-3" />
+                                    </Button>
+                                    <Button variant="outline" size="sm" className="h-7 flex-1 text-xs" onClick={() => setCurrentCalendarDate(new Date())}>
+                                        今月
+                                    </Button>
+                                    <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}>
+                                        <ChevronRight className="w-3 h-3" />
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="border rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-400px)]">
+                                <table className="w-full text-xs text-left border-collapse sticky top-0 z-10">
+                                    <thead className="bg-[#1e293b] text-white">
+                                        <tr>
+                                            <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentCalendarDate, 'M月')}</th>
+                                            <th className="px-2 py-2 text-center whitespace-nowrap">状態</th>
+                                        </tr>
+                                    </thead>
+                                </table>
+                                <div className="overflow-y-auto custom-scrollbar">
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <tbody className="divide-y divide-slate-200">
+                                            {(() => {
+                                                const year = currentCalendarDate.getFullYear()
+                                                const month = currentCalendarDate.getMonth()
+                                                const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+                                                return [...Array(daysInMonth)].map((_, i) => {
+                                                    const day = i + 1
+                                                    const date = new Date(year, month, day)
+                                                    const dStr = format(date, 'yyyy-MM-dd')
+                                                    const dayOfWeek = date.getDay()
+                                                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+                                                    const isSelected = dStr === dateStr
+                                                    const isSubmitted = (calendarStats[dStr] || 0) > 0
+
+                                                    return (
+                                                        <tr
+                                                            key={day}
+                                                            onClick={isSelected ? undefined : () => router.push(`/evaluations/entry/${userId}/${dStr}`)}
+                                                            className={cn(
+                                                                "cursor-pointer transition-colors",
+                                                                isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"
+                                                            )}
+                                                        >
+                                                            <td className={cn(
+                                                                "px-2 py-2.5 text-center font-bold border-r w-14 whitespace-nowrap",
+                                                                !isSelected && isWeekend ? "bg-slate-50 text-slate-500" : "",
+                                                                isSelected ? "border-blue-500" : "border-slate-100"
+                                                            )}>
+                                                                {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
+                                                            </td>
+                                                            <td className="px-2 py-2.5 text-center">
+                                                                {isSubmitted ? (
+                                                                    <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
+                                                                ) : (
+                                                                    <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })
+                                            })()}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <CardContent className="p-4 bg-white">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Contract Goal */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <Label className="text-slate-700 font-bold flex flex-col">
-                                        <span className="text-base">契約実績金額</span>
-                                        <span className="text-[10px] text-slate-400 font-normal">リアルタイムで記入</span>
-                                    </Label>
-                                    <div className="text-right">
-                                        <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                        <span className="font-bold text-slate-600">¥{personalGoal.contractTarget.toLocaleString()}</span>
+                    </aside>
+
+                    {/* Right Column: Main Content */}
+                    <div className="space-y-6">
+                        {/* Stats Header (Reference Image 2 Style) */}
+                        {stats && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                                {/* Contract Stats */}
+                                <div className="bg-slate-900 text-white p-4">
+                                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                                        {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
+                                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                                        <div>契約達成額</div>
+                                        <div>契約目標額</div>
+                                        <div>達成率</div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-center items-end">
+                                        <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}</div>
+                                        <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}</div>
+                                        <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
-                                    <Input
-                                        type="number"
-                                        value={personalGoal.contractAchieved || ''}
-                                        onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: e.target.value })}
-                                        className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
-                                        placeholder="0"
-                                        disabled={isGoalLocked && !isAdminOrHr}
-                                    />
-                                </div>
-                                <div className="flex justify-end text-xs font-medium">
-                                    達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
-                                        {personalGoal.contractTarget > 0 ? ((Number(personalGoal.contractAchieved) / personalGoal.contractTarget) * 100).toFixed(1) : '0.0'}%
-                                    </span>
+                                {/* Completion Stats */}
+                                <div className="bg-slate-900 text-white p-4">
+                                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                                        2025年11月
+                                        <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                                        <div>完工達成額</div>
+                                        <div>完工目標額</div>
+                                        <div>達成率</div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-center items-end">
+                                        <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}</div>
+                                        <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}</div>
+                                        <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
+                                    </div>
                                 </div>
                             </div>
+                        )}
 
-                            {/* Completion Goal */}
-                            <div className="space-y-3">
-                                <div className="flex items-center justify-between">
+                        {/* Personal Goals Input Section - Conditional Rendering */}
+                        {isNumericGoalEnabled && (
+                            <Card className="border-slate-200 shadow-sm overflow-hidden">
+                                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-700 text-sm">個人目標・実績管理</h3>
                                     <div className="flex items-center gap-2">
-                                        <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
-                                        <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                        <span className="font-bold text-slate-600">¥{personalGoal.completionTarget.toLocaleString()}</span>
+                                        {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">編集期間終了</Badge>}
+                                        <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm">
+                                            {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
+                                        </span>
+                                        <Button size="sm" onClick={handleSave} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+                                            <Save className="w-3 h-3 mr-1" />
+                                            実績を保存
+                                        </Button>
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
-                                    <Input
-                                        type="number"
-                                        value={personalGoal.completionAchieved || ''}
-                                        onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: e.target.value })}
-                                        className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
-                                        placeholder="0"
-                                        disabled={isGoalLocked && !isAdminOrHr}
-                                    />
-                                </div>
-                                <div className="flex justify-end text-xs font-medium">
-                                    達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
-                                        {personalGoal.completionTarget > 0 ? ((Number(personalGoal.completionAchieved) / personalGoal.completionTarget) * 100).toFixed(1) : '0.0'}%
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Main Check Items */}
-                <div className="space-y-4">
-                    <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        チェック項目
-                    </h2>
-
-                    <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
-                        {/* List Header */}
-                        <div className="bg-slate-50/80 border-b border-slate-100 px-4 py-2 flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            <div className="w-8 text-center mr-3">Check</div>
-                            <div className="flex-1">Content</div>
-                            <div className="w-16 text-right">Info</div>
-                        </div>
-
-                        <div className="divide-y divide-slate-100">
-                            {items.filter(i => !['photo', 'thank_you'].includes(i.type)).length === 0 && (
-                                <div className="p-8 text-center text-slate-400 italic text-sm">評価項目が設定されていません</div>
-                            )}
-
-                            {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
-                                <div key={item.id} className={cn(
-                                    "group flex items-start px-4 transition-colors",
-                                    item.type === 'description' ? "bg-slate-700 py-2 rounded-md my-1" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
-                                )}>
-                                    {/* Checkbox / Icon */}
-                                    <div className="w-8 mr-3 flex justify-center pt-0.5">
-                                        {item.type === 'description' ? (
-                                            <AlertCircle className="w-4 h-4 text-slate-300 mt-0.5" />
-                                        ) : (item.type === 'checkbox' || !item.type) ? (
-                                            <Checkbox
-                                                checked={item.checked}
-                                                onCheckedChange={(c) => toggleCheck(index, !!c)}
-                                                disabled={!canEdit}
-                                                className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 w-5 h-5 rounded-md"
-                                            />
-                                        ) : item.type === 'text' ? (
-                                            <MessageCircle className="w-5 h-5 text-emerald-500" />
-                                        ) : (
-                                            <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5" />
-                                        )}
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="flex-1 space-y-1.5 min-w-0">
-                                        <div
-                                            className={cn(
-                                                "flex flex-wrap items-baseline gap-x-2 gap-y-0.5",
-                                                item.type === 'description' ? "" : ((item.type === 'checkbox' || !item.type) && canEdit && "cursor-pointer")
-                                            )}
-                                            onClick={() => item.type !== 'description' && (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}
-                                        >
-                                            <Label className={cn(
-                                                "text-sm font-medium leading-snug break-words",
-                                                item.type === 'description' ? "text-white" : (item.checked ? "text-slate-400" : "text-slate-700"),
-                                                item.type !== 'description' && "cursor-pointer"
-                                            )}>
-                                                {item.title}
-                                            </Label>
-                                            {item.description && item.type !== 'description' && (
-                                                <span className={cn("text-[10px] break-words leading-tight", item.checked ? "text-slate-300" : "text-slate-400")}>
-                                                    {item.description}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Input for Text/Desc */}
-                                        {(item.type === 'text' || item.type === 'description') && (
-                                            <div className="pt-1">
-                                                <Textarea
-                                                    value={item.value || ''}
-                                                    onChange={(e) => updateText(index, e.target.value)}
-                                                    placeholder={item.type === 'description' ? '' : "入力してください..."}
-                                                    disabled={item.type === 'description' ? true : !canEdit}
-                                                    className={cn("text-xs min-h-[60px] resize-y w-full leading-relaxed", item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none text-slate-500 resize-none h-auto min-h-0" : "bg-white border-slate-200 focus-visible:ring-blue-400")}
+                                <CardContent className="p-4 bg-white">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* Contract Goal */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <Label className="text-slate-700 font-bold flex flex-col">
+                                                    <span className="text-base">契約実績金額</span>
+                                                    <span className="text-[10px] text-slate-400 font-normal">リアルタイムで記入</span>
+                                                </Label>
+                                                <div className="text-right">
+                                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                                    <span className="font-bold text-slate-600">¥{personalGoal.contractTarget.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                                <Input
+                                                    type="number"
+                                                    value={personalGoal.contractAchieved || ''}
+                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: e.target.value })}
+                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                                    placeholder="0"
+                                                    disabled={isGoalLocked && !isAdminOrHr}
                                                 />
                                             </div>
-                                        )}
-                                    </div>
+                                            <div className="flex justify-end text-xs font-medium">
+                                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                                    {personalGoal.contractTarget > 0 ? ((Number(personalGoal.contractAchieved) / personalGoal.contractTarget) * 100).toFixed(1) : '0.0'}%
+                                                </span>
+                                            </div>
+                                        </div>
 
-                                    {/* Badges/Right Info */}
-                                    <div className="w-16 pl-2 text-right flex flex-col items-end gap-1 flex-shrink-0">
-                                        {item.mandatory && <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>}
-                                        {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{item.points}</span>}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </Card>
-                </div>
-
-                {/* Photo Section */}
-                <div className="space-y-4 pt-4 border-t border-slate-200">
-                    <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                        <Camera className="w-4 h-4" />
-                        写真アップロード
-                    </h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        {items.filter(i => i.type === 'photo').map((item, idx) => {
-                            const photoIndex = items.findIndex(it => it.id === item.id)
-                            return (
-                                <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden">
-                                    <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative">
-                                        {item.photoUrl ? (
-                                            <>
-                                                <img src={item.photoUrl} alt={item.title} className="w-full h-24 object-cover rounded" />
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="absolute top-2 right-2 h-6 px-2 text-xs"
-                                                    onClick={() => {
-                                                        const newItems = [...items]
-                                                        newItems[photoIndex] = { ...item, photoUrl: null }
-                                                        setItems(newItems)
-                                                    }}
-                                                >
-                                                    削除
-                                                </Button>
-                                            </>
-                                        ) : (
-                                            <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    capture="environment"
-                                                    className="hidden"
-                                                    disabled={!canEdit}
-                                                    onChange={async (e) => {
-                                                        const file = e.target.files?.[0]
-                                                        if (!file) return
-                                                        // Convert to base64 for preview (in real app, upload to server)
-                                                        const reader = new FileReader()
-                                                        reader.onload = (ev) => {
-                                                            const newItems = [...items]
-                                                            newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
-                                                            setItems(newItems)
-                                                        }
-                                                        reader.readAsDataURL(file)
-                                                    }}
+                                        {/* Completion Goal */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
+                                                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                                    <span className="font-bold text-slate-600">¥{personalGoal.completionTarget.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                                <Input
+                                                    type="number"
+                                                    value={personalGoal.completionAchieved || ''}
+                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: e.target.value })}
+                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                                    placeholder="0"
+                                                    disabled={isGoalLocked && !isAdminOrHr}
                                                 />
-                                                <Camera className="w-8 h-8 opacity-50" />
-                                                <span className="text-xs font-bold mt-2">{item.title}</span>
-                                                <span className="text-[10px] text-slate-400 mt-1">タップして撮影/選択</span>
-                                            </label>
-                                        )}
+                                            </div>
+                                            <div className="flex justify-end text-xs font-medium">
+                                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                                    {personalGoal.completionTarget > 0 ? ((Number(personalGoal.completionAchieved) / personalGoal.completionTarget) * 100).toFixed(1) : '0.0'}%
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {/* Check Items */}
+                        <div className="space-y-4">
+                            <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                                <CheckCircle2 className="w-4 h-4" />
+                                チェック項目
+                            </h2>
+
+                            <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
+                                {/* List Header */}
+                                <div className="bg-slate-50/80 border-b border-slate-100 px-4 py-2 flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    <div className="w-8 text-center mr-3">Check</div>
+                                    <div className="flex-1">Content</div>
+                                    <div className="w-16 text-right">Info</div>
+                                </div>
+
+                                <div className="divide-y divide-slate-100">
+                                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).length === 0 && (
+                                        <div className="p-8 text-center text-slate-400 italic text-sm">評価項目が設定されていません</div>
+                                    )}
+
+                                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
+                                        <div key={item.id} className={cn(
+                                            "group flex items-start px-4 transition-colors",
+                                            item.type === 'description' ? "bg-slate-700 py-2 rounded-md my-1 pointer-events-none" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
+                                        )}>
+                                            {/* Checkbox / Icon */}
+                                            <div className="w-8 mr-3 flex justify-center pt-0.5">
+                                                {item.type === 'description' ? (
+                                                    <AlertCircle className="w-4 h-4 text-slate-300 mt-0.5" />
+                                                ) : (item.type === 'checkbox' || !item.type) ? (
+                                                    <Checkbox
+                                                        checked={item.checked}
+                                                        onCheckedChange={(c) => toggleCheck(index, !!c)}
+                                                        disabled={!canEdit}
+                                                        className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 w-5 h-5 rounded-md"
+                                                    />
+                                                ) : item.type === 'text' ? (
+                                                    <MessageCircle className="w-5 h-5 text-emerald-500" />
+                                                ) : (
+                                                    <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5" />
+                                                )}
+                                            </div>
+
+                                            {/* Content */}
+                                            <div className="flex-1 space-y-1.5 min-w-0">
+                                                <div
+                                                    className={cn(
+                                                        "flex flex-wrap items-baseline gap-x-2 gap-y-0.5",
+                                                        item.type === 'description' ? "" : ((item.type === 'checkbox' || !item.type) && canEdit && "cursor-pointer")
+                                                    )}
+                                                    onClick={() => item.type !== 'description' && (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}
+                                                >
+                                                    <Label className={cn(
+                                                        "text-sm font-medium leading-snug break-words",
+                                                        item.type === 'description' ? "text-white" : (item.checked ? "text-slate-400" : "text-slate-700"),
+                                                        item.type !== 'description' && "cursor-pointer"
+                                                    )}>
+                                                        {item.title}
+                                                    </Label>
+                                                    {item.description && item.type !== 'description' && (
+                                                        <span className={cn("text-[10px] break-words leading-tight", item.checked ? "text-slate-300" : "text-slate-400")}>
+                                                            {item.description}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Input for Text/Desc */}
+                                                {(item.type === 'text' || item.type === 'description') && (
+                                                    <div className="pt-1">
+                                                        <Textarea
+                                                            value={item.value || ''}
+                                                            onChange={(e) => updateText(index, e.target.value)}
+                                                            placeholder={item.type === 'description' ? '' : "入力してください..."}
+                                                            disabled={item.type === 'description' ? true : !canEdit}
+                                                            className={cn(
+                                                                "text-xs min-h-[60px] resize-y w-full leading-relaxed",
+                                                                item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none text-slate-300 resize-none h-auto min-h-0 pointer-events-none" : "bg-white border-slate-200 focus-visible:ring-blue-400"
+                                                            )}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Badges/Right Info */}
+                                            <div className="w-16 pl-2 text-right flex flex-col items-end gap-1 flex-shrink-0">
+                                                {item.mandatory && <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>}
+                                                {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{item.points}</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        </div>
+
+                        {/* Photo Section */}
+                        <div className="space-y-4 pt-4 border-t border-slate-200">
+                            <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                                <Camera className="w-4 h-4" />
+                                写真アップロード
+                            </h2>
+                            <div className="grid grid-cols-2 gap-4">
+                                {items.filter(i => i.type === 'photo').map((item, idx) => {
+                                    const photoIndex = items.findIndex(it => it.id === item.id)
+                                    return (
+                                        <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden">
+                                            <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative">
+                                                {item.photoUrl ? (
+                                                    <>
+                                                        <img src={item.photoUrl} alt={item.title} className="w-full h-24 object-cover rounded" />
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="absolute top-2 right-2 h-6 px-2 text-xs"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                const newItems = [...items]
+                                                                newItems[photoIndex] = { ...item, photoUrl: null }
+                                                                setItems(newItems)
+                                                            }}
+                                                        >
+                                                            削除
+                                                        </Button>
+                                                    </>
+                                                ) : (
+                                                    <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            capture="environment"
+                                                            className="hidden"
+                                                            disabled={!canEdit}
+                                                            onChange={async (e) => {
+                                                                const file = e.target.files?.[0]
+                                                                if (!file) return
+                                                                // Convert to base64
+                                                                const reader = new FileReader()
+                                                                reader.onload = (ev) => {
+                                                                    const newItems = [...items]
+                                                                    newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
+                                                                    setItems(newItems)
+                                                                }
+                                                                reader.readAsDataURL(file)
+                                                            }}
+                                                        />
+                                                        <Camera className="w-8 h-8 opacity-50" />
+                                                        <span className="text-xs font-bold mt-2">{item.title}</span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影</span>
+                                                    </label>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                })}
+                                {items.filter(i => i.type === 'photo').length === 0 && (
+                                    <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Thank You Section */}
+                        <div className="space-y-4 pt-4 border-t border-slate-200">
+                            <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
+                                <Heart className="w-4 h-4 fill-pink-500" />
+                                ありがとうを送る
+                            </h2>
+                            {canEdit && (
+                                <Card className="border-pink-200 bg-pink-50/30">
+                                    <CardContent className="p-4 space-y-4">
+                                        <Textarea
+                                            value={thankYouMessage}
+                                            onChange={e => setThankYouMessage(e.target.value)}
+                                            placeholder="感謝のメッセージを入力..."
+                                            className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
+                                        />
                                     </CardContent>
                                 </Card>
-                            )
-                        })}
-                        {items.filter(i => i.type === 'photo').length === 0 && (
-                            <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Thank You Section */}
-                <div className="space-y-4 pt-4 border-t border-slate-200">
-                    <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
-                        <Heart className="w-4 h-4 fill-pink-500" />
-                        ありがとうを送る
-                    </h2>
-                    {canEdit && (
-                        <Card className="border-pink-200 bg-pink-50/30">
-                            <CardContent className="p-4 space-y-4">
-                                <Textarea
-                                    value={thankYouMessage}
-                                    onChange={e => setThankYouMessage(e.target.value)}
-                                    placeholder="感謝のメッセージを入力..."
-                                    className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
-                                />
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
-
-                {/* Locked Message */}
-                {isLocked && !canEdit && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                        <div>
-                            <h3 className="text-sm font-bold text-amber-800">編集期間が終了しました</h3>
-                            <p className="text-xs text-amber-700 mt-1">
-                                記録から3日が経過したため、編集はロックされました。<br />
-                                修正が必要な場合は、管理者または総務担当者に連絡してください。
-                            </p>
+                            )}
                         </div>
+
+                        {/* Locked Message */}
+                        {isLocked && !canEdit && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                                <div>
+                                    <h3 className="text-sm font-bold text-amber-800">編集期間が終了しました</h3>
+                                    <p className="text-xs text-amber-700 mt-1">
+                                        記録から3日が経過したため、編集はロックされました。<br />
+                                        修正が必要な場合は、管理者または総務担当者に連絡してください。
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
-                )}
+                </div>
             </main>
         </div>
     )

@@ -10,6 +10,7 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url)
         const dateStr = searchParams.get('date') // Selected Date e.g. 2026-01-06
         const teamId = searchParams.get('teamId')
+        const employeeId = searchParams.get('employeeId')
 
         if (!dateStr) return NextResponse.json({ error: 'Date is required' }, { status: 400 })
         const selectedDate = new Date(dateStr)
@@ -39,14 +40,19 @@ export async function GET(request: Request) {
         }
 
         // 2. カレンダーデータの取得（今月の提出数集計）
+        const submissionCriteria: any = {
+            date: {
+                gte: selectedMonthStart,
+                lte: selectedMonthEnd
+            }
+        }
+        if (employeeId) {
+            submissionCriteria.employeeId = employeeId
+        }
+
         const monthlySubmissions = await prisma.personnelEvaluationSubmission.groupBy({
             by: ['date'],
-            where: {
-                date: {
-                    gte: selectedMonthStart,
-                    lte: selectedMonthEnd
-                }
-            },
+            where: submissionCriteria,
             _count: {
                 id: true
             }

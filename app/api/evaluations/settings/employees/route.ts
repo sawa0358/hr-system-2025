@@ -9,9 +9,8 @@ export async function GET(request: Request) {
     try {
         const employees = await prisma.employee.findMany({
             where: {
-                // 評価対象の社員のみ、あるいは全社員？
-                // 一旦ステータスがactiveな社員を取得
-                status: 'active'
+                status: 'active',
+                isPersonnelEvaluationTarget: true
             },
             select: {
                 id: true,

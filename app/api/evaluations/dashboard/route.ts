@@ -69,18 +69,7 @@ export async function GET(request: Request) {
         })
 
         if (employees.length === 0) {
-            // 誰も対象者がいない場合、全active社員を返す（初期状態対処）
-            const allEmployees = await prisma.employee.findMany({
-                where: { status: 'active' },
-                select: {
-                    id: true,
-                    name: true,
-                    personnelEvaluationTeam: { select: { name: true } }
-                },
-                orderBy: { employeeNumber: 'asc' }
-            })
-            // 型合わせ
-            employees.push(...allEmployees as any)
+            // 対象者がいない場合は空のリスト
         }
 
         const employeeIds = employees.map(e => e.id)

@@ -34,7 +34,7 @@ const menuItems = [
 ]
 
 const dropdownMenuItems = [
-  { icon: Sparkles, label: "人事考課", href: "/evaluations", permission: "viewEvaluations" as const },
+  { icon: Sparkles, label: "人事考課", href: "/evaluations", permission: "viewOwnEvaluations" as const },
   { icon: Users, label: "社員情報", href: "/employees", permission: "viewOwnProfile" as const },
   { icon: Clock, label: "勤怠管理", href: "/attendance", permission: "viewOwnAttendance" as const },
   { icon: DollarSign, label: "給与or請求管理", href: "/payroll", permission: "viewOwnPayroll" as const },
@@ -347,13 +347,12 @@ export function Sidebar() {
         console.log("[Sidebar] 有給管理メニュー: 表示します", { employeeType })
       }
 
-      // 人事考課メニューの場合は対象者フラグをチェック
       if (item.href === "/evaluations") {
         const isTarget = currentUser?.isPersonnelEvaluationTarget
-        const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+        const canManage = hasPermission('viewEvaluations')
 
-        // ターゲットでない、かつ管理者/総務でもない場合は表示しない
-        if (!isTarget && !isAdminOrHr) {
+        // ターゲットでない、かつ評価管理権限（管理者/総務/マネージャー等）も持たない場合は表示しない
+        if (!isTarget && !canManage) {
           return false
         }
       }

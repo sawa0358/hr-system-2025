@@ -1149,6 +1149,7 @@ model PersonnelEvaluationPhoto {
   submissionId String
   submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   url          String
+  comment      String? // 写真へのコメント
   createdAt    DateTime                      @default(now())
 
   @@index([submissionId])

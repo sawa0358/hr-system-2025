@@ -225,6 +225,27 @@ export async function POST(request: Request) {
                 }
             }
 
+            // 写真の保存
+            // まず既存の写真を削除
+            await tx.personnelEvaluationPhoto.deleteMany({
+                where: { submissionId: submission.id }
+            })
+
+            const submittedPhotos = body.photos || [] // { url, comment }[]
+            if (Array.isArray(submittedPhotos)) {
+                for (const photo of submittedPhotos) {
+                    if (photo.url) {
+                        await tx.personnelEvaluationPhoto.create({
+                            data: {
+                                submissionId: submission.id,
+                                url: photo.url,
+                                comment: photo.comment || null
+                            }
+                        })
+                    }
+                }
+            }
+
             // 4. ポイントログの更新 (Checklist分)
             // まずこのユーザー・この日・Checklistタイプのログを削除
             await tx.personnelEvaluationPointLog.deleteMany({

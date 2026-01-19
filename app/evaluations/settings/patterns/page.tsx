@@ -345,8 +345,8 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                                                 placeholder="補足説明（考課入力時に項目名の横に表示されます）"
                                             />
 
-                                            {/* 獲得pt (Checkboxのみ) */}
-                                            {item.type === 'checkbox' && (
+                                            {/* 獲得pt (Checkbox, Photo, Text) */}
+                                            {(item.type === 'checkbox' || item.type === 'photo' || item.type === 'text') && (
                                                 <div className="flex items-center gap-2 px-2">
                                                     <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">獲得pt:</span>
                                                     <div className="relative group/pt">

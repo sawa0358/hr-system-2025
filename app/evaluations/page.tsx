@@ -49,7 +49,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 
 
 
+import { useRouter } from "next/navigation"
+
 export default function EvaluationsPage() {
+  const router = useRouter()
   const { currentUser } = useAuth()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily')
@@ -83,6 +86,17 @@ export default function EvaluationsPage() {
   const [newPromptText, setNewPromptText] = useState('')
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+  useEffect(() => {
+    if (currentUser) {
+      const allowedRoles = ['admin', 'hr', 'manager']
+      if (!allowedRoles.includes(currentUser.role || '')) {
+        // Redirect to today's entry page for self
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        router.replace(`/evaluations/entry/${currentUser.id}/${todayStr}`)
+      }
+    }
+  }, [currentUser, router])
 
   useEffect(() => {
     if (selectedReport) {

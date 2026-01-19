@@ -22,6 +22,7 @@ import {
     Lock,
     ChevronLeft,
     ChevronRight,
+    Trash2,
 } from "lucide-react"
 import { format, parseISO, endOfMonth, addMonths, startOfMonth, subMonths } from "date-fns"
 import { ja } from "date-fns/locale"
@@ -223,7 +224,37 @@ export default function EvaluationEntryPage() {
                             mandatory: patternItem?.isMandatory || false
                         }
                     }).filter((i: any) => i.type !== 'thank_you')
-                    setItems(loadedItems)
+
+                    // パターン変更への対応：パターンにあるがSubmissionにない項目を追加（マージ）
+                    if (Object.keys(patternItemsMap).length > 0) {
+                        const existingItemIds = new Set(loadedItems.map((i: any) => i.itemId).filter(Boolean))
+
+                        const missingPatternItems = Object.values(patternItemsMap)
+                            .filter((p: any) => !existingItemIds.has(p.id))
+                            .map((p: any) => ({
+                                id: p.id,      // 新規なのでパターンのIDを使用
+                                itemId: p.id,
+                                type: p.type,
+                                title: p.title,
+                                description: p.description,
+                                points: p.points,
+                                checked: false,
+                                value: '',
+                                mandatory: p.isMandatory, // APIからのレスポンス形式に注意 (mandatory vs isMandatory)
+                                photoUrl: null,
+                                photoComment: ''
+                            }))
+
+                        // 元の順序を維持したい場合は並び替えが必要だが、単純に追加する場合は後ろにつく
+                        // パターンの定義順に並べ直すのがベスト
+                        const mergedItems = [...loadedItems, ...missingPatternItems]
+
+                        // パターン順序定義があればそれに従う（ここでは簡易的にロード済み->追加分の順だが、UX的には混ざったほうがいいかも）
+                        // 一旦追加分を結合してセット
+                        setItems(mergedItems)
+                    } else {
+                        setItems(loadedItems)
+                    }
 
                 } else if (patternId && Object.keys(patternItemsMap).length > 0) {
                     // Load from Pattern (既に取得済み)
@@ -266,18 +297,50 @@ export default function EvaluationEntryPage() {
     const handleSave = async () => {
         if (!canEdit) return
 
+        // 必須チェック
+        const missingMandatory = items.some(i => {
+            if (!i.mandatory) return false
+            if (i.type === 'checkbox' && !i.checked) return true
+            if (i.type === 'text' && !i.value?.trim()) return true
+            if (i.type === 'photo' && !i.photoUrl) return true
+            return false
+        })
+
+        if (missingMandatory) {
+            alert('必須項目が未入力です。\n全ての必須項目（赤色のバッジ）を入力・チェックしてください。')
+            return
+        }
+
         try {
-            const body = {
-                date: dateStr,
-                employeeId: userId,
-                items: items.map(i => ({
+            // 写真・テキスト項目の自動チェック判定
+            const processedItems = items.map(i => {
+                let isChecked = i.checked
+                if (i.type === 'text' && i.value?.trim()) isChecked = true
+                else if (i.type === 'photo' && i.photoUrl) isChecked = true
+
+                return {
                     itemId: i.itemId,
                     title: i.title,
                     description: i.description,
                     points: i.points,
-                    checked: i.checked,
-                    textValue: i.value
-                })),
+                    checked: isChecked,
+                    textValue: i.value,
+                    type: i.type // APIログ用
+                }
+            })
+
+            const photoPayload = items
+                .filter(i => i.type === 'photo' && i.photoUrl)
+                .map(i => ({
+                    url: i.photoUrl,
+                    comment: i.photoComment
+                }))
+
+            const body = {
+                date: dateStr,
+                employeeId: userId,
+                items: processedItems,
+                photos: photoPayload,
                 thankYous: thankYouMessage ? [{ to: [], message: thankYouMessage }] : [],
                 goals: {
                     contractAchieved: personalGoal.contractAchieved,
@@ -708,26 +771,47 @@ export default function EvaluationEntryPage() {
                                     const photoIndex = items.findIndex(it => it.id === item.id)
                                     return (
                                         <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden">
-                                            <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative">
+                                            <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative group">
+                                                {/* Mandatory Badge */}
+                                                {item.mandatory && (
+                                                    <div className="absolute top-2 left-2 z-10">
+                                                        <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>
+                                                    </div>
+                                                )}
+
                                                 {item.photoUrl ? (
-                                                    <>
-                                                        <img src={item.photoUrl} alt={item.title} className="w-full h-24 object-cover rounded" />
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="absolute top-2 right-2 h-6 px-2 text-xs"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation()
+                                                    <div className="w-full space-y-2">
+                                                        <div className="relative">
+                                                            <img src={item.photoUrl} alt={item.title} className="w-full h-32 object-cover rounded shadow-sm" />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="destructive"
+                                                                className="absolute top-2 right-2 h-6 px-2 text-xs opacity-80 hover:opacity-100"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation()
+                                                                    const newItems = [...items]
+                                                                    newItems[photoIndex] = { ...item, photoUrl: null, photoComment: '' } // Clear url and comment
+                                                                    setItems(newItems)
+                                                                }}
+                                                            >
+                                                                <Trash2 className="w-3 h-3 mr-1" /> 削除
+                                                            </Button>
+                                                        </div>
+                                                        <Input
+                                                            value={item.photoComment || ''}
+                                                            onChange={(e) => {
                                                                 const newItems = [...items]
-                                                                newItems[photoIndex] = { ...item, photoUrl: null }
+                                                                newItems[photoIndex] = { ...item, photoComment: e.target.value }
                                                                 setItems(newItems)
                                                             }}
-                                                        >
-                                                            削除
-                                                        </Button>
-                                                    </>
+                                                            placeholder="コメントを入力..."
+                                                            className="text-xs h-8 bg-white"
+                                                            disabled={!canEdit}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </div>
                                                 ) : (
-                                                    <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
+                                                    <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full py-4">
                                                         <input
                                                             type="file"
                                                             accept="image/*"
@@ -747,9 +831,10 @@ export default function EvaluationEntryPage() {
                                                                 reader.readAsDataURL(file)
                                                             }}
                                                         />
-                                                        <Camera className="w-8 h-8 opacity-50" />
-                                                        <span className="text-xs font-bold mt-2">{item.title}</span>
-                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影</span>
+                                                        <Camera className="w-8 h-8 opacity-50 mb-2" />
+                                                        <span className="text-xs font-bold text-slate-600">{item.title}</span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影/選択</span>
+                                                        {item.points > 0 && <span className="text-[10px] text-blue-500 font-bold mt-1">+{item.points}pt</span>}
                                                     </label>
                                                 )}
                                             </CardContent>

@@ -212,85 +212,87 @@ export default function EvaluationsPage() {
     <div className="min-h-screen bg-[#f8fafc]">
       <div className="p-4 md:p-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">人事考課システム</h1>
-            <div className="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm">
-              <Button
-                variant={viewMode === 'daily' ? 'default' : 'ghost'}
-                size="sm"
-                className={cn("text-xs px-4", viewMode === 'daily' ? "bg-blue-600 shadow-sm" : "")}
-                onClick={() => setViewMode('daily')}
-              >
-                日次
-              </Button>
-              <Button
-                variant={viewMode === 'monthly' ? 'default' : 'ghost'}
-                size="sm"
-                className={cn("text-xs px-4", viewMode === 'monthly' ? "bg-blue-600 shadow-sm" : "")}
-                onClick={() => setViewMode('monthly')}
-              >
-                期間
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 lg:gap-6 flex-1">
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
+            <div className="flex items-center gap-3 flex-wrap mt-2 md:mt-0">
+              <div className="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm shrink-0">
+                <Button
+                  variant={viewMode === 'daily' ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn("text-xs px-4", viewMode === 'daily' ? "bg-blue-600 shadow-sm" : "")}
+                  onClick={() => setViewMode('daily')}
+                >
+                  日次
+                </Button>
+                <Button
+                  variant={viewMode === 'monthly' ? 'default' : 'ghost'}
+                  size="sm"
+                  className={cn("text-xs px-4", viewMode === 'monthly' ? "bg-blue-600 shadow-sm" : "")}
+                  onClick={() => setViewMode('monthly')}
+                >
+                  期間
+                </Button>
+              </div>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("h-9 justify-start text-left font-normal border-slate-200", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-500" />
+                    {viewMode === 'daily' ? (
+                      format(currentDate, "yyyy/MM/dd", { locale: ja })
+                    ) : (
+                      dateRange?.from ? (
+                        dateRange.to ? (
+                          <>{format(dateRange.from, "yyyy/MM/dd")} - {format(dateRange.to, "yyyy/MM/dd")}</>
+                        ) : (
+                          format(dateRange.from, "yyyy/MM/dd")
+                        )
+                      ) : (
+                        <span>期間を選択</span>
+                      )
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  {viewMode === 'daily' ? (
+                    <Calendar
+                      mode="single"
+                      selected={currentDate}
+                      onSelect={(date) => date && setCurrentDate(date)}
+                      initialFocus
+                      locale={ja}
+                    />
+                  ) : (
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={setDateRange}
+                      numberOfMonths={2}
+                      locale={ja}
+                    />
+                  )}
+                </PopoverContent>
+              </Popover>
+
+              <Select defaultValue="standard">
+                <SelectTrigger className="w-[180px] h-9 border-slate-200">
+                  <SelectValue placeholder="目標パターン" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">標準的な目標</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full">
+                <Plus className="w-4 h-4" />
               </Button>
             </div>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("h-9 justify-start text-left font-normal border-slate-200", !dateRange && "text-muted-foreground")}>
-                  <CalendarIcon className="mr-2 h-4 w-4 text-slate-500" />
-                  {viewMode === 'daily' ? (
-                    format(currentDate, "yyyy/MM/dd", { locale: ja })
-                  ) : (
-                    dateRange?.from ? (
-                      dateRange.to ? (
-                        <>{format(dateRange.from, "yyyy/MM/dd")} - {format(dateRange.to, "yyyy/MM/dd")}</>
-                      ) : (
-                        format(dateRange.from, "yyyy/MM/dd")
-                      )
-                    ) : (
-                      <span>期間を選択</span>
-                    )
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                {viewMode === 'daily' ? (
-                  <Calendar
-                    mode="single"
-                    selected={currentDate}
-                    onSelect={(date) => date && setCurrentDate(date)}
-                    initialFocus
-                    locale={ja}
-                  />
-                ) : (
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                    locale={ja}
-                  />
-                )}
-              </PopoverContent>
-            </Popover>
-
-            <Select defaultValue="standard">
-              <SelectTrigger className="w-[180px] h-9 border-slate-200">
-                <SelectValue placeholder="目標パターン" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">標準的な目標</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full">
-              <Plus className="w-4 h-4" />
-            </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-4 lg:mt-0 flex-wrap lg:justify-end">
             <Button
               disabled={loadingReports}
               onClick={async () => {

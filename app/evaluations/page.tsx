@@ -20,7 +20,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Clock,
-  Sparkles
+  Sparkles,
+  Trash2,
+  Edit,
+  Save,
+  X
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import {
@@ -65,9 +69,69 @@ export default function EvaluationsPage() {
   const [loadingReports, setLoadingReports] = useState(false)
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
-
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingSummary, setEditingSummary] = useState('')
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+  useEffect(() => {
+    if (selectedReport) {
+      setEditingSummary(selectedReport.summary)
+      setIsEditing(false)
+    }
+  }, [selectedReport])
+
+  const handleDeleteReport = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('このレポートを削除してもよろしいですか？')) return
+
+    try {
+      const res = await fetch(`/api/evaluations/ai-report?id=${id}`, {
+        method: 'DELETE',
+        headers: { 'x-employee-id': currentUser?.id || '' }
+      })
+      if (res.ok) {
+        setAiReports(prev => prev.filter(r => r.id !== id))
+        if (selectedReport?.id === id) {
+          setIsReportModalOpen(false)
+          setSelectedReport(null)
+        }
+      } else {
+        alert('削除に失敗しました')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('エラーが発生しました')
+    }
+  }
+
+  const handleUpdateReport = async () => {
+    try {
+      const res = await fetch('/api/evaluations/ai-report', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser?.id || ''
+        },
+        body: JSON.stringify({
+          id: selectedReport.id,
+          summary: editingSummary
+        })
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setAiReports(prev => prev.map(r => r.id === updated.id ? updated : r))
+        setSelectedReport(updated)
+        setIsEditing(false)
+        alert('レポートを更新しました')
+      } else {
+        alert('更新に失敗しました')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('エラーが発生しました')
+    }
+  }
 
   useEffect(() => {
     if (viewMode === 'daily') {
@@ -646,8 +710,18 @@ export default function EvaluationsPage() {
                           {report.summary.replace(/\n/g, ' ').substring(0, 100)}...
                         </p>
                       </div>
-                      <div className="w-32 flex-shrink-0 text-right">
+                      <div className="w-32 flex-shrink-0 text-right flex items-center justify-end gap-2">
                         <span className="text-sm font-bold text-indigo-600">{report.totalPoints?.toLocaleString() || 0} pt</span>
+                        {isAdminOrHr && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                            onClick={(e) => handleDeleteReport(report.id, e)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -671,9 +745,21 @@ export default function EvaluationsPage() {
                         <span>期間: {format(new Date(selectedReport.startDate), 'yyyy/MM/dd')} - {format(new Date(selectedReport.endDate), 'yyyy/MM/dd')}</span>
                         <span>作成日: {format(new Date(selectedReport.createdAt), 'yyyy/MM/dd HH:mm')}</span>
                       </div>
-                      <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm text-sm leading-relaxed whitespace-pre-wrap text-slate-700">
-                        {selectedReport.summary}
-                      </div>
+
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <textarea
+                            className="w-full h-64 p-4 rounded-xl border border-indigo-200 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white text-sm leading-relaxed resize-none transition-all"
+                            value={editingSummary}
+                            onChange={(e) => setEditingSummary(e.target.value)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="bg-white p-6 rounded-xl border border-indigo-100 shadow-sm text-sm leading-relaxed whitespace-pre-wrap text-slate-700">
+                          {selectedReport.summary}
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
                         <Card className="p-4 bg-white border-slate-100 shadow-sm">
                           <div className="text-[10px] text-slate-400 font-bold uppercase">対象人数</div>
@@ -689,7 +775,25 @@ export default function EvaluationsPage() {
                     <p className="text-center text-slate-400">データ読み込みエラー</p>
                   )}
                 </div>
-                <DialogFooter className="p-4 bg-white border-t rounded-b-lg">
+                <DialogFooter className="p-4 bg-white border-t rounded-b-lg flex justify-between items-center">
+                  {isAdminOrHr && selectedReport && (
+                    <div className="flex gap-2 mr-auto">
+                      {isEditing ? (
+                        <>
+                          <Button size="sm" onClick={handleUpdateReport} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+                            <Save className="w-4 h-4" /> 保存
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setIsEditing(false)} className="gap-2">
+                            <X className="w-4 h-4" /> キャンセル
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" variant="outline" onClick={() => setIsEditing(true)} className="gap-2 border-slate-200">
+                          <Edit className="w-4 h-4 text-slate-600" /> 編集
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   <Button variant="outline" onClick={() => setIsReportModalOpen(false)}>閉じる</Button>
                 </DialogFooter>
               </DialogContent>

@@ -64,6 +64,7 @@ export default function EvaluationEntryPage() {
                         // For now, let's assume 'checkbox' default unless textValue is present.
                         itemId: i.itemId,
                         title: i.title,
+                        description: i.description,
                         points: i.points,
                         checked: i.isChecked,
                         value: i.textValue || '',
@@ -90,8 +91,9 @@ export default function EvaluationEntryPage() {
                         }
                     }
 
-                    if (empData && empData.patternId) {
-                        const patRes = await fetch(`/api/evaluations/settings/patterns?id=${empData.patternId}`)
+                    const patternId = empData.personnelEvaluationPatternId || empData.personnelEvaluationPattern?.id
+                    if (patternId) {
+                        const patRes = await fetch(`/api/evaluations/settings/patterns?id=${patternId}`)
                         const patData = await patRes.json()
                         if (patData && patData.items) {
                             setItems(patData.items.map((i: any) => ({
@@ -99,6 +101,7 @@ export default function EvaluationEntryPage() {
                                 itemId: i.id,
                                 type: i.type,
                                 title: i.title,
+                                description: i.description,
                                 points: i.points,
                                 checked: false,
                                 value: '',
@@ -142,6 +145,7 @@ export default function EvaluationEntryPage() {
                 items: items.map(i => ({
                     itemId: i.itemId,
                     title: i.title,
+                    description: i.description,
                     points: i.points,
                     checked: i.checked,
                     textValue: i.value
@@ -212,7 +216,6 @@ export default function EvaluationEntryPage() {
             </header>
 
             <main className="flex-1 container mx-auto p-4 max-w-3xl space-y-6">
-                {/* Check Goals (Mock presentation for now) */}
                 {/* Stats Header (Reference Image 2 Style) */}
                 {stats && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
@@ -255,52 +258,78 @@ export default function EvaluationEntryPage() {
                         <CheckCircle2 className="w-4 h-4" />
                         チェック項目
                     </h2>
-                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).length === 0 && <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed">評価項目が設定されていません</div>}
 
-                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
-                        <Card key={item.id} className={cn("border-slate-200 shadow-sm transition-all overflow-hidden", item.checked ? "bg-blue-50/30 border-blue-200" : "bg-white")}>
-                            {/* Side Border (Optional visual cue) */}
-                            <div className={cn("absolute left-0 top-0 bottom-0 w-1 transition-colors", item.checked ? "bg-blue-500" : "bg-transparent")} />
+                    <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
+                        {/* List Header */}
+                        <div className="bg-slate-50/80 border-b border-slate-100 px-4 py-2 flex items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            <div className="w-8 text-center mr-3">Check</div>
+                            <div className="flex-1">Content</div>
+                            <div className="w-16 text-right">Info</div>
+                        </div>
 
-                            <CardContent className="p-4 pl-6">
-                                <div className="flex items-start gap-4">
-                                    <div className="mt-1">
-                                        {(item.type === 'checkbox' || !item.type) && (
+                        <div className="divide-y divide-slate-100">
+                            {items.filter(i => !['photo', 'thank_you'].includes(i.type)).length === 0 && (
+                                <div className="p-8 text-center text-slate-400 italic text-sm">評価項目が設定されていません</div>
+                            )}
+
+                            {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
+                                <div key={item.id} className={cn(
+                                    "group flex items-start px-4 transition-colors",
+                                    item.type === 'description' ? "bg-blue-50/70 py-1.5" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
+                                )}>
+                                    {/* Checkbox / Icon */}
+                                    <div className="w-8 mr-3 flex justify-center pt-0.5">
+                                        {(item.type === 'checkbox' || !item.type) ? (
                                             <Checkbox
                                                 checked={item.checked}
                                                 onCheckedChange={(c) => toggleCheck(index, !!c)}
                                                 disabled={!canEdit}
-                                                className="w-6 h-6 border-2 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md"
+                                                className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 w-5 h-5 rounded-md"
                                             />
+                                        ) : (
+                                            item.type === 'text' ? <MessageCircle className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5" />
                                         )}
-                                        {item.type === 'text' && <MessageCircle className="w-6 h-6 text-emerald-500" />}
-                                        {item.type === 'description' && <AlertCircle className="w-6 h-6 text-slate-400" />}
                                     </div>
-                                    <div className="flex-1 space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <Label className={cn("text-base font-bold leading-relaxed cursor-pointer", item.checked ? "text-blue-800" : "text-slate-700")} onClick={() => (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}>
+
+                                    {/* Content */}
+                                    <div className="flex-1 space-y-1.5 min-w-0">
+                                        <div
+                                            className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", (item.type === 'checkbox' || !item.type) && canEdit && "cursor-pointer")}
+                                            onClick={() => (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}
+                                        >
+                                            <Label className={cn("text-sm font-medium leading-snug cursor-pointer break-words", item.checked ? "text-slate-400" : "text-slate-700")}>
                                                 {item.title}
                                             </Label>
-                                            <div className="flex gap-2 flex-shrink-0">
-                                                {item.mandatory && <Badge variant="secondary" className="bg-red-50 text-red-600 border border-red-100 font-bold">必須</Badge>}
-                                                {item.points > 0 && <Badge variant="secondary" className="bg-amber-100 text-amber-800 border border-amber-200 font-bold">+{item.points}pt</Badge>}
-                                            </div>
+                                            {item.description && (
+                                                <span className={cn("text-[10px] break-words leading-tight", item.checked ? "text-slate-300" : "text-slate-400")}>
+                                                    {item.description}
+                                                </span>
+                                            )}
                                         </div>
 
+                                        {/* Input for Text/Desc */}
                                         {(item.type === 'text' || item.type === 'description') && (
-                                            <Textarea
-                                                value={item.value || ''}
-                                                onChange={(e) => updateText(index, e.target.value)}
-                                                placeholder={item.type === 'description' ? '' : "入力してください..."}
-                                                disabled={item.type === 'description' ? true : !canEdit}
-                                                className={cn("resize-none", item.type === 'description' ? "bg-slate-50 border-none text-slate-600 shadow-none px-0 py-0 min-h-fit" : "bg-white min-h-[80px]")}
-                                            />
+                                            <div className="pt-1">
+                                                <Textarea
+                                                    value={item.value || ''}
+                                                    onChange={(e) => updateText(index, e.target.value)}
+                                                    placeholder={item.type === 'description' ? '' : "入力してください..."}
+                                                    disabled={item.type === 'description' ? true : !canEdit}
+                                                    className={cn("text-xs min-h-[60px] resize-y w-full leading-relaxed", item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none text-slate-500 resize-none h-auto min-h-0" : "bg-white border-slate-200 focus-visible:ring-blue-400")}
+                                                />
+                                            </div>
                                         )}
                                     </div>
+
+                                    {/* Badges/Right Info */}
+                                    <div className="w-16 pl-2 text-right flex flex-col items-end gap-1 flex-shrink-0">
+                                        {item.mandatory && <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>}
+                                        {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{item.points}</span>}
+                                    </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                            ))}
+                        </div>
+                    </Card>
                 </div>
 
                 {/* Photo Section */}
@@ -325,22 +354,6 @@ export default function EvaluationEntryPage() {
                     </div>
                 </div>
 
-                {/* Add Actions (Hidden if locked to avoid confusion, or strictly control) */}
-                {canEdit && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1 hover:bg-blue-50 hover:text-blue-600 border-dashed border-slate-300">
-                            <Plus className="w-5 h-5 mb-1" />
-                            <span className="text-xs font-bold">項目を追加</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1 hover:bg-green-50 hover:text-green-600 border-dashed border-slate-300">
-                            <MessageCircle className="w-5 h-5 mb-1" />
-                            <span className="text-xs font-bold">自由欄追加</span>
-                        </Button>
-                        {/* More buttons... */}
-                    </div>
-                )}
-
-                {/* Thank You Section */}
                 {/* Thank You Section */}
                 <div className="space-y-4 pt-4 border-t border-slate-200">
                     <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
@@ -360,7 +373,6 @@ export default function EvaluationEntryPage() {
                         </Card>
                     )}
                 </div>
-
 
                 {/* Locked Message */}
                 {isLocked && !canEdit && (

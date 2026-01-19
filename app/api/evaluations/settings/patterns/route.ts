@@ -27,6 +27,7 @@ export async function GET(request: Request) {
                 items: pattern.items.map(item => ({
                     id: item.id,
                     title: item.title,
+                    description: item.description,
                     type: item.type,
                     points: item.points,
                     mandatory: item.isMandatory
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
                         data: {
                             patternId: pattern.id,
                             title: item.title,
-                            description: item.type === 'description' ? item.title : null, // 説明文タイプの場合
+                            description: item.description,
                             type: item.type,
                             points: Number(item.points) || 0,
                             isMandatory: !!item.mandatory,

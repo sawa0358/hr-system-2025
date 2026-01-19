@@ -1125,6 +1125,7 @@ model PersonnelEvaluationSubmissionItem {
   itemId       String? // 対応する項目ID（なくても良いが履歴として）
 
   title  String // スナップショット
+  description String? // 説明文スナップショット
   points Float // 獲得ポイント（スナップショット）
 
   isChecked Boolean @default(false)

@@ -151,6 +151,7 @@ export async function POST(request: Request) {
                             submissionId: submission.id,
                             itemId: item.itemId || null, // パターン項目ID
                             title: item.title || '',
+                            description: item.description || null,
                             points: points,
                             isChecked: isChecked,
                             textValue: item.textValue || null

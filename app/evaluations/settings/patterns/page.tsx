@@ -214,6 +214,7 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
         const newItem = {
             id: `temp-${Date.now()}`,
             title: type === 'checkbox' ? '新規項目' : (type === 'text' ? '振り返り' : type === 'photo' ? '写真' : '説明文'),
+            description: '',
             type,
             points: type === 'checkbox' ? 10 : 0,
             mandatory: false
@@ -336,6 +337,12 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                                                 onChange={e => updateItem(index, { title: e.target.value })}
                                                 className="font-bold border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-1 h-auto text-base w-full bg-transparent transition-colors placeholder:text-slate-300"
                                                 placeholder="項目名を入力"
+                                            />
+                                            <Input
+                                                value={item.description || ''}
+                                                onChange={e => updateItem(index, { description: e.target.value })}
+                                                className="border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-0.5 h-auto text-xs w-full bg-transparent transition-colors text-slate-500 placeholder:text-slate-300"
+                                                placeholder="補足説明（考課入力時に項目名の横に表示されます）"
                                             />
 
                                             {/* 獲得pt (Checkboxのみ) */}

@@ -12,9 +12,7 @@ export async function GET(request: Request) {
                 status: 'active',
                 isPersonnelEvaluationTarget: true
             },
-            select: {
-                id: true,
-                name: true,
+            include: {
                 personnelEvaluationTeam: {
                     select: {
                         id: true,
@@ -46,7 +44,7 @@ export async function GET(request: Request) {
         })
 
         // 整形
-        const formatted = employees.map(emp => {
+        const formatted = employees.map((emp: any) => {
             const goal = emp.personnelEvaluationGoals[0]
             return {
                 id: emp.id,
@@ -55,7 +53,7 @@ export async function GET(request: Request) {
                 teamName: emp.personnelEvaluationTeam?.name || '未所属',
                 patternId: emp.personnelEvaluationPattern?.id || null, // UI Select用
                 patternName: emp.personnelEvaluationPattern?.name || '未設定',
-                hasGoals: !!goal,
+                hasGoals: emp.isNumericGoalEnabled,
                 contractGoal: goal ? Number(goal.contractTargetAmount) : 0,
                 completionGoal: goal ? Number(goal.completionTargetAmount) : 0,
                 // period: goal?.period // 前回の期間

@@ -55,6 +55,7 @@ export async function PUT(
             const updateData: any = {}
             if (teamId !== undefined) updateData.personnelEvaluationTeamId = teamId
             if (patternId !== undefined) updateData.personnelEvaluationPatternId = patternId
+            if (hasGoals !== undefined) updateData.isNumericGoalEnabled = hasGoals
 
             if (Object.keys(updateData).length > 0) {
                 await tx.employee.update({

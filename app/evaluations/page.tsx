@@ -171,7 +171,10 @@ export default function EvaluationsPage() {
 
   // Default Stats if data not loaded
   const stats = data?.stats || {
-    currentMonth: { contract: { target: 0, achieved: 0, rate: '0.0' } },
+    currentMonth: {
+      contract: { target: 0, achieved: 0, rate: '0.0' },
+      completion: { target: 0, achieved: 0, rate: '0.0' }
+    },
     twoMonthsAgo: { completion: { target: 0, achieved: 0, rate: '0.0' } },
     fiscalYear: { completion: { target: 0, achieved: 0, rate: '0.0' } }
   }

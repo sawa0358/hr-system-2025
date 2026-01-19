@@ -183,15 +183,28 @@ export async function GET(request: Request) {
 
         // 7. 目標数値の集計 (Stats)
         const aggregateGoals = async (start: Date, end: Date, filterEmployeeIds: string[]) => {
-            // goal.period needs to be handled.
-            // Assuming period format is "yyyy-MM".
-            // Generate list of periods in range.
             const periods = []
-            let c = new Date(start)
-            while (c <= end) {
-                periods.push(c.toISOString().slice(0, 7)) // yyyy-MM
-                c.setMonth(c.getMonth() + 1)
+
+            // Generate list of periods (yyyy-MM) from start to end
+            // Use local date methods to construct strings properly
+            let currentY = start.getFullYear()
+            let currentM = start.getMonth() // 0-11
+
+            const endY = end.getFullYear()
+            const endM = end.getMonth() // 0-11
+
+            // Loop until current month is past end month
+            while (currentY < endY || (currentY === endY && currentM <= endM)) {
+                periods.push(`${currentY}-${String(currentM + 1).padStart(2, '0')}`)
+
+                currentM++
+                if (currentM > 11) {
+                    currentM = 0
+                    currentY++
+                }
             }
+
+            // console.log(`Aggregating goals for periods: ${periods.join(', ')}`)
 
             const goals = await prisma.personnelEvaluationGoal.findMany({
                 where: {
@@ -219,11 +232,13 @@ export async function GET(request: Request) {
         // Current Month
         const currentMonthStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd, employeeIds)
 
-        // 2 Months Ago
+        // 2 Months Ago (Label remains 2 months ago, but we aggregate CURRENT month's completion data as per requirement)
         const twoMonthsAgoStart = new Date(selectedMonthStart)
         twoMonthsAgoStart.setMonth(twoMonthsAgoStart.getMonth() - 2)
-        const twoMonthsAgoEnd = endOfMonth(twoMonthsAgoStart)
-        const twoMonthsAgoStats = await aggregateGoals(twoMonthsAgoStart, twoMonthsAgoEnd, employeeIds)
+        // const twoMonthsAgoEnd = endOfMonth(twoMonthsAgoStart)
+        // User request: "Completion amount entered in individual screen (current month) should be aggregated in the middle section"
+        // So we use current month data for this section's stats.
+        const twoMonthsAgoStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd, employeeIds)
 
         // Fiscal Year (Current)
         const fyStats = await aggregateGoals(fyStart, fyEnd, employeeIds)

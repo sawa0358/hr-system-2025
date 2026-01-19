@@ -162,6 +162,16 @@ model Employee {
   // WorkClock（業務委託時間管理）関係
   workClockWorkers      WorkClockWorker[]
 
+  // 人事考課システム
+  isPersonnelEvaluationTarget    Boolean                         @default(false)
+  personnelEvaluationTeamId      String?
+  personnelEvaluationTeam        PersonnelEvaluationTeam?        @relation(fields: [personnelEvaluationTeamId], references: [id], onDelete: SetNull)
+  personnelEvaluationPatternId   String?
+  personnelEvaluationPattern     PersonnelEvaluationPattern?     @relation(fields: [personnelEvaluationPatternId], references: [id], onDelete: SetNull)
+  personnelEvaluationSubmissions PersonnelEvaluationSubmission[]
+  personnelEvaluationGoals       PersonnelEvaluationGoal[]
+  personnelEvaluationPointLogs   PersonnelEvaluationPointLog[]
+
   @@map("employees")
 }
 
@@ -1036,4 +1046,149 @@ model WorkClockAIReport {
   @@index([createdBy])
   @@index([createdAt])
   @@map("workclock_ai_reports")
+}
+
+// ==========================
+// 人事考課システム用モデル
+// ==========================
+
+// 評価対象チーム
+model PersonnelEvaluationTeam {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  members   Employee[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("personnel_evaluation_teams")
+}
+
+// 評価チェックリストパターン
+model PersonnelEvaluationPattern {
+  id          String                    @id @default(cuid())
+  name        String
+  description String?
+  items       PersonnelEvaluationItem[]
+  employees   Employee[]
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  @@map("personnel_evaluation_patterns")
+}
+
+// 評価チェックリスト項目
+model PersonnelEvaluationItem {
+  id          String                     @id @default(cuid())
+  patternId   String
+  pattern     PersonnelEvaluationPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+  title       String
+  description String? // 説明文
+  points      Float   @default(0) // pt (寸志から変更)
+  isMandatory Boolean @default(false)
+  type        String  @default("checkbox") // checkbox, text, description, photo, thank_you
+  position    Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([patternId])
+  @@map("personnel_evaluation_items")
+}
+
+// 毎日の評価提出
+model PersonnelEvaluationSubmission {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime // 提出日
+  patternId  String?
+  status     String   @default("submitted") // submitted, locked
+
+  // スナップショットや備考
+  note String?
+
+  items  PersonnelEvaluationSubmissionItem[]
+  photos PersonnelEvaluationPhoto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@map("personnel_evaluation_submissions")
+}
+
+// 提出内容詳細
+model PersonnelEvaluationSubmissionItem {
+  id           String                        @id @default(cuid())
+  submissionId String
+  submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  itemId       String? // 対応する項目ID（なくても良いが履歴として）
+
+  title  String // スナップショット
+  points Float // 獲得ポイント（スナップショット）
+
+  isChecked Boolean @default(false)
+  textValue String? // 自由記述などを格納
+
+  // ありがとうpt用
+  thankYouTo      String? // 対象者IDリスト（JSON想定）または代表者ID
+  thankYouMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([submissionId])
+  @@map("personnel_evaluation_submission_items")
+}
+
+// 写真
+model PersonnelEvaluationPhoto {
+  id           String                        @id @default(cuid())
+  submissionId String
+  submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  url          String
+  createdAt    DateTime                      @default(now())
+
+  @@index([submissionId])
+  @@map("personnel_evaluation_photos")
+}
+
+// 目標管理（月次または期次）
+model PersonnelEvaluationGoal {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  period     String // e.g. "2026-01" or "2026-H1"
+
+  // 契約
+  contractTargetAmount   Decimal @default(0)
+  contractAchievedAmount Decimal @default(0)
+
+  // 完工
+  completionTargetAmount   Decimal @default(0)
+  completionAchievedAmount Decimal @default(0)
+
+  isLocked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, period])
+  @@map("personnel_evaluation_goals")
+}
+
+// ありがとうポイント等のログ（集計用）
+model PersonnelEvaluationPointLog {
+  id         String   @id @default(cuid())
+  employeeId String // ポイント獲得者
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  points     Float
+  type       String // "checklist", "thank_you_received", "thank_you_sent"
+  sourceId   String? // SubmissionItem ID etc
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, date])
+  @@map("personnel_evaluation_point_logs")
 }

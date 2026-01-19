@@ -55,6 +55,7 @@ export interface Permission {
   viewLogs: boolean
 
   // Evaluations
+  viewEvaluations: boolean
   viewOwnEvaluations: boolean
   viewSubordinateEvaluations: boolean
   editEvaluations: boolean
@@ -113,6 +114,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: false,
     deleteAllFiles: false,
     viewLogs: false,
+    viewEvaluations: false,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: false,
     editEvaluations: false,
@@ -167,6 +169,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: false,
     deleteAllFiles: false,
     viewLogs: false,
+    viewEvaluations: false,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: false,
     editEvaluations: false,
@@ -221,6 +224,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: false,
     deleteAllFiles: false,
     viewLogs: false,
+    viewEvaluations: false,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: false,
@@ -275,6 +279,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: false,
     deleteAllFiles: false,
     viewLogs: false,
+    viewEvaluations: true,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
@@ -329,6 +334,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: false,
     deleteAllFiles: false,
     viewLogs: false,
+    viewEvaluations: true,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
@@ -383,6 +389,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: true,
     deleteAllFiles: true,
     viewLogs: true,
+    viewEvaluations: true,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
@@ -437,6 +444,7 @@ export const rolePermissions: Record<UserRole, Permission> = {
     deleteOwnFiles: true,
     deleteAllFiles: true,
     viewLogs: true,
+    viewEvaluations: true,
     viewOwnEvaluations: true,
     viewSubordinateEvaluations: true,
     editEvaluations: true,
@@ -664,7 +672,7 @@ export function checkBoardPermissions(
 
   // マネージャー・総務・管理者のみボードの追加・編集ボタンを表示
   const canManageBoards = userRole === "manager" || userRole === "hr" || userRole === "admin"
-  
+
   if (!canManageBoards) {
     return {
       canCreate: false,

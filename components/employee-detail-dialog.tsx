@@ -37,6 +37,7 @@ type PendingVerificationAction =
   | { type: "join-date" }
   | { type: "employment-type" }
   | { type: "status-change" }
+  | { type: "personnel-evaluation" }
 
 interface EmployeeDetailDialogProps {
   open: boolean
@@ -275,6 +276,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       showInOrgChart: employee?.showInOrgChart ?? true,
       description: employee?.description || '',
       parentEmployeeId: employee?.parentEmployeeId || null,
+      isPersonnelEvaluationTarget: employee?.isPersonnelEvaluationTarget ?? false,
     }
     console.log('formData初期化:', initialData)
     console.log('employee.isSuspended:', employee?.isSuspended)
@@ -289,7 +291,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         ...prev,
         isSuspended: latestEmployee.isSuspended ?? false,
         employeeType: latestEmployee.employeeType || '正社員',
-        description: latestEmployee.description || ''
+        description: latestEmployee.description || '',
+        isPersonnelEvaluationTarget: latestEmployee.isPersonnelEvaluationTarget ?? false
       }))
       console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
       console.log('formData更新 - employeeType:', latestEmployee.employeeType)
@@ -397,6 +400,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         retirementDate: employee.retirementDate ? new Date(employee.retirementDate).toISOString().split('T')[0] : '',
         description: employee.description || '',
         parentEmployeeId: employee.parentEmployeeId || null,
+        isPersonnelEvaluationTarget: employee.isPersonnelEvaluationTarget ?? false,
       })
 
       // 家族構成の初期化
@@ -612,6 +616,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         retirementDate: '',
         description: '',
         parentEmployeeId: null,
+        isPersonnelEvaluationTarget: false,
       })
       setOrganizations([""])
       setDepartments([""])
@@ -649,6 +654,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [isJoinDateEditingEnabled, setIsJoinDateEditingEnabled] = useState(isNewEmployee)
   const [isEmploymentTypeEditingEnabled, setIsEmploymentTypeEditingEnabled] = useState(isNewEmployee)
   const [isStatusEditingEnabled, setIsStatusEditingEnabled] = useState(isNewEmployee)
+  const [isPersonnelEvaluationEditingEnabled, setIsPersonnelEvaluationEditingEnabled] = useState(isNewEmployee)
   const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false)
   const [pendingVerificationAction, setPendingVerificationAction] = useState<PendingVerificationAction | null>(null)
   const [saving, setSaving] = useState(false)
@@ -662,7 +668,9 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     if (open) {
       setIsJoinDateEditingEnabled(!requiresJoinDateVerification)
       setIsEmploymentTypeEditingEnabled(!requiresJoinDateVerification)
+      setIsEmploymentTypeEditingEnabled(!requiresJoinDateVerification)
       setIsStatusEditingEnabled(!requiresJoinDateVerification)
+      setIsPersonnelEvaluationEditingEnabled(!requiresJoinDateVerification)
     }
   }, [open, requiresJoinDateVerification])
 
@@ -735,6 +743,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         privacyBirthDate: privacySettings.birthDate,
         // 備考欄を送信
         description: formData.description,
+        // 人事考課対象者フラグ
+        isPersonnelEvaluationTarget: formData.isPersonnelEvaluationTarget,
       }
 
       console.log('送信するJSONデータ:', JSON.stringify(requestBody, null, 2))
@@ -1583,7 +1593,21 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
     setPendingVerificationAction({ type: "status-change" })
     setIsVerificationDialogOpen(true)
+    setIsVerificationDialogOpen(true)
     return Promise.resolve(false)
+  }
+
+  const handleRequestPersonnelEvaluationEdit = () => {
+    if (
+      !requiresJoinDateVerification ||
+      isPersonnelEvaluationEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return
+    }
+    setPendingVerificationAction({ type: "personnel-evaluation" })
+    setIsVerificationDialogOpen(true)
   }
 
   const handleJoinDateInputInteraction = (
@@ -1622,6 +1646,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setIsEmploymentTypeEditingEnabled(true)
     } else if (pendingVerificationAction?.type === "status-change") {
       setIsStatusEditingEnabled(true)
+    } else if (pendingVerificationAction?.type === "personnel-evaluation") {
+      setIsPersonnelEvaluationEditingEnabled(true)
     }
     setPendingVerificationAction(null)
   }
@@ -1968,6 +1994,43 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                           disabled={isAllInputDisabled || (!canEditUserInfo && !isNewEmployee)}
                         />
                       </div>
+                    )}
+                  </div>
+                  {/* 人事考課システム対象者設定 */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Label>人事考課対象者</Label>
+                        {requiresJoinDateVerification && canEditUserInfo && (
+                          isPersonnelEvaluationEditingEnabled ? (
+                            <span className="text-xs text-emerald-600">認証済み</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleRequestPersonnelEvaluationEdit}
+                              className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-sm"
+                            >
+                              <Lock className="w-4 h-4 text-amber-600 cursor-pointer" />
+                            </button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Switch
+                        checked={formData.isPersonnelEvaluationTarget}
+                        onCheckedChange={(checked) => setFormData({ ...formData, isPersonnelEvaluationTarget: checked })}
+                        disabled={
+                          isAllInputDisabled ||
+                          (!canEditUserInfo && !isNewEmployee) ||
+                          (requiresJoinDateVerification && !isPersonnelEvaluationEditingEnabled)
+                        }
+                        className="data-[state=checked]:bg-blue-600"
+                      />
+                      <span className="text-sm">対象者とする</span>
+                    </div>
+                    {requiresJoinDateVerification && !isPersonnelEvaluationEditingEnabled && canEditUserInfo && (
+                      <p className="text-xs text-slate-500">※ 変更するにはログインパスワードの入力が必要です</p>
                     )}
                   </div>
                 </div>

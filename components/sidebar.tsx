@@ -34,6 +34,7 @@ const menuItems = [
 ]
 
 const dropdownMenuItems = [
+  { icon: Sparkles, label: "人事考課", href: "/evaluations", permission: "viewEvaluations" as const },
   { icon: Users, label: "社員情報", href: "/employees", permission: "viewOwnProfile" as const },
   { icon: Clock, label: "勤怠管理", href: "/attendance", permission: "viewOwnAttendance" as const },
   { icon: DollarSign, label: "給与or請求管理", href: "/payroll", permission: "viewOwnPayroll" as const },

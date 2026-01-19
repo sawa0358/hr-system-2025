@@ -59,9 +59,13 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
           onLoginSuccess(employee)
           setIsLoading(false)
-          // ログイン成功後、少し待ってからタスク管理ページにリダイレクト
+          // ログイン成功後、人事考課対象者の場合は人事考課ページに、そうでない場合はタスク管理ページにリダイレクト
           setTimeout(() => {
-            router.push('/tasks')
+            if (employee.isPersonnelEvaluationTarget) {
+              router.push('/evaluations')
+            } else {
+              router.push('/tasks')
+            }
           }, 100)
         } else {
           setError("名前またはパスワードが正しくありません")

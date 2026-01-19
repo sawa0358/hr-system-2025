@@ -178,9 +178,9 @@ export async function GET(request: Request) {
                 team: emp.personnelEvaluationTeam?.name || '未所属',
                 status: sub ? '登録済' : '未登録',
                 statusDate: sub ? sub.createdAt.toISOString().slice(5, 10).replace('-', '/') : '-', // MM/DD
-                dailyPt: `${pts.daily}pt`,
-                monthlyPt: `${pts.monthly}pt`,
-                fyPt: `${pts.fy}pt`,
+                dailyPt: `${pts.daily.toLocaleString()}pt`,
+                monthlyPt: `${pts.monthly.toLocaleString()}pt`,
+                fyPt: `${pts.fy.toLocaleString()}pt`,
                 comments: comments
             }
         })

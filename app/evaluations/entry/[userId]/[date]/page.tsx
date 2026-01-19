@@ -281,7 +281,7 @@ export default function EvaluationEntryPage() {
                         const missingPatternItems = Object.values(patternItemsMap)
                             .filter((p: any) => !existingItemIds.has(p.id))
                             .map((p: any) => ({
-                                id: p.id,      // 新規なのでパターンのIDを使用
+                                id: p.id,
                                 itemId: p.id,
                                 type: p.type,
                                 title: p.title,
@@ -289,19 +289,48 @@ export default function EvaluationEntryPage() {
                                 points: p.points,
                                 checked: false,
                                 value: '',
-                                mandatory: p.mandatory, // APIからのレスポンス形式に合わせる
+                                mandatory: p.mandatory,
                                 photoUrl: null,
                                 photoComment: ''
                             }))
 
-                        // 元の順序を維持したい場合は並び替えが必要だが、単純に追加する場合は後ろにつく
-                        // パターンの定義順に並べ直すのがベスト
-                        const mergedItems = [...loadedItems, ...missingPatternItems]
+                        let mergedItems = [...loadedItems, ...missingPatternItems]
 
-                        // 一旦追加分を結合してセット
+                        // 写真の復元
+                        if (subData.submission.photos && subData.submission.photos.length > 0) {
+                            let photoIdx = 0
+                            mergedItems = mergedItems.map(item => {
+                                if (item.type === 'photo' && photoIdx < subData.submission.photos.length) {
+                                    const photo = subData.submission.photos[photoIdx++]
+                                    return {
+                                        ...item,
+                                        photoUrl: photo.url,
+                                        photoComment: photo.comment || ''
+                                    }
+                                }
+                                return item
+                            })
+                        }
+
                         setItems(mergedItems)
                     } else {
                         setItems(loadedItems)
+                    }
+
+                    // 4.5 ありがとうの復元
+                    const tyItem = subData.submission.items.find((i: any) => i.title === 'ありがとう送信')
+                    if (tyItem) {
+                        setThankYouMessage(tyItem.thankYouMessage || "")
+                        setThankYouRecipientType(tyItem.textValue || "") // We saved recipientType in textValue
+                        try {
+                            const toIds = JSON.parse(tyItem.thankYouTo || "[]")
+                            if (toIds.length > 0) {
+                                setThankYouRecipient(toIds[0]) // 個別の場合は最初の1人をセット
+                                // チーム選択の場合なども必要だが、UI上はRecipientTypeが優先される
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse thankYouTo", e)
+                        }
                     }
 
                 } else if (patternId && Object.keys(patternItemsMap).length > 0) {
@@ -557,15 +586,15 @@ export default function EvaluationEntryPage() {
                             <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2">
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-500 font-bold">当日獲得pt</span>
-                                    <span className="font-mono font-bold text-slate-700">{pointStats.daily}pt</span>
+                                    <span className="font-mono font-bold text-slate-700">{parseFloat(pointStats.daily.toString()).toLocaleString()}pt</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs">
                                     <span className="text-slate-500 font-bold">今月獲得pt</span>
-                                    <span className="font-mono font-bold text-blue-600">{pointStats.monthly}pt</span>
+                                    <span className="font-mono font-bold text-blue-600">{parseFloat(pointStats.monthly.toString()).toLocaleString()}pt</span>
                                 </div>
                                 <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
                                     <span className="text-slate-500 font-bold">今年度獲得pt</span>
-                                    <span className="font-mono font-bold text-indigo-600">{pointStats.yearly}pt</span>
+                                    <span className="font-mono font-bold text-indigo-600">{parseFloat(pointStats.yearly.toString()).toLocaleString()}pt</span>
                                 </div>
                             </div>
 
@@ -649,8 +678,8 @@ export default function EvaluationEntryPage() {
                                         <div>達成率</div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                        <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}</div>
-                                        <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}</div>
+                                        <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                                        <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
                                         <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
                                     </div>
                                 </div>
@@ -667,8 +696,8 @@ export default function EvaluationEntryPage() {
                                         <div>達成率</div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                        <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}</div>
-                                        <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}</div>
+                                        <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                                        <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
                                         <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
                                     </div>
                                 </div>
@@ -702,7 +731,7 @@ export default function EvaluationEntryPage() {
                                                 </Label>
                                                 <div className="text-right">
                                                     <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                                    <span className="font-bold text-slate-600">¥{personalGoal.contractTarget.toLocaleString()}</span>
+                                                    <span className="font-bold text-slate-600">¥{(personalGoal.contractTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
                                                 </div>
                                             </div>
                                             <div className="relative">
@@ -710,11 +739,12 @@ export default function EvaluationEntryPage() {
                                                 <Input
                                                     type="number"
                                                     value={personalGoal.contractAchieved || ''}
-                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: e.target.value })}
-                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: (parseFloat(e.target.value) || 0) })}
+                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
                                                     placeholder="0"
                                                     disabled={isGoalLocked && !isAdminOrHr}
                                                 />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
                                             </div>
                                             <div className="flex justify-end text-xs font-medium">
                                                 達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
@@ -732,7 +762,7 @@ export default function EvaluationEntryPage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                                    <span className="font-bold text-slate-600">¥{personalGoal.completionTarget.toLocaleString()}</span>
+                                                    <span className="font-bold text-slate-600">¥{(personalGoal.completionTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
                                                 </div>
                                             </div>
                                             <div className="relative">
@@ -740,11 +770,12 @@ export default function EvaluationEntryPage() {
                                                 <Input
                                                     type="number"
                                                     value={personalGoal.completionAchieved || ''}
-                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: e.target.value })}
-                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: (parseFloat(e.target.value) || 0) })}
+                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
                                                     placeholder="0"
                                                     disabled={isGoalLocked && !isAdminOrHr}
                                                 />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
                                             </div>
                                             <div className="flex justify-end text-xs font-medium">
                                                 達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
@@ -843,7 +874,7 @@ export default function EvaluationEntryPage() {
                                             {/* Badges/Right Info */}
                                             <div className="w-16 pl-2 text-right flex flex-col items-end gap-1 flex-shrink-0">
                                                 {item.mandatory && <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>}
-                                                {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{item.points}</span>}
+                                                {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{parseFloat(item.points.toString()).toLocaleString()}</span>}
                                             </div>
                                         </div>
                                     ))}
@@ -966,7 +997,7 @@ export default function EvaluationEntryPage() {
                             <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
                                 <Heart className="w-4 h-4 fill-pink-500" />
                                 ありがとうを送る
-                                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +{thankYouConfig.send}pt / 受信: +{thankYouConfig.receive}pt）</span>
+                                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +{thankYouConfig.send.toLocaleString()}pt / 受信: +{thankYouConfig.receive.toLocaleString()}pt）</span>
                             </h2>
                             {canEdit && (
                                 <Card className="border-pink-200 bg-pink-50/30">

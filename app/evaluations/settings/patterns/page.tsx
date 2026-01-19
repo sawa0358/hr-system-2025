@@ -360,8 +360,9 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                                                     <div className="relative group/pt">
                                                         <Input
                                                             type="number"
+                                                            step="0.5"
                                                             value={item.points}
-                                                            onChange={e => updateItem(index, { points: e.target.value })}
+                                                            onChange={e => updateItem(index, { points: parseFloat(e.target.value) || 0 })}
                                                             className="w-20 h-9 pl-3 pr-8 text-center bg-slate-50 border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-sm font-bold shadow-sm"
                                                         />
                                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold group-focus-within/pt:text-indigo-500 transition-colors">pt</span>

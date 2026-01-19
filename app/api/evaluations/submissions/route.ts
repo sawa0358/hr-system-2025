@@ -225,7 +225,7 @@ export async function POST(request: Request) {
                         totalChecklistPoints += points
                     }
 
-                    await tx.personnelEvaluationSubmissionItem.create({
+                    await (tx.personnelEvaluationSubmissionItem.create as any)({
                         data: {
                             submissionId: submission.id,
                             itemId: item.itemId || null, // パターン項目ID
@@ -240,9 +240,9 @@ export async function POST(request: Request) {
             }
 
             // 設定値の取得 (デフォルト値を考慮)
-            const configs = await tx.personnelEvaluationConfig.findMany()
+            const configs = await (tx as any).personnelEvaluationConfig.findMany()
             const getConfig = (key: string, def: number) => {
-                const c = configs.find(x => x.key === key)
+                const c = configs.find((x: any) => x.key === key)
                 return c ? Number(c.value) : def
             }
             const sendPoints = getConfig('thankYouSendPoints', 5)
@@ -259,7 +259,8 @@ export async function POST(request: Request) {
                             points: sendPoints,
                             isChecked: true,
                             thankYouTo: JSON.stringify(ty.to || []), // 配列をJSON化
-                            thankYouMessage: ty.message || ''
+                            thankYouMessage: ty.message || '',
+                            textValue: ty.recipientType || '' // Save recipientType here to restore it
                         }
                     })
 
@@ -331,7 +332,7 @@ export async function POST(request: Request) {
             if (Array.isArray(submittedPhotos)) {
                 for (const photo of submittedPhotos) {
                     if (photo.url) {
-                        await tx.personnelEvaluationPhoto.create({
+                        await (tx.personnelEvaluationPhoto.create as any)({
                             data: {
                                 submissionId: submission.id,
                                 url: photo.url,

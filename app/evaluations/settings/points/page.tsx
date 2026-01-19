@@ -110,8 +110,9 @@ export default function PointSettingsPage() {
                                     <Input
                                         id="sendPoints"
                                         type="number"
+                                        step="0.5"
                                         value={config.thankYouSendPoints}
-                                        onChange={e => setConfig({ ...config, thankYouSendPoints: parseInt(e.target.value) || 0 })}
+                                        onChange={e => setConfig({ ...config, thankYouSendPoints: parseFloat(e.target.value) || 0 })}
                                         className="max-w-[120px] text-lg font-bold text-center"
                                     />
                                     <span className="text-slate-600 font-medium">pt</span>
@@ -128,8 +129,9 @@ export default function PointSettingsPage() {
                                     <Input
                                         id="receivePoints"
                                         type="number"
+                                        step="0.5"
                                         value={config.thankYouReceivePoints}
-                                        onChange={e => setConfig({ ...config, thankYouReceivePoints: parseInt(e.target.value) || 0 })}
+                                        onChange={e => setConfig({ ...config, thankYouReceivePoints: parseFloat(e.target.value) || 0 })}
                                         className="max-w-[120px] text-lg font-bold text-center"
                                     />
                                     <span className="text-slate-600 font-medium">pt</span>
@@ -146,8 +148,9 @@ export default function PointSettingsPage() {
                                     <Input
                                         id="dailyLimit"
                                         type="number"
+                                        step="0.5"
                                         value={config.thankYouDailyLimit}
-                                        onChange={e => setConfig({ ...config, thankYouDailyLimit: parseInt(e.target.value) || 0 })}
+                                        onChange={e => setConfig({ ...config, thankYouDailyLimit: parseFloat(e.target.value) || 0 })}
                                         className="max-w-[120px] text-lg font-bold text-center border-rose-100"
                                     />
                                     <span className="text-slate-600 font-medium">pt</span>

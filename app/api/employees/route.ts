@@ -8,7 +8,7 @@ console.log('Prismaクライアント初期化確認:', !!prisma);
 // JSON配列をパースするヘルパー関数
 function parseJsonArray(value: string | null): string[] {
   if (!value) return [];
-  
+
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.filter(item => item && item.trim() !== '') : [value];
@@ -21,7 +21,7 @@ function parseJsonArray(value: string | null): string[] {
 export async function GET() {
   try {
     console.log('社員一覧取得開始');
-    
+
     // まず新しいカラム（employmentType, weeklyPattern, configVersion, vacationPattern）を含めて取得を試みる
     let employees
     try {
@@ -82,6 +82,7 @@ export async function GET() {
               parentEmployeeId: true,
               isInvisibleTop: true,
               avatar: true,
+              isPersonnelEvaluationTarget: true,
               orgChartLabel: true,
               createdAt: true,
               updatedAt: true,
@@ -108,9 +109,9 @@ export async function GET() {
         throw error
       }
     }
-    
+
     console.log('社員データ取得成功:', employees.length, '件')
-    
+
     // コピー社員のparentEmployeeIdを確認
     const copyEmployees = employees.filter(emp => emp.status === 'copy');
     console.log('API: コピー社員のparentEmployeeId確認:', copyEmployees.map(emp => ({
@@ -144,7 +145,7 @@ export async function GET() {
     });
 
     console.log('社員データ処理完了');
-    
+
     // 処理後のコピー社員のparentEmployeeIdを確認
     const processedCopyEmployees = processedEmployees.filter(emp => emp.status === 'copy');
     console.log('API: 処理後のコピー社員のparentEmployeeId確認:', processedCopyEmployees.map(emp => ({
@@ -153,7 +154,7 @@ export async function GET() {
       status: emp.status,
       parentEmployeeId: emp.parentEmployeeId
     })));
-    
+
     return NextResponse.json(processedEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
     console.log('リクエストボディの解析開始');
     const body = await request.json();
     console.log('新規社員登録リクエスト:', body);
-    
+
     // 必須フィールドのバリデーション
     const requiredFields = ['name', 'password'];
     for (const field of requiredFields) {
@@ -183,7 +184,7 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    
+
     console.log('必須フィールドバリデーション通過');
 
     // Prismaクライアントの接続確認
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
     if (normalizedRole === 'store-manager') {
       normalizedRole = 'store_manager';
     }
-    
+
     // roleのバリデーション
     if (normalizedRole && normalizedRole !== '' && !validRoles.includes(normalizedRole)) {
       console.error('Invalid role value:', normalizedRole);
@@ -227,7 +228,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     console.log('正規化後のrole:', normalizedRole);
 
     // 社員番号の重複チェック
@@ -248,7 +249,7 @@ export async function POST(request: NextRequest) {
     // 空文字列やnullの場合はチェックをスキップ（nullや空文字列は重複を許可）
     if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findFirst({
-        where: { 
+        where: {
           email: body.email,
           NOT: {
             OR: [
@@ -291,7 +292,7 @@ export async function POST(request: NextRequest) {
       email: body.email || `${body.name.toLowerCase().replace(/\s+/g, '')}@company.com`,
       role: normalizedRole
     });
-    
+
     console.log('prisma.employee.create 実行開始');
     const employee = await prisma.employee.create({
       data: {
@@ -430,7 +431,7 @@ export async function POST(request: NextRequest) {
     // マイワークスペースの自動作成
     try {
       console.log('マイワークスペース作成開始:', employee.id);
-      
+
       // マイワークスペースを作成
       const myWorkspace = await prisma.workspace.create({
         data: {
@@ -524,7 +525,7 @@ export async function POST(request: NextRequest) {
       code: error.code,
       stack: error.stack
     });
-    
+
     // ユニーク制約エラーの場合
     if (error.code === 'P2002') {
       return NextResponse.json(
@@ -532,7 +533,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     return NextResponse.json(
       { error: '社員の作成に失敗しました' },
       { status: 500 }

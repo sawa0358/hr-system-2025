@@ -220,15 +220,18 @@ export default function EvaluationsPage() {
 
   // Sort Table Data
   const sortedTable = [...filteredTable].sort((a: any, b: any) => {
-    if (sortOrder === 'registration-newest') {
-      // statusDate is 'MM/DD' or '-', hard to sort. relying on original order or ignore?
-      // Let's assume original order is mostly correct.
-      return 0
-    }
+    // 自分を最上部に表示
+    if (a.id === currentUser?.id) return -1;
+    if (b.id === currentUser?.id) return 1;
+
     if (sortOrder === 'points-desc') {
-      const pA = parseInt(a.fyPt.replace(/,/g, '').replace('pt', ''))
-      const pB = parseInt(b.fyPt.replace(/,/g, '').replace('pt', ''))
+      const pA = parseFloat(a.fyPt.toString().replace(/,/g, '').replace('pt', ''))
+      const pB = parseFloat(b.fyPt.toString().replace(/,/g, '').replace('pt', ''))
       return pB - pA
+    }
+    // デフォルト: 名前順や最新順など（ここでは元の順序を維持しつつ、ソート条件があれば適用）
+    if (sortOrder === 'name-asc') {
+      return (a.name || "").localeCompare(b.name || "", 'ja')
     }
     return 0
   })
@@ -444,8 +447,8 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.achieved)}</div>
-              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.target)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
               <div className="text-center font-bold text-lg">{stats.currentMonth.contract.rate}%</div>
             </div>
           </div>
@@ -461,8 +464,8 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.achieved)}</div>
-              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.target)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
               <div className="text-center font-bold text-lg">{stats.twoMonthsAgo.completion.rate}%</div>
             </div>
           </div>
@@ -478,8 +481,8 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.achieved)}</div>
-              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.target)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
               <div className="text-center font-bold text-lg">{stats.fiscalYear.completion.rate}%</div>
             </div>
           </div>

@@ -244,8 +244,8 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
                             <TableHead className="w-[150px]">所属チーム</TableHead>
                             <TableHead className="w-[200px]">評価パターン</TableHead>
                             <TableHead className="w-[100px]">数字目標</TableHead>
-                            <TableHead className="w-[200px]">契約目標 (月次)</TableHead>
-                            <TableHead className="w-[200px]">完工目標 (月次)</TableHead>
+                            <TableHead className="w-[200px]">契約目標 (月次/千円)</TableHead>
+                            <TableHead className="w-[200px]">完工目標 (月次/千円)</TableHead>
                             <TableHead></TableHead>
                         </TableRow>
                     </TableHeader>
@@ -304,9 +304,10 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
                                                 type="number"
                                                 value={emp.contractGoal}
                                                 onChange={e => handleChange(emp.id, 'contractGoal', e.target.value)}
-                                                className="h-8 pl-6 text-right"
+                                                className="h-8 pl-6 text-right pr-9"
                                                 disabled={!isEditing}
                                             />
+                                            <span className="absolute right-1.5 top-2 text-[8px] text-slate-400 font-bold">(千円)</span>
                                         </div>
                                     ) : <span className="text-slate-300 text-xs">-</span>}
                                 </TableCell>
@@ -318,9 +319,10 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
                                                 type="number"
                                                 value={emp.completionGoal}
                                                 onChange={e => handleChange(emp.id, 'completionGoal', e.target.value)}
-                                                className="h-8 pl-6 text-right"
+                                                className="h-8 pl-6 text-right pr-9"
                                                 disabled={!isEditing}
                                             />
+                                            <span className="absolute right-1.5 top-2 text-[8px] text-slate-400 font-bold">(千円)</span>
                                         </div>
                                     ) : <span className="text-slate-300 text-xs">-</span>}
                                 </TableCell>

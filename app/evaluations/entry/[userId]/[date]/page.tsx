@@ -546,17 +546,18 @@ export default function EvaluationEntryPage() {
                     <aside className="space-y-4 w-full">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-4">
                             {/* Date Selector */}
-                            <div className="flex flex-col gap-3 mb-3 lg:mb-4">
-                                <div className="text-slate-500 text-xs font-bold pl-1">
-                                    表示年月:
-                                </div>
-                                <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 mb-3 lg:mb-4 overflow-x-auto p-1">
+                                <Button variant="outline" size="sm" className="h-8 w-8 px-0 shrink-0" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
+                                    <ChevronLeft className="w-4 h-4" />
+                                </Button>
+
+                                <div className="flex items-center gap-1 shrink-0">
                                     <Select value={format(currentCalendarDate, 'yyyy')} onValueChange={(v) => {
                                         const newDate = new Date(currentCalendarDate)
                                         newDate.setFullYear(parseInt(v))
                                         setCurrentCalendarDate(newDate)
                                     }}>
-                                        <SelectTrigger className="w-[70px] h-8 text-xs border-slate-200 px-2">
+                                        <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -570,7 +571,7 @@ export default function EvaluationEntryPage() {
                                         newDate.setMonth(parseInt(v) - 1)
                                         setCurrentCalendarDate(newDate)
                                     }}>
-                                        <SelectTrigger className="w-[50px] h-8 text-xs border-slate-200 px-2">
+                                        <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -581,17 +582,10 @@ export default function EvaluationEntryPage() {
                                     </Select>
                                     <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
                                 </div>
-                                <div className="flex items-center justify-between gap-1">
-                                    <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
-                                        <ChevronLeft className="w-3 h-3" />
-                                    </Button>
-                                    <Button variant="outline" size="sm" className="h-7 flex-1 text-xs" onClick={() => setCurrentCalendarDate(new Date())}>
-                                        今月
-                                    </Button>
-                                    <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}>
-                                        <ChevronRight className="w-3 h-3" />
-                                    </Button>
-                                </div>
+
+                                <Button variant="outline" size="sm" className="h-8 px-2 text-xs shrink-0 ml-1" onClick={() => setCurrentCalendarDate(new Date())}>
+                                    今月
+                                </Button>
                             </div>
 
                             <div className="flex flex-row lg:flex-col gap-3">

@@ -1226,3 +1226,15 @@ model PersonnelEvaluationAIReport {
   @@index([createdBy])
   @@map("personnel_evaluation_ai_reports")
 }
+
+// 人事考課システム設定
+model PersonnelEvaluationConfig {
+  id                    String   @id @default(cuid())
+  key                   String   @unique // 設定キー
+  value                 String   // 設定値 (JSON or simple string)
+  description           String?  // 説明
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("personnel_evaluation_config")
+}

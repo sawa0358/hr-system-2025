@@ -62,7 +62,11 @@ export default function EvaluationEntryPage() {
     const [thankYouMessage, setThankYouMessage] = useState("")
     const [thankYouRecipientType, setThankYouRecipientType] = useState("") // 'individual', 'team', 'all'
     const [thankYouRecipient, setThankYouRecipient] = useState("")
+    const [thankYouSelectedTeam, setThankYouSelectedTeam] = useState("")
     const [teamMembers, setTeamMembers] = useState<any[]>([])
+    const [allEmployees, setAllEmployees] = useState<any[]>([])
+    const [allTeams, setAllTeams] = useState<any[]>([])
+    const [employeeSearchQuery, setEmployeeSearchQuery] = useState("")
     const [loading, setLoading] = useState(true)
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
@@ -140,19 +144,33 @@ export default function EvaluationEntryPage() {
                             .then(d => {
                                 if (d.stats) setStats(d.stats.currentMonth)
                             })
-
-                        // Fetch Team Members for Thank You feature
-                        fetch(`/api/evaluations/settings/employees`)
-                            .then(r => r.json())
-                            .then(allEmployees => {
-                                // Filter to same team or all
-                                const members = Array.isArray(allEmployees)
-                                    ? allEmployees.filter((e: any) => e.teamId === empData.personnelEvaluationTeam?.id && e.id !== userId)
-                                    : []
-                                setTeamMembers(members)
-                            })
-                            .catch(e => console.error("Failed to fetch team members", e))
                     }
+
+                    // Fetch All Employees for Thank You feature
+                    fetch(`/api/evaluations/settings/employees`)
+                        .then(r => r.json())
+                        .then(employees => {
+                            if (Array.isArray(employees)) {
+                                // 自分以外の全員
+                                setAllEmployees(employees.filter((e: any) => e.id !== userId))
+                                // 同じチームのメンバー
+                                const members = employees.filter((e: any) =>
+                                    e.teamId === empData.personnelEvaluationTeam?.id && e.id !== userId
+                                )
+                                setTeamMembers(members)
+                            }
+                        })
+                        .catch(e => console.error("Failed to fetch employees", e))
+
+                    // Fetch Teams
+                    fetch(`/api/evaluations/settings/teams`)
+                        .then(r => r.json())
+                        .then(teams => {
+                            if (Array.isArray(teams)) {
+                                setAllTeams(teams)
+                            }
+                        })
+                        .catch(e => console.error("Failed to fetch teams", e))
                 }
 
                 // ... (rest of loading logic same as before but respecting isNumericGoalEnabled implicitly via UI check)
@@ -364,11 +382,14 @@ export default function EvaluationEntryPage() {
             if (thankYouMessage && thankYouRecipientType) {
                 if (thankYouRecipientType === 'individual' && thankYouRecipient) {
                     thankYouTo = [thankYouRecipient]
-                } else if (thankYouRecipientType === 'team') {
+                } else if (thankYouRecipientType === 'myTeam') {
                     thankYouTo = teamMembers.map(m => m.id)
+                } else if (thankYouRecipientType === 'selectTeam' && thankYouSelectedTeam) {
+                    thankYouTo = allEmployees
+                        .filter(e => e.teamId === thankYouSelectedTeam)
+                        .map(e => e.id)
                 } else if (thankYouRecipientType === 'all') {
-                    // All employees - this would need a full list. For now, use teamMembers as proxy or handle in API
-                    thankYouTo = teamMembers.map(m => m.id) // Or fetch all from API
+                    thankYouTo = allEmployees.map(e => e.id)
                 }
             }
 
@@ -938,35 +959,89 @@ export default function EvaluationEntryPage() {
                                     <CardContent className="p-4 space-y-4">
                                         {/* Recipient Selection */}
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold text-pink-700">送り先</label>
+                                            <label className="text-xs font-bold text-pink-700">送り先タイプ</label>
                                             <Select
                                                 value={thankYouRecipientType}
-                                                onValueChange={(v) => setThankYouRecipientType(v)}
+                                                onValueChange={(v) => {
+                                                    setThankYouRecipientType(v)
+                                                    setThankYouRecipient("")
+                                                    setThankYouSelectedTeam("")
+                                                    setEmployeeSearchQuery("")
+                                                }}
                                             >
                                                 <SelectTrigger className="w-full h-9 bg-white border-pink-200">
                                                     <SelectValue placeholder="送り先を選択..." />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="individual">個人を選択</SelectItem>
-                                                    <SelectItem value="team">チーム全員</SelectItem>
+                                                    <SelectItem value="selectTeam">チームを選択</SelectItem>
+                                                    <SelectItem value="myTeam">自分のチーム全員</SelectItem>
                                                     <SelectItem value="all">全員</SelectItem>
                                                 </SelectContent>
                                             </Select>
 
+                                            {/* 個人選択モード */}
                                             {thankYouRecipientType === 'individual' && (
+                                                <div className="space-y-2 mt-2">
+                                                    <Input
+                                                        placeholder="名前で検索..."
+                                                        value={employeeSearchQuery}
+                                                        onChange={(e) => setEmployeeSearchQuery(e.target.value)}
+                                                        className="h-8 text-xs bg-white border-pink-200"
+                                                    />
+                                                    <Select
+                                                        value={thankYouRecipient}
+                                                        onValueChange={(v) => setThankYouRecipient(v)}
+                                                    >
+                                                        <SelectTrigger className="w-full h-9 bg-white border-pink-200">
+                                                            <SelectValue placeholder="メンバーを選択..." />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {allEmployees
+                                                                .filter((e: any) =>
+                                                                    !employeeSearchQuery ||
+                                                                    e.name?.toLowerCase().includes(employeeSearchQuery.toLowerCase())
+                                                                )
+                                                                .map((m: any) => (
+                                                                    <SelectItem key={m.id} value={m.id}>
+                                                                        {m.name} {m.teamName && `(${m.teamName})`}
+                                                                    </SelectItem>
+                                                                ))
+                                                            }
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            )}
+
+                                            {/* チーム選択モード */}
+                                            {thankYouRecipientType === 'selectTeam' && (
                                                 <Select
-                                                    value={thankYouRecipient}
-                                                    onValueChange={(v) => setThankYouRecipient(v)}
+                                                    value={thankYouSelectedTeam}
+                                                    onValueChange={(v) => setThankYouSelectedTeam(v)}
                                                 >
                                                     <SelectTrigger className="w-full h-9 bg-white border-pink-200 mt-2">
-                                                        <SelectValue placeholder="メンバーを選択..." />
+                                                        <SelectValue placeholder="チームを選択..." />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {teamMembers.map((m: any) => (
-                                                            <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                                                        {allTeams.map((t: any) => (
+                                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
+                                            )}
+
+                                            {/* 自分のチーム全員 */}
+                                            {thankYouRecipientType === 'myTeam' && (
+                                                <p className="text-xs text-pink-500 mt-2">
+                                                    {teamName}の全員（{teamMembers.length}名）に送信されます
+                                                </p>
+                                            )}
+
+                                            {/* 全員 */}
+                                            {thankYouRecipientType === 'all' && (
+                                                <p className="text-xs text-pink-500 mt-2">
+                                                    全メンバー（{allEmployees.length}名）に送信されます
+                                                </p>
                                             )}
                                         </div>
 

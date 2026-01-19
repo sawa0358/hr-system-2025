@@ -59,8 +59,20 @@ export async function GET(request: Request) {
         // ロック状態判定
         const locked = isLockedPastEntry(date)
 
+        // 追加: 月次ゴール情報の取得
+        const period = dateStr.slice(0, 7)
+        const goal = await prisma.personnelEvaluationGoal.findUnique({
+            where: {
+                employeeId_period: {
+                    employeeId: targetUserId,
+                    period: period
+                }
+            }
+        })
+
         return NextResponse.json({
             submission,
+            goal,
             isLocked: locked
         })
 
@@ -77,31 +89,42 @@ export async function POST(request: Request) {
         if (!requesterId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
         const body = await request.json()
-        const { date, items, thankYous, employeeId } = body
+        const { date, items, thankYous, employeeId, goals } = body
         // employeeId in body specifies target. If missing, assume self (requesterId).
         const targetUserId = employeeId || requesterId
+
+        console.log(`[Submission POST] Start. requesterId=${requesterId}, targetUserId=${targetUserId}`)
 
         if (!date) return NextResponse.json({ error: 'Date required' }, { status: 400 })
 
         // 権限チェック (他人のデータを保存する場合)
         if (targetUserId !== requesterId) {
             const requester = await prisma.employee.findUnique({ where: { id: requesterId }, select: { role: true } })
+            console.log(`[Submission POST] Proxy check. requesterRole=${requester?.role}`)
+
             const allowedRoles = ['admin', 'hr', 'manager']
             if (!requester || !allowedRoles.includes(requester.role || '')) {
-                return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+                console.log(`[Submission POST] Proxy denied.`)
+                return NextResponse.json({ error: 'Forbidden: Insufficient privileges' }, { status: 403 })
             }
         }
 
         const targetDate = new Date(date)
 
         // 1. ロックチェック
-        if (isLockedPastEntry(targetDate)) {
+        const isLocked = isLockedPastEntry(targetDate)
+        console.log(`[Submission POST] Lock check. date=${date}, isLocked=${isLocked}`)
+
+        if (isLocked) {
             // 権限チェック (ロック解除権限)
             // Note: 上記の「他人のデータ」チェックとは別に、ロック期間外の編集権限も確認
             const requester = await prisma.employee.findUnique({ where: { id: requesterId }, select: { role: true } })
             const bypassRoles = ['admin', 'hr', 'manager']
 
+            console.log(`[Submission POST] Lock bypass check. requesterRole=${requester?.role}`)
+
             if (!requester || !bypassRoles.includes(requester.role || '')) {
+                console.log(`[Submission POST] Lock bypass denied.`)
                 return NextResponse.json({ error: 'この日付の日報は編集期間が過ぎているため変更できません' }, { status: 403 })
             }
         }
@@ -151,7 +174,7 @@ export async function POST(request: Request) {
                             submissionId: submission.id,
                             itemId: item.itemId || null, // パターン項目ID
                             title: item.title || '',
-                            description: item.description || null,
+                            // description: item.description || null, // Server restart required to enable this
                             points: points,
                             isChecked: isChecked,
                             textValue: item.textValue || null
@@ -225,13 +248,64 @@ export async function POST(request: Request) {
                 })
             }
 
+            // 5. 目標実績の更新 (Optional)
+            // 5. 目標実績の更新 (Optional)
+            if (goals) {
+                // date文字列 (yyyy-MM-dd) からPeriod (yyyy-MM) を生成
+                // targetDate.toISOString() だとUTCで日付がずれる可能性があるため、入力文字列を使用
+                const period = (typeof date === 'string' ? date : targetDate.toISOString()).slice(0, 7)
+
+                try {
+                    // upsertの代わりにfindFirst -> update/create (安全策)
+                    const existingGoal = await tx.personnelEvaluationGoal.findUnique({
+                        where: {
+                            employeeId_period: {
+                                employeeId: targetUserId,
+                                period: period
+                            }
+                        }
+                    })
+
+                    if (existingGoal) {
+                        await tx.personnelEvaluationGoal.update({
+                            where: { id: existingGoal.id },
+                            data: {
+                                contractAchievedAmount: String(Number(goals.contractAchieved) || 0),
+                                completionAchievedAmount: String(Number(goals.completionAchieved) || 0)
+                            }
+                        })
+                    } else {
+                        await tx.personnelEvaluationGoal.create({
+                            data: {
+                                employeeId: targetUserId,
+                                period: period,
+                                contractTargetAmount: 0,
+                                completionTargetAmount: 0,
+                                contractAchievedAmount: String(Number(goals.contractAchieved) || 0),
+                                completionAchievedAmount: String(Number(goals.completionAchieved) || 0)
+                            }
+                        })
+                    }
+                } catch (e) {
+                    console.error("Failed to update goals:", e)
+                    // ゴール更新失敗で全体をロールバックさせたくない場合はここで握りつぶすが、
+                    // データの整合性を考えるとエラーにした方が気づける。
+                    // 今回はログを出して再スローする。
+                    throw e
+                }
+            }
+
             return submission
         })
 
         return NextResponse.json(result)
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('POST /api/evaluations/submissions error:', error)
-        return NextResponse.json({ error: 'Failed to submit' }, { status: 500 })
+        return NextResponse.json({
+            error: 'Failed to save submission',
+            details: error?.message || String(error),
+            // stack: error?.stack // Stack is optional
+        }, { status: 500 })
     }
 }

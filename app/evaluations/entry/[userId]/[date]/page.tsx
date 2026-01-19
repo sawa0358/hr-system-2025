@@ -20,7 +20,7 @@ import {
     CheckCircle2,
     Lock
 } from "lucide-react"
-import { format, parseISO } from "date-fns"
+import { format, parseISO, endOfMonth, addMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
@@ -34,63 +34,114 @@ export default function EvaluationEntryPage() {
 
     const [isLocked, setIsLocked] = useState(false)
     const [canEdit, setCanEdit] = useState(false)
+    const [stats, setStats] = useState<any>(null) // Team Stats
+    const [personalGoal, setPersonalGoal] = useState<any>({
+        contractTarget: 0,
+        contractAchieved: 0,
+        completionTarget: 0,
+        completionAchieved: 0
+    }) // Personal Goal Stats
     const [items, setItems] = useState<any[]>([])
     const [thankYous, setThankYous] = useState<any[]>([])
     const [thankYouMessage, setThankYouMessage] = useState("")
     const [loading, setLoading] = useState(true)
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
-    const [stats, setStats] = useState<any>(null)
 
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
+    const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+    // Goal Editing Lock Logic: Locked after the end of the next month
+    const isGoalLocked = (() => {
+        if (isAdminOrHr) return false // Admin/HR can always edit
+
+        const targetDate = new Date(dateStr)
+        const nextMonthEnd = endOfMonth(addMonths(targetDate, 1))
+        const now = new Date()
+
+        return now > nextMonthEnd
+    })()
 
     useEffect(() => {
         const loadData = async () => {
             setLoading(true)
             try {
-                // 1. Fetch Submission
-                const subRes = await fetch(`/api/evaluations/submissions?date=${dateStr}&userId=${userId}`)
-                const subData = await subRes.json()
+                // 1. Fetch Submission and Employee Data in parallel
+                const [subRes, empRes] = await Promise.all([
+                    fetch(`/api/evaluations/submissions?date=${dateStr}&userId=${userId}`, {
+                        headers: { 'x-employee-id': currentUser?.id || '' }
+                    }),
+                    fetch(`/api/evaluations/settings/employees/${userId}`)
+                ])
 
+                const subData = await subRes.json()
+                const empData = await empRes.json()
+
+                // 2. Set Employee Info & Stats (Always run)
+                if (empData && empData.name) {
+                    setEmployeeName(empData.name)
+                    setTeamName(empData.personnelEvaluationTeam?.name || "")
+
+                    // Fetch Team Stats
+                    if (empData.personnelEvaluationTeamId) {
+                        fetch(`/api/evaluations/dashboard?date=${dateStr}&teamId=${empData.personnelEvaluationTeamId}`)
+                            .then(r => r.json())
+                            .then(d => {
+                                if (d.stats) setStats(d.stats.currentMonth)
+                            })
+                    }
+                }
+
+                // 3. Set Personal Goals
+                // Check if API returned goal (from submission/goal table)
+                if (subData.goal) {
+                    setPersonalGoal({
+                        contractTarget: Number(subData.goal.contractTargetAmount),
+                        contractAchieved: Number(subData.goal.contractAchievedAmount),
+                        completionTarget: Number(subData.goal.completionTargetAmount),
+                        completionAchieved: Number(subData.goal.completionAchievedAmount)
+                    })
+                } else if (empData) {
+                    // Fallback to employee settings
+                    const currentPeriod = dateStr.slice(0, 7)
+                    const pGoals = empData.personnelEvaluationGoals?.find((g: any) => g.period === currentPeriod)
+
+                    if (pGoals) {
+                        setPersonalGoal({
+                            contractTarget: Number(pGoals.contractTargetAmount),
+                            contractAchieved: Number(pGoals.contractAchievedAmount),
+                            completionTarget: Number(pGoals.completionTargetAmount),
+                            completionAchieved: Number(pGoals.completionAchievedAmount)
+                        })
+                    } else {
+                        // Default goals from employee master
+                        setPersonalGoal({
+                            contractTarget: Number(empData.contractGoal) || 0,
+                            contractAchieved: 0,
+                            completionTarget: Number(empData.completionGoal) || 0,
+                            completionAchieved: 0
+                        })
+                    }
+                }
+
+                // 4. Set Items (Submission or Pattern)
                 if (subData.submission) {
-                    // Load from submission
-                    // Convert submission items to UI items
+                    // Load from saved submission
                     const loadedItems = subData.submission.items.map((i: any) => ({
-                        id: i.itemId || i.id, // items that came from pattern have itemId?
-                        type: i.title === 'ありがとう送信' ? 'thank_you' : (i.title.includes('振り返り') ? 'text' : 'checkbox'), // Simple heuristic or need 'type' in submission item?
-                        // Schema has 'type' in Item, but SubmissionItem doesn't store type explicitly? 
-                        // SubmissionItem has `itemId`. Logic:
-                        // If we want exact type, we might need to join pattern items.
-                        // For now, let's assume 'checkbox' default unless textValue is present.
+                        id: i.itemId || i.id,
                         itemId: i.itemId,
+                        type: i.title === 'ありがとう送信' ? 'thank_you' : (i.title.includes('振り返り') ? 'text' : 'checkbox'),
                         title: i.title,
                         description: i.description,
                         points: i.points,
                         checked: i.isChecked,
                         value: i.textValue || '',
-                        mandatory: false // Hard to know from here
-                    })).filter((i: any) => i.type !== 'thank_you') // Filter out separate thank you logic if stored as items
+                        mandatory: false
+                    })).filter((i: any) => i.type !== 'thank_you')
 
                     setItems(loadedItems)
-                } else {
-                    // 2. No submission, fetch Pattern
-                    const empRes = await fetch(`/api/evaluations/settings/employees/${userId}`)
-                    const empData = await empRes.json()
-
-                    if (empData && empData.name) {
-                        setEmployeeName(empData.name)
-                        setTeamName(empData.personnelEvaluationTeam?.name || "")
-
-                        // Fetch Team Stats
-                        if (empData.personnelEvaluationTeamId) {
-                            fetch(`/api/evaluations/dashboard?date=${dateStr}&teamId=${empData.personnelEvaluationTeamId}`)
-                                .then(r => r.json())
-                                .then(d => {
-                                    if (d.stats) setStats(d.stats.currentMonth)
-                                })
-                        }
-                    }
-
+                } else if (empData) {
+                    // Load from Pattern
                     const patternId = empData.personnelEvaluationPatternId || empData.personnelEvaluationPattern?.id
                     if (patternId) {
                         const patRes = await fetch(`/api/evaluations/settings/patterns?id=${patternId}`)
@@ -109,12 +160,11 @@ export default function EvaluationEntryPage() {
                             })))
                         }
                     } else {
-                        // Fallback or empty
                         setItems([])
                     }
                 }
 
-                // 3. Lock Logic
+                // 5. Lock Logic
                 setIsLocked(subData.isLocked)
                 // If locked, only admin/hr/manager can edit
                 if (subData.isLocked) {
@@ -150,12 +200,19 @@ export default function EvaluationEntryPage() {
                     checked: i.checked,
                     textValue: i.value
                 })),
-                thankYous: thankYouMessage ? [{ to: [], message: thankYouMessage }] : [] // Simplified for now
+                thankYous: thankYouMessage ? [{ to: [], message: thankYouMessage }] : [],
+                goals: {
+                    contractAchieved: personalGoal.contractAchieved,
+                    completionAchieved: personalGoal.completionAchieved
+                }
             }
 
             const res = await fetch('/api/evaluations/submissions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-employee-id': currentUser?.id || ''
+                },
                 body: JSON.stringify(body)
             })
 
@@ -164,7 +221,7 @@ export default function EvaluationEntryPage() {
                 // Reload or re-fetch?
             } else {
                 const err = await res.json()
-                alert(`エラー: ${err.error}`)
+                alert(`エラー: ${err.error}\n詳細: ${err.details || ''}`)
             }
         } catch (e) {
             console.error(e)
@@ -221,7 +278,10 @@ export default function EvaluationEntryPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                         {/* Contract Stats */}
                         <div className="bg-slate-900 text-white p-4">
-                            <div className="text-center font-bold mb-4 text-base bg-slate-800 py-1 rounded">2026年1月</div>
+                            <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                                {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
+                                <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                            </div>
                             <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
                                 <div>契約達成額</div>
                                 <div>契約目標額</div>
@@ -236,7 +296,9 @@ export default function EvaluationEntryPage() {
                         {/* Completion Stats */}
                         <div className="bg-slate-900 text-white p-4">
                             <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                                2025年11月 <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                                2025年11月
+                                <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                                <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
                                 <div>完工達成額</div>
@@ -251,6 +313,86 @@ export default function EvaluationEntryPage() {
                         </div>
                     </div>
                 )}
+
+                {/* Personal Goals Input Section */}
+                <Card className="border-slate-200 shadow-sm overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                        <h3 className="font-bold text-slate-700 text-sm">個人目標・実績管理</h3>
+                        <div className="flex items-center gap-2">
+                            {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">編集期間終了</Badge>}
+                            <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm">
+                                {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
+                            </span>
+                            <Button size="sm" onClick={handleSave} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+                                <Save className="w-3 h-3 mr-1" />
+                                実績を保存
+                            </Button>
+                        </div>
+                    </div>
+                    <CardContent className="p-4 bg-white">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Contract Goal */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-slate-700 font-bold flex flex-col">
+                                        <span className="text-base">契約実績金額</span>
+                                        <span className="text-[10px] text-slate-400 font-normal">リアルタイムで記入</span>
+                                    </Label>
+                                    <div className="text-right">
+                                        <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                        <span className="font-bold text-slate-600">¥{personalGoal.contractTarget.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                    <Input
+                                        type="number"
+                                        value={personalGoal.contractAchieved || ''}
+                                        onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: e.target.value })}
+                                        className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                        placeholder="0"
+                                        disabled={isGoalLocked && !isAdminOrHr}
+                                    />
+                                </div>
+                                <div className="flex justify-end text-xs font-medium">
+                                    達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                        {personalGoal.contractTarget > 0 ? ((Number(personalGoal.contractAchieved) / personalGoal.contractTarget) * 100).toFixed(1) : '0.0'}%
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Completion Goal */}
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
+                                        <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                        <span className="font-bold text-slate-600">¥{personalGoal.completionTarget.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                    <Input
+                                        type="number"
+                                        value={personalGoal.completionAchieved || ''}
+                                        onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: e.target.value })}
+                                        className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm"
+                                        placeholder="0"
+                                        disabled={isGoalLocked && !isAdminOrHr}
+                                    />
+                                </div>
+                                <div className="flex justify-end text-xs font-medium">
+                                    達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                        {personalGoal.completionTarget > 0 ? ((Number(personalGoal.completionAchieved) / personalGoal.completionTarget) * 100).toFixed(1) : '0.0'}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Main Check Items */}
                 <div className="space-y-4">

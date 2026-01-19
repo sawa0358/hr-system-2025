@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Copy, Trash2, Edit, Save, ArrowLeft, CheckSquare, Camera, MessageCircle, Type } from "lucide-react"
+import { Plus, Copy, Trash2, Edit, Save, ArrowLeft, CheckSquare, Camera, MessageCircle, Type, Trophy } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
@@ -117,10 +117,18 @@ export default function PatternSettingsPage() {
                         <p className="text-slate-500">評価パターンの作成・編集を行います</p>
                     </div>
                 </div>
-                <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    新規作成
-                </Button>
+                <div className="flex gap-2">
+                    <Link href="/evaluations/settings/points">
+                        <Button variant="outline" className="gap-2 bg-white border-amber-200 text-amber-700 hover:bg-amber-50">
+                            <Trophy className="w-4 h-4 text-amber-500" />
+                            ありがとう設定
+                        </Button>
+                    </Link>
+                    <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">
+                        <Plus className="w-4 h-4 mr-2" />
+                        新規作成
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

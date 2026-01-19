@@ -70,6 +70,7 @@ export default function EvaluationEntryPage() {
     const [loading, setLoading] = useState(true)
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
+    const [thankYouConfig, setThankYouConfig] = useState({ send: 5, receive: 10 })
 
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
     const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
@@ -171,6 +172,19 @@ export default function EvaluationEntryPage() {
                             }
                         })
                         .catch(e => console.error("Failed to fetch teams", e))
+
+                    // Fetch Thank You Point Config
+                    fetch(`/api/evaluations/settings/config`)
+                        .then(r => r.json())
+                        .then(config => {
+                            if (config) {
+                                setThankYouConfig({
+                                    send: config.thankYouSendPoints ?? 5,
+                                    receive: config.thankYouReceivePoints ?? 10
+                                })
+                            }
+                        })
+                        .catch(e => console.error("Failed to fetch point config", e))
                 }
 
                 // ... (rest of loading logic same as before but respecting isNumericGoalEnabled implicitly via UI check)
@@ -952,7 +966,7 @@ export default function EvaluationEntryPage() {
                             <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
                                 <Heart className="w-4 h-4 fill-pink-500" />
                                 ありがとうを送る
-                                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +5pt / 受信: +10pt）</span>
+                                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +{thankYouConfig.send}pt / 受信: +{thankYouConfig.receive}pt）</span>
                             </h2>
                             {canEdit && (
                                 <Card className="border-pink-200 bg-pink-50/30">

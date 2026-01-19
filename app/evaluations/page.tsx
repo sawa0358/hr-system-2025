@@ -24,6 +24,7 @@ import {
   Trash2,
   Edit,
   Save,
+  Trophy,
   X
 } from "lucide-react"
 import { DateRange } from "react-day-picker"

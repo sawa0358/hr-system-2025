@@ -239,6 +239,16 @@ export async function POST(request: Request) {
                 }
             }
 
+            // 設定値の取得 (デフォルト値を考慮)
+            const configs = await tx.personnelEvaluationConfig.findMany()
+            const getConfig = (key: string, def: number) => {
+                const c = configs.find(x => x.key === key)
+                return c ? Number(c.value) : def
+            }
+            const sendPoints = getConfig('thankYouSendPoints', 5)
+            const receivePoints = getConfig('thankYouReceivePoints', 10)
+            const dailyLimit = getConfig('thankYouDailyLimit', 50)
+
             // ありがとうアイテム
             if (Array.isArray(thankYous)) {
                 for (const ty of thankYous) {
@@ -246,36 +256,66 @@ export async function POST(request: Request) {
                         data: {
                             submissionId: submission.id,
                             title: 'ありがとう送信',
-                            points: 5, // 送信ポイント？
+                            points: sendPoints,
                             isChecked: true,
                             thankYouTo: JSON.stringify(ty.to || []), // 配列をJSON化
                             thankYouMessage: ty.message || ''
                         }
                     })
 
-                    // 送信者へのポイント加算ログ（送信サンクスポイント）
-                    await tx.personnelEvaluationPointLog.create({
-                        data: {
+                    // 送信者へのポイント加算ログ
+                    // 当日の獲得済みptを確認して上限内なら加算
+                    const startOfDay = new Date(targetDate); startOfDay.setHours(0, 0, 0, 0)
+                    const endOfDay = new Date(targetDate); endOfDay.setHours(23, 59, 59, 999)
+
+                    const senderTodayPoints = await tx.personnelEvaluationPointLog.aggregate({
+                        _sum: { points: true },
+                        where: {
                             employeeId: targetUserId,
-                            date: targetDate,
-                            points: 5, // 送信ボーナス固定
-                            type: 'thank_you_sent',
-                            sourceId: submission.id // 簡易的にSubmissionID
+                            date: { gte: startOfDay, lte: endOfDay },
+                            type: { in: ['thank_you_sent', 'thank_you_received'] }
                         }
                     })
+                    const currentSenderPoints = senderTodayPoints._sum.points || 0
+                    const pointsToAddSender = Math.max(0, Math.min(sendPoints, dailyLimit - currentSenderPoints))
+
+                    if (pointsToAddSender > 0) {
+                        await tx.personnelEvaluationPointLog.create({
+                            data: {
+                                employeeId: targetUserId,
+                                date: targetDate,
+                                points: pointsToAddSender,
+                                type: 'thank_you_sent',
+                                sourceId: submission.id
+                            }
+                        })
+                    }
 
                     // 受信者へのポイント加算ログ
                     if (Array.isArray(ty.to)) {
                         for (const recipientId of ty.to) {
-                            await tx.personnelEvaluationPointLog.create({
-                                data: {
+                            const recipientTodayPoints = await tx.personnelEvaluationPointLog.aggregate({
+                                _sum: { points: true },
+                                where: {
                                     employeeId: recipientId,
-                                    date: targetDate,
-                                    points: 10, // 受信ボーナス？（仮）
-                                    type: 'thank_you_received',
-                                    sourceId: submission.id
+                                    date: { gte: startOfDay, lte: endOfDay },
+                                    type: { in: ['thank_you_sent', 'thank_you_received'] }
                                 }
                             })
+                            const currentRecipientPoints = recipientTodayPoints._sum.points || 0
+                            const pointsToAddRecipient = Math.max(0, Math.min(receivePoints, dailyLimit - currentRecipientPoints))
+
+                            if (pointsToAddRecipient > 0) {
+                                await tx.personnelEvaluationPointLog.create({
+                                    data: {
+                                        employeeId: recipientId,
+                                        date: targetDate,
+                                        points: pointsToAddRecipient,
+                                        type: 'thank_you_received',
+                                        sourceId: submission.id
+                                    }
+                                })
+                            }
                         }
                     }
                 }

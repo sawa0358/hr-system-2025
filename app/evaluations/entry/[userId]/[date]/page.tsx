@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -89,8 +90,8 @@ export default function EvaluationEntryPage() {
         fetch(`/api/evaluations/dashboard?date=${dateString}&employeeId=${userId}`)
             .then(res => res.json())
             .then(data => {
-                if (data.calendarStats) {
-                    setCalendarStats(data.calendarStats)
+                if (data.calendar) {
+                    setCalendarStats(data.calendar)
                 }
             })
             .catch(e => console.error("Failed to load calendar stats", e))
@@ -99,6 +100,11 @@ export default function EvaluationEntryPage() {
     useEffect(() => {
         const loadData = async () => {
             setLoading(true)
+            // ステートをリセットして古いデータを表示しないように
+            setItems([])
+            setStats(null)
+            setPersonalGoal({ contractTarget: 0, contractAchieved: 0, completionTarget: 0, completionAchieved: 0 })
+
             try {
                 // 1. Fetch Submission and Employee Data in parallel
                 const [subRes, empRes] = await Promise.all([
@@ -165,53 +171,76 @@ export default function EvaluationEntryPage() {
                 }
 
                 // 4. Set Items (Submission or Pattern)
+                // まずパターンを取得して正しいtype情報を得る
+                const patternId = empData?.personnelEvaluationPatternId || empData?.personnelEvaluationPattern?.id
+                let patternItemsMap: Record<string, any> = {}
+
+                if (patternId) {
+                    try {
+                        const patRes = await fetch(`/api/evaluations/settings/patterns?id=${patternId}`)
+                        const patData = await patRes.json()
+                        if (patData && patData.items) {
+                            patData.items.forEach((item: any) => {
+                                patternItemsMap[item.id] = item
+                            })
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch pattern for type reference", e)
+                    }
+                }
+
                 if (subData.submission) {
                     // Load from saved submission
                     const loadedItems = subData.submission.items.map((i: any) => {
-                        let type = 'checkbox'
-                        // Prioritize flags if available
-                        if (i.isDescription) type = 'description'
-                        else if (i.isFreeText) type = 'text'
-                        // Fallback to title heuristics
-                        else if (i.title === 'ありがとう送信') type = 'thank_you'
-                        else if (i.title.includes('写真') || i.title === '写真') type = 'photo'
-                        else if (i.title.includes('振り返り')) type = 'text'
-                        else if (i.description && !i.isChecked && !i.points) type = 'description' // Heuristic for description items if flag missing
+                        // パターンから正しいtypeを取得（最も信頼性が高い）
+                        let patternItem = patternItemsMap[i.itemId]
+
+                        // itemIdでマッチしない場合、titleで検索（古いデータ対応）
+                        if (!patternItem && i.title) {
+                            patternItem = Object.values(patternItemsMap).find((p: any) => p.title === i.title)
+                        }
+
+                        let type = patternItem?.type || 'checkbox'
+
+                        // パターンにない場合はフラグやヒューリスティクスで判定
+                        if (!patternItem) {
+                            if (i.isDescription) type = 'description'
+                            else if (i.isFreeText) type = 'text'
+                            else if (i.title === 'ありがとう送信') type = 'thank_you'
+                            else if (i.title.includes('写真') || i.title === '写真') type = 'photo'
+                            else if (i.title.includes('振り返り')) type = 'text'
+                            // タイトルに「チェック」を含む項目は説明項目の可能性
+                            else if (i.title.includes('チェック') && !i.points) type = 'description'
+                        }
 
                         return {
                             ...i,
                             id: i.itemId || i.id,
-                            itemId: i.itemId,
+                            itemId: i.itemId || patternItem?.id, // パターンから補完
                             type,
                             checked: i.isChecked,
                             value: i.textValue || '',
-                            mandatory: false
+                            mandatory: patternItem?.isMandatory || false
                         }
                     }).filter((i: any) => i.type !== 'thank_you')
                     setItems(loadedItems)
 
-                } else if (empData) {
-                    // Load from Pattern
-                    const patternId = empData.personnelEvaluationPatternId || empData.personnelEvaluationPattern?.id
-                    if (patternId) {
-                        const patRes = await fetch(`/api/evaluations/settings/patterns?id=${patternId}`)
-                        const patData = await patRes.json()
-                        if (patData && patData.items) {
-                            setItems(patData.items.map((i: any) => ({
-                                id: i.id,
-                                itemId: i.id,
-                                type: i.type,
-                                title: i.title,
-                                description: i.description,
-                                points: i.points,
-                                checked: false,
-                                value: '',
-                                mandatory: i.isMandatory
-                            })))
-                        }
-                    } else {
-                        setItems([])
-                    }
+                } else if (patternId && Object.keys(patternItemsMap).length > 0) {
+                    // Load from Pattern (既に取得済み)
+                    const patternItems = Object.values(patternItemsMap).map((i: any) => ({
+                        id: i.id,
+                        itemId: i.id,
+                        type: i.type,
+                        title: i.title,
+                        description: i.description,
+                        points: i.points,
+                        checked: false,
+                        value: '',
+                        mandatory: i.isMandatory
+                    }))
+                    setItems(patternItems)
+                } else {
+                    setItems([])
                 }
 
                 // 5. Lock Logic
@@ -267,7 +296,16 @@ export default function EvaluationEntryPage() {
 
             if (res.ok) {
                 alert('保存しました')
-                // Reload or re-fetch?
+                // カレンダーの統計を再取得してチェックマークを更新
+                const dateString = format(currentCalendarDate, 'yyyy-MM-dd')
+                fetch(`/api/evaluations/dashboard?date=${dateString}&employeeId=${userId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.calendar) {
+                            setCalendarStats(data.calendar)
+                        }
+                    })
+                    .catch(e => console.error("Failed to refresh calendar stats", e))
             } else {
                 const err = await res.json()
                 alert(`エラー: ${err.error}\n詳細: ${err.details || ''}`)
@@ -299,9 +337,11 @@ export default function EvaluationEntryPage() {
             {/* Header */}
             <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                        <ArrowLeft className="w-5 h-5 text-slate-600" />
-                    </Button>
+                    <Link href="/evaluations">
+                        <Button variant="ghost" size="icon">
+                            <ArrowLeft className="w-5 h-5 text-slate-600" />
+                        </Button>
+                    </Link>
                     <div>
                         <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             {format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力
@@ -404,7 +444,10 @@ export default function EvaluationEntryPage() {
                                                     return (
                                                         <tr
                                                             key={day}
-                                                            onClick={isSelected ? undefined : () => router.push(`/evaluations/entry/${userId}/${dStr}`)}
+                                                            onClick={isSelected ? undefined : () => {
+                                                                // フルページリロードでデータを確実に再取得
+                                                                window.location.href = `/evaluations/entry/${userId}/${dStr}`
+                                                            }}
                                                             className={cn(
                                                                 "cursor-pointer transition-colors",
                                                                 isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"

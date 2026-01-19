@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Search, Save, ArrowLeft, UserPlus, Users, Calculator, Trash2, Lock, Unlock, Edit2 } from "lucide-react"
+import { Search, Save, ArrowLeft, UserPlus, Users, Calculator, Trash2, Lock, Unlock, Edit2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/lib/auth-context"
 
 export default function EmployeeSettingsPage() {
     const [activeTab, setActiveTab] = useState("individual")
@@ -79,18 +80,46 @@ export default function EmployeeSettingsPage() {
 }
 
 function PasswordCheckDialog({ open, onOpenChange, onSuccess }: { open: boolean, onOpenChange: (open: boolean) => void, onSuccess: () => void }) {
+    const { currentUser } = useAuth()
     const [password, setPassword] = useState("")
     const [error, setError] = useState(false)
+    const [loading, setLoading] = useState(false)
 
-    const handleSubmit = () => {
-        // Hardcoded password for now as per common requirement when not specified
-        if (password === "admin" || password === "password") {
-            onSuccess()
-            onOpenChange(false)
-            setPassword("")
-            setError(false)
-        } else {
+    const handleSubmit = async () => {
+        if (!currentUser?.id) {
             setError(true)
+            return
+        }
+
+        setLoading(true)
+        setError(false)
+
+        try {
+            // 社員情報で設定されているパスワードをAPI経由で検証
+            const res = await fetch('/api/auth/verify-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employeeId: currentUser.id,
+                    password: password
+                })
+            })
+
+            const data = await res.json()
+
+            if (data.valid) {
+                onSuccess()
+                onOpenChange(false)
+                setPassword("")
+                setError(false)
+            } else {
+                setError(true)
+            }
+        } catch (e) {
+            console.error('Password verification error:', e)
+            setError(true)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -114,8 +143,11 @@ function PasswordCheckDialog({ open, onOpenChange, onSuccess }: { open: boolean,
                     {error && <p className="text-sm text-red-500">パスワードが間違っています</p>}
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
-                    <Button onClick={handleSubmit}>確認</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>キャンセル</Button>
+                    <Button onClick={handleSubmit} disabled={loading}>
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        確認
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

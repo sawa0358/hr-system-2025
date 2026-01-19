@@ -4,6 +4,36 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
+// GET: 特定の社員の評価設定を取得
+export async function GET(
+    request: Request,
+    { params }: { params: { employeeId: string } }
+) {
+    try {
+        const employeeId = params.employeeId
+        const employee = await prisma.employee.findUnique({
+            where: { id: employeeId },
+            include: {
+                personnelEvaluationTeam: true,
+                personnelEvaluationPattern: true,
+                personnelEvaluationGoals: true
+            }
+        })
+
+        if (!employee) {
+            return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+        }
+
+        // 最新の目標（今月など）を抽出するか、すべて返すか。
+        // UI側で patternId を使っているので、それを明示的に含める（そのままでも入っているが）
+        return NextResponse.json(employee)
+
+    } catch (error) {
+        console.error('GET /api/evaluations/settings/employees/[id] error:', error)
+        return NextResponse.json({ error: 'Failed to fetch employee' }, { status: 500 })
+    }
+}
+
 // PUT: 社員の評価設定更新（チーム、パターン、目標）
 export async function PUT(
     request: Request,

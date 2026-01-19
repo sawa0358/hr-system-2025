@@ -317,51 +317,66 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                     </h3>
 
                     <div className="space-y-3">
-                        {items.length === 0 && <div className="text-slate-400 p-4 border border-dashed rounded text-center">項目がありません</div>}
+                        {items.length === 0 && <div className="text-slate-400 p-8 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50">項目がありません。左のパネルから追加してください。</div>}
                         {items.map((item, index) => (
-                            <Card key={item.id} className="relative group border-slate-200">
-                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-200 group-hover:bg-blue-400 transition-colors rounded-l-md" />
-                                <CardContent className="p-4 pl-6 flex items-start gap-4">
-                                    <div className="mt-1">
-                                        {item.type === 'checkbox' && <CheckSquare className="w-5 h-5 text-blue-500" />}
-                                        {item.type === 'text' && <MessageCircle className="w-5 h-5 text-green-500" />}
-                                        {item.type === 'photo' && <Camera className="w-5 h-5 text-purple-500" />}
-                                        {item.type === 'description' && <Type className="w-5 h-5 text-slate-500" />}
-                                    </div>
-                                    <div className="flex-1 space-y-2">
-                                        <div className="flex items-center gap-2">
+                            <Card key={item.id} className="p-4 bg-white border border-slate-200 shadow-none rounded-xl transition-all hover:border-indigo-200 hover:shadow-sm">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex items-start gap-4 flex-1">
+                                        {/* アイコン */}
+                                        <div className="mt-2.5">
+                                            {item.type === 'checkbox' && <CheckSquare className="w-5 h-5 text-indigo-500" />}
+                                            {item.type === 'text' && <MessageCircle className="w-5 h-5 text-emerald-500" />}
+                                            {item.type === 'photo' && <Camera className="w-5 h-5 text-purple-500" />}
+                                            {item.type === 'description' && <Type className="w-5 h-5 text-slate-400" />}
+                                        </div>
+                                        {/* タイトル & コンテンツ */}
+                                        <div className="flex-1 space-y-3">
                                             <Input
                                                 value={item.title}
                                                 onChange={e => updateItem(index, { title: e.target.value })}
-                                                className="font-bold border-transparent hover:border-slate-200 focus:border-blue-500 p-0 h-auto text-base"
+                                                className="font-bold border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-1 h-auto text-base w-full bg-transparent transition-colors placeholder:text-slate-300"
+                                                placeholder="項目名を入力"
                                             />
-                                            <div className="flex items-center gap-2 cursor-pointer" onClick={() => updateItem(index, { mandatory: !item.mandatory })}>
-                                                {item.mandatory
-                                                    ? <Badge variant="secondary" className="text-xs bg-red-50 text-red-600 border-red-100">必須</Badge>
-                                                    : <Badge variant="outline" className="text-xs text-slate-300">任意</Badge>
-                                                }
-                                            </div>
-                                        </div>
 
-                                        <div className="flex items-center gap-4 text-sm text-slate-500">
+                                            {/* 獲得pt (Checkboxのみ) */}
                                             {item.type === 'checkbox' && (
-                                                <div className="flex items-center gap-2 bg-slate-50 px-2 py-1 rounded">
-                                                    <span className="text-xs font-bold text-slate-400">獲得pt:</span>
-                                                    <Input
-                                                        type="number"
-                                                        value={item.points}
-                                                        onChange={e => updateItem(index, { points: e.target.value })}
-                                                        className="w-16 h-6 text-right"
-                                                    />
-                                                    <span className="text-xs">pt</span>
+                                                <div className="flex items-center gap-2 px-2">
+                                                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">獲得pt:</span>
+                                                    <div className="relative group/pt">
+                                                        <Input
+                                                            type="number"
+                                                            value={item.points}
+                                                            onChange={e => updateItem(index, { points: e.target.value })}
+                                                            className="w-20 h-9 pl-3 pr-8 text-center bg-slate-50 border-slate-200 focus:bg-white focus:border-indigo-500 rounded-lg text-sm font-bold shadow-sm"
+                                                        />
+                                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold group-focus-within/pt:text-indigo-500 transition-colors">pt</span>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="text-slate-300 hover:text-red-500" onClick={() => removeItem(index)}>
-                                        <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                </CardContent>
+
+                                    {/* 右側アクション */}
+                                    <div className="flex items-center gap-2 pl-4">
+                                        <div
+                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                            onClick={() => updateItem(index, { mandatory: !item.mandatory })}
+                                        >
+                                            {item.mandatory
+                                                ? <Badge variant="secondary" className="bg-red-50 text-red-600 border-red-100 px-2.5 py-0.5 rounded-full font-bold">必須</Badge>
+                                                : <Badge variant="outline" className="text-slate-300 border-slate-200 bg-white px-2.5 py-0.5 rounded-full font-bold hover:text-slate-400 hover:border-slate-300">任意</Badge>
+                                            }
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-9 w-9 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                            onClick={() => removeItem(index)}
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </Card>
                         ))}
                     </div>

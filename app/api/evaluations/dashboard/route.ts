@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url)
         const dateStr = searchParams.get('date') // Selected Date e.g. 2026-01-06
+        const teamId = searchParams.get('teamId')
 
         if (!dateStr) return NextResponse.json({ error: 'Date is required' }, { status: 400 })
         const selectedDate = new Date(dateStr)
@@ -59,7 +60,11 @@ export async function GET(request: Request) {
 
         // 3. 社員リストの取得
         const employees = await prisma.employee.findMany({
-            where: { status: 'active', isPersonnelEvaluationTarget: true }, // 評価対象のみの場合
+            where: {
+                status: 'active',
+                isPersonnelEvaluationTarget: true,
+                ...(teamId ? { personnelEvaluationTeamId: teamId } : {})
+            },
             select: {
                 id: true,
                 name: true,
@@ -177,7 +182,7 @@ export async function GET(request: Request) {
         // ... (existing code)
 
         // 7. 目標数値の集計 (Stats)
-        const aggregateGoals = async (start: Date, end: Date) => {
+        const aggregateGoals = async (start: Date, end: Date, filterEmployeeIds: string[]) => {
             // goal.period needs to be handled.
             // Assuming period format is "yyyy-MM".
             // Generate list of periods in range.
@@ -190,7 +195,8 @@ export async function GET(request: Request) {
 
             const goals = await prisma.personnelEvaluationGoal.findMany({
                 where: {
-                    period: { in: periods }
+                    period: { in: periods },
+                    employeeId: { in: filterEmployeeIds }
                 }
             })
 
@@ -211,16 +217,16 @@ export async function GET(request: Request) {
         }
 
         // Current Month
-        const currentMonthStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd)
+        const currentMonthStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd, employeeIds)
 
         // 2 Months Ago
         const twoMonthsAgoStart = new Date(selectedMonthStart)
         twoMonthsAgoStart.setMonth(twoMonthsAgoStart.getMonth() - 2)
         const twoMonthsAgoEnd = endOfMonth(twoMonthsAgoStart)
-        const twoMonthsAgoStats = await aggregateGoals(twoMonthsAgoStart, twoMonthsAgoEnd)
+        const twoMonthsAgoStats = await aggregateGoals(twoMonthsAgoStart, twoMonthsAgoEnd, employeeIds)
 
         // Fiscal Year (Current)
-        const fyStats = await aggregateGoals(fyStart, fyEnd)
+        const fyStats = await aggregateGoals(fyStart, fyEnd, employeeIds)
 
         return NextResponse.json({
             calendar: calendarStats,

@@ -40,6 +40,7 @@ export default function EvaluationEntryPage() {
     const [loading, setLoading] = useState(true)
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
+    const [stats, setStats] = useState<any>(null)
 
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
 
@@ -77,7 +78,16 @@ export default function EvaluationEntryPage() {
 
                     if (empData && empData.name) {
                         setEmployeeName(empData.name)
-                        // setTeamName(empData.personnelEvaluationTeam?.name || "") // Optional
+                        setTeamName(empData.personnelEvaluationTeam?.name || "")
+
+                        // Fetch Team Stats
+                        if (empData.personnelEvaluationTeamId) {
+                            fetch(`/api/evaluations/dashboard?date=${dateStr}&teamId=${empData.personnelEvaluationTeamId}`)
+                                .then(r => r.json())
+                                .then(d => {
+                                    if (d.stats) setStats(d.stats.currentMonth)
+                                })
+                        }
                     }
 
                     if (empData && empData.patternId) {
@@ -203,28 +213,56 @@ export default function EvaluationEntryPage() {
 
             <main className="flex-1 container mx-auto p-4 max-w-3xl space-y-6">
                 {/* Check Goals (Mock presentation for now) */}
-                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 shadow-sm">
-                    <CardContent className="p-4 flex justify-around items-center text-center">
-                        <div>
-                            <div className="text-xs text-slate-500 font-bold mb-1">契約達成率</div>
-                            <div className="text-2xl font-bold text-blue-700">--<span className="text-sm">%</span></div>
-                            <div className="text-xs text-slate-400">¥0 / ¥0</div>
+                {/* Stats Header (Reference Image 2 Style) */}
+                {stats && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                        {/* Contract Stats */}
+                        <div className="bg-slate-900 text-white p-4">
+                            <div className="text-center font-bold mb-4 text-base bg-slate-800 py-1 rounded">2026年1月</div>
+                            <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                                <div>契約達成額</div>
+                                <div>契約目標額</div>
+                                <div>達成率</div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-center items-end">
+                                <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}</div>
+                                <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}</div>
+                                <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
+                            </div>
                         </div>
-                        <div className="w-px h-12 bg-blue-200"></div>
-                        <div>
-                            <div className="text-xs text-slate-500 font-bold mb-1">完工達成率</div>
-                            <div className="text-2xl font-bold text-indigo-700">--<span className="text-sm">%</span></div>
-                            <div className="text-xs text-slate-400">¥0 / ¥0</div>
+                        {/* Completion Stats */}
+                        <div className="bg-slate-900 text-white p-4">
+                            <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                                2025年11月 <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                                <div>完工達成額</div>
+                                <div>完工目標額</div>
+                                <div>達成率</div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-center items-end">
+                                <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}</div>
+                                <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}</div>
+                                <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                )}
 
-                {/* Checklist Items */}
+                {/* Main Check Items */}
                 <div className="space-y-4">
-                    {items.length === 0 && <div className="text-center py-8 text-slate-400">評価項目が設定されていません</div>}
-                    {items.map((item, index) => (
-                        <Card key={item.id} className={cn("border-slate-200 shadow-sm transition-all", item.checked ? "bg-blue-50/30 border-blue-200" : "")}>
-                            <CardContent className="p-4">
+                    <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" />
+                        チェック項目
+                    </h2>
+                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).length === 0 && <div className="text-center py-8 text-slate-400 bg-slate-50 rounded-xl border border-dashed">評価項目が設定されていません</div>}
+
+                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
+                        <Card key={item.id} className={cn("border-slate-200 shadow-sm transition-all overflow-hidden", item.checked ? "bg-blue-50/30 border-blue-200" : "bg-white")}>
+                            {/* Side Border (Optional visual cue) */}
+                            <div className={cn("absolute left-0 top-0 bottom-0 w-1 transition-colors", item.checked ? "bg-blue-500" : "bg-transparent")} />
+
+                            <CardContent className="p-4 pl-6">
                                 <div className="flex items-start gap-4">
                                     <div className="mt-1">
                                         {(item.type === 'checkbox' || !item.type) && (
@@ -232,28 +270,30 @@ export default function EvaluationEntryPage() {
                                                 checked={item.checked}
                                                 onCheckedChange={(c) => toggleCheck(index, !!c)}
                                                 disabled={!canEdit}
-                                                className="w-6 h-6 border-2 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                                                className="w-6 h-6 border-2 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 rounded-md"
                                             />
                                         )}
-                                        {item.type === 'text' && <MessageCircle className="w-6 h-6 text-slate-400" />}
+                                        {item.type === 'text' && <MessageCircle className="w-6 h-6 text-emerald-500" />}
+                                        {item.type === 'description' && <AlertCircle className="w-6 h-6 text-slate-400" />}
                                     </div>
-                                    <div className="flex-1 space-y-2">
+                                    <div className="flex-1 space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <Label className={cn("text-base font-bold", item.checked ? "text-blue-800" : "text-slate-700")}>
+                                            <Label className={cn("text-base font-bold leading-relaxed cursor-pointer", item.checked ? "text-blue-800" : "text-slate-700")} onClick={() => (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}>
                                                 {item.title}
                                             </Label>
-                                            <div className="flex gap-2">
-                                                {item.mandatory && <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50">必須</Badge>}
-                                                {item.points > 0 && <Badge variant="secondary" className="bg-amber-100 text-amber-800">+{item.points}pt</Badge>}
+                                            <div className="flex gap-2 flex-shrink-0">
+                                                {item.mandatory && <Badge variant="secondary" className="bg-red-50 text-red-600 border border-red-100 font-bold">必須</Badge>}
+                                                {item.points > 0 && <Badge variant="secondary" className="bg-amber-100 text-amber-800 border border-amber-200 font-bold">+{item.points}pt</Badge>}
                                             </div>
                                         </div>
+
                                         {(item.type === 'text' || item.type === 'description') && (
                                             <Textarea
                                                 value={item.value || ''}
                                                 onChange={(e) => updateText(index, e.target.value)}
-                                                placeholder="入力してください..."
-                                                disabled={!canEdit}
-                                                className="bg-white"
+                                                placeholder={item.type === 'description' ? '' : "入力してください..."}
+                                                disabled={item.type === 'description' ? true : !canEdit}
+                                                className={cn("resize-none", item.type === 'description' ? "bg-slate-50 border-none text-slate-600 shadow-none px-0 py-0 min-h-fit" : "bg-white min-h-[80px]")}
                                             />
                                         )}
                                     </div>
@@ -261,6 +301,28 @@ export default function EvaluationEntryPage() {
                             </CardContent>
                         </Card>
                     ))}
+                </div>
+
+                {/* Photo Section */}
+                <div className="space-y-4 pt-4 border-t border-slate-200">
+                    <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                        <Camera className="w-4 h-4" />
+                        写真アップロード
+                    </h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Placeholder for photo upload UI */}
+                        {items.filter(i => i.type === 'photo').map((item, index) => (
+                            <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
+                                <CardContent className="p-6 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px]">
+                                    <Camera className="w-8 h-8 opacity-50" />
+                                    <span className="text-xs font-bold">{item.title}</span>
+                                </CardContent>
+                            </Card>
+                        ))}
+                        {items.filter(i => i.type === 'photo').length === 0 && (
+                            <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Add Actions (Hidden if locked to avoid confusion, or strictly control) */}
@@ -278,26 +340,27 @@ export default function EvaluationEntryPage() {
                     </div>
                 )}
 
-                {/* Thank You Section (Simple impl) */}
-                {canEdit && (
-                    <Card className="border-pink-200 bg-pink-50/30">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-base flex items-center gap-2 text-pink-700">
-                                <Heart className="w-5 h-5 fill-pink-500 text-pink-500" />
-                                ありがとうを送る
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <Textarea
-                                value={thankYouMessage}
-                                onChange={e => setThankYouMessage(e.target.value)}
-                                placeholder="感謝のメッセージを入力..."
-                                className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
-                            />
-                            {/* Detailed recipient selection to be implemented */}
-                        </CardContent>
-                    </Card>
-                )}
+                {/* Thank You Section */}
+                {/* Thank You Section */}
+                <div className="space-y-4 pt-4 border-t border-slate-200">
+                    <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
+                        <Heart className="w-4 h-4 fill-pink-500" />
+                        ありがとうを送る
+                    </h2>
+                    {canEdit && (
+                        <Card className="border-pink-200 bg-pink-50/30">
+                            <CardContent className="p-4 space-y-4">
+                                <Textarea
+                                    value={thankYouMessage}
+                                    onChange={e => setThankYouMessage(e.target.value)}
+                                    placeholder="感謝のメッセージを入力..."
+                                    className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
+                                />
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
+
 
                 {/* Locked Message */}
                 {isLocked && !canEdit && (

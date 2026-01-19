@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { 
-  saveEmployeeToS3, 
+import {
+  saveEmployeeToS3,
   saveFamilyMembersToS3
 } from '@/lib/s3-client';
 
 // JSON配列をパースするヘルパー関数
 function parseJsonArray(value: string): string[] {
   if (!value) return [];
-  
+
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.filter(item => item && item.trim() !== '') : [value];
@@ -24,18 +24,18 @@ export async function GET(
 ) {
   try {
     console.log(`社員詳細取得開始: ${params.id}`);
-    
+
     // データベースから優先的に取得（最新データを確実に取得）
     console.log(`データベースから社員情報を取得: ${params.id}`);
     const employee = await prisma.employee.findUnique({
       where: { id: params.id }
     });
-    
+
     console.log(`データベースから家族構成を取得: ${params.id}`);
     const familyMembers = await prisma.familyMember.findMany({
       where: { employeeId: params.id }
     });
-    
+
     // S3バックアップの確認（データベースにデータがない場合の復元用）
     // 現在はデータベースが主なデータソースのため、S3チェックは省略
     // 将来的にデータ復元機能が必要な場合は、ここでS3チェックを追加
@@ -79,7 +79,7 @@ export async function PUT(
         { status: 400 }
       )
     }
-    
+
     const body = await request.json();
     console.log('PUT request body:', body);
     console.log('birthDate value:', body.birthDate);
@@ -90,19 +90,19 @@ export async function PUT(
     console.log('body keys:', Object.keys(body));
     console.log('has description:', 'description' in body);
     console.log('has escription:', 'escription' in body);
-    
+
     // orgChartOrderだけの更新の場合は、そのフィールドだけを更新
     const bodyKeys = Object.keys(body);
     const isOrgChartOrderOnlyUpdate = bodyKeys.length === 1 && bodyKeys[0] === 'orgChartOrder';
-    
+
     // 現在の社員データを取得してコピー社員かどうか確認
     const currentEmployee = await prisma.employee.findUnique({
       where: { id: params.id },
       select: { status: true, employeeType: true }
     });
-    
+
     const isCopyEmployee = currentEmployee?.status === 'copy';
-    
+
     // orgChartOrderだけの更新の場合は、そのフィールドだけを更新
     if (isOrgChartOrderOnlyUpdate) {
       const orgChartOrder = typeof body.orgChartOrder === 'number' ? body.orgChartOrder : null;
@@ -115,12 +115,12 @@ export async function PUT(
         employee
       });
     }
-    
+
     // メールアドレスの重複チェック（自分以外）
     // 空文字列やnullの場合はチェックをスキップ（nullや空文字列は重複を許可）
     if (body.email && body.email.trim() !== '') {
       const existingEmail = await prisma.employee.findFirst({
-        where: { 
+        where: {
           email: body.email,
           id: { not: params.id },
           NOT: {
@@ -147,7 +147,7 @@ export async function PUT(
     // 社員番号の重複チェック（自分以外）
     if (body.employeeNumber) {
       const existingEmployeeNumber = await prisma.employee.findFirst({
-        where: { 
+        where: {
           employeeNumber: body.employeeNumber,
           id: { not: params.id }
         }
@@ -169,7 +169,7 @@ export async function PUT(
     if (normalizedRole === 'store-manager') {
       normalizedRole = 'store_manager';
     }
-    
+
     // roleのバリデーション
     if (normalizedRole && normalizedRole !== '' && !validRoles.includes(normalizedRole)) {
       console.error('Invalid role value:', normalizedRole);
@@ -189,7 +189,7 @@ export async function PUT(
         );
       }
     }
-    
+
     console.log('受信したリクエストボディ:', JSON.stringify(body, null, 2))
     console.log('更新データ:', {
       name: body.name,
@@ -205,7 +205,7 @@ export async function PUT(
       isString: typeof body.furigana === 'string',
       isEmpty: body.furigana === '' || body.furigana === null || body.furigana === undefined
     })
-    
+
     console.log('部署・役職・組織データの詳細:', {
       departments: body.departments,
       departmentsType: typeof body.departments,
@@ -448,6 +448,7 @@ export async function PUT(
       parentEmployeeId: body.parentEmployeeId || null,
       isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
       retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
+      isPersonnelEvaluationTarget: body.isPersonnelEvaluationTarget !== undefined ? body.isPersonnelEvaluationTarget : false,
       orgChartLabel: (() => {
         if (body.orgChartLabel === undefined) {
           return undefined;
@@ -500,7 +501,7 @@ export async function PUT(
       'retirementDate', 'privacyDisplayName', 'privacyOrganization', 'privacyDepartment',
       'privacyPosition', 'privacyUrl', 'privacyAddress', 'privacyBio', 'privacyEmail',
       'privacyWorkPhone', 'privacyExtension', 'privacyMobilePhone', 'privacyBirthDate',
-      'orgChartLabel', 'orgChartOrder', 'description', 'employeeNumber', 'employeeType', 'employeeId',
+      'orgChartLabel', 'orgChartOrder', 'description', 'employeeNumber', 'employeeType', 'employeeId', 'isPersonnelEvaluationTarget',
       // 有給管理用フィールド
       'employmentType', 'weeklyPattern', 'configVersion', 'vacationPattern'
     ];
@@ -561,8 +562,8 @@ export async function PUT(
           if (member.birthday) {
             try {
               // yyyy/MM/dd形式をyyyy-MM-dd形式に変換してからDateオブジェクトを作成
-              const dateStr = member.birthday.includes('/') 
-                ? member.birthday.replace(/\//g, '-') 
+              const dateStr = member.birthday.includes('/')
+                ? member.birthday.replace(/\//g, '-')
                 : member.birthday;
               const date = new Date(dateStr);
               birthDate = isNaN(date.getTime()) ? null : date;
@@ -571,7 +572,7 @@ export async function PUT(
               birthDate = null;
             }
           }
-          
+
           return {
             employeeId: params.id,
             name: member.name,
@@ -591,7 +592,7 @@ export async function PUT(
             data: familyData
           });
           console.log('家族データ保存成功:', result);
-          
+
           // 保存後のデータを確認
           const savedData = await prisma.familyMember.findMany({
             where: { employeeId: params.id },
@@ -616,7 +617,7 @@ export async function PUT(
     const updatedEmployee = await prisma.employee.findUnique({
       where: { id: params.id }
     });
-    
+
     // 家族データを別途取得
     const updatedFamilyMembers = await prisma.familyMember.findMany({
       where: { employeeId: params.id }
@@ -658,7 +659,7 @@ export async function PUT(
       code: error.code,
       stack: error.stack
     });
-    
+
     // Prismaバリデーションエラーの場合、より詳細な情報を出力
     if (error.name === 'PrismaClientValidationError') {
       console.error('Prismaバリデーションエラー詳細:', {
@@ -667,18 +668,18 @@ export async function PUT(
         meta: (error as any).meta
       });
     }
-    
+
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'メールアドレスが既に使用されています' },
         { status: 400 }
       );
     }
-    
+
     // より詳細なエラー情報を提供
     const errorMessage = error.message || '社員の更新に失敗しました';
     console.error('詳細エラー:', errorMessage);
-    
+
     return NextResponse.json(
       { error: errorMessage, details: error },
       { status: 500 }
@@ -713,12 +714,12 @@ export async function DELETE(
     // 削除対象の社員を取得
     const employeeToDelete = await prisma.employee.findUnique({
       where: { id: params.id },
-      select: { 
-        id: true, 
-        name: true, 
-        status: true, 
-        isInvisibleTop: true, 
-        employeeNumber: true 
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        isInvisibleTop: true,
+        employeeNumber: true
       }
     });
 
@@ -835,11 +836,11 @@ export async function DELETE(
     });
   } catch (error: any) {
     console.error('社員削除エラー:', error);
-    
+
     // より詳細なエラー情報を提供
     const errorMessage = error.message || '社員の削除に失敗しました';
     console.error('詳細エラー:', errorMessage);
-    
+
     return NextResponse.json(
       { error: errorMessage, details: error },
       { status: 500 }

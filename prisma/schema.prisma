@@ -1204,3 +1204,22 @@ model PersonnelEvaluationFiscalYear {
 
   @@map("personnel_evaluation_fiscal_years")
 }
+
+// AI分析レポート（人事考課）
+model PersonnelEvaluationAIReport {
+  id          String   @id @default(cuid())
+  startDate   DateTime // 対象期間開始
+  endDate     DateTime // 対象期間終了
+  summary     String   // AI生成サマリー
+  promptId    String?  // 使用したプロンプトID
+  promptName  String?  // プロンプト名
+  employeeCount Int    // 対象社員数
+  totalPoints Float    // 合計獲得ポイント
+  createdBy   String   // 作成者ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startDate, endDate])
+  @@index([createdBy])
+  @@map("personnel_evaluation_ai_reports")
+}

@@ -69,7 +69,10 @@ export default function FiscalYearSettingsPage() {
         try {
             const res = await fetch('/api/evaluations/settings/fiscal-year', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-employee-id': currentUser?.id || ''
+                },
                 body: JSON.stringify(fiscalYears)
             })
             if (!res.ok) throw new Error('Failed to save')
@@ -185,7 +188,7 @@ export default function FiscalYearSettingsPage() {
                     </Table>
 
                     <div className="mt-6 flex justify-end">
-                        <Button className="bg-blue-600 hover:bg-blue-700">
+                        <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
                             <Save className="w-4 h-4 mr-2" />
                             設定を保存
                         </Button>

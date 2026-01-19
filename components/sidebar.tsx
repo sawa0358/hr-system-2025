@@ -347,6 +347,17 @@ export function Sidebar() {
         console.log("[Sidebar] 有給管理メニュー: 表示します", { employeeType })
       }
 
+      // 人事考課メニューの場合は対象者フラグをチェック
+      if (item.href === "/evaluations") {
+        const isTarget = currentUser?.isPersonnelEvaluationTarget
+        const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+        // ターゲットでない、かつ管理者/総務でもない場合は表示しない
+        if (!isTarget && !isAdminOrHr) {
+          return false
+        }
+      }
+
       return true
     })
   }, [hasPermission, currentUser])

@@ -36,6 +36,22 @@ export async function POST(request: Request) {
     }
 }
 
+// PUT: チーム更新
+export async function PUT(request: Request) {
+    try {
+        const { id, name } = await request.json()
+        if (!id || !name) return NextResponse.json({ error: 'ID and Name required' }, { status: 400 })
+
+        const team = await prisma.personnelEvaluationTeam.update({
+            where: { id },
+            data: { name }
+        })
+        return NextResponse.json(team)
+    } catch (error) {
+        return NextResponse.json({ error: 'Failed to update team' }, { status: 500 })
+    }
+}
+
 // DELETE: チーム削除
 export async function DELETE(request: Request) {
     try {

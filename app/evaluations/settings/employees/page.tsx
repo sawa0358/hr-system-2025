@@ -209,8 +209,8 @@ function IndividualSettings() {
                                     ) : <span className="text-slate-300 text-xs">-</span>}
                                 </TableCell>
                                 <TableCell>
-                                    <Button size="sm" variant="ghost" onClick={() => handleSave(emp)}>
-                                        <Save className="w-4 h-4 text-blue-600" />
+                                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3" onClick={() => handleSave(emp)}>
+                                        保存
                                     </Button>
                                 </TableCell>
                             </TableRow>
@@ -275,6 +275,24 @@ function TeamSettings() {
         }
     }
 
+    const handleEdit = async (team: any) => {
+        const name = prompt('チーム名を編集', team.name)
+        if (!name || name === team.name) return
+
+        try {
+            const res = await fetch('/api/evaluations/settings/teams', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: team.id, name })
+            })
+            if (res.ok) fetchTeams()
+            else alert('更新に失敗しました')
+        } catch (e) {
+            console.error(e)
+            alert('エラーが発生しました')
+        }
+    }
+
     return (
         <Card>
             <CardHeader>
@@ -300,9 +318,14 @@ function TeamSettings() {
                                 </div>
                                 <div className="flex gap-2">
                                     {/* Edit logic can be added later if needed, assume Delete is sufficient for now */}
-                                    <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(team.id)}>
-                                        削除
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleEdit(team)}>
+                                            編集
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="flex-1 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(team.id)}>
+                                            削除
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>

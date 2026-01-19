@@ -58,7 +58,9 @@ export async function POST(request: NextRequest) {
         role: employee.role,
         department: employee.department,
         position: employee.position,
-        organization: employee.organization
+        organization: employee.organization,
+        employeeType: employee.employeeType,
+        isPersonnelEvaluationTarget: employee.isPersonnelEvaluationTarget
       }
     });
 

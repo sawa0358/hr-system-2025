@@ -540,12 +540,13 @@ export default function EvaluationEntryPage() {
             </header>
 
             <main className="flex-1 container mx-auto p-4 max-w-6xl">
-                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
 
                     {/* Left Column: Calendar */}
-                    <aside className="space-y-4">
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 sticky top-4">
-                            <div className="flex flex-col gap-3">
+                    <aside className="space-y-4 w-full">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-4">
+                            {/* Date Selector */}
+                            <div className="flex flex-col gap-3 mb-3 lg:mb-4">
                                 <div className="text-slate-500 text-xs font-bold pl-1">
                                     表示年月:
                                 </div>
@@ -593,84 +594,93 @@ export default function EvaluationEntryPage() {
                                 </div>
                             </div>
 
-                            {/* Point Stats */}
-                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2">
-                                <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-500 font-bold">当日獲得pt</span>
-                                    <span className="font-mono font-bold text-slate-700">{parseFloat(pointStats.daily.toString()).toLocaleString()}pt</span>
+                            <div className="flex flex-row lg:flex-col gap-3">
+                                {/* Point Stats */}
+                                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2 min-w-[120px] lg:w-full">
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-slate-500 font-bold">当日獲得pt</span>
+                                        <span className="font-mono font-bold text-slate-700">{parseFloat(pointStats.daily.toString()).toLocaleString()}pt</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="text-slate-500 font-bold">今月獲得pt</span>
+                                        <span className="font-mono font-bold text-blue-600">{parseFloat(pointStats.monthly.toString()).toLocaleString()}pt</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
+                                        <span className="text-slate-500 font-bold">今年度獲得pt</span>
+                                        <span className="font-mono font-bold text-indigo-600">{parseFloat(pointStats.yearly.toString()).toLocaleString()}pt</span>
+                                    </div>
                                 </div>
-                                <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-500 font-bold">今月獲得pt</span>
-                                    <span className="font-mono font-bold text-blue-600">{parseFloat(pointStats.monthly.toString()).toLocaleString()}pt</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
-                                    <span className="text-slate-500 font-bold">今年度獲得pt</span>
-                                    <span className="font-mono font-bold text-indigo-600">{parseFloat(pointStats.yearly.toString()).toLocaleString()}pt</span>
-                                </div>
-                            </div>
 
-                            <div className="border rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-400px)]">
-                                <table className="w-full text-xs text-left border-collapse sticky top-0 z-10">
-                                    <thead className="bg-[#1e293b] text-white">
-                                        <tr>
-                                            <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentCalendarDate, 'M月')}</th>
-                                            <th className="px-2 py-2 text-center whitespace-nowrap">状態</th>
-                                        </tr>
-                                    </thead>
-                                </table>
-                                <div className="overflow-y-auto custom-scrollbar">
-                                    <table className="w-full text-xs text-left border-collapse">
-                                        <tbody className="divide-y divide-slate-200">
-                                            {(() => {
-                                                const year = currentCalendarDate.getFullYear()
-                                                const month = currentCalendarDate.getMonth()
-                                                const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-                                                return [...Array(daysInMonth)].map((_, i) => {
-                                                    const day = i + 1
-                                                    const date = new Date(year, month, day)
-                                                    const dStr = format(date, 'yyyy-MM-dd')
-                                                    const dayOfWeek = date.getDay()
-                                                    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                                                    const isSelected = dStr === dateStr
-                                                    const isSubmitted = (calendarStats[dStr]?.count || 0) > 0
-                                                    const hasReceived = calendarStats[dStr]?.hasReceivedThankYou
-
-                                                    return (
-                                                        <tr
-                                                            key={day}
-                                                            onClick={isSelected ? undefined : () => {
-                                                                // フルページリロードでデータを確実に再取得
-                                                                window.location.href = `/evaluations/entry/${userId}/${dStr}`
-                                                            }}
-                                                            className={cn(
-                                                                "cursor-pointer transition-colors",
-                                                                isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"
-                                                            )}
-                                                        >
-                                                            <td className={cn(
-                                                                "px-2 py-2.5 text-center font-bold border-r w-14 whitespace-nowrap",
-                                                                !isSelected && isWeekend ? "bg-slate-50 text-slate-500" : "",
-                                                                isSelected ? "border-blue-500" : "border-slate-100"
-                                                            )}>
-                                                                {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
-                                                            </td>
-                                                            <td className="px-2 py-2.5 text-center relative">
-                                                                {isSubmitted ? (
-                                                                    <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
-                                                                ) : (
-                                                                    <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
-                                                                )}
-                                                                {hasReceived && (
-                                                                    <Heart className={cn("w-3 h-3 absolute top-1 right-1", isSelected ? "text-pink-200 fill-pink-200" : "text-pink-500 fill-pink-500")} />
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    )
-                                                })
-                                            })()}
-                                        </tbody>
+                                {/* Calendar Table */}
+                                <div className="border rounded-lg overflow-hidden flex flex-col lg:max-h-[calc(100vh-400px)] max-h-[220px] flex-1">
+                                    <table className="w-full text-xs text-left border-collapse sticky top-0 z-10">
+                                        <thead className="bg-[#1e293b] text-white">
+                                            <tr>
+                                                <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentCalendarDate, 'M月')}</th>
+                                                <th className="px-2 py-2 text-center whitespace-nowrap">状態</th>
+                                            </tr>
+                                        </thead>
                                     </table>
+                                    <div className="overflow-y-auto custom-scrollbar">
+                                        <table className="w-full text-xs text-left border-collapse">
+                                            <tbody className="divide-y divide-slate-200">
+                                                {(() => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+
+                                                    const year = currentCalendarDate.getFullYear()
+                                                    const month = currentCalendarDate.getMonth()
+                                                    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+                                                    return [...Array(daysInMonth)].map((_, i) => {
+                                                        const day = i + 1
+                                                        const date = new Date(year, month, day)
+                                                        // 未来の日付は表示しない
+                                                        if (date > today) return null;
+
+                                                        const dStr = format(date, 'yyyy-MM-dd')
+                                                        const dayOfWeek = date.getDay()
+                                                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+                                                        const isSelected = dStr === dateStr
+                                                        const isSubmitted = (calendarStats[dStr]?.count || 0) > 0
+                                                        const hasReceived = calendarStats[dStr]?.hasReceivedThankYou
+
+                                                        return (
+                                                            <tr
+                                                                key={day}
+                                                                onClick={isSelected ? undefined : () => {
+                                                                    // フルページリロードでデータを確実に再取得
+                                                                    window.location.href = `/evaluations/entry/${userId}/${dStr}`
+                                                                }}
+                                                                className={cn(
+                                                                    "cursor-pointer transition-colors",
+                                                                    isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"
+                                                                )}
+                                                            >
+                                                                <td className={cn(
+                                                                    "px-2 py-2.5 text-center font-bold border-r w-14 whitespace-nowrap",
+                                                                    !isSelected && isWeekend ? "bg-slate-50 text-slate-500" : "",
+                                                                    isSelected ? "border-blue-500" : "border-slate-100"
+                                                                )}>
+                                                                    {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
+                                                                </td>
+                                                                <td className="px-2 py-2.5 text-center relative">
+                                                                    {isSubmitted ? (
+                                                                        <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
+                                                                    ) : (
+                                                                        <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
+                                                                    )}
+                                                                    {hasReceived && (
+                                                                        <Heart className={cn("w-3 h-3 absolute top-1 right-1", isSelected ? "text-pink-200 fill-pink-200" : "text-pink-500 fill-pink-500")} />
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    })
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>

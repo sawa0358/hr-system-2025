@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { startOfMonth, endOfMonth } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,10 +123,20 @@ export async function GET(request: Request) {
         ])
 
         // 受信したありがとうメッセージの取得
+        // 受信したありがとうメッセージの取得
+        // Dashboardとの完全一致を保証するため、月単位で取得してJS側で日付文字列一致を確認する
+        const searchStart = startOfMonth(date)
+        const searchEnd = endOfMonth(date)
+
+        console.log(`[Submission GET] ThankYou Search Range (Month): ${searchStart.toISOString()} - ${searchEnd.toISOString()}`)
+
         const receivedThankYous = await prisma.personnelEvaluationSubmissionItem.findMany({
             where: {
                 submission: {
-                    date: date
+                    date: {
+                        gte: searchStart,
+                        lte: searchEnd
+                    }
                 },
                 title: 'ありがとう送信',
                 thankYouTo: {
@@ -135,6 +146,7 @@ export async function GET(request: Request) {
             include: {
                 submission: {
                     select: {
+                        date: true,
                         employee: {
                             select: {
                                 id: true,
@@ -147,15 +159,36 @@ export async function GET(request: Request) {
             }
         })
 
-        // 厳密なIDチェック (containsの部分一致対策)
+        console.log(`[Submission GET] Raw Items found: ${receivedThankYous.length}`)
+
+        // 厳密なIDチェック + Dashboardと同じ日付バケット判定
         const filteredReceivedThankYous = receivedThankYous.filter(item => {
+            // 1. 日付一致チェック (Dashboardのキー生成ロジックと同じ)
+            // submissionが含まれていない場合(ありえないが)はスキップ
+            if (!item.submission || !item.submission.date) return false
+
+            const itemDateStr = item.submission.date.toISOString().split('T')[0]
+            if (itemDateStr !== dateStr) return false
+
+            // 2. 宛先IDチェック
             try {
-                const toList = JSON.parse(item.thankYouTo || '[]')
-                return Array.isArray(toList) && toList.includes(targetUserId)
-            } catch (e) {
+                if (!item.thankYouTo) return false
+                const parsed = JSON.parse(item.thankYouTo)
+
+                if (Array.isArray(parsed)) {
+                    return parsed.includes(targetUserId)
+                }
+                if (typeof parsed === 'string') {
+                    return parsed === targetUserId
+                }
                 return false
+            } catch (e) {
+                return item.thankYouTo ? item.thankYouTo.includes(targetUserId) : false
             }
         })
+
+        console.log(`[Submission GET] Filtered Items: ${filteredReceivedThankYous.length}`)
+
 
         return NextResponse.json({
             submission,

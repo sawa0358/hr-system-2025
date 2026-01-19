@@ -353,10 +353,6 @@ export default function EvaluationEntryPage() {
                     })
                     setThankYouList(restoredTyList)
 
-                    // 受信履歴
-                    if (subData.receivedThankYous) {
-                        setReceivedThankYous(subData.receivedThankYous)
-                    }
 
                 } else if (patternId && Object.keys(patternItemsMap).length > 0) {
                     // Load from Pattern (既に取得済み)
@@ -389,6 +385,11 @@ export default function EvaluationEntryPage() {
                     setPointStats(subData.stats)
                 } else {
                     setPointStats({ daily: 0, monthly: 0, yearly: 0 })
+                }
+
+                // 7. 受信履歴 (submissionの有無に関わらず常に設定)
+                if (subData.receivedThankYous) {
+                    setReceivedThankYous(subData.receivedThankYous)
                 }
 
             } catch (e) {

@@ -1192,3 +1192,15 @@ model PersonnelEvaluationPointLog {
   @@index([employeeId, date])
   @@map("personnel_evaluation_point_logs")
 }
+
+// 年度設定
+model PersonnelEvaluationFiscalYear {
+  id        String   @id @default(cuid())
+  name      String // 年度名称 (例: "2025年度")
+  startDate DateTime // 年度開始日
+  endDate   DateTime // 年度終了日
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("personnel_evaluation_fiscal_years")
+}

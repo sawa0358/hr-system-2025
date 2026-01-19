@@ -56,7 +56,7 @@ export default function EvaluationEntryPage() {
         completionAchieved: 0
     })
     const [isNumericGoalEnabled, setIsNumericGoalEnabled] = useState(true)
-    const [calendarStats, setCalendarStats] = useState<Record<string, number>>({})
+    const [calendarStats, setCalendarStats] = useState<Record<string, { count: number, hasReceivedThankYou: boolean }>>({})
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date())
 
     // Add employees state
@@ -632,7 +632,8 @@ export default function EvaluationEntryPage() {
                                                     const dayOfWeek = date.getDay()
                                                     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                                                     const isSelected = dStr === dateStr
-                                                    const isSubmitted = (calendarStats[dStr] || 0) > 0
+                                                    const isSubmitted = (calendarStats[dStr]?.count || 0) > 0
+                                                    const hasReceived = calendarStats[dStr]?.hasReceivedThankYou
 
                                                     return (
                                                         <tr
@@ -653,11 +654,14 @@ export default function EvaluationEntryPage() {
                                                             )}>
                                                                 {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
                                                             </td>
-                                                            <td className="px-2 py-2.5 text-center">
+                                                            <td className="px-2 py-2.5 text-center relative">
                                                                 {isSubmitted ? (
                                                                     <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
                                                                 ) : (
                                                                     <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
+                                                                )}
+                                                                {hasReceived && (
+                                                                    <Heart className={cn("w-3 h-3 absolute top-1 right-1", isSelected ? "text-pink-200 fill-pink-200" : "text-pink-500 fill-pink-500")} />
                                                                 )}
                                                             </td>
                                                         </tr>

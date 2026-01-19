@@ -58,10 +58,76 @@ export async function GET(request: Request) {
             }
         })
 
-        const calendarStats: Record<string, number> = {}
+        const calendarStats: Record<string, { count: number, hasReceivedThankYou: boolean }> = {}
+
+        // ありがとう受信アイテムの取得 (対象社員がいる場合のみ)
+        const receivedThankYouDates = new Set<string>()
+        if (employeeId) {
+            const receivedItems = await prisma.personnelEvaluationSubmissionItem.findMany({
+                where: {
+                    submission: {
+                        date: {
+                            gte: selectedMonthStart,
+                            lte: selectedMonthEnd
+                        }
+                    },
+                    title: 'ありがとう送信',
+                    thankYouTo: {
+                        contains: employeeId
+                    }
+                },
+                select: {
+                    thankYouTo: true,
+                    submission: {
+                        select: { date: true }
+                    }
+                }
+            })
+
+            receivedItems.forEach(item => {
+                try {
+                    // IDが確実に含まれているかチェック (JSON配列または単一文字列)
+                    const to = JSON.parse(item.thankYouTo || '[]')
+                    let isReceived = false
+                    if (Array.isArray(to)) {
+                        if (to.includes(employeeId)) isReceived = true
+                    } else if (typeof to === 'string') {
+                        if (to === employeeId) isReceived = true
+                    }
+
+                    if (isReceived) {
+                        const d = item.submission.date.toISOString().split('T')[0]
+                        receivedThankYouDates.add(d)
+                    }
+                } catch (e) {
+                    // JSONパースエラー時はcontainsの結果を信じる（レガシー互換）
+                    const d = item.submission.date.toISOString().split('T')[0]
+                    receivedThankYouDates.add(d)
+                }
+            })
+        }
+
+        // 月の日数をループして初期化（データがない日もオブジェクトを作るため）
+        const daysInMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate()
+        for (let i = 1; i <= daysInMonth; i++) {
+            const d = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), i)
+            const dStr = d.toISOString().split('T')[0]
+            calendarStats[dStr] = { count: 0, hasReceivedThankYou: false }
+        }
+
+        // 提出数を反映
         monthlySubmissions.forEach(item => {
             const d = item.date.toISOString().split('T')[0]
-            calendarStats[d] = item._count.id
+            if (calendarStats[d]) {
+                calendarStats[d].count = item._count.id
+            }
+        })
+
+        // ありがとう受信フラグを反映
+        receivedThankYouDates.forEach(d => {
+            if (calendarStats[d]) {
+                calendarStats[d].hasReceivedThankYou = true
+            }
         })
 
         // 3. 社員リストの取得

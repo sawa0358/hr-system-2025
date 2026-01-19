@@ -37,6 +37,7 @@ import {
 import { format, subMonths, addMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
@@ -71,6 +72,15 @@ export default function EvaluationsPage() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editingSummary, setEditingSummary] = useState('')
+
+  // Prompt Management Dialog states
+  const [isPromptDialogOpen, setIsPromptDialogOpen] = useState(false)
+  const [prompts, setPrompts] = useState<any[]>([
+    { id: '1', name: '標準的な目標', prompt: 'チーム全体の達成状況を分析し、具体的な改善提案を行ってください。', isDefault: true }
+  ])
+  const [editingPrompt, setEditingPrompt] = useState<any>(null)
+  const [newPromptName, setNewPromptName] = useState('')
+  const [newPromptText, setNewPromptText] = useState('')
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
 
@@ -286,7 +296,10 @@ export default function EvaluationsPage() {
                 </SelectContent>
               </Select>
 
-              <Button className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full"
+                onClick={() => setIsPromptDialogOpen(true)}
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -807,6 +820,114 @@ export default function EvaluationsPage() {
         )}
 
       </div>
+
+      {/* Prompt Management Dialog */}
+      <Dialog open={isPromptDialogOpen} onOpenChange={setIsPromptDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>AIレポート プロンプト管理</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+            {/* Existing Prompts List */}
+            <div className="space-y-2">
+              {prompts.map((p) => (
+                <div key={p.id} className="p-3 border border-slate-200 rounded-lg bg-white hover:bg-slate-50">
+                  {editingPrompt?.id === p.id ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={editingPrompt.name}
+                        onChange={(e) => setEditingPrompt({ ...editingPrompt, name: e.target.value })}
+                        placeholder="プロンプト名"
+                        className="font-bold"
+                      />
+                      <Textarea
+                        value={editingPrompt.prompt}
+                        onChange={(e) => setEditingPrompt({ ...editingPrompt, prompt: e.target.value })}
+                        placeholder="プロンプト内容"
+                        className="min-h-[100px]"
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="ghost" onClick={() => setEditingPrompt(null)}>キャンセル</Button>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => {
+                          setPrompts(prompts.map(pr => pr.id === editingPrompt.id ? editingPrompt : pr))
+                          setEditingPrompt(null)
+                        }}>
+                          <Save className="w-3 h-3 mr-1" /> 保存
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-700">{p.name}</span>
+                          {p.isDefault && <Badge className="bg-blue-100 text-blue-700 text-[10px]">デフォルト</Badge>}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{p.prompt}</p>
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditingPrompt(p)}>
+                          <Edit className="w-3 h-3 text-slate-500" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            if (confirm('このプロンプトを削除してもよろしいですか？')) {
+                              setPrompts(prompts.filter(pr => pr.id !== p.id))
+                            }
+                          }}
+                          disabled={p.isDefault}
+                        >
+                          <Trash2 className="w-3 h-3 text-red-400" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add New Prompt */}
+            <div className="border-t border-slate-200 pt-4">
+              <h4 className="text-sm font-bold text-slate-600 mb-2">新規プロンプトを追加</h4>
+              <div className="space-y-2">
+                <Input
+                  value={newPromptName}
+                  onChange={(e) => setNewPromptName(e.target.value)}
+                  placeholder="プロンプト名 (例: 営業チーム向け分析)"
+                />
+                <Textarea
+                  value={newPromptText}
+                  onChange={(e) => setNewPromptText(e.target.value)}
+                  placeholder="プロンプト内容 (例: 営業チームの成績を分析し、改善点を提案してください)"
+                  className="min-h-[80px]"
+                />
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700"
+                  disabled={!newPromptName.trim() || !newPromptText.trim()}
+                  onClick={() => {
+                    setPrompts([...prompts, {
+                      id: `prompt-${Date.now()}`,
+                      name: newPromptName,
+                      prompt: newPromptText,
+                      isDefault: false
+                    }])
+                    setNewPromptName('')
+                    setNewPromptText('')
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> プロンプトを追加
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPromptDialogOpen(false)}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div >
   )
 }

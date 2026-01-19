@@ -417,32 +417,43 @@ export default function EvaluationEntryPage() {
                             {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
                                 <div key={item.id} className={cn(
                                     "group flex items-start px-4 transition-colors",
-                                    item.type === 'description' ? "bg-blue-50/70 py-1.5" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
+                                    item.type === 'description' ? "bg-slate-700 py-2 rounded-md my-1" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
                                 )}>
                                     {/* Checkbox / Icon */}
                                     <div className="w-8 mr-3 flex justify-center pt-0.5">
-                                        {(item.type === 'checkbox' || !item.type) ? (
+                                        {item.type === 'description' ? (
+                                            <AlertCircle className="w-4 h-4 text-slate-300 mt-0.5" />
+                                        ) : (item.type === 'checkbox' || !item.type) ? (
                                             <Checkbox
                                                 checked={item.checked}
                                                 onCheckedChange={(c) => toggleCheck(index, !!c)}
                                                 disabled={!canEdit}
                                                 className="border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 w-5 h-5 rounded-md"
                                             />
+                                        ) : item.type === 'text' ? (
+                                            <MessageCircle className="w-5 h-5 text-emerald-500" />
                                         ) : (
-                                            item.type === 'text' ? <MessageCircle className="w-5 h-5 text-emerald-500" /> : <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5" />
+                                            <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5" />
                                         )}
                                     </div>
 
                                     {/* Content */}
                                     <div className="flex-1 space-y-1.5 min-w-0">
                                         <div
-                                            className={cn("flex flex-wrap items-baseline gap-x-2 gap-y-0.5", (item.type === 'checkbox' || !item.type) && canEdit && "cursor-pointer")}
-                                            onClick={() => (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}
+                                            className={cn(
+                                                "flex flex-wrap items-baseline gap-x-2 gap-y-0.5",
+                                                item.type === 'description' ? "" : ((item.type === 'checkbox' || !item.type) && canEdit && "cursor-pointer")
+                                            )}
+                                            onClick={() => item.type !== 'description' && (item.type === 'checkbox' || !item.type) && canEdit && toggleCheck(index, !item.checked)}
                                         >
-                                            <Label className={cn("text-sm font-medium leading-snug cursor-pointer break-words", item.checked ? "text-slate-400" : "text-slate-700")}>
+                                            <Label className={cn(
+                                                "text-sm font-medium leading-snug break-words",
+                                                item.type === 'description' ? "text-white" : (item.checked ? "text-slate-400" : "text-slate-700"),
+                                                item.type !== 'description' && "cursor-pointer"
+                                            )}>
                                                 {item.title}
                                             </Label>
-                                            {item.description && (
+                                            {item.description && item.type !== 'description' && (
                                                 <span className={cn("text-[10px] break-words leading-tight", item.checked ? "text-slate-300" : "text-slate-400")}>
                                                     {item.description}
                                                 </span>
@@ -481,15 +492,57 @@ export default function EvaluationEntryPage() {
                         写真アップロード
                     </h2>
                     <div className="grid grid-cols-2 gap-4">
-                        {/* Placeholder for photo upload UI */}
-                        {items.filter(i => i.type === 'photo').map((item, index) => (
-                            <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors">
-                                <CardContent className="p-6 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px]">
-                                    <Camera className="w-8 h-8 opacity-50" />
-                                    <span className="text-xs font-bold">{item.title}</span>
-                                </CardContent>
-                            </Card>
-                        ))}
+                        {items.filter(i => i.type === 'photo').map((item, idx) => {
+                            const photoIndex = items.findIndex(it => it.id === item.id)
+                            return (
+                                <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden">
+                                    <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative">
+                                        {item.photoUrl ? (
+                                            <>
+                                                <img src={item.photoUrl} alt={item.title} className="w-full h-24 object-cover rounded" />
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="absolute top-2 right-2 h-6 px-2 text-xs"
+                                                    onClick={() => {
+                                                        const newItems = [...items]
+                                                        newItems[photoIndex] = { ...item, photoUrl: null }
+                                                        setItems(newItems)
+                                                    }}
+                                                >
+                                                    削除
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    capture="environment"
+                                                    className="hidden"
+                                                    disabled={!canEdit}
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0]
+                                                        if (!file) return
+                                                        // Convert to base64 for preview (in real app, upload to server)
+                                                        const reader = new FileReader()
+                                                        reader.onload = (ev) => {
+                                                            const newItems = [...items]
+                                                            newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
+                                                            setItems(newItems)
+                                                        }
+                                                        reader.readAsDataURL(file)
+                                                    }}
+                                                />
+                                                <Camera className="w-8 h-8 opacity-50" />
+                                                <span className="text-xs font-bold mt-2">{item.title}</span>
+                                                <span className="text-[10px] text-slate-400 mt-1">タップして撮影/選択</span>
+                                            </label>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
                         {items.filter(i => i.type === 'photo').length === 0 && (
                             <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
                         )}

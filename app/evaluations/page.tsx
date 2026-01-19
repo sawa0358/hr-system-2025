@@ -30,7 +30,6 @@ import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
-// import { EvaluationsTable } from "@/components/evaluations/evaluations-table" // To be created
 import Link from "next/link"
 import { Label } from "@/components/ui/label"
 
@@ -43,24 +42,63 @@ export default function EvaluationsPage() {
   const [filterRole, setFilterRole] = useState('all')
   const [sortOrder, setSortOrder] = useState('registration-newest')
 
-  // Mock data for initial UI
-  const contractStats = {
-    achieved: '2,250',
-    goal: '2,000',
-    rate: '112.5'
-  }
-  const completionStats = {
-    achieved: '1,950',
-    goal: '2,000',
-    rate: '97.5'
-  }
-  const periodStats = {
-    achieved: '14,080',
-    goal: '16,000',
-    rate: '88'
-  }
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+  useEffect(() => {
+    setLoading(true)
+    const dateStr = format(currentDate, 'yyyy-MM-dd')
+    fetch(`/api/evaluations/dashboard?date=${dateStr}`)
+      .then(res => res.json())
+      .then(d => {
+        setData(d)
+        setLoading(false)
+      })
+      .catch(e => {
+        console.error(e)
+        setLoading(false)
+      })
+  }, [currentDate])
+
+  const f = (n: any) => Number(n || 0).toLocaleString()
+
+  // Default Stats if data not loaded
+  const stats = data?.stats || {
+    currentMonth: { contract: { target: 0, achieved: 0, rate: '0.0' } },
+    twoMonthsAgo: { completion: { target: 0, achieved: 0, rate: '0.0' } },
+    fiscalYear: { completion: { target: 0, achieved: 0, rate: '0.0' } }
+  }
+
+  const tableData = data?.table || []
+  const calendarStats = data?.calendar || {}
+
+  // Filter Table Data
+  const filteredTable = tableData.filter((item: any) => {
+    if (filterTeam !== 'all') {
+      // 簡易フィルタ: チーム名にAが含まれるか... 正確にはID管理すべきだが、APIが返すのは teamName
+      if (!item.team.includes(filterTeam)) return false
+    }
+    // Employment/Role info not in API tableData yet. Mocking filter behavior or ignoring relevant filters.
+    // Ideally API should return these fields. For now ignoring employment/role filters on client side check.
+    return true
+  })
+
+  // Sort Table Data
+  const sortedTable = [...filteredTable].sort((a: any, b: any) => {
+    if (sortOrder === 'registration-newest') {
+      // statusDate is 'MM/DD' or '-', hard to sort. relying on original order or ignore?
+      // Let's assume original order is mostly correct.
+      return 0
+    }
+    if (sortOrder === 'points-desc') {
+      const pA = parseInt(a.fyPt.replace(/,/g, '').replace('pt', ''))
+      const pB = parseInt(b.fyPt.replace(/,/g, '').replace('pt', ''))
+      return pB - pA
+    }
+    return 0
+  })
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
@@ -121,7 +159,17 @@ export default function EvaluationsPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white gap-2 font-bold h-9">
+            <Button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/evaluations/ai-report', { method: 'POST' })
+                  const json = await res.json()
+                  alert(json.message || 'AI Report Generated')
+                } catch (e) {
+                  alert('Error generating report')
+                }
+              }}
+              className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white gap-2 font-bold h-9">
               <Sparkles className="w-4 h-4" />
               AIレポートを生成
             </Button>
@@ -193,10 +241,10 @@ export default function EvaluationsPage() {
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
-          {/* Card 1 */}
+          {/* Card 1: Current Month Contract */}
           <div className="flex flex-col border-r last:border-0 border-slate-100">
             <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold">
-              {format(currentDate, 'yyyy年M月')}
+              {data?.periodLabel || format(currentDate, 'yyyy年M月')}
             </div>
             <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
               <div className="text-center font-bold">契約達成額</div>
@@ -204,12 +252,12 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{contractStats.achieved}</div>
-              <div className="text-center font-bold text-lg">¥{contractStats.goal}</div>
-              <div className="text-center font-bold text-lg">{contractStats.rate}%</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.achieved)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.target)}</div>
+              <div className="text-center font-bold text-lg">{stats.currentMonth.contract.rate}%</div>
             </div>
           </div>
-          {/* Card 2 */}
+          {/* Card 2: Two Months Ago Completion */}
           <div className="flex flex-col border-r last:border-0 border-slate-100">
             <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold flex justify-center items-center gap-2">
               {format(subMonths(currentDate, 2), 'yyyy年M月')}
@@ -221,16 +269,16 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{completionStats.achieved}</div>
-              <div className="text-center font-bold text-lg">¥{completionStats.goal}</div>
-              <div className="text-center font-bold text-lg">{completionStats.rate}%</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.achieved)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.target)}</div>
+              <div className="text-center font-bold text-lg">{stats.twoMonthsAgo.completion.rate}%</div>
             </div>
           </div>
-          {/* Card 3 */}
+          {/* Card 3: Fiscal Year Completion */}
           <div className="flex flex-col">
             <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold flex justify-center items-center gap-2">
-              2025年4月〜11月
-              <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">確定: 2ヶ月前まで</Badge>
+              {data?.fiscalYearLabel || '今年度'}
+              <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">完工累計</Badge>
             </div>
             <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
               <div className="text-center font-bold">完工達成額</div>
@@ -238,9 +286,9 @@ export default function EvaluationsPage() {
               <div className="text-center font-bold">達成率</div>
             </div>
             <div className="grid grid-cols-3 p-3 gap-2">
-              <div className="text-center font-bold text-lg">¥{periodStats.achieved}</div>
-              <div className="text-center font-bold text-lg">¥{periodStats.goal}</div>
-              <div className="text-center font-bold text-lg">{periodStats.rate}%</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.achieved)}</div>
+              <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.target)}</div>
+              <div className="text-center font-bold text-lg">{stats.fiscalYear.completion.rate}%</div>
             </div>
           </div>
         </div>
@@ -343,9 +391,11 @@ export default function EvaluationsPage() {
                       return [...Array(daysInMonth)].map((_, i) => {
                         const day = i + 1
                         const date = new Date(year, month, day)
+                        const dateStr = format(date, 'yyyy-MM-dd')
                         const dayOfWeek = date.getDay() // 0:Sun, 1:Mon...
                         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                        const isSelected = format(date, 'yyyy-MM-dd') === format(currentDate, 'yyyy-MM-dd')
+                        const isSelected = dateStr === format(currentDate, 'yyyy-MM-dd')
+                        const count = calendarStats[dateStr] || 0
 
                         // Show only up to today if current month
                         if (isCurrentMonth && day > today.getDate()) return null;
@@ -366,13 +416,12 @@ export default function EvaluationsPage() {
                               {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
                             </td>
                             <td className="px-2 py-2.5 text-right">
-                              {/* Mock counts */}
-                              {!isWeekend && (
+                              {count > 0 && (
                                 <Badge variant="secondary" className={cn(
                                   "bg-slate-200 text-slate-600 font-bold h-5 min-w-[20px] px-1 justify-center rounded-full",
                                   isSelected ? "bg-white text-blue-600" : ""
                                 )}>
-                                  {Math.floor(Math.random() * 10)}
+                                  {count}
                                 </Badge>
                               )}
                             </td>
@@ -386,16 +435,16 @@ export default function EvaluationsPage() {
             </div>
           </div>
 
-
-
           {/* Right: Table */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
             <div className="p-4 border-b bg-[#f8fafc] flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <h2 className="text-lg font-bold text-slate-800">社員別 報告一覧</h2>
-                <Badge className="bg-blue-600 hover:bg-blue-600 h-6 px-3">2026年1月6日(火)</Badge>
+                <Badge className="bg-blue-600 hover:bg-blue-600 h-6 px-3">
+                  {format(currentDate, 'yyyy年M月d日')}
+                </Badge>
               </div>
-              <span className="text-xs text-slate-500 font-bold">該当件数: 13件</span>
+              <span className="text-xs text-slate-500 font-bold">該当件数: {sortedTable.length}件</span>
             </div>
 
             <div className="overflow-x-auto">
@@ -412,14 +461,7 @@ export default function EvaluationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {[
-                    { name: '小西愛', team: '営業Aチーム / 執行チーム', status: '登録済', statusDate: '24-01-06', dailyPt: '31pt', comments: ['・報・連・相が遅れ気味なのでその場でLINEで送った方が良いと思います。', '・お客様に連絡が遅れてとお叱りをうけました。'], monthlyPt: '476pt', fyPt: '1,077pt', color: 'blue' },
-                    { name: '小澤未來', team: '営業Cチーム', status: '登録済', statusDate: '24-01-07', dailyPt: '23pt', comments: ['記入なし'], monthlyPt: '422pt', fyPt: '1,004pt', color: 'blue' },
-                    { name: '堀之内健二', team: '営業Bチーム', status: '未登録', statusDate: '-', dailyPt: '0pt', comments: ['記入なし'], monthlyPt: '397pt', fyPt: '942pt', color: 'slate' },
-                    { name: '瀬尾麻衣子', team: '営業Bチーム', status: '未登録', statusDate: '-', dailyPt: '0pt', comments: ['記入なし'], monthlyPt: '445pt', fyPt: '1,124pt', color: 'slate' },
-                    { name: '水口莉紗巳', team: '内勤Aチーム', status: '登録済', statusDate: '24-01-06', dailyPt: '20pt', comments: ['・マニュアル化した時にチャットワークで伝えると良いと思います'], monthlyPt: '329pt', fyPt: '894pt', color: 'blue' },
-                    { name: '森香織', team: '内勤Bチーム', status: '未登録', statusDate: '-', dailyPt: '33pt', comments: ['記入なし'], monthlyPt: '424pt', fyPt: '1,253pt', color: 'slate' },
-                  ].map((item, idx) => (
+                  {sortedTable.map((item: any, idx: number) => (
                     <tr key={idx} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-4 py-4">
                         <div className="font-bold text-slate-800">{item.name}</div>
@@ -434,7 +476,7 @@ export default function EvaluationsPage() {
                       </td>
                       <td className="px-4 py-4 align-top">
                         <div className="flex flex-col gap-1 max-w-[250px]">
-                          {item.comments.map((c, i) => (
+                          {item.comments.map((c: string, i: number) => (
                             <div key={i} className="text-slate-600 line-clamp-1 leading-relaxed">
                               {c}
                             </div>
@@ -453,7 +495,7 @@ export default function EvaluationsPage() {
                         <div className="text-sm font-bold text-slate-700">{item.fyPt}</div>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <Link href={`/evaluations/entry/user-${idx}/${format(currentDate, 'yyyy-MM-dd')}`}>
+                        <Link href={`/evaluations/entry/${item.id}/${format(currentDate, 'yyyy-MM-dd')}`}>
                           <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-300 hover:text-blue-600 hover:bg-blue-50">
                             <Search className="w-4 h-4" />
                           </Button>

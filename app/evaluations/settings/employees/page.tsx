@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Search, Save, ArrowLeft, UserPlus, Users, Calculator } from "lucide-react"
+import { Search, Save, ArrowLeft, UserPlus, Users, Calculator, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -56,12 +56,58 @@ export default function EmployeeSettingsPage() {
 }
 
 function IndividualSettings() {
-    // Mock data
-    const employees = [
-        { id: '1', name: '田中 太郎', team: 'Aチーム', pattern: '一般社員用', hasGoals: true, contractGoal: 2000000, completionGoal: 1500000 },
-        { id: '2', name: '佐藤 花子', team: 'Bチーム', pattern: '店長用', hasGoals: true, contractGoal: 3000000, completionGoal: 3000000 },
-        { id: '3', name: '鈴木 一郎', team: '未所属', pattern: '未設定', hasGoals: false, contractGoal: 0, completionGoal: 0 },
-    ]
+    const [employees, setEmployees] = useState<any[]>([])
+    const [teams, setTeams] = useState<any[]>([])
+    const [patterns, setPatterns] = useState<any[]>([])
+    const [searchQuery, setSearchQuery] = useState('')
+
+    useEffect(() => {
+        // Fetch All Data
+        Promise.all([
+            fetch('/api/evaluations/settings/employees').then(res => res.json()),
+            fetch('/api/evaluations/settings/teams').then(res => res.json()),
+            fetch('/api/evaluations/settings/patterns').then(res => res.json())
+        ]).then(([empData, teamData, patternData]) => {
+            if (Array.isArray(empData)) setEmployees(empData)
+            if (Array.isArray(teamData)) setTeams(teamData)
+            if (Array.isArray(patternData)) setPatterns(patternData)
+        }).catch(console.error)
+    }, [])
+
+    const handleChange = (id: string, field: string, value: any) => {
+        setEmployees(employees.map(emp =>
+            emp.id === id ? { ...emp, [field]: value } : emp
+        ))
+    }
+
+    const handleSave = async (emp: any) => {
+        try {
+            const res = await fetch(`/api/evaluations/settings/employees/${emp.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    teamId: emp.teamId || null,
+                    patternId: emp.patternId || null,
+                    hasGoals: emp.hasGoals,
+                    contractGoal: emp.contractGoal,
+                    completionGoal: emp.completionGoal
+                })
+            })
+            if (res.ok) {
+                alert(`${emp.name}の設定を保存しました`)
+            } else {
+                alert('保存に失敗しました')
+            }
+        } catch (e) {
+            console.error(e)
+            alert('エラーが発生しました')
+        }
+    }
+
+    const filteredEmployees = employees.filter(e =>
+        e.name.includes(searchQuery) ||
+        (e.teamName && e.teamName.includes(searchQuery))
+    )
 
     return (
         <Card>
@@ -70,7 +116,12 @@ function IndividualSettings() {
                     <CardTitle>個人別設定一覧</CardTitle>
                     <div className="relative w-64">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                        <Input placeholder="社員を検索..." className="pl-9" />
+                        <Input
+                            placeholder="社員を検索..."
+                            className="pl-9"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                        />
                     </div>
                 </div>
             </CardHeader>
@@ -88,34 +139,47 @@ function IndividualSettings() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {employees.map(emp => (
+                        {filteredEmployees.map(emp => (
                             <TableRow key={emp.id}>
                                 <TableCell className="font-medium">{emp.name}</TableCell>
                                 <TableCell>
-                                    <Select defaultValue={emp.team === '未所属' ? undefined : 'a'}>
+                                    <Select
+                                        value={emp.teamId || 'none'}
+                                        onValueChange={val => handleChange(emp.id, 'teamId', val === 'none' ? null : val)}
+                                    >
                                         <SelectTrigger className="h-8">
-                                            <SelectValue placeholder="チーム選択" />
+                                            <SelectValue placeholder="未所属" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="a">Aチーム</SelectItem>
-                                            <SelectItem value="b">Bチーム</SelectItem>
+                                            <SelectItem value="none">未所属</SelectItem>
+                                            {teams.map(t => (
+                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </TableCell>
                                 <TableCell>
-                                    <Select defaultValue={emp.pattern === '未設定' ? undefined : 'p1'}>
+                                    <Select
+                                        value={emp.patternId || 'none'}
+                                        onValueChange={val => handleChange(emp.id, 'patternId', val === 'none' ? null : val)}
+                                    >
                                         <SelectTrigger className="h-8">
-                                            <SelectValue placeholder="パターン選択" />
+                                            <SelectValue placeholder="未設定" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="p1">一般社員用</SelectItem>
-                                            <SelectItem value="p2">店長用</SelectItem>
+                                            <SelectItem value="none">未設定</SelectItem>
+                                            {patterns.map(p => (
+                                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </TableCell>
                                 <TableCell>
                                     <div className="flex justify-center">
-                                        <Switch defaultChecked={emp.hasGoals} />
+                                        <Switch
+                                            checked={emp.hasGoals}
+                                            onCheckedChange={checked => handleChange(emp.id, 'hasGoals', checked)}
+                                        />
                                     </div>
                                 </TableCell>
                                 <TableCell>
@@ -124,7 +188,8 @@ function IndividualSettings() {
                                             <span className="absolute left-2 top-1.5 text-xs text-slate-400">¥</span>
                                             <Input
                                                 type="number"
-                                                defaultValue={emp.contractGoal}
+                                                value={emp.contractGoal}
+                                                onChange={e => handleChange(emp.id, 'contractGoal', e.target.value)}
                                                 className="h-8 pl-6 text-right"
                                             />
                                         </div>
@@ -136,14 +201,15 @@ function IndividualSettings() {
                                             <span className="absolute left-2 top-1.5 text-xs text-slate-400">¥</span>
                                             <Input
                                                 type="number"
-                                                defaultValue={emp.completionGoal}
+                                                value={emp.completionGoal}
+                                                onChange={e => handleChange(emp.id, 'completionGoal', e.target.value)}
                                                 className="h-8 pl-6 text-right"
                                             />
                                         </div>
                                     ) : <span className="text-slate-300 text-xs">-</span>}
                                 </TableCell>
                                 <TableCell>
-                                    <Button size="sm" variant="ghost">
+                                    <Button size="sm" variant="ghost" onClick={() => handleSave(emp)}>
                                         <Save className="w-4 h-4 text-blue-600" />
                                     </Button>
                                 </TableCell>
@@ -157,12 +223,64 @@ function IndividualSettings() {
 }
 
 function TeamSettings() {
+    const [teams, setTeams] = useState<any[]>([])
+    const [loading, setLoading] = useState(false)
+
+    const fetchTeams = () => {
+        setLoading(true)
+        fetch('/api/evaluations/settings/teams')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) setTeams(data)
+                setLoading(false)
+            })
+            .catch(e => {
+                console.error(e)
+                setLoading(false)
+            })
+    }
+
+    useEffect(() => {
+        fetchTeams()
+    }, [])
+
+    const handleCreate = async () => {
+        const name = prompt('新しいチーム名を入力してください')
+        if (!name) return
+
+        try {
+            const res = await fetch('/api/evaluations/settings/teams', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            })
+            if (res.ok) fetchTeams()
+            else alert('作成に失敗しました')
+        } catch (e) {
+            console.error(e)
+            alert('エラーが発生しました')
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('このチームを削除してもよろしいですか？')) return
+
+        try {
+            const res = await fetch(`/api/evaluations/settings/teams?id=${id}`, { method: 'DELETE' })
+            if (res.ok) fetchTeams()
+            else alert('削除に失敗しました')
+        } catch (e) {
+            console.error(e)
+            alert('エラーが発生しました')
+        }
+    }
+
     return (
         <Card>
             <CardHeader>
                 <div className="flex justify-between items-center">
                     <CardTitle>チーム管理</CardTitle>
-                    <Button className="bg-blue-600 hover:bg-blue-700">新規チーム作成</Button>
+                    <Button onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700">新規チーム作成</Button>
                 </div>
                 <CardDescription>
                     評価の集計単位となるチームを管理します
@@ -170,16 +288,21 @@ function TeamSettings() {
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {['Aチーム', 'Bチーム', '営業1課'].map((team, i) => (
-                        <Card key={i} className="border-slate-200">
+                    {teams.length === 0 && <div className="p-4 text-slate-500">チームがありません</div>}
+                    {teams.map((team) => (
+                        <Card key={team.id} className="border-slate-200">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-base">{team}</CardTitle>
+                                <CardTitle className="text-base">{team.name}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-sm text-slate-500 mb-4">メンバー: 5名</div>
+                                <div className="text-sm text-slate-500 mb-4">
+                                    メンバー: {team._count?.members || 0}名
+                                </div>
                                 <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" className="w-full">編集</Button>
-                                    <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-700 hover:bg-red-50">削除</Button>
+                                    {/* Edit logic can be added later if needed, assume Delete is sufficient for now */}
+                                    <Button variant="ghost" size="sm" className="w-full text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(team.id)}>
+                                        削除
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

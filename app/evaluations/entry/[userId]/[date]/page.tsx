@@ -20,44 +20,159 @@ import {
     CheckCircle2,
     Lock
 } from "lucide-react"
-import { format, isBefore, subDays, parseISO } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-// import { useAuth } from "@/lib/auth-context" // Assuming this exists
-// import { usePermissions } from "@/hooks/use-permissions" // Assuming this exists
+import { useAuth } from "@/lib/auth-context"
 
 export default function EvaluationEntryPage() {
     const params = useParams()
     const router = useRouter()
+    const { currentUser } = useAuth()
     const userId = params.userId as string
     const dateStr = params.date as string
 
-    // Mock State
     const [isLocked, setIsLocked] = useState(false)
+    const [canEdit, setCanEdit] = useState(false)
     const [items, setItems] = useState<any[]>([])
-    const [thankYouRecipients, setThankYouRecipients] = useState<string[]>([])
+    const [thankYous, setThankYous] = useState<any[]>([])
+    const [thankYouMessage, setThankYouMessage] = useState("")
+    const [loading, setLoading] = useState(true)
+    const [employeeName, setEmployeeName] = useState("")
+    const [teamName, setTeamName] = useState("")
 
-    // Mock Data Loading
+    const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
+
     useEffect(() => {
-        // 3-day lock logic (mock)
-        const targetDate = parseISO(dateStr)
-        const threeDaysAgo = subDays(new Date(), 3)
-        const locked = isBefore(targetDate, threeDaysAgo)
-        // TODO: Add isAdminOrHR bypass check here
-        setIsLocked(locked)
+        const loadData = async () => {
+            setLoading(true)
+            try {
+                // 1. Fetch Submission
+                const subRes = await fetch(`/api/evaluations/submissions?date=${dateStr}&userId=${userId}`)
+                const subData = await subRes.json()
 
-        // Load Items (Mock)
-        setItems([
-            { id: '1', type: 'checkbox', title: '制服は正しく着用できていますか？', points: 10, checked: false, mandatory: true },
-            { id: '2', type: 'checkbox', title: '笑顔で挨拶できていますか？', points: 5, checked: true, mandatory: true },
-            { id: '3', type: 'text', title: '本日の振り返り', value: '', mandatory: false },
-        ])
-    }, [dateStr])
+                if (subData.submission) {
+                    // Load from submission
+                    // Convert submission items to UI items
+                    const loadedItems = subData.submission.items.map((i: any) => ({
+                        id: i.itemId || i.id, // items that came from pattern have itemId?
+                        type: i.title === 'ありがとう送信' ? 'thank_you' : (i.title.includes('振り返り') ? 'text' : 'checkbox'), // Simple heuristic or need 'type' in submission item?
+                        // Schema has 'type' in Item, but SubmissionItem doesn't store type explicitly? 
+                        // SubmissionItem has `itemId`. Logic:
+                        // If we want exact type, we might need to join pattern items.
+                        // For now, let's assume 'checkbox' default unless textValue is present.
+                        itemId: i.itemId,
+                        title: i.title,
+                        points: i.points,
+                        checked: i.isChecked,
+                        value: i.textValue || '',
+                        mandatory: false // Hard to know from here
+                    })).filter((i: any) => i.type !== 'thank_you') // Filter out separate thank you logic if stored as items
 
-    const handleSave = () => {
-        console.log('Saving...', items)
-        router.back()
+                    setItems(loadedItems)
+                } else {
+                    // 2. No submission, fetch Pattern
+                    const empRes = await fetch(`/api/evaluations/settings/employees/${userId}`)
+                    const empData = await empRes.json()
+
+                    if (empData && empData.name) {
+                        setEmployeeName(empData.name)
+                        // setTeamName(empData.personnelEvaluationTeam?.name || "") // Optional
+                    }
+
+                    if (empData && empData.patternId) {
+                        const patRes = await fetch(`/api/evaluations/settings/patterns?id=${empData.patternId}`)
+                        const patData = await patRes.json()
+                        if (patData && patData.items) {
+                            setItems(patData.items.map((i: any) => ({
+                                id: i.id,
+                                itemId: i.id,
+                                type: i.type,
+                                title: i.title,
+                                points: i.points,
+                                checked: false,
+                                value: '',
+                                mandatory: i.isMandatory
+                            })))
+                        }
+                    } else {
+                        // Fallback or empty
+                        setItems([])
+                    }
+                }
+
+                // 3. Lock Logic
+                setIsLocked(subData.isLocked)
+                // If locked, only admin/hr/manager can edit
+                if (subData.isLocked) {
+                    setCanEdit(isAdminOrHrOrManager)
+                } else {
+                    setCanEdit(true)
+                }
+
+            } catch (e) {
+                console.error(e)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        if (userId && dateStr) {
+            loadData()
+        }
+    }, [userId, dateStr, currentUser])
+
+    const handleSave = async () => {
+        if (!canEdit) return
+
+        try {
+            const body = {
+                date: dateStr,
+                employeeId: userId,
+                items: items.map(i => ({
+                    itemId: i.itemId,
+                    title: i.title,
+                    points: i.points,
+                    checked: i.checked,
+                    textValue: i.value
+                })),
+                thankYous: thankYouMessage ? [{ to: [], message: thankYouMessage }] : [] // Simplified for now
+            }
+
+            const res = await fetch('/api/evaluations/submissions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+
+            if (res.ok) {
+                alert('保存しました')
+                // Reload or re-fetch?
+            } else {
+                const err = await res.json()
+                alert(`エラー: ${err.error}`)
+            }
+        } catch (e) {
+            console.error(e)
+            alert('保存に失敗しました')
+        }
     }
+
+    const toggleCheck = (index: number, checked: boolean) => {
+        if (!canEdit) return
+        const newItems = [...items]
+        newItems[index].checked = checked
+        setItems(newItems)
+    }
+
+    const updateText = (index: number, val: string) => {
+        if (!canEdit) return
+        const newItems = [...items]
+        newItems[index].value = val
+        setItems(newItems)
+    }
+
+    if (loading) return <div className="p-8 text-center text-slate-500">読み込み中...</div>
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -70,13 +185,14 @@ export default function EvaluationEntryPage() {
                     <div>
                         <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             {format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力
-                            {isLocked && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /> 編集不可</Badge>}
+                            {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /> 編集不可</Badge>}
+                            {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">ロック期間外 (修正権限あり)</Badge>}
                         </h1>
-                        <p className="text-xs text-slate-500">田中 太郎 (Aチーム)</p>
+                        <p className="text-xs text-slate-500">{employeeName} {teamName && `(${teamName})`}</p>
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    {!isLocked && (
+                    {canEdit && (
                         <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700 shadow-sm">
                             <Save className="w-4 h-4 mr-2" />
                             保存
@@ -86,39 +202,36 @@ export default function EvaluationEntryPage() {
             </header>
 
             <main className="flex-1 container mx-auto p-4 max-w-3xl space-y-6">
-                {/* Goals Section */}
+                {/* Check Goals (Mock presentation for now) */}
                 <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-100 shadow-sm">
                     <CardContent className="p-4 flex justify-around items-center text-center">
                         <div>
                             <div className="text-xs text-slate-500 font-bold mb-1">契約達成率</div>
-                            <div className="text-2xl font-bold text-blue-700">85<span className="text-sm">%</span></div>
-                            <div className="text-xs text-slate-400">¥1,700,000 / ¥2,000,000</div>
+                            <div className="text-2xl font-bold text-blue-700">--<span className="text-sm">%</span></div>
+                            <div className="text-xs text-slate-400">¥0 / ¥0</div>
                         </div>
                         <div className="w-px h-12 bg-blue-200"></div>
                         <div>
                             <div className="text-xs text-slate-500 font-bold mb-1">完工達成率</div>
-                            <div className="text-2xl font-bold text-indigo-700">92<span className="text-sm">%</span></div>
-                            <div className="text-xs text-slate-400">¥1,380,000 / ¥1,500,000</div>
+                            <div className="text-2xl font-bold text-indigo-700">--<span className="text-sm">%</span></div>
+                            <div className="text-xs text-slate-400">¥0 / ¥0</div>
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* Checklist Items */}
                 <div className="space-y-4">
+                    {items.length === 0 && <div className="text-center py-8 text-slate-400">評価項目が設定されていません</div>}
                     {items.map((item, index) => (
                         <Card key={item.id} className={cn("border-slate-200 shadow-sm transition-all", item.checked ? "bg-blue-50/30 border-blue-200" : "")}>
                             <CardContent className="p-4">
                                 <div className="flex items-start gap-4">
                                     <div className="mt-1">
-                                        {item.type === 'checkbox' && (
+                                        {(item.type === 'checkbox' || !item.type) && (
                                             <Checkbox
                                                 checked={item.checked}
-                                                onCheckedChange={(c) => {
-                                                    const newItems = [...items]
-                                                    newItems[index].checked = c
-                                                    setItems(newItems)
-                                                }}
-                                                disabled={isLocked}
+                                                onCheckedChange={(c) => toggleCheck(index, !!c)}
+                                                disabled={!canEdit}
                                                 className="w-6 h-6 border-2 border-slate-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                                             />
                                         )}
@@ -134,10 +247,12 @@ export default function EvaluationEntryPage() {
                                                 {item.points > 0 && <Badge variant="secondary" className="bg-amber-100 text-amber-800">+{item.points}pt</Badge>}
                                             </div>
                                         </div>
-                                        {item.type === 'text' && (
+                                        {(item.type === 'text' || item.type === 'description') && (
                                             <Textarea
+                                                value={item.value || ''}
+                                                onChange={(e) => updateText(index, e.target.value)}
                                                 placeholder="入力してください..."
-                                                disabled={isLocked}
+                                                disabled={!canEdit}
                                                 className="bg-white"
                                             />
                                         )}
@@ -148,8 +263,8 @@ export default function EvaluationEntryPage() {
                     ))}
                 </div>
 
-                {/* Add Actions */}
-                {!isLocked && (
+                {/* Add Actions (Hidden if locked to avoid confusion, or strictly control) */}
+                {canEdit && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                         <Button variant="outline" className="h-auto py-3 flex flex-col gap-1 hover:bg-blue-50 hover:text-blue-600 border-dashed border-slate-300">
                             <Plus className="w-5 h-5 mb-1" />
@@ -159,19 +274,12 @@ export default function EvaluationEntryPage() {
                             <MessageCircle className="w-5 h-5 mb-1" />
                             <span className="text-xs font-bold">自由欄追加</span>
                         </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1 hover:bg-pink-50 hover:text-pink-600 border-dashed border-slate-300">
-                            <Heart className="w-5 h-5 mb-1" />
-                            <span className="text-xs font-bold">ありがとう</span>
-                        </Button>
-                        <Button variant="outline" className="h-auto py-3 flex flex-col gap-1 hover:bg-purple-50 hover:text-purple-600 border-dashed border-slate-300">
-                            <Camera className="w-5 h-5 mb-1" />
-                            <span className="text-xs font-bold">写真追加</span>
-                        </Button>
+                        {/* More buttons... */}
                     </div>
                 )}
 
-                {/* Thank You Section (Example) */}
-                {!isLocked && (
+                {/* Thank You Section (Simple impl) */}
+                {canEdit && (
                     <Card className="border-pink-200 bg-pink-50/30">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base flex items-center gap-2 text-pink-700">
@@ -180,29 +288,19 @@ export default function EvaluationEntryPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>誰に送りますか？</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="outline" className="cursor-pointer hover:bg-pink-100 bg-white border-pink-200 text-pink-700 px-3 py-1">ToAll</Badge>
-                                    <Badge variant="outline" className="cursor-pointer hover:bg-pink-100 bg-white border-pink-200 text-pink-700 px-3 py-1">Toチーム</Badge>
-                                    <Button size="sm" variant="ghost" className="h-6 text-xs text-slate-500">
-                                        <Plus className="w-3 h-3 mr-1" />
-                                        個別に選択
-                                    </Button>
-                                </div>
-                            </div>
-                            <Textarea placeholder="感謝のメッセージを入力..." className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400" />
-                            <div className="flex justify-end">
-                                <Button size="sm" className="bg-pink-600 hover:bg-pink-700 text-white">
-                                    送信 (+5pt)
-                                </Button>
-                            </div>
+                            <Textarea
+                                value={thankYouMessage}
+                                onChange={e => setThankYouMessage(e.target.value)}
+                                placeholder="感謝のメッセージを入力..."
+                                className="min-h-[80px] bg-white border-pink-200 focus-visible:ring-pink-400"
+                            />
+                            {/* Detailed recipient selection to be implemented */}
                         </CardContent>
                     </Card>
                 )}
 
                 {/* Locked Message */}
-                {isLocked && (
+                {isLocked && !canEdit && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
                         <div>

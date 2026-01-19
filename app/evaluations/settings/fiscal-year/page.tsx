@@ -14,19 +14,42 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export default function FiscalYearSettingsPage() {
     const { currentUser } = useAuth()
-    const [fiscalYears, setFiscalYears] = useState<any[]>([
-        { id: '1', name: '2025年度', startDate: '2025-04-01', endDate: '2026-03-31' },
-        { id: '2', name: '2024年度', startDate: '2024-04-01', endDate: '2025-03-31' },
-    ])
+    const [fiscalYears, setFiscalYears] = useState<any[]>([])
+    const [isLoading, setIsLoading] = useState(true)
 
     const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+    useEffect(() => {
+        if (!isAdminOrHr) return
+        fetch('/api/evaluations/settings/fiscal-year')
+            .then(res => res.json())
+            .then(data => {
+                if (Array.isArray(data)) {
+                    // 日付文字列をInput用に変換 (yyyy-MM-ddThh:mm:ss -> yyyy-MM-dd)
+                    const formatted = data.map((d: any) => ({
+                        ...d,
+                        startDate: d.startDate.split('T')[0],
+                        endDate: d.endDate.split('T')[0]
+                    }))
+                    setFiscalYears(formatted)
+                }
+                setIsLoading(false)
+            })
+            .catch(err => {
+                console.error(err)
+                setIsLoading(false)
+            })
+    }, [isAdminOrHr])
 
     if (!isAdminOrHr) {
         return <div className="p-8 text-center">アクセス権限がありません</div>
     }
 
     const handleAdd = () => {
-        const nextYear = fiscalYears.length > 0 ? parseInt(fiscalYears[0].name) + 1 : new Date().getFullYear()
+        const nextYear = fiscalYears.length > 0 && !isNaN(parseInt(fiscalYears[0].name))
+            ? parseInt(fiscalYears[0].name) + 1
+            : new Date().getFullYear() + 1
+
         setFiscalYears([
             {
                 id: `new-${Date.now()}`,
@@ -39,8 +62,30 @@ export default function FiscalYearSettingsPage() {
     }
 
     const handleDelete = (id: string) => {
-        if (confirm('この年度設定を削除しますか？')) {
-            setFiscalYears(fiscalYears.filter(fy => fy.id !== id))
+        setFiscalYears(fiscalYears.filter(fy => fy.id !== id))
+    }
+
+    const handleSave = async () => {
+        try {
+            const res = await fetch('/api/evaluations/settings/fiscal-year', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(fiscalYears)
+            })
+            if (!res.ok) throw new Error('Failed to save')
+
+            // Reload to get cleaned IDs
+            const saved = await res.json()
+            const formatted = saved.map((d: any) => ({
+                ...d,
+                startDate: d.startDate.split('T')[0],
+                endDate: d.endDate.split('T')[0]
+            }))
+            setFiscalYears(formatted)
+            alert('設定を保存しました')
+        } catch (e) {
+            alert('保存に失敗しました')
+            console.error(e)
         }
     }
 

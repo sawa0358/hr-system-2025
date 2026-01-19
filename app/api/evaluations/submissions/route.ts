@@ -121,9 +121,46 @@ export async function GET(request: Request) {
             })
         ])
 
+        // 受信したありがとうメッセージの取得
+        const receivedThankYous = await prisma.personnelEvaluationSubmissionItem.findMany({
+            where: {
+                submission: {
+                    date: date
+                },
+                title: 'ありがとう送信',
+                thankYouTo: {
+                    contains: targetUserId
+                }
+            },
+            include: {
+                submission: {
+                    select: {
+                        employee: {
+                            select: {
+                                id: true,
+                                name: true,
+                                avatar: true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+
+        // 厳密なIDチェック (containsの部分一致対策)
+        const filteredReceivedThankYous = receivedThankYous.filter(item => {
+            try {
+                const toList = JSON.parse(item.thankYouTo || '[]')
+                return Array.isArray(toList) && toList.includes(targetUserId)
+            } catch (e) {
+                return false
+            }
+        })
+
         return NextResponse.json({
             submission,
             goal,
+            receivedThankYous: filteredReceivedThankYous,
             isLocked: locked,
             stats: {
                 daily: dailyPoints._sum.points || 0,

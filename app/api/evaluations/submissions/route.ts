@@ -70,10 +70,66 @@ export async function GET(request: Request) {
             }
         })
 
+        // ポイント集計 (当日、今月、今年度)
+        // 今年度の計算: 4月始まりとする
+        const year = date.getFullYear()
+        const month = date.getMonth() + 1 // 1-12
+        const fiscalYearStartYear = month >= 4 ? year : year - 1
+        const fiscalYearStartDate = new Date(fiscalYearStartYear, 3, 1) // 4月1日
+        const fiscalYearEndDate = new Date(fiscalYearStartYear + 1, 2, 31, 23, 59, 59) // 翌3月31日
+
+        const startOfMonthDate = new Date(year, month - 1, 1)
+        const endOfMonthDate = new Date(year, month, 0, 23, 59, 59)
+
+        const startOfDayDate = new Date(year, month - 1, date.getDate(), 0, 0, 0)
+        const endOfDayDate = new Date(year, month - 1, date.getDate(), 23, 59, 59)
+
+        // 集計クエリの並列実行
+        const [dailyPoints, monthlyPoints, yearlyPoints] = await Promise.all([
+            // 当日
+            prisma.personnelEvaluationPointLog.aggregate({
+                _sum: { points: true },
+                where: {
+                    employeeId: targetUserId,
+                    date: {
+                        gte: startOfDayDate,
+                        lte: endOfDayDate
+                    }
+                }
+            }),
+            // 今月
+            prisma.personnelEvaluationPointLog.aggregate({
+                _sum: { points: true },
+                where: {
+                    employeeId: targetUserId,
+                    date: {
+                        gte: startOfMonthDate,
+                        lte: endOfMonthDate
+                    }
+                }
+            }),
+            // 今年度
+            prisma.personnelEvaluationPointLog.aggregate({
+                _sum: { points: true },
+                where: {
+                    employeeId: targetUserId,
+                    date: {
+                        gte: fiscalYearStartDate,
+                        lte: fiscalYearEndDate
+                    }
+                }
+            })
+        ])
+
         return NextResponse.json({
             submission,
             goal,
-            isLocked: locked
+            isLocked: locked,
+            stats: {
+                daily: dailyPoints._sum.points || 0,
+                monthly: monthlyPoints._sum.points || 0,
+                yearly: yearlyPoints._sum.points || 0
+            }
         })
 
     } catch (error) {

@@ -46,6 +46,7 @@ export default function EvaluationEntryPage() {
     const [isLocked, setIsLocked] = useState(false)
     const [canEdit, setCanEdit] = useState(false)
     const [stats, setStats] = useState<any>(null) // Team Stats
+    const [pointStats, setPointStats] = useState({ daily: 0, monthly: 0, yearly: 0 })
     const [personalGoal, setPersonalGoal] = useState<any>({
         contractTarget: 0,
         contractAchieved: 0,
@@ -105,6 +106,7 @@ export default function EvaluationEntryPage() {
             setItems([])
             setStats(null)
             setPersonalGoal({ contractTarget: 0, contractAchieved: 0, completionTarget: 0, completionAchieved: 0 })
+            setPointStats({ daily: 0, monthly: 0, yearly: 0 }) // Reset point stats
 
             try {
                 // 1. Fetch Submission and Employee Data in parallel
@@ -221,7 +223,7 @@ export default function EvaluationEntryPage() {
                             type,
                             checked: i.isChecked,
                             value: i.textValue || '',
-                            mandatory: patternItem?.isMandatory || false
+                            mandatory: patternItem?.isMandatory || false // isMandatoryプロパティを使用
                         }
                     }).filter((i: any) => i.type !== 'thank_you')
 
@@ -249,7 +251,6 @@ export default function EvaluationEntryPage() {
                         // パターンの定義順に並べ直すのがベスト
                         const mergedItems = [...loadedItems, ...missingPatternItems]
 
-                        // パターン順序定義があればそれに従う（ここでは簡易的にロード済み->追加分の順だが、UX的には混ざったほうがいいかも）
                         // 一旦追加分を結合してセット
                         setItems(mergedItems)
                     } else {
@@ -280,6 +281,13 @@ export default function EvaluationEntryPage() {
                     setCanEdit(isAdminOrHrOrManager)
                 } else {
                     setCanEdit(true)
+                }
+
+                // 6. Set Point Stats
+                if (subData.stats) {
+                    setPointStats(subData.stats)
+                } else {
+                    setPointStats({ daily: 0, monthly: 0, yearly: 0 })
                 }
 
             } catch (e) {
@@ -400,11 +408,13 @@ export default function EvaluationEntryPage() {
             {/* Header */}
             <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Link href="/evaluations">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="w-5 h-5 text-slate-600" />
-                        </Button>
-                    </Link>
+                    {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                        <Link href="/evaluations">
+                            <Button variant="ghost" size="icon">
+                                <ArrowLeft className="w-5 h-5 mr-2 text-slate-600" />
+                            </Button>
+                        </Link>
+                    )}
                     <div>
                         <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             {format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力
@@ -475,6 +485,22 @@ export default function EvaluationEntryPage() {
                                     <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}>
                                         <ChevronRight className="w-3 h-3" />
                                     </Button>
+                                </div>
+                            </div>
+
+                            {/* Point Stats */}
+                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold">当日獲得pt</span>
+                                    <span className="font-mono font-bold text-slate-700">{pointStats.daily}pt</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold">今月獲得pt</span>
+                                    <span className="font-mono font-bold text-blue-600">{pointStats.monthly}pt</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
+                                    <span className="text-slate-500 font-bold">今年度獲得pt</span>
+                                    <span className="font-mono font-bold text-indigo-600">{pointStats.yearly}pt</span>
                                 </div>
                             </div>
 
@@ -739,7 +765,7 @@ export default function EvaluationEntryPage() {
                                                             value={item.value || ''}
                                                             onChange={(e) => updateText(index, e.target.value)}
                                                             placeholder={item.type === 'description' ? '' : "入力してください..."}
-                                                            disabled={item.type === 'description' ? true : !canEdit}
+                                                            disabled={item.type === 'description' || !canEdit} // Explicitly allow 'text' type if canEdit is true
                                                             className={cn(
                                                                 "text-xs min-h-[60px] resize-y w-full leading-relaxed",
                                                                 item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none text-slate-300 resize-none h-auto min-h-0 pointer-events-none" : "bg-white border-slate-200 focus-visible:ring-blue-400"
@@ -770,7 +796,30 @@ export default function EvaluationEntryPage() {
                                 {items.filter(i => i.type === 'photo').map((item, idx) => {
                                     const photoIndex = items.findIndex(it => it.id === item.id)
                                     return (
-                                        <Card key={item.id} className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden">
+                                        <Card
+                                            key={item.id}
+                                            className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden"
+                                            onDragOver={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                            }}
+                                            onDrop={(e) => {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                if (!canEdit) return
+
+                                                const file = e.dataTransfer.files?.[0]
+                                                if (file && file.type.startsWith('image/')) {
+                                                    const reader = new FileReader()
+                                                    reader.onload = (ev) => {
+                                                        const newItems = [...items]
+                                                        newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
+                                                        setItems(newItems)
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }
+                                            }}
+                                        >
                                             <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative group">
                                                 {/* Mandatory Badge */}
                                                 {item.mandatory && (
@@ -833,7 +882,7 @@ export default function EvaluationEntryPage() {
                                                         />
                                                         <Camera className="w-8 h-8 opacity-50 mb-2" />
                                                         <span className="text-xs font-bold text-slate-600">{item.title}</span>
-                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影/選択</span>
+                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影・ドロップ</span>
                                                         {item.points > 0 && <span className="text-[10px] text-blue-500 font-bold mt-1">+{item.points}pt</span>}
                                                     </label>
                                                 )}

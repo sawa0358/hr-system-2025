@@ -537,7 +537,7 @@ export default function EvaluationsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6">
             {/* Left Sidebar: Calendar */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 lg:sticky lg:top-4 relative">
-              <div className="flex items-center justify-between gap-2 p-1">
+              <div className="flex items-center justify-between gap-2 p-1 flex-row lg:flex-col lg:items-stretch lg:gap-3">
                 <div className="flex items-center gap-1">
                   <Select value={format(currentDate, 'yyyy')} onValueChange={(v) => {
                     const newDate = new Date(currentDate)
@@ -676,7 +676,7 @@ export default function EvaluationsPage() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {sortedTable.map((item: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-slate-50 transition-colors group">
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => router.push(`/evaluations/entry/${item.id}/${format(currentDate, 'yyyy-MM-dd')}`)}>
                         <td className="px-4 py-4">
                           <div className="font-bold text-slate-800">{item.name}</div>
                           <div className="text-[10px] text-slate-400 font-bold">{item.team}</div>

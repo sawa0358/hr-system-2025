@@ -543,10 +543,12 @@ export default function EvaluationEntryPage() {
     // Thank You Section Render Function - Used in both mobile and desktop layouts
     const renderThankYouSection = () => (
         <div className="space-y-4">
-            <h2 className="text-sm font-bold text-pink-600 flex items-center gap-2">
-                <Heart className="w-4 h-4 fill-pink-500" />
-                ありがとうを送る
-                <span className="text-[10px] text-pink-400 font-normal ml-2">（送信: +{thankYouConfig.send.toLocaleString()}pt / 受信: +{thankYouConfig.receive.toLocaleString()}pt）</span>
+            <h2 className="text-sm font-bold text-pink-600 flex flex-col items-start gap-1">
+                <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4 fill-pink-500" />
+                    ありがとうを送る
+                </div>
+                <span className="text-[10px] text-pink-400 font-normal ml-6">（送信: +{thankYouConfig.send.toLocaleString()}pt / 受信: +{thankYouConfig.receive.toLocaleString()}pt）</span>
             </h2>
             {/* Draft Form */}
             <div className="bg-pink-50 rounded-lg p-4 space-y-3">

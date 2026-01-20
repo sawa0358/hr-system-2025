@@ -6,6 +6,7 @@ import { startOfMonth, endOfMonth } from 'date-fns'
 export const dynamic = 'force-dynamic'
 
 // ヘルパー: 3日以上前か判定
+
 function isLockedPastEntry(entryDate: Date): boolean {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -17,8 +18,22 @@ function isLockedPastEntry(entryDate: Date): boolean {
     const diffTime = today.getTime() - target.getTime()
     const diffDays = diffTime / (1000 * 3600 * 24)
 
+    console.log(`[isLockedPastEntry] today=${today.toISOString()}, target=${target.toISOString()}, diffDays=${diffDays}`)
+
     return diffDays >= 3
 }
+
+function getDiffDays(entryDate: Date): number {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const target = new Date(entryDate)
+    target.setHours(0, 0, 0, 0)
+
+    const diffTime = today.getTime() - target.getTime()
+    return diffTime / (1000 * 3600 * 24)
+}
+
 
 // GET: 指定日の提出データを取得
 export async function GET(request: Request) {
@@ -239,6 +254,7 @@ export async function POST(request: Request) {
 
         // 1. ロックチェック
         const isLocked = isLockedPastEntry(targetDate)
+
         console.log(`[Submission POST] Lock check. date=${date}, isLocked=${isLocked}`)
 
         if (isLocked) {

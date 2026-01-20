@@ -22,9 +22,15 @@ import {
     Lock,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     Trash2,
     Send,
 } from "lucide-react"
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { format, parseISO, endOfMonth, addMonths, startOfMonth, subMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import { cn } from "@/lib/utils"
@@ -57,7 +63,7 @@ export default function EvaluationEntryPage() {
     })
     const [isNumericGoalEnabled, setIsNumericGoalEnabled] = useState(true)
     const [calendarStats, setCalendarStats] = useState<Record<string, { count: number, hasReceivedThankYou: boolean }>>({})
-    const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date())
+    const [currentCalendarDate, setCurrentCalendarDate] = useState(dateStr ? parseISO(dateStr) : new Date())
     const [submissionStatus, setSubmissionStatus] = useState<string>('submitted')
 
     // Add employees state
@@ -92,6 +98,19 @@ export default function EvaluationEntryPage() {
 
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
     const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+
+    useEffect(() => {
+        if (dateStr) {
+            setCurrentCalendarDate(parseISO(dateStr))
+            // Auto scroll to date
+            setTimeout(() => {
+                const row = document.getElementById(`calendar-row-${dateStr}`)
+                if (row) {
+                    row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+                }
+            }, 300)
+        }
+    }, [dateStr])
 
     // Goal Editing Lock Logic
     const isGoalLocked = (() => {
@@ -718,6 +737,150 @@ export default function EvaluationEntryPage() {
         </div>
     )
 
+    const renderTeamStats = () => {
+        if (!stats) return null
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                {/* Contract Stats */}
+                <div className="bg-slate-900 text-white p-4">
+                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                        {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
+                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                        <div>契約達成額</div>
+                        <div>契約目標額</div>
+                        <div>達成率</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center items-end">
+                        <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                        <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                        <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
+                    </div>
+                </div>
+                {/* Completion Stats */}
+                <div className="bg-slate-900 text-white p-4">
+                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
+                        2025年11月
+                        <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
+                        <div>完工達成額</div>
+                        <div>完工目標額</div>
+                        <div>達成率</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center items-end">
+                        <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                        <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
+                        <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    const renderPersonalGoals = () => {
+        if (!isNumericGoalEnabled) return null
+        return (
+            <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
+                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-700 text-sm">
+                        <span className="md:hidden">個人目標/<br />実績管理</span>
+                        <span className="hidden md:inline">個人目標・実績管理</span>
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px] hidden md:inline-flex">編集期間終了</Badge>}
+                        <div className="text-right md:text-left">
+                            <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm inline-block">
+                                <span className="md:hidden text-[90%] whitespace-nowrap">
+                                    {format(parseISO(dateStr), 'yyyy年M月d日現在', { locale: ja })}
+                                </span>
+                                <span className="hidden md:inline">
+                                    {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
+                                </span>
+                            </span>
+                        </div>
+                        <Button size="sm" onClick={() => handleSave()} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs whitespace-nowrap">
+                            <Save className="w-3 h-3 mr-1" />
+                            <span className="hidden md:inline">実績を保存</span>
+                            <span className="md:hidden">保存</span>
+                        </Button>
+                    </div>
+                </div>
+                <CardContent className="p-4 bg-white">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Contract Goal */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <Label className="text-slate-700 font-bold flex flex-col">
+                                    <span className="text-base">契約実績金額</span>
+                                    <span className="text-[10px] text-slate-400 font-normal">リアルタイムで記入</span>
+                                </Label>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                    <span className="font-bold text-slate-600">¥{(personalGoal.contractTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                <Input
+                                    type={contractFocused ? "number" : "text"}
+                                    value={contractFocused ? personalGoal.contractAchieved : (personalGoal.contractAchieved ? Number(personalGoal.contractAchieved).toLocaleString() : '')}
+                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: (parseFloat(e.target.value.replace(/,/g, '')) || 0) })}
+                                    onFocus={() => setContractFocused(true)}
+                                    onBlur={() => setContractFocused(false)}
+                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
+                                    placeholder="0"
+                                    disabled={isGoalLocked && !isAdminOrHr}
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
+                            </div>
+                            <div className="flex justify-end text-xs font-medium">
+                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                    {personalGoal.contractTarget > 0 ? ((Number(personalGoal.contractAchieved) / personalGoal.contractTarget) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Completion Goal */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
+                                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
+                                    <span className="font-bold text-slate-600">¥{(personalGoal.completionTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
+                                <Input
+                                    type={completionFocused ? "number" : "text"}
+                                    value={completionFocused ? personalGoal.completionAchieved : (personalGoal.completionAchieved ? Number(personalGoal.completionAchieved).toLocaleString() : '')}
+                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: (parseFloat(e.target.value.replace(/,/g, '')) || 0) })}
+                                    onFocus={() => setCompletionFocused(true)}
+                                    onBlur={() => setCompletionFocused(false)}
+                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
+                                    placeholder="0"
+                                    disabled={isGoalLocked && !isAdminOrHr}
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
+                            </div>
+                            <div className="flex justify-end text-xs font-medium">
+                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
+                                    {personalGoal.completionTarget > 0 ? ((Number(personalGoal.completionAchieved) / personalGoal.completionTarget) * 100).toFixed(1) : '0.0'}%
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
+
     if (loading) return <div className="p-8 text-center text-slate-500">読み込み中...</div>
 
     return (
@@ -760,41 +923,7 @@ export default function EvaluationEntryPage() {
                             </Badge>
                         )}
 
-                        {isAdminOrHrOrManager && submissionStatus !== 'approved' && (
-                            <Button
-                                onClick={async () => {
-                                    if (!confirm('この内容で承認しますか？')) return
-                                    try {
-                                        const res = await fetch(`/api/evaluations/submissions/status`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'x-employee-id': currentUser?.id || ''
-                                            },
-                                            body: JSON.stringify({
-                                                userId,
-                                                date: dateStr,
-                                                status: 'approved'
-                                            })
-                                        })
-                                        if (res.ok) {
-                                            setSubmissionStatus('approved')
-                                            alert('承認しました')
-                                        } else {
-                                            const error = await res.json()
-                                            alert(`エラー: ${error.error}`)
-                                        }
-                                    } catch (e) {
-                                        console.error(e)
-                                        alert('通信エラーが発生しました')
-                                    }
-                                }}
-                                className="bg-green-600 hover:bg-green-700 shadow-sm h-8 px-3 text-xs md:h-9 md:px-4 md:text-sm"
-                            >
-                                <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
-                                承認
-                            </Button>
-                        )}
+
 
                         {submissionStatus === 'approved' && (
                             <Badge variant="secondary" className="bg-green-100 text-green-800 gap-1 h-8 px-3 md:h-9 md:px-4">
@@ -814,308 +943,201 @@ export default function EvaluationEntryPage() {
             </header>
 
             <main className="flex-1 container mx-auto p-4 max-w-6xl">
+                {/* Mobile Top Section: Stats & Goals (Collapsible) */}
+                <div className="lg:hidden space-y-4 mb-6">
+                    <Collapsible>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full bg-slate-200 p-3 rounded-lg font-bold text-slate-700 text-sm [&[data-state=open]>svg]:rotate-180">
+                            チーム全体数値
+                            <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2">
+                            {renderTeamStats()}
+                        </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full bg-slate-100 border border-slate-200 p-3 rounded-lg font-bold text-slate-700 text-sm [&[data-state=open]>svg]:rotate-180">
+                            個人目標・実績管理
+                            <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2">
+                            {renderPersonalGoals()}
+                        </CollapsibleContent>
+                    </Collapsible>
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
 
                     {/* Left Column: Calendar */}
-                    <aside className="space-y-4 w-full">
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-4">
-                            {/* Date Selector */}
-                            <div className="flex items-center justify-between gap-2 mb-3 lg:mb-4 p-1">
-                                <div className="flex items-center gap-1">
-                                    <Select value={format(currentCalendarDate, 'yyyy')} onValueChange={(v) => {
-                                        const newDate = new Date(currentCalendarDate)
-                                        newDate.setFullYear(parseInt(v))
-                                        setCurrentCalendarDate(newDate)
-                                    }}>
-                                        <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1 bg-white">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="2026">2026</SelectItem>
-                                            <SelectItem value="2025">2025</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <span className="text-xs text-slate-500 font-bold whitespace-nowrap">年</span>
-                                    <Select value={format(currentCalendarDate, 'M')} onValueChange={(v) => {
-                                        const newDate = new Date(currentCalendarDate)
-                                        newDate.setMonth(parseInt(v) - 1)
-                                        setCurrentCalendarDate(newDate)
-                                    }}>
-                                        <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1 bg-white">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {[...Array(12)].map((_, i) => (
-                                                <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
-                                </div>
-
-                                <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
-                                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
-                                        <ChevronLeft className="w-4 h-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentCalendarDate(new Date())}>
-                                        今月
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 w-8 px-0 hover:bg-white text-slate-600 disabled:opacity-30"
-                                        onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}
-                                        disabled={(() => {
-                                            const nextMonth = startOfMonth(addMonths(currentCalendarDate, 1))
-                                            const currentRealMonth = startOfMonth(new Date())
-                                            return nextMonth > currentRealMonth
-                                        })()}
-                                    >
-                                        <ChevronRight className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-row lg:flex-col gap-3">
-                                {/* Point Stats */}
-                                <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2 min-w-[120px] lg:w-full">
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-500 font-bold">当日獲得pt</span>
-                                        <span className="font-mono font-bold text-slate-700">{parseFloat(pointStats.daily.toString()).toLocaleString()}pt</span>
+                    {/* Left Column: Calendar */}
+                    <aside className="w-full relative">
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 relative lg:sticky lg:top-4 h-[360px] lg:h-[calc(100vh-2rem)] flex flex-col overflow-hidden">
+                            {/* Scrollable Area: Date, Stats, Calendar */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-3 flex flex-col gap-4 min-h-0">
+                                {/* Date Selector */}
+                                <div className="flex items-center justify-between gap-2 p-1 shrink-0">
+                                    <div className="flex items-center gap-1">
+                                        <Select value={format(currentCalendarDate, 'yyyy')} onValueChange={(v) => {
+                                            const newDate = new Date(currentCalendarDate)
+                                            newDate.setFullYear(parseInt(v))
+                                            setCurrentCalendarDate(newDate)
+                                        }}>
+                                            <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1 bg-white">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="2026">2026</SelectItem>
+                                                <SelectItem value="2025">2025</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <span className="text-xs text-slate-500 font-bold whitespace-nowrap">年</span>
+                                        <Select value={format(currentCalendarDate, 'M')} onValueChange={(v) => {
+                                            const newDate = new Date(currentCalendarDate)
+                                            newDate.setMonth(parseInt(v) - 1)
+                                            setCurrentCalendarDate(newDate)
+                                        }}>
+                                            <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1 bg-white">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {[...Array(12)].map((_, i) => (
+                                                    <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
                                     </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-slate-500 font-bold">今月獲得pt</span>
-                                        <span className="font-mono font-bold text-blue-600">{parseFloat(pointStats.monthly.toString()).toLocaleString()}pt</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
-                                        <span className="text-slate-500 font-bold">今年度獲得pt</span>
-                                        <span className="font-mono font-bold text-indigo-600">{parseFloat(pointStats.yearly.toString()).toLocaleString()}pt</span>
+
+                                    <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
+                                        <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
+                                            <ChevronLeft className="w-4 h-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentCalendarDate(new Date())}>
+                                            今月
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-8 px-0 hover:bg-white text-slate-600 disabled:opacity-30"
+                                            onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}
+                                            disabled={(() => {
+                                                const nextMonth = startOfMonth(addMonths(currentCalendarDate, 1))
+                                                const currentRealMonth = startOfMonth(new Date())
+                                                return nextMonth > currentRealMonth
+                                            })()}
+                                        >
+                                            <ChevronRight className="w-4 h-4" />
+                                        </Button>
                                     </div>
                                 </div>
 
-                                {/* Calendar Table */}
-                                <div className="border rounded-lg overflow-hidden flex flex-col lg:max-h-[calc(100vh-400px)] max-h-[220px] flex-1">
-                                    <table className="w-full text-xs text-left border-collapse sticky top-0 z-10">
-                                        <thead className="bg-[#1e293b] text-white">
-                                            <tr>
-                                                <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentCalendarDate, 'M月')}</th>
-                                                <th className="px-2 py-2 text-center whitespace-nowrap">状態</th>
-                                            </tr>
-                                        </thead>
-                                    </table>
-                                    <div className="overflow-y-auto custom-scrollbar">
-                                        <table className="w-full text-xs text-left border-collapse">
-                                            <tbody className="divide-y divide-slate-200">
-                                                {(() => {
-                                                    const today = new Date();
-                                                    today.setHours(0, 0, 0, 0);
+                                <div className="flex flex-row lg:flex-col gap-3 flex-1 min-h-0">
+                                    {/* Point Stats */}
+                                    <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 flex flex-col gap-2 min-w-[120px] lg:w-full shrink-0">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-slate-500 font-bold">当日獲得pt</span>
+                                            <span className="font-mono font-bold text-slate-700">{parseFloat(pointStats.daily.toString()).toLocaleString()}pt</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-slate-500 font-bold">今月獲得pt</span>
+                                            <span className="font-mono font-bold text-blue-600">{parseFloat(pointStats.monthly.toString()).toLocaleString()}pt</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs pt-2 border-t border-slate-200">
+                                            <span className="text-slate-500 font-bold">今年度獲得pt</span>
+                                            <span className="font-mono font-bold text-indigo-600">{parseFloat(pointStats.yearly.toString()).toLocaleString()}pt</span>
+                                        </div>
+                                    </div>
 
-                                                    const year = currentCalendarDate.getFullYear()
-                                                    const month = currentCalendarDate.getMonth()
-                                                    const daysInMonth = new Date(year, month + 1, 0).getDate()
-
-                                                    return [...Array(daysInMonth)].map((_, i) => {
-                                                        const day = i + 1
-                                                        const date = new Date(year, month, day)
-                                                        // 未来の日付は表示しない
-                                                        if (date > today) return null;
-
-                                                        const dStr = format(date, 'yyyy-MM-dd')
-                                                        const dayOfWeek = date.getDay()
-                                                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
-                                                        const isSelected = dStr === dateStr
-                                                        const isSubmitted = (calendarStats[dStr]?.count || 0) > 0
-                                                        const hasReceived = calendarStats[dStr]?.hasReceivedThankYou
-
-                                                        return (
-                                                            <tr
-                                                                key={day}
-                                                                id={`calendar-row-${dStr}`} // 自動スクロール用ID
-                                                                onClick={isSelected ? undefined : () => {
-                                                                    // フルページリロードでデータを確実に再取得
-                                                                    window.location.href = `/evaluations/entry/${userId}/${dStr}`
-                                                                }}
-                                                                className={cn(
-                                                                    "cursor-pointer transition-colors",
-                                                                    isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"
-                                                                )}
-                                                            >
-                                                                <td className={cn(
-                                                                    "px-2 py-2.5 text-center font-bold border-r w-14 whitespace-nowrap",
-                                                                    !isSelected && isWeekend ? "bg-slate-50 text-slate-500" : "",
-                                                                    isSelected ? "border-blue-500" : "border-slate-100"
-                                                                )}>
-                                                                    {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
-                                                                </td>
-                                                                <td className="px-2 py-2.5 text-center relative">
-                                                                    {isSubmitted ? (
-                                                                        <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
-                                                                    ) : (
-                                                                        <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
-                                                                    )}
-                                                                    {hasReceived && (
-                                                                        <Heart className={cn("w-3 h-3 absolute top-1 right-1", isSelected ? "text-pink-200 fill-pink-200" : "text-pink-500 fill-pink-500")} />
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        )
-                                                    })
-                                                })()}
-                                            </tbody>
+                                    {/* Calendar Table */}
+                                    <div className="border rounded-lg overflow-hidden flex flex-col flex-1 min-h-[220px]">
+                                        <table className="w-full text-xs text-left border-collapse sticky top-0 z-10 bg-[#1e293b]">
+                                            <thead className="text-white">
+                                                <tr>
+                                                    <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentCalendarDate, 'M月')}</th>
+                                                    <th className="px-2 py-2 text-center whitespace-nowrap">状態</th>
+                                                </tr>
+                                            </thead>
                                         </table>
+                                        <div className="overflow-y-auto custom-scrollbar flex-1 bg-white">
+                                            <table className="w-full text-xs text-left border-collapse">
+                                                <tbody className="divide-y divide-slate-200">
+                                                    {(() => {
+                                                        const today = new Date();
+                                                        today.setHours(0, 0, 0, 0);
+
+                                                        const year = currentCalendarDate.getFullYear()
+                                                        const month = currentCalendarDate.getMonth()
+                                                        const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+                                                        return [...Array(daysInMonth)].map((_, i) => {
+                                                            const day = i + 1
+                                                            const date = new Date(year, month, day)
+                                                            // 未来の日付は表示しない
+                                                            if (date > today) return null;
+
+                                                            const dStr = format(date, 'yyyy-MM-dd')
+                                                            const dayOfWeek = date.getDay()
+                                                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+                                                            const isSelected = dStr === dateStr
+                                                            const isSubmitted = (calendarStats[dStr]?.count || 0) > 0
+                                                            const hasReceived = calendarStats[dStr]?.hasReceivedThankYou
+
+                                                            return (
+                                                                <tr
+                                                                    key={day}
+                                                                    id={`calendar-row-${dStr}`} // 自動スクロール用ID
+                                                                    onClick={isSelected ? undefined : () => {
+                                                                        window.location.href = `/evaluations/entry/${userId}/${dStr}`
+                                                                    }}
+                                                                    className={cn(
+                                                                        "cursor-pointer transition-colors",
+                                                                        isSelected ? "bg-blue-600 text-white hover:bg-blue-600" : "hover:bg-slate-50"
+                                                                    )}
+                                                                >
+                                                                    <td className={cn(
+                                                                        "px-2 py-2.5 text-center font-bold border-r w-14 whitespace-nowrap",
+                                                                        !isSelected && isWeekend ? "bg-slate-50 text-slate-500" : "",
+                                                                        isSelected ? "border-blue-500" : "border-slate-100"
+                                                                    )}>
+                                                                        {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
+                                                                    </td>
+                                                                    <td className="px-2 py-2.5 text-center relative">
+                                                                        {isSubmitted ? (
+                                                                            <CheckCircle2 className={cn("w-4 h-4 mx-auto", isSelected ? "text-white" : "text-emerald-500")} />
+                                                                        ) : (
+                                                                            <span className={cn(isSelected ? "text-blue-200" : "text-slate-300")}>-</span>
+                                                                        )}
+                                                                        {hasReceived && (
+                                                                            <Heart className={cn("w-3 h-3 absolute top-1 right-1", isSelected ? "text-pink-200 fill-pink-200" : "text-pink-500 fill-pink-500")} />
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        })
+                                                    })()}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        {/* Thank You Section - Desktop Only (in left column) */}
-                        <div className="hidden lg:block mt-4 pt-4 border-t border-slate-200">
-                            {renderThankYouSection()}
+                            
+                            {/* Thank You Section - Fixed Bottom in Sticky Sidebar */}
+                            <div className="hidden lg:block p-3 pt-4 border-t border-slate-200 bg-white shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] max-h-[40vh] overflow-y-auto custom-scrollbar">
+                                {renderThankYouSection()}
+                            </div>
                         </div>
                     </aside>
 
                     {/* Right Column: Main Content */}
                     <div className="space-y-6">
-                        {/* Stats Header (Reference Image 2 Style) */}
-                        {stats && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-0.5 bg-slate-200 rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                                {/* Contract Stats */}
-                                <div className="bg-slate-900 text-white p-4">
-                                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                                        {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
-                                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
-                                        <div>契約達成額</div>
-                                        <div>契約目標額</div>
-                                        <div>達成率</div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                        <div className="text-lg font-bold">¥{(stats.contract?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
-                                        <div className="text-lg font-bold">¥{(stats.contract?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
-                                        <div className="text-xl font-black text-yellow-400">{stats.contract?.rate}%</div>
-                                    </div>
-                                </div>
-                                {/* Completion Stats */}
-                                <div className="bg-slate-900 text-white p-4">
-                                    <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                                        2025年11月
-                                        <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
-                                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
-                                        <div>完工達成額</div>
-                                        <div>完工目標額</div>
-                                        <div>達成率</div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 text-center items-end">
-                                        <div className="text-lg font-bold">¥{(stats.completion?.achieved || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
-                                        <div className="text-lg font-bold">¥{(stats.completion?.target || 0).toLocaleString()}<span className="text-[10px] text-slate-400 ml-1">(千円)</span></div>
-                                        <div className="text-xl font-black text-yellow-400">{stats.completion?.rate}%</div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Personal Goals Input Section - Conditional Rendering */}
-                        {isNumericGoalEnabled && (
-                            <Card className="border-slate-200 shadow-sm overflow-hidden">
-                                <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                                    <h3 className="font-bold text-slate-700 text-sm">
-                                        <span className="md:hidden">個人目標/<br />実績管理</span>
-                                        <span className="hidden md:inline">個人目標・実績管理</span>
-                                    </h3>
-                                    <div className="flex items-center gap-2">
-                                        {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px] hidden md:inline-flex">編集期間終了</Badge>}
-                                        <div className="text-right md:text-left">
-                                            <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm inline-block">
-                                                {/* Mobile: Single line, 90% size */}
-                                                <span className="md:hidden text-[90%] whitespace-nowrap">
-                                                    {format(parseISO(dateStr), 'yyyy年M月d日現在', { locale: ja })}
-                                                </span>
-                                                {/* Desktop */}
-                                                <span className="hidden md:inline">
-                                                    {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
-                                                </span>
-                                            </span>
-                                        </div>
-                                        <Button size="sm" onClick={() => handleSave()} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs whitespace-nowrap">
-                                            <Save className="w-3 h-3 mr-1" />
-                                            <span className="hidden md:inline">実績を保存</span>
-                                            <span className="md:hidden">保存</span>
-                                        </Button>
-                                    </div>
-                                </div>
-                                <CardContent className="p-4 bg-white">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        {/* Contract Goal */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-slate-700 font-bold flex flex-col">
-                                                    <span className="text-base">契約実績金額</span>
-                                                    <span className="text-[10px] text-slate-400 font-normal">リアルタイムで記入</span>
-                                                </Label>
-                                                <div className="text-right">
-                                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                                    <span className="font-bold text-slate-600">¥{(personalGoal.contractTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
-                                                <Input
-                                                    type={contractFocused ? "number" : "text"}
-                                                    value={contractFocused ? personalGoal.contractAchieved : (personalGoal.contractAchieved ? Number(personalGoal.contractAchieved).toLocaleString() : '')}
-                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, contractAchieved: (parseFloat(e.target.value.replace(/,/g, '')) || 0) })}
-                                                    onFocus={() => setContractFocused(true)}
-                                                    onBlur={() => setContractFocused(false)}
-                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
-                                                    placeholder="0"
-                                                    disabled={isGoalLocked && !isAdminOrHr}
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
-                                            </div>
-                                            <div className="flex justify-end text-xs font-medium">
-                                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.contractAchieved / personalGoal.contractTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
-                                                    {personalGoal.contractTarget > 0 ? ((Number(personalGoal.contractAchieved) / personalGoal.contractTarget) * 100).toFixed(1) : '0.0'}%
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Completion Goal */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
-                                                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
-                                                </div>
-                                                <div className="text-right">
-                                                    <span className="text-[10px] text-slate-400 block">目標設定額</span>
-                                                    <span className="font-bold text-slate-600">¥{(personalGoal.completionTarget || 0).toLocaleString()}<span className="text-[10px] ml-1">(千円)</span></span>
-                                                </div>
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">¥</span>
-                                                <Input
-                                                    type={completionFocused ? "number" : "text"}
-                                                    value={completionFocused ? personalGoal.completionAchieved : (personalGoal.completionAchieved ? Number(personalGoal.completionAchieved).toLocaleString() : '')}
-                                                    onChange={(e) => !isGoalLocked && setPersonalGoal({ ...personalGoal, completionAchieved: (parseFloat(e.target.value.replace(/,/g, '')) || 0) })}
-                                                    onFocus={() => setCompletionFocused(true)}
-                                                    onBlur={() => setCompletionFocused(false)}
-                                                    className="pl-8 font-bold text-xl h-14 border-slate-300 focus-visible:ring-blue-500 shadow-sm pr-12"
-                                                    placeholder="0"
-                                                    disabled={isGoalLocked && !isAdminOrHr}
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">(千円)</span>
-                                            </div>
-                                            <div className="flex justify-end text-xs font-medium">
-                                                達成率: <span className={cn("font-bold ml-1 text-base", (personalGoal.completionAchieved / personalGoal.completionTarget) >= 1 ? "text-blue-600" : "text-slate-600")}>
-                                                    {personalGoal.completionTarget > 0 ? ((Number(personalGoal.completionAchieved) / personalGoal.completionTarget) * 100).toFixed(1) : '0.0'}%
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
+                        {/* Stats Header (Desktop Only) */}
+                        <div className="hidden lg:block">
+                            {renderTeamStats()}
+                        </div>
+                        {/* Personal Goals (Desktop Only) */}
+                        <div className="hidden lg:block">
+                            {renderPersonalGoals()}
+                        </div>
 
                         {/* Check Items */}
                         <div className="space-y-4">
@@ -1212,12 +1234,23 @@ export default function EvaluationEntryPage() {
                         </div>
 
                         {/* Photo Section */}
-                        <div className="space-y-4 pt-4 border-t border-slate-200">
-                            <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
-                                <Camera className="w-4 h-4" />
-                                写真アップロード
-                            </h2>
-                            <div className="grid grid-cols-2 gap-4">
+                        <Collapsible defaultOpen={false} className="space-y-4 pt-4 border-t border-slate-200 group/photo">
+                            <CollapsibleTrigger asChild>
+                                <div className="flex items-center justify-between cursor-pointer hover:bg-slate-50 p-2 rounded-md -mx-2">
+                                    <h2 className="text-sm font-bold text-slate-500 flex items-center gap-2">
+                                        <Camera className="w-4 h-4" />
+                                        写真アップロード
+                                        {items.filter(i => i.type === 'photo' && i.photoUrl).length > 0 && (
+                                            <Badge variant="secondary" className="text-[10px] h-5 bg-slate-100 text-slate-600">
+                                                {items.filter(i => i.type === 'photo' && i.photoUrl).length}枚
+                                            </Badge>
+                                        )}
+                                    </h2>
+                                    <ChevronDown className="w-4 h-4 text-slate-400 transition-transform duration-200 group-data-[state=open]/photo:rotate-180" />
+                                </div>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="grid grid-cols-2 gap-4 pt-2">
                                 {items.filter(i => i.type === 'photo').map((item, idx) => {
                                     const photoIndex = items.findIndex(it => it.id === item.id)
                                     return (
@@ -1319,7 +1352,8 @@ export default function EvaluationEntryPage() {
                                     <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
                                 )}
                             </div>
-                        </div>
+                            </CollapsibleContent>
+                        </Collapsible>
 
                         {/* Thank You Section - Mobile Only (in right column) */}
                         <div className="lg:hidden pt-4 border-t border-slate-200">
@@ -1342,7 +1376,7 @@ export default function EvaluationEntryPage() {
 
                     </div>
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     )
 }

@@ -8,6 +8,7 @@ import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Filter,
   Search,
   Settings,
@@ -38,6 +39,11 @@ import {
 import { format, subMonths, addMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import { Input } from "@/components/ui/input"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible" 
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -239,11 +245,24 @@ export default function EvaluationsPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <div className="p-4 md:p-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-4 lg:gap-6 flex-1">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
-            <div className="flex items-center gap-3 flex-wrap mt-2 md:mt-0">
+                {/* Header Area */}
+        <Collapsible defaultOpen={false} className="space-y-4 group/header">
+            <div className="flex items-center justify-between">
+                 <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
+                 <CollapsibleTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800">
+                        <Filter className="w-4 h-4" />
+                        <span className="text-xs font-bold">設定・フィルタ</span>
+                        <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
+                    </Button>
+                 </CollapsibleTrigger>
+            </div>
+
+            <CollapsibleContent className="space-y-6">
+                {/* Header Controls */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pt-2">
+                     <div className="flex flex-col md:flex-row md:items-center gap-4 lg:gap-6 flex-1">
+                         <div className="flex items-center gap-3 flex-wrap mt-2 md:mt-0">
               <div className="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm shrink-0">
                 <Button
                   variant={viewMode === 'daily' ? 'default' : 'ghost'}
@@ -321,9 +340,8 @@ export default function EvaluationsPage() {
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 mt-4 lg:mt-0 flex-wrap lg:justify-end">
+                     </div>
+                     <div className="flex items-center gap-2 mt-4 lg:mt-0 flex-wrap lg:justify-end">
             <Button
               disabled={loadingReports}
               onClick={async () => {
@@ -375,10 +393,10 @@ export default function EvaluationsPage() {
               </div>
             </Button>
           </div>
-        </div>
+                </div>
 
-        {/* Filters Block */}
-        <div className="bg-[#f1f5f9] rounded-xl p-4 shadow-sm border border-slate-100">
+                {/* Filters Block */}
+                <div className="bg-[#f1f5f9] rounded-xl p-4 shadow-sm border border-slate-100">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               <Label className="text-[10px] text-slate-500 font-bold ml-1">チーム</Label>
@@ -433,7 +451,9 @@ export default function EvaluationsPage() {
             </div>
           </div>
         </div>
-
+            </CollapsibleContent>
+        </Collapsible>
+        
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
           {/* Card 1: Current Month Contract */}
@@ -516,18 +536,15 @@ export default function EvaluationsPage() {
         {viewMode === 'daily' ? (
           <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6">
             {/* Left Sidebar: Calendar */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 sticky top-4">
-              <div className="flex flex-col gap-3">
-                <div className="text-slate-500 text-xs font-bold pl-1">
-                  表示年月:
-                </div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 lg:sticky lg:top-4 relative">
+              <div className="flex items-center justify-between gap-2 p-1">
                 <div className="flex items-center gap-1">
                   <Select value={format(currentDate, 'yyyy')} onValueChange={(v) => {
                     const newDate = new Date(currentDate)
                     newDate.setFullYear(parseInt(v))
                     setCurrentDate(newDate)
                   }}>
-                    <SelectTrigger className="w-[70px] h-8 text-xs border-slate-200 px-2">
+                    <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -541,7 +558,7 @@ export default function EvaluationsPage() {
                     newDate.setMonth(parseInt(v) - 1)
                     setCurrentDate(newDate)
                   }}>
-                    <SelectTrigger className="w-[50px] h-8 text-xs border-slate-200 px-2">
+                    <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -552,20 +569,21 @@ export default function EvaluationsPage() {
                   </Select>
                   <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
                 </div>
-                <div className="flex items-center justify-between gap-1">
-                  <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
-                    <ChevronLeft className="w-3 h-3" />
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-7 flex-1 text-xs" onClick={() => setCurrentDate(new Date())}>
-                    今月
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-7 w-8 px-0" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
-                    <ChevronRight className="w-3 h-3" />
-                  </Button>
+
+                <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
+                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
+                        <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentDate(new Date())}>
+                        今月
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
+                        <ChevronRight className="w-4 h-4" />
+                    </Button>
                 </div>
               </div>
 
-              <div className="border rounded-lg overflow-hidden flex flex-col max-h-[calc(100vh-400px)]">
+              <div className="border rounded-lg overflow-hidden flex flex-col h-[300px] lg:h-auto lg:max-h-[calc(100vh-400px)]">
                 <table className="w-full text-xs text-left border-collapse sticky top-0 z-10">
                   <thead className="bg-[#1e293b] text-white">
                     <tr>

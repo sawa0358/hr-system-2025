@@ -58,6 +58,7 @@ export default function EvaluationEntryPage() {
     const [isNumericGoalEnabled, setIsNumericGoalEnabled] = useState(true)
     const [calendarStats, setCalendarStats] = useState<Record<string, { count: number, hasReceivedThankYou: boolean }>>({})
     const [currentCalendarDate, setCurrentCalendarDate] = useState(new Date())
+    const [submissionStatus, setSubmissionStatus] = useState<string>('submitted')
 
     // Add employees state
     const [employees, setEmployees] = useState<any[]>([])
@@ -258,6 +259,7 @@ export default function EvaluationEntryPage() {
                 }
 
                 if (subData.submission) {
+                    setSubmissionStatus(subData.submission.status || 'submitted')
                     // Load from saved submission
                     const loadedItems = subData.submission.items.map((i: any) => {
                         // パターンから正しいtypeを取得（最も信頼性が高い）
@@ -758,7 +760,50 @@ export default function EvaluationEntryPage() {
                             </Badge>
                         )}
 
-                        {canEdit && (
+                        {isAdminOrHrOrManager && submissionStatus !== 'approved' && (
+                            <Button
+                                onClick={async () => {
+                                    if (!confirm('この内容で承認しますか？')) return
+                                    try {
+                                        const res = await fetch(`/api/evaluations/submissions/status`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'x-employee-id': currentUser?.id || ''
+                                            },
+                                            body: JSON.stringify({
+                                                userId,
+                                                date: dateStr,
+                                                status: 'approved'
+                                            })
+                                        })
+                                        if (res.ok) {
+                                            setSubmissionStatus('approved')
+                                            alert('承認しました')
+                                        } else {
+                                            const error = await res.json()
+                                            alert(`エラー: ${error.error}`)
+                                        }
+                                    } catch (e) {
+                                        console.error(e)
+                                        alert('通信エラーが発生しました')
+                                    }
+                                }}
+                                className="bg-green-600 hover:bg-green-700 shadow-sm h-8 px-3 text-xs md:h-9 md:px-4 md:text-sm"
+                            >
+                                <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                                承認
+                            </Button>
+                        )}
+
+                        {submissionStatus === 'approved' && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-800 gap-1 h-8 px-3 md:h-9 md:px-4">
+                                <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
+                                承認済み
+                            </Badge>
+                        )}
+
+                        {canEdit && submissionStatus !== 'approved' && (
                             <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm h-8 px-3 text-xs md:h-9 md:px-4 md:text-sm">
                                 <Save className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                                 保存

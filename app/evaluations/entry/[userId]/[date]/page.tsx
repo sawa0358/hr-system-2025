@@ -546,18 +546,14 @@ export default function EvaluationEntryPage() {
                     <aside className="space-y-4 w-full">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sticky top-4">
                             {/* Date Selector */}
-                            <div className="flex items-center gap-1 mb-3 lg:mb-4 overflow-x-auto p-1">
-                                <Button variant="outline" size="sm" className="h-8 w-8 px-0 shrink-0" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
-                                    <ChevronLeft className="w-4 h-4" />
-                                </Button>
-
-                                <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center justify-between gap-2 mb-3 lg:mb-4 p-1">
+                                <div className="flex items-center gap-1">
                                     <Select value={format(currentCalendarDate, 'yyyy')} onValueChange={(v) => {
                                         const newDate = new Date(currentCalendarDate)
                                         newDate.setFullYear(parseInt(v))
                                         setCurrentCalendarDate(newDate)
                                     }}>
-                                        <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1">
+                                        <SelectTrigger className="w-[64px] h-8 text-xs border-slate-200 px-1 bg-white">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -571,7 +567,7 @@ export default function EvaluationEntryPage() {
                                         newDate.setMonth(parseInt(v) - 1)
                                         setCurrentCalendarDate(newDate)
                                     }}>
-                                        <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1">
+                                        <SelectTrigger className="w-[44px] h-8 text-xs border-slate-200 px-1 bg-white">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -583,9 +579,27 @@ export default function EvaluationEntryPage() {
                                     <span className="text-xs text-slate-500 font-bold whitespace-nowrap">月</span>
                                 </div>
 
-                                <Button variant="outline" size="sm" className="h-8 px-2 text-xs shrink-0 ml-1" onClick={() => setCurrentCalendarDate(new Date())}>
-                                    今月
-                                </Button>
+                                <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
+                                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}>
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentCalendarDate(new Date())}>
+                                        今月
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 w-8 px-0 hover:bg-white text-slate-600 disabled:opacity-30"
+                                        onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}
+                                        disabled={(() => {
+                                            const nextMonth = startOfMonth(addMonths(currentCalendarDate, 1))
+                                            const currentRealMonth = startOfMonth(new Date())
+                                            return nextMonth > currentRealMonth
+                                        })()}
+                                    >
+                                        <ChevronRight className="w-4 h-4" />
+                                    </Button>
+                                </div>
                             </div>
 
                             <div className="flex flex-row lg:flex-col gap-3">
@@ -727,15 +741,29 @@ export default function EvaluationEntryPage() {
                         {isNumericGoalEnabled && (
                             <Card className="border-slate-200 shadow-sm overflow-hidden">
                                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                                    <h3 className="font-bold text-slate-700 text-sm">個人目標・実績管理</h3>
+                                    <h3 className="font-bold text-slate-700 text-sm">
+                                        <span className="md:hidden">個人目標/<br />実績管理</span>
+                                        <span className="hidden md:inline">個人目標・実績管理</span>
+                                    </h3>
                                     <div className="flex items-center gap-2">
                                         {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">編集期間終了</Badge>}
-                                        <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm">
-                                            {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
-                                        </span>
-                                        <Button size="sm" onClick={() => handleSave()} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
+                                        <div className="text-right md:text-left">
+                                            <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm inline-block">
+                                                {/* Mobile Break */}
+                                                <span className="md:hidden">
+                                                    {format(parseISO(dateStr), 'yyyy-')}<br />
+                                                    {format(parseISO(dateStr), 'MM-dd')} 現在
+                                                </span>
+                                                {/* Desktop */}
+                                                <span className="hidden md:inline">
+                                                    {format(parseISO(dateStr), 'yyyy-MM-dd')} 現在
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <Button size="sm" onClick={() => handleSave()} disabled={!canEdit && !isAdminOrHr} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs whitespace-nowrap">
                                             <Save className="w-3 h-3 mr-1" />
-                                            実績を保存
+                                            <span className="hidden md:inline">実績を保存</span>
+                                            <span className="md:hidden">保存</span>
                                         </Button>
                                     </div>
                                 </div>

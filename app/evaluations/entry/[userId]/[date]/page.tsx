@@ -511,31 +511,51 @@ export default function EvaluationEntryPage() {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
-            <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
-                        <Link href="/evaluations">
-                            <Button variant="ghost" size="icon">
-                                <ArrowLeft className="w-5 h-5 mr-2 text-slate-600" />
-                            </Button>
-                        </Link>
-                    )}
-                    <div>
-                        <h1 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            {format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力
-                            {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /> 編集不可</Badge>}
-                            {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">ロック期間外 (修正権限あり)</Badge>}
-                        </h1>
-                        <p className="text-xs text-slate-500">{employeeName} {teamName && `(${teamName})`}</p>
+            <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
+                    <div className="flex items-center gap-4">
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                            <Link href="/evaluations">
+                                <Button variant="ghost" size="icon">
+                                    <ArrowLeft className="w-5 h-5 mr-2 text-slate-600" />
+                                </Button>
+                            </Link>
+                        )}
+                        <div>
+                            <h1 className="text-lg font-bold text-slate-800 flex flex-wrap items-center gap-2">
+                                <span>{format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力</span>
+                                {/* Desktop Badges */}
+                                <div className="hidden md:inline-flex gap-2">
+                                    {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /> 編集不可</Badge>}
+                                    {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">ロック(修正は管理者へ)</Badge>}
+                                </div>
+                            </h1>
+                            <p className="text-xs text-slate-500">{employeeName} {teamName && `(${teamName})`}</p>
+                        </div>
                     </div>
-                </div>
-                <div className="flex gap-2">
-                    {canEdit && (
-                        <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm">
-                            <Save className="w-4 h-4 mr-2" />
-                            保存
-                        </Button>
-                    )}
+
+                    {/* Mobile Row 2: Badges and Action Buttons */}
+                    <div className="flex items-center justify-end gap-2 md:hidden w-full border-t border-slate-100 pt-2 mt-1">
+                        {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 text-[10px]"><Lock className="w-3 h-3" /> 編集不可</Badge>}
+                        {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600 text-[10px]">ロック(修正は管理者へ)</Badge>}
+
+                        {canEdit && (
+                            <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm h-8 text-xs">
+                                <Save className="w-3 h-3 mr-1" />
+                                保存
+                            </Button>
+                        )}
+                    </div>
+
+                    {/* Desktop Right Side Actions */}
+                    <div className="hidden md:flex gap-2">
+                        {canEdit && (
+                            <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm">
+                                <Save className="w-4 h-4 mr-2" />
+                                保存
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -746,13 +766,12 @@ export default function EvaluationEntryPage() {
                                         <span className="hidden md:inline">個人目標・実績管理</span>
                                     </h3>
                                     <div className="flex items-center gap-2">
-                                        {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px]">編集期間終了</Badge>}
+                                        {isGoalLocked && <Badge variant="secondary" className="bg-slate-200 text-slate-500 text-[10px] hidden md:inline-flex">編集期間終了</Badge>}
                                         <div className="text-right md:text-left">
                                             <span className="text-lg font-bold text-slate-700 bg-white px-3 py-1 rounded border border-slate-200 shadow-sm inline-block">
-                                                {/* Mobile Break */}
-                                                <span className="md:hidden">
-                                                    {format(parseISO(dateStr), 'yyyy-')}<br />
-                                                    {format(parseISO(dateStr), 'MM-dd')} 現在
+                                                {/* Mobile: Single line, 90% size */}
+                                                <span className="md:hidden text-[90%] whitespace-nowrap">
+                                                    {format(parseISO(dateStr), 'yyyy年M月d日現在', { locale: ja })}
                                                 </span>
                                                 {/* Desktop */}
                                                 <span className="hidden md:inline">

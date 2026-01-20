@@ -404,6 +404,18 @@ export default function EvaluationEntryPage() {
         }
     }, [userId, dateStr, currentUser])
 
+    // Calendar Auto-Scroll
+    useEffect(() => {
+        // 少し遅延させてレンダリング完了を待つ
+        const timer = setTimeout(() => {
+            const el = document.getElementById(`calendar-row-${dateStr}`)
+            if (el) {
+                el.scrollIntoView({ behavior: 'instant', block: 'center' })
+            }
+        }, 100)
+        return () => clearTimeout(timer)
+    }, [dateStr])
+
     const handleSave = async (tempThankYous?: any[], successMessage: string = '保存しました', skipValidation: boolean = false) => {
         if (!canEdit) return
 
@@ -512,46 +524,45 @@ export default function EvaluationEntryPage() {
         <div className="min-h-screen bg-slate-50 flex flex-col">
             {/* Header */}
             <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
-                    <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
                         {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
-                            <Link href="/evaluations">
+                            <Link href="/evaluations" className="shrink-0">
                                 <Button variant="ghost" size="icon">
-                                    <ArrowLeft className="w-5 h-5 mr-2 text-slate-600" />
+                                    <ArrowLeft className="w-5 h-5 text-slate-600" />
                                 </Button>
                             </Link>
                         )}
-                        <div>
-                            <h1 className="text-lg font-bold text-slate-800 flex flex-wrap items-center gap-2">
+                        <div className="min-w-0">
+                            <h1 className="text-sm md:text-lg font-bold text-slate-800 flex items-center gap-2 truncate">
                                 <span>{format(parseISO(dateStr), 'M月d日(E)', { locale: ja })} の考課入力</span>
-                                {/* Desktop Badges */}
-                                <div className="hidden md:inline-flex gap-2">
+                                {/* Desktop Badge */}
+                                <span className="hidden md:inline-flex">
                                     {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /> 編集不可</Badge>}
                                     {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600">ロック(修正は管理者へ)</Badge>}
-                                </div>
+                                </span>
                             </h1>
-                            <p className="text-xs text-slate-500">{employeeName} {teamName && `(${teamName})`}</p>
+                            <p className="text-[10px] md:text-xs text-slate-500 truncate">{employeeName} {teamName && `(${teamName})`}</p>
                         </div>
                     </div>
 
-                    {/* Mobile Row 2: Badges and Action Buttons */}
-                    <div className="flex items-center justify-end gap-2 md:hidden w-full border-t border-slate-100 pt-2 mt-1">
-                        {isLocked && !canEdit && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 text-[10px]"><Lock className="w-3 h-3" /> 編集不可</Badge>}
-                        {isLocked && canEdit && <Badge variant="outline" className="gap-1 text-amber-600 border-amber-600 text-[10px]">ロック(修正は管理者へ)</Badge>}
-
-                        {canEdit && (
-                            <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm h-8 text-xs">
-                                <Save className="w-3 h-3 mr-1" />
-                                保存
-                            </Button>
+                    {/* Right Side Actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        {/* Mobile Lock Icon Badge */}
+                        {isLocked && !canEdit && <Badge variant="secondary" className="md:hidden px-2 py-1 bg-amber-100 text-amber-800"><Lock className="w-3 h-3" /></Badge>}
+                        {isLocked && canEdit && (
+                            <Badge
+                                variant="outline"
+                                className="md:hidden px-2 py-1 border-amber-600 text-amber-600 flex items-center justify-center cursor-help"
+                                title="修正は管理者へ"
+                            >
+                                <Lock className="w-3.5 h-3.5" />
+                            </Badge>
                         )}
-                    </div>
 
-                    {/* Desktop Right Side Actions */}
-                    <div className="hidden md:flex gap-2">
                         {canEdit && (
-                            <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm">
-                                <Save className="w-4 h-4 mr-2" />
+                            <Button onClick={() => handleSave()} className="bg-blue-600 hover:bg-blue-700 shadow-sm h-8 px-3 text-xs md:h-9 md:px-4 md:text-sm">
+                                <Save className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                                 保存
                             </Button>
                         )}
@@ -676,6 +687,7 @@ export default function EvaluationEntryPage() {
                                                         return (
                                                             <tr
                                                                 key={day}
+                                                                id={`calendar-row-${dStr}`} // 自動スクロール用ID
                                                                 onClick={isSelected ? undefined : () => {
                                                                     // フルページリロードでデータを確実に再取得
                                                                     window.location.href = `/evaluations/entry/${userId}/${dStr}`

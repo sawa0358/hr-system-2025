@@ -148,10 +148,11 @@ export async function POST(request: Request) {
         console.log(`Processing submission for worker: ${workerId}, date: ${date}, patternId: ${patternId} -> Range: ${startOfDay.toISOString()} to ${endOfDay.toISOString()}`);
 
         // 同じ日・同じパターンの既存の提出を検索して削除（重複防止）
+        // ※同日でも異なるパターンは別の提出として保持する
         const existingSubmissions = await (prisma as any).workClockChecklistSubmission.findMany({
             where: {
                 workerId,
-                // patternId: patternId || null, // パターンに関わらず同日の提出は1つとする
+                patternId: patternId || null, // 同じパターンの提出のみ対象
                 date: {
                     gte: startOfDay,
                     lte: endOfDay,

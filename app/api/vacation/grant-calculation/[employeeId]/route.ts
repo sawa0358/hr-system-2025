@@ -102,8 +102,8 @@ export async function GET(
           const reqStartDate = new Date(req.startDate)
           const reqEndDate = new Date(req.endDate)
           return (reqStartDate >= twoYearsAgoGrantDate && reqStartDate < twoYearsAgoGrantDateNext) ||
-                 (reqEndDate >= twoYearsAgoGrantDate && reqEndDate < twoYearsAgoGrantDateNext) ||
-                 (reqStartDate < twoYearsAgoGrantDate && reqEndDate >= twoYearsAgoGrantDateNext)
+            (reqEndDate >= twoYearsAgoGrantDate && reqEndDate < twoYearsAgoGrantDateNext) ||
+            (reqStartDate < twoYearsAgoGrantDate && reqEndDate >= twoYearsAgoGrantDateNext)
         })
         .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
 
@@ -129,9 +129,9 @@ export async function GET(
       const newGrantLot = twoYearsAgoLots.find(lot => {
         const lotDate = new Date(lot.grantDate)
         const grantDate = new Date(twoYearsAgoGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() && 
-               lotDate.getMonth() === grantDate.getMonth() &&
-               lotDate.getDate() === grantDate.getDate()
+        return lotDate.getFullYear() === grantDate.getFullYear() &&
+          lotDate.getMonth() === grantDate.getMonth() &&
+          lotDate.getDate() === grantDate.getDate()
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -175,8 +175,8 @@ export async function GET(
           const reqStartDate = new Date(req.startDate)
           const reqEndDate = new Date(req.endDate)
           return (reqStartDate >= lastYearGrantDate && reqStartDate < lastYearGrantDateNext) ||
-                 (reqEndDate >= lastYearGrantDate && reqEndDate < lastYearGrantDateNext) ||
-                 (reqStartDate < lastYearGrantDate && reqEndDate >= lastYearGrantDateNext)
+            (reqEndDate >= lastYearGrantDate && reqEndDate < lastYearGrantDateNext) ||
+            (reqStartDate < lastYearGrantDate && reqEndDate >= lastYearGrantDateNext)
         })
         .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
 
@@ -200,9 +200,9 @@ export async function GET(
       const newGrantLot = lastYearLots.find(lot => {
         const lotDate = new Date(lot.grantDate)
         const grantDate = new Date(lastYearGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() && 
-               lotDate.getMonth() === grantDate.getMonth() &&
-               lotDate.getDate() === grantDate.getDate()
+        return lotDate.getFullYear() === grantDate.getFullYear() &&
+          lotDate.getMonth() === grantDate.getMonth() &&
+          lotDate.getDate() === grantDate.getDate()
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -246,8 +246,8 @@ export async function GET(
           const reqStartDate = new Date(req.startDate)
           const reqEndDate = new Date(req.endDate)
           return (reqStartDate >= currentGrantDate && reqStartDate < currentGrantDateNext) ||
-                 (reqEndDate >= currentGrantDate && reqEndDate < currentGrantDateNext) ||
-                 (reqStartDate < currentGrantDate && reqEndDate >= currentGrantDateNext)
+            (reqEndDate >= currentGrantDate && reqEndDate < currentGrantDateNext) ||
+            (reqStartDate < currentGrantDate && reqEndDate >= currentGrantDateNext)
         })
         .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
 
@@ -271,9 +271,9 @@ export async function GET(
       const newGrantLot = currentYearLots.find(lot => {
         const lotDate = new Date(lot.grantDate)
         const grantDate = new Date(currentGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() && 
-               lotDate.getMonth() === grantDate.getMonth() &&
-               lotDate.getDate() === grantDate.getDate()
+        return lotDate.getFullYear() === grantDate.getFullYear() &&
+          lotDate.getMonth() === grantDate.getMonth() &&
+          lotDate.getDate() === grantDate.getDate()
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -351,11 +351,141 @@ export async function GET(
       }
     }
 
+    // periods配列を構築（3期前以降の追加期間も含む）
+    const periods: Array<{
+      label: string
+      periodKey: string
+      startDate: string
+      endDate: string | null
+      usedDays: number
+      pendingDays?: number
+      totalGranted: number
+      carryOverDays: number
+      newGrantDate: string
+      newGrantDays: number
+      totalAtGrantDate: number
+      carryOverToNextPeriod?: string | null
+      carryOverToNextPeriodDays?: number
+    }> = []
+
+    // 来期データを追加
+    if (nextYearData) {
+      periods.push({
+        label: '来期',
+        periodKey: 'next',
+        ...nextYearData,
+      })
+    }
+
+    // 今期データを追加
+    if (currentYearData) {
+      periods.push({
+        label: '今期',
+        periodKey: 'current',
+        ...currentYearData,
+      })
+    }
+
+    // 昨年データを追加
+    if (lastYearData) {
+      periods.push({
+        label: '昨年',
+        periodKey: 'last',
+        ...lastYearData,
+      })
+    }
+
+    // 一昨年データを追加
+    if (twoYearsAgoData) {
+      periods.push({
+        label: '一昨年',
+        periodKey: 'twoYearsAgo',
+        ...twoYearsAgoData,
+      })
+    }
+
+    // 3期前以降のデータを追加（最大10期前まで）
+    let prevGrantDate = twoYearsAgoGrantDate
+    let prevPeriodData = twoYearsAgoData
+    let periodCount = 3 // 3期前から開始
+
+    while (prevGrantDate && periodCount <= 10) {
+      // さらに1つ前の付与日を取得
+      const olderGrantDate = getPreviousGrantDate(joinDate, cfg, new Date(prevGrantDate.getTime() - 1))
+      if (!olderGrantDate) break
+
+      // 入社日より前なら終了
+      if (olderGrantDate < new Date(joinDate.getTime() - 30 * 24 * 60 * 60 * 1000)) break
+
+      const olderGrantDateNext = getNextGrantDate(joinDate, cfg, olderGrantDate)
+      if (!olderGrantDateNext) break
+
+      // この期間の使用日数を計算
+      const olderRequests = await prisma.timeOffRequest.findMany({
+        where: { employeeId, status: "APPROVED" },
+      })
+      const olderUsedDays = olderRequests
+        .filter(req => {
+          const s = new Date(req.startDate)
+          const e = new Date(req.endDate)
+          return (s >= olderGrantDate && s < olderGrantDateNext) ||
+            (e >= olderGrantDate && e < olderGrantDateNext) ||
+            (s < olderGrantDate && e >= olderGrantDateNext)
+        })
+        .reduce((sum, req) => sum + Number(req.totalDays || 0), 0)
+
+      // 繰越し日数を計算
+      const olderCarryOverDays = await calculateCarryOverDaysAtGrantDate(employeeId, olderGrantDate)
+
+      // 付与ロットを取得
+      const olderLots = await prisma.grantLot.findMany({
+        where: {
+          employeeId,
+          grantDate: {
+            gte: new Date(olderGrantDate.getTime() - 24 * 60 * 60 * 1000),
+            lte: new Date(olderGrantDate.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        orderBy: { grantDate: 'asc' },
+      })
+      const olderLot = olderLots.find(lot => {
+        const d = new Date(lot.grantDate)
+        return d.getFullYear() === olderGrantDate.getFullYear() &&
+          d.getMonth() === olderGrantDate.getMonth() &&
+          d.getDate() === olderGrantDate.getDate()
+      })
+      const olderNewGrantDays = olderLot ? Number(olderLot.daysGranted) : 0
+      const olderTotalAtGrantDate = olderCarryOverDays + olderNewGrantDays
+      const olderCarryOverOut = Math.max(0, olderNewGrantDays - olderUsedDays)
+
+      periods.push({
+        label: `${periodCount}期前`,
+        periodKey: `minus${periodCount}`,
+        startDate: olderGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
+        endDate: olderGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'),
+        usedDays: Math.round(olderUsedDays * 2) / 2,
+        totalGranted: Math.round(olderTotalAtGrantDate * 2) / 2,
+        carryOverDays: Math.round(olderCarryOverDays * 2) / 2,
+        newGrantDate: olderGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDays: Math.round(olderNewGrantDays * 2) / 2,
+        totalAtGrantDate: Math.round(olderTotalAtGrantDate * 2) / 2,
+        carryOverToNextPeriod: prevGrantDate ? prevGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriodDays: Math.round(olderCarryOverOut * 2) / 2,
+      })
+
+      prevGrantDate = olderGrantDate
+      prevPeriodData = periods[periods.length - 1]
+      periodCount++
+    }
+
     return NextResponse.json({
+      // 既存の互換性を維持
       twoYearsAgo: twoYearsAgoData,
       lastYear: lastYearData,
       currentYear: currentYearData,
       nextYear: nextYearData,
+      // 新規: periods配列（動的プルダウン用）
+      periods,
     })
   } catch (error: any) {
     console.error("GET /api/vacation/grant-calculation/[employeeId] error", error)
@@ -364,7 +494,7 @@ export async function GET(
       stack: error?.stack,
       code: error?.code,
     })
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: "計算詳細取得に失敗しました",
       details: error?.message || "Unknown error"
     }, { status: 500 })

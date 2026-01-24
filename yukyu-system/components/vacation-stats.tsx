@@ -26,13 +26,13 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     joinDate?: string
   } | null>(null)
   const [loading, setLoading] = useState(false)
-  
+
   // 管理者用: 社員リストダイアログ
   const [showEmployeeListDialog, setShowEmployeeListDialog] = useState(false)
   const [selectedStatType, setSelectedStatType] = useState<string | null>(null)
   const [employeeList, setEmployeeList] = useState<any[]>([])
   const [loadingEmployeeList, setLoadingEmployeeList] = useState(false)
-  
+
   // 社員用: 総付与数の計算詳細ダイアログ
   const [showTotalGrantedDialog, setShowTotalGrantedDialog] = useState(false)
   const [grantCalculationDetails, setGrantCalculationDetails] = useState<any>(null)
@@ -63,7 +63,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
       }
     }
     load()
-    
+
     // 申請更新イベントをリッスン
     const handleUpdate = () => {
       load()
@@ -81,55 +81,55 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     color: string
     subtitle?: string
   }> = [
-    {
-      title: "今期の残り有給日数",
-      value: loading ? "-" : (() => {
-        // 総付与数 - 取得済み - 今期の申請中 = 今期の残り有給日数
-        // ※来期の申請中は今期の残りから引かない
-        const totalGranted = statsData?.totalGranted ?? 0
-        const used = statsData?.used ?? 0
-        const currentPending = statsData?.currentPending ?? 0
-        const calculated = Math.max(0, totalGranted - used - currentPending)
-        return `${calculated.toFixed(1)}日`
-      })(),
-      icon: Calendar,
-      color: "text-chart-1",
-      subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.currentPending !== undefined
-        ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 今期申請中: ${statsData.currentPending.toFixed(1)}日`
-        : undefined,
-    },
-    {
-      title: "取得済み",
-      value: loading ? "-" : `${(statsData?.used ?? 0).toFixed(1)}日`,
-      icon: CheckCircle,
-      color: "text-chart-2",
-      subtitle: statsData?.totalGranted ? `使用率: ${((statsData.used / statsData.totalGranted) * 100).toFixed(1)}%` : undefined,
-    },
-    {
-      title: "申請中",
-      value: loading ? "-" : `${(statsData?.pending ?? 0).toFixed(1)}日`,
-      icon: Clock,
-      color: "text-chart-3",
-      subtitle: (() => {
-        if (statsData?.totalGranted === undefined || statsData?.used === undefined || statsData?.pending === undefined) {
-          return undefined
-        }
-        const nextPending = statsData.nextPending ?? 0
-        const currentPending = statsData.currentPending ?? 0
-        if (nextPending > 0) {
-          return `今期: ${currentPending.toFixed(1)}日 / 来期: ${nextPending.toFixed(1)}日`
-        }
-        return `承認後残り: ${Math.max(0, (statsData.totalGranted ?? 0) - (statsData.used ?? 0) - currentPending).toFixed(1)}日`
-      })(),
-    },
-    {
-      title: "総付与数",
-      value: loading ? "-" : `${(statsData?.totalGranted ?? 0).toFixed(1)}日`,
-      icon: Calendar,
-      color: "text-chart-4",
-      subtitle: statsData?.joinDate ? `入社: ${new Date(statsData.joinDate).toISOString().slice(0,10).replaceAll('-', '/')}` : undefined,
-    },
-  ]
+      {
+        title: "今期の残り有給日数",
+        value: loading ? "-" : (() => {
+          // 総付与数 - 取得済み - 今期の申請中 = 今期の残り有給日数
+          // ※来期の申請中は今期の残りから引かない
+          const totalGranted = statsData?.totalGranted ?? 0
+          const used = statsData?.used ?? 0
+          const currentPending = statsData?.currentPending ?? 0
+          const calculated = Math.max(0, totalGranted - used - currentPending)
+          return `${calculated.toFixed(1)}日`
+        })(),
+        icon: Calendar,
+        color: "text-chart-1",
+        subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.currentPending !== undefined
+          ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 今期申請中: ${statsData.currentPending.toFixed(1)}日`
+          : undefined,
+      },
+      {
+        title: "取得済み",
+        value: loading ? "-" : `${(statsData?.used ?? 0).toFixed(1)}日`,
+        icon: CheckCircle,
+        color: "text-chart-2",
+        subtitle: statsData?.totalGranted ? `使用率: ${((statsData.used / statsData.totalGranted) * 100).toFixed(1)}%` : undefined,
+      },
+      {
+        title: "申請中",
+        value: loading ? "-" : `${(statsData?.pending ?? 0).toFixed(1)}日`,
+        icon: Clock,
+        color: "text-chart-3",
+        subtitle: (() => {
+          if (statsData?.totalGranted === undefined || statsData?.used === undefined || statsData?.pending === undefined) {
+            return undefined
+          }
+          const nextPending = statsData.nextPending ?? 0
+          const currentPending = statsData.currentPending ?? 0
+          if (nextPending > 0) {
+            return `今期: ${currentPending.toFixed(1)}日 / 来期: ${nextPending.toFixed(1)}日`
+          }
+          return `承認後残り: ${Math.max(0, (statsData.totalGranted ?? 0) - (statsData.used ?? 0) - currentPending).toFixed(1)}日`
+        })(),
+      },
+      {
+        title: "総付与数",
+        value: loading ? "-" : `${(statsData?.totalGranted ?? 0).toFixed(1)}日`,
+        icon: Calendar,
+        color: "text-chart-4",
+        subtitle: statsData?.joinDate ? `入社: ${new Date(statsData.joinDate).toISOString().slice(0, 10).replaceAll('-', '/')}` : undefined,
+      },
+    ]
 
   const [adminStatsData, setAdminStatsData] = useState<{
     pending: number
@@ -182,42 +182,42 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     color: string
     subtitle?: string
   }> = [
-    {
-      title: "承認待ち",
-      value: loading ? "-" : `${adminStatsData?.pending ?? 0}件`,
-      icon: Clock,
-      color: "text-chart-3",
-    },
-    {
-      title: "今月承認済み",
-      value: loading ? "-" : `${adminStatsData?.approvedThisMonth ?? 0}件`,
-      icon: CheckCircle,
-      color: "text-chart-2",
-    },
-    {
-      title: "却下",
-      value: loading ? "-" : `${adminStatsData?.rejected ?? 0}件`,
-      icon: XCircle,
-      color: "text-destructive",
-    },
-    {
-      title: "アラート数",
-      value: loading ? "-" : `${adminStatsData?.alerts ?? 0}名`,
-      icon: AlertTriangle,
-      color: "text-orange-500",
-    },
-  ]
+      {
+        title: "承認待ち",
+        value: loading ? "-" : `${adminStatsData?.pending ?? 0}件`,
+        icon: Clock,
+        color: "text-chart-3",
+      },
+      {
+        title: "今月承認済み",
+        value: loading ? "-" : `${adminStatsData?.approvedThisMonth ?? 0}件`,
+        icon: CheckCircle,
+        color: "text-chart-2",
+      },
+      {
+        title: "却下",
+        value: loading ? "-" : `${adminStatsData?.rejected ?? 0}件`,
+        icon: XCircle,
+        color: "text-destructive",
+      },
+      {
+        title: "アラート数",
+        value: loading ? "-" : `${adminStatsData?.alerts ?? 0}名`,
+        icon: AlertTriangle,
+        color: "text-orange-500",
+      },
+    ]
 
   const stats = userRole === "employee" ? employeeStats : adminStats
 
   // 管理者用: 統計カードクリック時の処理
   const handleStatCardClick = async (statType: string) => {
     if (userRole !== "admin") return
-    
+
     setSelectedStatType(statType)
     setShowEmployeeListDialog(true)
     setLoadingEmployeeList(true)
-    
+
     try {
       // アラートの場合は、stats APIから取得済みのリストを使用（計算ロジックの統一）
       if (statType === "alerts") {
@@ -225,7 +225,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
         setLoadingEmployeeList(false)
         return
       }
-      
+
       let url = "/api/vacation/admin/applicants?view=pending"
       if (statType === "pending") {
         url = "/api/vacation/admin/applicants?view=pending&status=PENDING"
@@ -237,7 +237,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
       } else if (statType === "rejected") {
         url = "/api/vacation/admin/applicants?status=REJECTED"
       }
-      
+
       const res = await fetch(url)
       if (res.ok) {
         const json = await res.json()
@@ -257,10 +257,10 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
   const handleTotalGrantedClick = async () => {
     // 総務・管理者のみクリック可能
     if (!canViewCalculationDetails || userRole !== "employee" || !employeeId) return
-    
+
     setShowTotalGrantedDialog(true)
     setLoadingGrantDetails(true)
-    
+
     try {
       const res = await fetch(`/api/vacation/grant-calculation/${employeeId}`)
       if (res.ok) {
@@ -282,7 +282,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
       {userRole === "employee" && (
         <div className="md:col-span-2 lg:col-span-4 -mb-2 text-sm text-muted-foreground">
           {statsData?.joinDate && (
-            <span>入社日: {new Date(statsData.joinDate).toISOString().slice(0,10).replaceAll('-', '/')}</span>
+            <span>入社日: {new Date(statsData.joinDate).toISOString().slice(0, 10).replaceAll('-', '/')}</span>
           )}
         </div>
       )}
@@ -290,9 +290,9 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
         const isClickable = userRole === "admin" || (userRole === "employee" && stat.title === "総付与数")
         const statTypes = ["pending", "approved", "rejected", "alerts"]
         const statType = userRole === "admin" ? statTypes[index] : null
-        
+
         return (
-          <Card 
+          <Card
             key={stat.title}
             className={isClickable ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
             onClick={userRole === "admin" && statType ? () => handleStatCardClick(statType) : undefined}
@@ -303,7 +303,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             </CardHeader>
             <CardContent>
               {userRole === "employee" && stat.title === "総付与数" && canViewCalculationDetails ? (
-                <div 
+                <div
                   className="text-3xl font-bold text-foreground cursor-pointer hover:text-blue-600 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation()
@@ -322,7 +322,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
           </Card>
         )
       })}
-      
+
       {/* 管理者用: 社員リストダイアログ */}
       <Dialog open={showEmployeeListDialog} onOpenChange={setShowEmployeeListDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
@@ -348,15 +348,15 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             ) : (
               <div className="space-y-2">
                 {employeeList.map((employee: any) => (
-                  <Card 
-                    key={employee.id} 
+                  <Card
+                    key={employee.id}
                     className="p-4 cursor-pointer hover:shadow-md transition-shadow"
                     onClick={() => {
                       // 社員の有給管理画面に移動
                       // employeeIdが存在する場合はそれを使用（承認待ちの場合）
                       // それ以外の場合はidを使用（承認済み、却下、アラートの場合）
                       const targetEmployeeId = employee.employeeId || employee.id
-                      
+
                       if (targetEmployeeId) {
                         console.log('社員クリック:', {
                           name: employee.name,
@@ -364,14 +364,14 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
                           id: employee.id,
                           targetEmployeeId: targetEmployeeId
                         })
-                        
+
                         // 社員名もパラメータに含める
                         const params = new URLSearchParams()
                         params.set('employeeId', targetEmployeeId)
                         if (employee.name) {
                           params.set('name', employee.name)
                         }
-                        
+
                         router.push(`/leave?${params.toString()}`)
                         setShowEmployeeListDialog(false)
                       } else {
@@ -407,22 +407,48 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
           </ScrollArea>
         </DialogContent>
       </Dialog>
-      
+
       {/* 社員用: 総付与数の計算詳細ダイアログ */}
       <Dialog open={showTotalGrantedDialog} onOpenChange={setShowTotalGrantedDialog}>
         <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>総付与数の計算根拠</DialogTitle>
             <DialogDescription>
-              総付与数の計算式と根拠を表示しています（一昨年前まで）
+              総付与数の計算式と根拠を表示しています（最大10期前まで）
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
             {loadingGrantDetails ? (
               <div className="text-center py-8 text-muted-foreground">読み込み中...</div>
-            ) : !grantCalculationDetails || (!grantCalculationDetails.twoYearsAgo && !grantCalculationDetails.lastYear && !grantCalculationDetails.currentYear) ? (
+            ) : !grantCalculationDetails ? (
               <div className="text-center py-8 text-muted-foreground">計算詳細データがありません</div>
-            ) : (
+            ) : grantCalculationDetails.periods && Array.isArray(grantCalculationDetails.periods) && grantCalculationDetails.periods.length > 0 ? (
+              /* periods配列がある場合（動的対応） */
+              <div className="space-y-4">
+                {grantCalculationDetails.periods.map((period: any) => (
+                  <Card key={period.periodKey} className="p-4">
+                    <div className="font-semibold mb-2">{period.label}</div>
+                    <div className="space-y-1 text-sm">
+                      <div><strong>期間:</strong> {period.startDate} ~ {period.endDate || '未定'}</div>
+                      <div>使用日数: {period.usedDays}日 / {period.totalGranted}日（総付与）</div>
+                      {period.carryOverDays !== undefined && period.carryOverDays > 0 && (
+                        <div>- 繰越し日数: {period.carryOverDays}日</div>
+                      )}
+                      {period.newGrantDate && (
+                        <>
+                          <div>- {period.newGrantDate} 新付与日数: {period.newGrantDays}日</div>
+                          <div>- {period.newGrantDate} 時点総付与日数: {period.totalAtGrantDate}日（繰越し+新付与）</div>
+                        </>
+                      )}
+                      {period.carryOverToNextPeriod && (
+                        <div className="mt-2 pt-2 border-t">{period.carryOverToNextPeriod}への繰越し: {period.carryOverToNextPeriodDays}日</div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (grantCalculationDetails.twoYearsAgo || grantCalculationDetails.lastYear || grantCalculationDetails.currentYear) ? (
+              /* フォールバック: 従来形式 */
               <div className="space-y-4">
                 {grantCalculationDetails.currentYear && (
                   <Card className="p-4">
@@ -488,6 +514,8 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
                   </Card>
                 )}
               </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">計算詳細データがありません</div>
             )}
           </ScrollArea>
         </DialogContent>

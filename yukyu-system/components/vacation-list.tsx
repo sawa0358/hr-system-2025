@@ -48,13 +48,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
   const [sortBy, setSortBy] = useState<"date" | "status" | "days">("date")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all")
-  const [periodFilter, setPeriodFilter] = useState<"all" | "current" | "last" | "twoYearsAgo" | "next">("current") // デフォルトは今期
-  const [periodData, setPeriodData] = useState<{
-    current?: { startDate: string; endDate: string }
-    last?: { startDate: string; endDate: string }
-    twoYearsAgo?: { startDate: string; endDate: string }
-    next?: { startDate: string; endDate: string | null }
-  } | null>(null)
+  const [periodFilter, setPeriodFilter] = useState<string>("current") // デフォルトは今期
+  // periods配列：動的な期間一覧（APIから取得）
+  const [periodsData, setPeriodsData] = useState<Array<{
+    label: string
+    periodKey: string
+    startDate: string
+    endDate: string | null
+  }>>([])
   const [editingRequest, setEditingRequest] = useState<any | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null)
@@ -89,14 +90,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         console.warn('[有給管理] 設定読み込みエラー:', error)
         // エラー時はデフォルト値を使用
       }
-      
+
       if (userRole === "admin") {
         setLoading(true)
         try {
           // 現在のview（pending or all）を取得
           const currentView = filter === "pending" ? "pending" : "all"
           // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
-          const url = supervisorId 
+          const url = supervisorId
             ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
             : `/api/vacation/admin/applicants?view=${currentView}`
           const res = await fetch(url)
@@ -126,44 +127,28 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
             console.error(`[VacationList] 申請一覧取得エラー: status=${res.status}, error=${errorText}`)
             setEmployeeRequests([])
           }
-          
+
           // 期間データを取得（期間フィルター用）
           const periodRes = await fetch(`/api/vacation/grant-calculation/${employeeId}`)
           if (periodRes.ok) {
             const periodJson = await periodRes.json()
-            const periods: {
-              current?: { startDate: string; endDate: string }
-              last?: { startDate: string; endDate: string }
-              twoYearsAgo?: { startDate: string; endDate: string }
-              next?: { startDate: string; endDate: string | null }
-            } = {}
-            
-            if (periodJson.currentYear) {
-              periods.current = {
-                startDate: periodJson.currentYear.startDate,
-                endDate: periodJson.currentYear.endDate || new Date().toISOString().slice(0, 10),
-              }
+            // periods配列があればそれを使用（動的対応）
+            if (periodJson.periods && Array.isArray(periodJson.periods)) {
+              setPeriodsData(periodJson.periods.map((p: any) => ({
+                label: p.label,
+                periodKey: p.periodKey,
+                startDate: p.startDate,
+                endDate: p.endDate,
+              })))
+            } else {
+              // 後方互換: 従来形式から配列を構築
+              const fallbackPeriods: Array<{ label: string; periodKey: string; startDate: string; endDate: string | null }> = []
+              if (periodJson.nextYear) fallbackPeriods.push({ label: '来期', periodKey: 'next', startDate: periodJson.nextYear.startDate, endDate: periodJson.nextYear.endDate })
+              if (periodJson.currentYear) fallbackPeriods.push({ label: '今期', periodKey: 'current', startDate: periodJson.currentYear.startDate, endDate: periodJson.currentYear.endDate })
+              if (periodJson.lastYear) fallbackPeriods.push({ label: '昨年', periodKey: 'last', startDate: periodJson.lastYear.startDate, endDate: periodJson.lastYear.endDate })
+              if (periodJson.twoYearsAgo) fallbackPeriods.push({ label: '一昨年', periodKey: 'twoYearsAgo', startDate: periodJson.twoYearsAgo.startDate, endDate: periodJson.twoYearsAgo.endDate })
+              setPeriodsData(fallbackPeriods)
             }
-            if (periodJson.lastYear) {
-              periods.last = {
-                startDate: periodJson.lastYear.startDate,
-                endDate: periodJson.lastYear.endDate,
-              }
-            }
-            if (periodJson.twoYearsAgo) {
-              periods.twoYearsAgo = {
-                startDate: periodJson.twoYearsAgo.startDate,
-                endDate: periodJson.twoYearsAgo.endDate,
-              }
-            }
-            if (periodJson.nextYear) {
-              periods.next = {
-                startDate: periodJson.nextYear.startDate,
-                endDate: periodJson.nextYear.endDate,
-              }
-            }
-            
-            setPeriodData(periods)
           }
         } catch (error) {
           console.error("申請一覧取得エラー:", error)
@@ -174,7 +159,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       }
     }
     load()
-    
+
     // 申請更新イベントをリッスン
     const handleUpdate = () => {
       load()
@@ -195,7 +180,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </Badge>
       )
     }
-    
+
     // 決済待ち（approved + approvedBy != null + finalizedBy == null）
     if (status?.toLowerCase() === "approved" && approvedBy != null && approvedBy !== "" && (!finalizedBy || finalizedBy === "")) {
       return (
@@ -205,7 +190,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         </Badge>
       )
     }
-    
+
     switch (status?.toLowerCase()) {
       case "pending":
         return (
@@ -269,7 +254,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 現在のview（pending or all）を取得
         const currentView = filter === "pending" ? "pending" : "all"
         // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
-        const url = supervisorId 
+        const url = supervisorId
           ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
           : `/api/vacation/admin/applicants?view=${currentView}`
         console.log(`[有給管理] 承認後のデータ取得開始: url=${url}, filter=${filter}, supervisorId=${supervisorId || 'なし'}`)
@@ -311,7 +296,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     if (isFinalizing) {
       return
     }
-    
+
     try {
       setIsFinalizing(true) // 決済処理開始
       const approverId = currentUser?.id
@@ -338,7 +323,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 現在のview（pending or all）を取得
         const currentView = filter === "pending" ? "pending" : "all"
         // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
-        const url = supervisorId 
+        const url = supervisorId
           ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
           : `/api/vacation/admin/applicants?view=${currentView}`
         const res = await fetch(url)
@@ -383,7 +368,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     // 来期の申請かどうかをチェック
     const employeeIdForCheck = request.employeeId || request.id
     const startDate = request.startDate
-    
+
     if (employeeIdForCheck && startDate) {
       try {
         // 来期チェック用のAPIを呼び出す（決済APIを呼んでエラーを確認）
@@ -392,7 +377,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ approverId: currentUser?.id }),
         })
-        
+
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}))
           if (errorData.isNextPeriodRequest) {
@@ -409,18 +394,18 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           })
           return
         }
-        
+
         // 成功した場合（来期チェックを通過して決済完了）
         toast({
           title: "決済完了",
           description: "有給申請を決済しました。申請中の日数が取得済みに加算され、残り有給日数から減算されました。",
         })
-        
+
         // データを再読み込み
         window.dispatchEvent(new Event('vacation-request-updated'))
         if (userRole === "admin") {
           const currentView = filter === "pending" ? "pending" : "all"
-          const url = supervisorId 
+          const url = supervisorId
             ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
             : `/api/vacation/admin/applicants?view=${currentView}`
           const reloadRes = await fetch(url)
@@ -440,7 +425,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return
       }
     }
-    
+
     // フォールバック: 従来の確認ダイアログを表示
     setFinalizingRequestId(requestId)
     setIsFinalizeDialogOpen(true)
@@ -470,7 +455,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       const res = await fetch(`/api/vacation/requests/${requestId}/reject`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           reason: reason || "管理者による却下",
           approverId,
         }),
@@ -492,7 +477,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 現在のview（pending or all）を取得
         const currentView = filter === "pending" ? "pending" : "all"
         // supervisorIdが指定されている場合は、supervisorIdでフィルタリング
-        const url = supervisorId 
+        const url = supervisorId
           ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
           : `/api/vacation/admin/applicants?view=${currentView}`
         const res = await fetch(url)
@@ -579,12 +564,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         description: error?.message || "削除に失敗しました",
         variant: "destructive",
       })
-      } finally {
-        setProcessingRequestId(null)
-        setIsDeleteDialogOpen(false)
-        setDeletingRequestId(null)
-      }
+    } finally {
+      setProcessingRequestId(null)
+      setIsDeleteDialogOpen(false)
+      setDeletingRequestId(null)
     }
+  }
 
   // 削除処理（承認済み・却下用）
   const handleDeleteApprovedOrRejected = async (requestId: string) => {
@@ -592,11 +577,11 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       setProcessingRequestId(requestId)
       const res = await fetch(`/api/vacation/requests/${requestId}`, {
         method: "DELETE",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "x-employee-id": currentUser?.id || "",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           employeeId: currentUser?.id,
           force: true, // 承認済み・却下の削除フラグ
         }),
@@ -679,29 +664,25 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     }
   }
 
-  // 期間フィルター判定関数
-  const isRequestInPeriod = (request: any, period: "all" | "current" | "last" | "twoYearsAgo" | "next"): boolean => {
-    if (period === "all") return true
-    if (!periodData) return true // 期間データが取得できない場合はすべて表示
-    
-    const periodInfo = period === "current" ? periodData.current : 
-                      period === "last" ? periodData.last : 
-                      period === "twoYearsAgo" ? periodData.twoYearsAgo : 
-                      period === "next" ? periodData.next : null
-    
+  // 期間フィルター判定関数（動的なperiodKeyに対応）
+  const isRequestInPeriod = (request: any, periodKey: string): boolean => {
+    if (periodKey === "all") return true
+    if (!periodsData || periodsData.length === 0) return true // 期間データが取得できない場合はすべて表示
+
+    const periodInfo = periodsData.find(p => p.periodKey === periodKey)
     if (!periodInfo) return false
-    
+
     const requestStart = new Date(request.startDate)
     const requestEnd = new Date(request.endDate)
     const periodStart = new Date(periodInfo.startDate)
     // 来期の場合、終了日がnullの場合は非常に遠い未来日を設定
-    const periodEnd = periodInfo.endDate ? new Date(periodInfo.endDate) : 
-                      period === "next" ? new Date('2099-12-31') : new Date()
-    
+    const periodEnd = periodInfo.endDate ? new Date(periodInfo.endDate) :
+      periodKey === "next" ? new Date('2099-12-31') : new Date()
+
     // 申請の開始日または終了日が期間内にあるかを判定
     return (requestStart >= periodStart && requestStart <= periodEnd) ||
-           (requestEnd >= periodStart && requestEnd <= periodEnd) ||
-           (requestStart <= periodStart && requestEnd >= periodEnd) // 期間をまたぐ申請も含む
+      (requestEnd >= periodStart && requestEnd <= periodEnd) ||
+      (requestStart <= periodStart && requestEnd >= periodEnd) // 期間をまたぐ申請も含む
   }
 
   // 社員用申請一覧のフィルタリングとソート
@@ -711,12 +692,12 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       if (statusFilter !== "all" && req.status?.toLowerCase() !== statusFilter) {
         return false
       }
-      
+
       // 期間フィルター
       if (!isRequestInPeriod(req, periodFilter)) {
         return false
       }
-      
+
       return true
     })
     .sort((a: any, b: any) => {
@@ -729,8 +710,8 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           break
         case "status":
           const statusOrder = { pending: 1, approved: 2, rejected: 3, cancelled: 4 }
-          comparison = (statusOrder[a.status?.toLowerCase() as keyof typeof statusOrder] || 99) - 
-                       (statusOrder[b.status?.toLowerCase() as keyof typeof statusOrder] || 99)
+          comparison = (statusOrder[a.status?.toLowerCase() as keyof typeof statusOrder] || 99) -
+            (statusOrder[b.status?.toLowerCase() as keyof typeof statusOrder] || 99)
           break
         case "days":
           comparison = (a.days || 0) - (b.days || 0)
@@ -754,11 +735,11 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           return [value]
         }
       }
-      
+
       const departments = parseJsonArray(emp.department)
       const positions = parseJsonArray(emp.position)
       const organizations = parseJsonArray(emp.organization)
-      
+
       const searchableText = [
         emp.name,
         emp.employeeNumber || emp.id,
@@ -766,17 +747,17 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         ...positions,
         ...organizations,
       ].filter(Boolean).join(' ').toLowerCase()
-      
+
       if (!searchableText.includes(query)) {
         return false
       }
     }
-    
+
     // 雇用形態フィルター
     if (filters.employeeType !== "all" && emp.employeeType !== filters.employeeType) {
       return false
     }
-    
+
     // 部署フィルター
     if (filters.department !== "all") {
       const parseJsonArray = (value: string | null | undefined): string[] => {
@@ -793,7 +774,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return false
       }
     }
-    
+
     // 役職フィルター
     if (filters.position !== "all") {
       const parseJsonArray = (value: string | null | undefined): string[] => {
@@ -810,7 +791,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return false
       }
     }
-    
+
     // ステータスフィルター（社員のステータスでフィルタリング）
     if (filters.status !== "all") {
       // employeeStatusが存在する場合はそれを使用、なければstatusを使用（後方互換性のため）
@@ -819,7 +800,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return false
       }
     }
-    
+
     // 組織図表示フィルター
     if (filters.showInOrgChart !== "all") {
       const shouldShow = filters.showInOrgChart === "1"
@@ -827,7 +808,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         return false
       }
     }
-    
+
     return true
   }) : adminEmployees
 
@@ -839,7 +820,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
     const isPendingFinalization = e.status === 'approved' && e.approvedBy != null && e.approvedBy !== "" && (!e.finalizedBy || e.finalizedBy === "")
     return hasRequest && (isPending || isPendingFinalization)
   }) : filteredAdminEmployees) : []
-  
+
   // 承認待ちの申請カード数を計算（管理者画面のみ）
   // 承認待ち画面に実際に表示されているカード数を計算
   useEffect(() => {
@@ -873,7 +854,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
       }
     }
   }, [adminVisible, userRole, onPendingCountChange, filter])
-  
+
   // デバッグ用ログ（開発環境のみ）
   if (userRole === "admin" && typeof window !== "undefined") {
     console.log(`[有給管理] 表示データ: adminEmployees=${adminEmployees.length}, filteredAdminEmployees=${filteredAdminEmployees.length}, adminVisible=${adminVisible.length}, filter=${filter}`)
@@ -891,14 +872,22 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           {/* 期間フィルター */}
           <select
             value={periodFilter}
-            onChange={(e) => setPeriodFilter(e.target.value as any)}
+            onChange={(e) => setPeriodFilter(e.target.value)}
             className="text-sm border rounded px-2 py-1"
           >
             <option value="all">全期間</option>
-            <option value="next">来期</option>
-            <option value="current">今期</option>
-            <option value="last">昨年</option>
-            <option value="twoYearsAgo">一昨年</option>
+            {periodsData.length > 0 ? (
+              periodsData.map(p => (
+                <option key={p.periodKey} value={p.periodKey}>{p.label}</option>
+              ))
+            ) : (
+              <>
+                <option value="next">来期</option>
+                <option value="current">今期</option>
+                <option value="last">昨年</option>
+                <option value="twoYearsAgo">一昨年</option>
+              </>
+            )}
           </select>
           <select
             value={statusFilter}
@@ -931,7 +920,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
         // 管理者画面: 申請中カードの背景色を#dbeafeにする（承認待ち画面・全社員画面ともに）
         const hasPendingRequest = userRole === "admin" && (request.pending ?? 0) > 0
         const adminPendingBackground = hasPendingRequest ? "#dbeafe" : undefined
-        
+
         // 社員画面: 状態に応じて背景色を設定
         let employeeCardBackground: string | undefined = undefined
         if (userRole === "employee") {
@@ -939,13 +928,13 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           const endDate = request.endDate ? new Date(request.endDate) : null
           const today = new Date()
           today.setHours(0, 0, 0, 0)
-          
+
           // 決済待ち（approved + approvedBy != null + finalizedBy == null）
-          const isPendingFinalization = status === "approved" && 
-            request.approvedBy != null && 
-            request.approvedBy !== "" && 
+          const isPendingFinalization = status === "approved" &&
+            request.approvedBy != null &&
+            request.approvedBy !== "" &&
             (!request.finalizedBy || request.finalizedBy === "")
-          
+
           if (status === "pending") {
             // 申請中の場合
             employeeCardBackground = "#dbeafe"
@@ -961,392 +950,391 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           }
           // それ以外（承認中で日付が到来していない）は現状のまま（undefined）
         }
-        
+
         const cardBackgroundColor = adminPendingBackground || employeeCardBackground
-        
+
         // カードクリックでナビゲーション可能なのは「総務・管理者」のみ
         const canClickCard = (currentUser?.role === 'hr' || currentUser?.role === 'admin') && onEmployeeClick
-        
+
         return (
-        <Card
-          key={request.id}
-          className={`flex flex-col min-h-[92px] p-0 ${canClickCard ? 'cursor-pointer' : ''}`}
-          style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
-          onClick={(e) => {
-            // ダイアログやSelect内のクリックは無視
-            if ((e.target as HTMLElement).closest('[role="dialog"]') || 
+          <Card
+            key={request.id}
+            className={`flex flex-col min-h-[92px] p-0 ${canClickCard ? 'cursor-pointer' : ''}`}
+            style={cardBackgroundColor ? { backgroundColor: cardBackgroundColor } : undefined}
+            onClick={(e) => {
+              // ダイアログやSelect内のクリックは無視
+              if ((e.target as HTMLElement).closest('[role="dialog"]') ||
                 (e.target as HTMLElement).closest('[role="listbox"]') ||
                 (e.target as HTMLElement).closest('button') ||
                 (e.target as HTMLElement).closest('input')) {
-              return
-            }
-            // 「総務・管理者」のみカードクリックでナビゲーション可能
-            if (canClickCard) {
-              // 「承認待ち」画面では employeeId が存在するのでそれを使用、「全社員」画面では id を使用
-              const targetEmployeeId = request.employeeId || request.id
-              onEmployeeClick(String(targetEmployeeId), request.employee || request.name)
-            }
-          }}
-        >
-          <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
-            {userRole === "admin" ? (
-              <div className="space-y-2 flex-1 flex flex-col">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-8 h-8 flex-shrink-0">
-                      {(() => {
-                        const targetEmployeeId = String(request.employeeId || request.id)
-                        const avatarText = typeof window !== 'undefined' 
-                          ? localStorage.getItem(`employee-avatar-text-${targetEmployeeId}`) || (request.employee || request.name || '未').slice(0, 3)
-                          : (request.employee || request.name || '未').slice(0, 3)
-                        return (
-                          <>
-                            {request.avatar && (
-                              <AvatarImage src={request.avatar} alt={request.employee || request.name} />
-                            )}
-                            <AvatarFallback 
-                              employeeType={request.employeeType}
-                              className={`font-semibold whitespace-nowrap overflow-hidden ${
-                                /^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
-                              }`}
-                            >
-                              {avatarText.slice(0, 3)}
-                            </AvatarFallback>
-                          </>
-                        )
-                      })()}
-                    </Avatar>
-                    <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0,10).replaceAll('-', '/') : '不明'))}</div>
-                  {userRole === "admin" && (
-                    <VacationPatternSelector
-                      employeeId={String(request.employeeId || request.id)}
-                      employeeType={request.employeeType || null}
-                      currentPattern={request.vacationPattern || null}
-                      currentWeeklyPattern={request.weeklyPattern || null}
-                      employeeName={request.employee || request.name}
-                    />
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="rounded-md bg-muted/50 p-1.5">
-                    <div className="text-[9px] text-muted-foreground mb-0.5">残り</div>
-                    <div className="text-base font-bold text-foreground">{request.remaining ?? 0}日</div>
-                  </div>
-                  <div className="rounded-md bg-muted/50 p-1.5">
-                    <div className="text-[9px] text-muted-foreground mb-0.5">取得済</div>
-                    <div className="text-base font-bold text-chart-2">{request.used ?? 0}日</div>
-                  </div>
-                  <div className="rounded-md bg-muted/50 p-1.5">
-                    <div className="text-[9px] text-muted-foreground mb-0.5">申請中</div>
-                    <div className="text-base font-bold text-chart-3">{request.pending ?? 0}日</div>
-                  </div>
-                  <div className="rounded-md bg-muted/50 p-1.5">
-                    <div className="text-[9px] text-muted-foreground mb-0.5">総付与数</div>
-                    <div className="text-base font-bold text-muted-foreground">{request.granted ?? 0}日</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="rounded-md bg-muted/50 p-1.5 space-y-1">
-                    <div>
-                      <div className="text-[9px] text-muted-foreground mb-0.5">次回付与日</div>
-                      <div className="text-[10px] font-semibold text-foreground leading-tight">{request.nextGrantDate ? request.nextGrantDate.replaceAll('-', '/') : '-'}</div>
+                return
+              }
+              // 「総務・管理者」のみカードクリックでナビゲーション可能
+              if (canClickCard) {
+                // 「承認待ち」画面では employeeId が存在するのでそれを使用、「全社員」画面では id を使用
+                const targetEmployeeId = request.employeeId || request.id
+                onEmployeeClick(String(targetEmployeeId), request.employee || request.name)
+              }
+            }}
+          >
+            <CardContent className="py-2 px-2 flex-1 flex flex-col justify-between">
+              {userRole === "admin" ? (
+                <div className="space-y-2 flex-1 flex flex-col">
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-8 h-8 flex-shrink-0">
+                        {(() => {
+                          const targetEmployeeId = String(request.employeeId || request.id)
+                          const avatarText = typeof window !== 'undefined'
+                            ? localStorage.getItem(`employee-avatar-text-${targetEmployeeId}`) || (request.employee || request.name || '未').slice(0, 3)
+                            : (request.employee || request.name || '未').slice(0, 3)
+                          return (
+                            <>
+                              {request.avatar && (
+                                <AvatarImage src={request.avatar} alt={request.employee || request.name} />
+                              )}
+                              <AvatarFallback
+                                employeeType={request.employeeType}
+                                className={`font-semibold whitespace-nowrap overflow-hidden ${/^[a-zA-Z\s]+$/.test(avatarText.slice(0, 3)) ? 'text-xs' : 'text-[10px]'
+                                  }`}
+                              >
+                                {avatarText.slice(0, 3)}
+                              </AvatarFallback>
+                            </>
+                          )
+                        })()}
+                      </Avatar>
+                      <div className="font-semibold text-sm text-foreground">{request.employee || request.name}</div>
                     </div>
-                    <div>
-                      <div className="text-[9px] text-muted-foreground mb-0.5">付与予定日数</div>
-                      <div className="text-base font-bold text-chart-1">{request.nextGrantDays ?? '-'}{request.nextGrantDays ? '日' : ''}</div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-md bg-muted/50 p-1.5">
-                    <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                      <Calendar className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                      <div className="leading-tight">
-                        <div className="text-[9px]">{request.startDate || '-'}</div>
-                        <div className="text-[9px]">〜 {request.endDate || '-'}</div>
-                        {request.days && <div className="text-foreground font-medium text-[10px]">({request.days}日間)</div>}
-                      </div>
-                    </div>
-                    {request.reason && (
-                      <div className="text-[9px] text-muted-foreground break-words whitespace-pre-wrap mt-1">
-                        理由: {request.reason}
-                      </div>
+                    <div className="text-[10px] text-muted-foreground">入社日: {(request.hireDate || (request.joinDate ? String(request.joinDate).slice(0, 10).replaceAll('-', '/') : '不明'))}</div>
+                    {userRole === "admin" && (
+                      <VacationPatternSelector
+                        employeeId={String(request.employeeId || request.id)}
+                        employeeType={request.employeeType || null}
+                        currentPattern={request.vacationPattern || null}
+                        currentWeeklyPattern={request.weeklyPattern || null}
+                        employeeName={request.employee || request.name}
+                      />
                     )}
                   </div>
-                </div>
 
-                {needsFiveDayAlert(request.latestGrantDays, request.used ?? 0) && (() => {
-                  const alertColors = getAlertColor(request.nextGrantDate)
-                  return (
-                    <Alert variant="destructive" className={`${alertColors.border} ${alertColors.bg} py-1.5`}>
-                      <AlertTriangle className={`h-3 w-3 ${alertColors.icon}`} />
-                      <AlertDescription className={`text-[10px] ${alertColors.text} leading-tight`}>
-                        5日消化義務未達成
-                      </AlertDescription>
-                    </Alert>
-                  )
-                })()}
-
-                <div className="flex flex-col gap-1.5 mt-auto">
-                  <div className="flex items-center justify-between">
-                    {request.status && getStatusBadge(request.status, request.approvedBy, request.finalizedBy)}
-                    {/* 管理者画面：申請中・決済待ちの編集ボタン */}
-                    {currentUser && (currentUser.role === 'admin' || currentUser.role === 'hr') && (
-                      <div className="flex gap-1">
-                        {(request.status?.toLowerCase() === "pending" || (request.status?.toLowerCase() === "approved" && !request.finalizedBy)) && request.requestId && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 w-6 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              console.log('[VacationList] 編集ボタンクリック:', {
-                                requestId: request.requestId,
-                                employeeId: request.employeeId || request.id,
-                                status: request.status,
-                              })
-                              // 申請データを構築
-                              const editRequest = {
-                                id: request.requestId,
-                                employeeId: request.employeeId || request.id,
-                                startDate: request.startDate,
-                                endDate: request.endDate,
-                                reason: request.reason,
-                                status: request.status,
-                                totalDays: request.days || request.totalDays,
-                                unit: request.unit || 'DAY',
-                                hoursPerDay: request.hoursPerDay || 8,
-                                supervisorId: request.supervisorId || '',
-                              }
-                              console.log('[VacationList] 編集データ:', editRequest)
-                              handleEdit(editRequest)
-                            }}
-                            title="申請の更新"
-                          >
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  {(() => {
-                    // 承認待ち（pending）の場合
-                    const isPending = request.status?.toLowerCase() === "pending"
-                    const isSelectedSupervisor = request.supervisorId === currentUser?.id
-                    const isHrOrAdmin = currentUser?.role === 'hr' || currentUser?.role === 'admin'
-                    // 選択された上司 または 総務・管理者の場合は承認できる
-                    const canApprove = isPending && (isSelectedSupervisor || isHrOrAdmin) && request.requestId
-
-                    // 決済待ち（approved + approvedBy != null + finalizedBy == null）かつ総務・管理者の場合
-                    const isApproved = request.status?.toLowerCase() === "approved"
-                    const hasApprovedBy = request.approvedBy != null && request.approvedBy !== ""
-                    const hasNoFinalizedBy = !request.finalizedBy || request.finalizedBy === ""
-                    const isPendingFinalization = isApproved && hasApprovedBy && hasNoFinalizedBy
-                    const canFinalize = isPendingFinalization && isHrOrAdmin && request.requestId
-
-                    if (canApprove) {
-                      // 上司または総務・管理者が承認する場合
-                      return (
-                        <div className="flex gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="flex-1 h-7 text-[11px]"
-                            disabled={processingRequestId === request.requestId}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleApprove(request.requestId)
-                            }}
-                          >
-                            {processingRequestId === request.requestId ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              "承認"
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 h-7 text-[11px] bg-transparent"
-                            disabled={processingRequestId === request.requestId}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleReject(request.requestId)
-                            }}
-                          >
-                            {processingRequestId === request.requestId ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              "却下"
-                            )}
-                          </Button>
-                        </div>
-                      )
-                    } else if (canFinalize) {
-                      // 総務・管理者が決済する場合
-                      return (
-                        <div className="flex gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="flex-1 h-7 text-[11px]"
-                            disabled={finalizingRequestId === request.requestId}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleFinalizeClick(request.requestId, request)
-                            }}
-                          >
-                            {finalizingRequestId === request.requestId ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              "決済"
-                            )}
-                          </Button>
-                        </div>
-                      )
-                    } else if (isPendingFinalization) {
-                      // 決済待ち状態（決済権限がない場合）
-                      return (
-                        <div className="text-[10px] text-muted-foreground">
-                          決済待ち
-                        </div>
-                      )
-                    }
-                    return null
-                  })()}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-1 flex-1 text-xs">
-                <div className="flex items-center gap-1 text-[11px]">
-                  <Calendar className="h-3 w-3" />
-                  <span>
-                    {typeof request.startDate === 'string' 
-                      ? request.startDate.replaceAll('-', '/')
-                      : request.startDate}〜
-                    {typeof request.endDate === 'string'
-                      ? request.endDate.replaceAll('-', '/')
-                      : request.endDate}
-                  </span>
-                </div>
-                <div className="text-[11px] text-foreground font-semibold">
-                  日数: {(() => {
-                    // 日数を計算（totalDaysがない場合は期間から計算）
-                    if (request.days || request.totalDays) {
-                      return `${(request.days || request.totalDays || 0).toFixed(1)}日`
-                    }
-                    // 期間から計算
-                    const start = new Date(request.startDate)
-                    const end = new Date(request.endDate)
-                    const diffMs = end.getTime() - start.getTime()
-                    const calculatedDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1
-                    return `${calculatedDays.toFixed(1)}日`
-                  })()}
-                </div>
-                <div className="text-[11px] text-muted-foreground break-words whitespace-pre-wrap">
-                  理由: {request.reason || "-"}
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  {getStatusBadge(request.status || "pending", request.approvedBy, request.finalizedBy)}
-                  {request.status?.toLowerCase() === "pending" && (
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 w-6 p-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEdit(request)
-                        }}
-                        title="修正"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeletingRequestId(request.id)
-                          setIsDeleteDialogOpen(true)
-                        }}
-                        disabled={processingRequestId === request.id}
-                        title="削除"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="rounded-md bg-muted/50 p-1.5">
+                      <div className="text-[9px] text-muted-foreground mb-0.5">残り</div>
+                      <div className="text-base font-bold text-foreground">{request.remaining ?? 0}日</div>
                     </div>
-                  )}
-                  {/* 総務・管理者権限のみ表示: 承認済み・却下のカードに編集・削除アイコン */}
-                  {userRole === "employee" && currentUser && (() => {
-                    const userPermissions = getPermissions(currentUser.role as any)
-                    const canEditOrDelete = userPermissions.editLeaveManagement || currentUser.role === "admin" || currentUser.role === "hr"
-                    const status = request.status?.toLowerCase()
-                    const isApprovedOrRejected = status === "approved" || status === "rejected"
-                    
-                    if (canEditOrDelete && isApprovedOrRejected) {
-                      const isApproved = status === "approved"
-                      const isRejected = status === "rejected"
-                      
-                      return (
+                    <div className="rounded-md bg-muted/50 p-1.5">
+                      <div className="text-[9px] text-muted-foreground mb-0.5">取得済</div>
+                      <div className="text-base font-bold text-chart-2">{request.used ?? 0}日</div>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-1.5">
+                      <div className="text-[9px] text-muted-foreground mb-0.5">申請中</div>
+                      <div className="text-base font-bold text-chart-3">{request.pending ?? 0}日</div>
+                    </div>
+                    <div className="rounded-md bg-muted/50 p-1.5">
+                      <div className="text-[9px] text-muted-foreground mb-0.5">総付与数</div>
+                      <div className="text-base font-bold text-muted-foreground">{request.granted ?? 0}日</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="rounded-md bg-muted/50 p-1.5 space-y-1">
+                      <div>
+                        <div className="text-[9px] text-muted-foreground mb-0.5">次回付与日</div>
+                        <div className="text-[10px] font-semibold text-foreground leading-tight">{request.nextGrantDate ? request.nextGrantDate.replaceAll('-', '/') : '-'}</div>
+                      </div>
+                      <div>
+                        <div className="text-[9px] text-muted-foreground mb-0.5">付与予定日数</div>
+                        <div className="text-base font-bold text-chart-1">{request.nextGrantDays ?? '-'}{request.nextGrantDays ? '日' : ''}</div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md bg-muted/50 p-1.5">
+                      <div className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                        <Calendar className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <div className="leading-tight">
+                          <div className="text-[9px]">{request.startDate || '-'}</div>
+                          <div className="text-[9px]">〜 {request.endDate || '-'}</div>
+                          {request.days && <div className="text-foreground font-medium text-[10px]">({request.days}日間)</div>}
+                        </div>
+                      </div>
+                      {request.reason && (
+                        <div className="text-[9px] text-muted-foreground break-words whitespace-pre-wrap mt-1">
+                          理由: {request.reason}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {needsFiveDayAlert(request.latestGrantDays, request.used ?? 0) && (() => {
+                    const alertColors = getAlertColor(request.nextGrantDate)
+                    return (
+                      <Alert variant="destructive" className={`${alertColors.border} ${alertColors.bg} py-1.5`}>
+                        <AlertTriangle className={`h-3 w-3 ${alertColors.icon}`} />
+                        <AlertDescription className={`text-[10px] ${alertColors.text} leading-tight`}>
+                          5日消化義務未達成
+                        </AlertDescription>
+                      </Alert>
+                    )
+                  })()}
+
+                  <div className="flex flex-col gap-1.5 mt-auto">
+                    <div className="flex items-center justify-between">
+                      {request.status && getStatusBadge(request.status, request.approvedBy, request.finalizedBy)}
+                      {/* 管理者画面：申請中・決済待ちの編集ボタン */}
+                      {currentUser && (currentUser.role === 'admin' || currentUser.role === 'hr') && (
                         <div className="flex gap-1">
-                          {/* 承認済みの申請のみ編集アイコンを表示 */}
-                          {isApproved && (
+                          {(request.status?.toLowerCase() === "pending" || (request.status?.toLowerCase() === "approved" && !request.finalizedBy)) && request.requestId && (
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="ghost"
                               className="h-6 w-6 p-0"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setPasswordDialogAction('edit')
-                                setPasswordDialogRequestId(request.id)
-                                setPasswordDialogEditingRequest(request)
-                                setIsPasswordDialogOpen(true)
+                                console.log('[VacationList] 編集ボタンクリック:', {
+                                  requestId: request.requestId,
+                                  employeeId: request.employeeId || request.id,
+                                  status: request.status,
+                                })
+                                // 申請データを構築
+                                const editRequest = {
+                                  id: request.requestId,
+                                  employeeId: request.employeeId || request.id,
+                                  startDate: request.startDate,
+                                  endDate: request.endDate,
+                                  reason: request.reason,
+                                  status: request.status,
+                                  totalDays: request.days || request.totalDays,
+                                  unit: request.unit || 'DAY',
+                                  hoursPerDay: request.hoursPerDay || 8,
+                                  supervisorId: request.supervisorId || '',
+                                }
+                                console.log('[VacationList] 編集データ:', editRequest)
+                                handleEdit(editRequest)
                               }}
-                              title="編集"
+                              title="申請の更新"
                             >
                               <Edit className="h-3 w-3" />
                             </Button>
                           )}
-                          {/* 削除アイコンは承認済み・却下両方に表示 */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setPasswordDialogAction('delete')
-                              setPasswordDialogRequestId(request.id)
-                              setIsPasswordDialogOpen(true)
-                            }}
-                            disabled={processingRequestId === request.id}
-                            title="削除"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
                         </div>
-                      )
-                    }
-                    return null
-                  })()}
-                </div>
-                {/* 却下された申請の場合、説明テキストを表示 */}
-                {request.status?.toLowerCase() === "rejected" && (
-                  <div className="text-[11px] text-muted-foreground mt-1">
-                    残り有給日数は減少しません
+                      )}
+                    </div>
+                    {(() => {
+                      // 承認待ち（pending）の場合
+                      const isPending = request.status?.toLowerCase() === "pending"
+                      const isSelectedSupervisor = request.supervisorId === currentUser?.id
+                      const isHrOrAdmin = currentUser?.role === 'hr' || currentUser?.role === 'admin'
+                      // 選択された上司 または 総務・管理者の場合は承認できる
+                      const canApprove = isPending && (isSelectedSupervisor || isHrOrAdmin) && request.requestId
+
+                      // 決済待ち（approved + approvedBy != null + finalizedBy == null）かつ総務・管理者の場合
+                      const isApproved = request.status?.toLowerCase() === "approved"
+                      const hasApprovedBy = request.approvedBy != null && request.approvedBy !== ""
+                      const hasNoFinalizedBy = !request.finalizedBy || request.finalizedBy === ""
+                      const isPendingFinalization = isApproved && hasApprovedBy && hasNoFinalizedBy
+                      const canFinalize = isPendingFinalization && isHrOrAdmin && request.requestId
+
+                      if (canApprove) {
+                        // 上司または総務・管理者が承認する場合
+                        return (
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="flex-1 h-7 text-[11px]"
+                              disabled={processingRequestId === request.requestId}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleApprove(request.requestId)
+                              }}
+                            >
+                              {processingRequestId === request.requestId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "承認"
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-[11px] bg-transparent"
+                              disabled={processingRequestId === request.requestId}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleReject(request.requestId)
+                              }}
+                            >
+                              {processingRequestId === request.requestId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "却下"
+                              )}
+                            </Button>
+                          </div>
+                        )
+                      } else if (canFinalize) {
+                        // 総務・管理者が決済する場合
+                        return (
+                          <div className="flex gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="flex-1 h-7 text-[11px]"
+                              disabled={finalizingRequestId === request.requestId}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleFinalizeClick(request.requestId, request)
+                              }}
+                            >
+                              {finalizingRequestId === request.requestId ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                "決済"
+                              )}
+                            </Button>
+                          </div>
+                        )
+                      } else if (isPendingFinalization) {
+                        // 決済待ち状態（決済権限がない場合）
+                        return (
+                          <div className="text-[10px] text-muted-foreground">
+                            決済待ち
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1 flex-1 text-xs">
+                  <div className="flex items-center gap-1 text-[11px]">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      {typeof request.startDate === 'string'
+                        ? request.startDate.replaceAll('-', '/')
+                        : request.startDate}〜
+                      {typeof request.endDate === 'string'
+                        ? request.endDate.replaceAll('-', '/')
+                        : request.endDate}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-foreground font-semibold">
+                    日数: {(() => {
+                      // 日数を計算（totalDaysがない場合は期間から計算）
+                      if (request.days || request.totalDays) {
+                        return `${(request.days || request.totalDays || 0).toFixed(1)}日`
+                      }
+                      // 期間から計算
+                      const start = new Date(request.startDate)
+                      const end = new Date(request.endDate)
+                      const diffMs = end.getTime() - start.getTime()
+                      const calculatedDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24)) + 1
+                      return `${calculatedDays.toFixed(1)}日`
+                    })()}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground break-words whitespace-pre-wrap">
+                    理由: {request.reason || "-"}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2">
+                    {getStatusBadge(request.status || "pending", request.approvedBy, request.finalizedBy)}
+                    {request.status?.toLowerCase() === "pending" && (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEdit(request)
+                          }}
+                          title="修正"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeletingRequestId(request.id)
+                            setIsDeleteDialogOpen(true)
+                          }}
+                          disabled={processingRequestId === request.id}
+                          title="削除"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    {/* 総務・管理者権限のみ表示: 承認済み・却下のカードに編集・削除アイコン */}
+                    {userRole === "employee" && currentUser && (() => {
+                      const userPermissions = getPermissions(currentUser.role as any)
+                      const canEditOrDelete = userPermissions.editLeaveManagement || currentUser.role === "admin" || currentUser.role === "hr"
+                      const status = request.status?.toLowerCase()
+                      const isApprovedOrRejected = status === "approved" || status === "rejected"
+
+                      if (canEditOrDelete && isApprovedOrRejected) {
+                        const isApproved = status === "approved"
+                        const isRejected = status === "rejected"
+
+                        return (
+                          <div className="flex gap-1">
+                            {/* 承認済みの申請のみ編集アイコンを表示 */}
+                            {isApproved && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 w-6 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setPasswordDialogAction('edit')
+                                  setPasswordDialogRequestId(request.id)
+                                  setPasswordDialogEditingRequest(request)
+                                  setIsPasswordDialogOpen(true)
+                                }}
+                                title="編集"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {/* 削除アイコンは承認済み・却下両方に表示 */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPasswordDialogAction('delete')
+                                setPasswordDialogRequestId(request.id)
+                                setIsPasswordDialogOpen(true)
+                              }}
+                              disabled={processingRequestId === request.id}
+                              title="削除"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
+                  {/* 却下された申請の場合、説明テキストを表示 */}
+                  {request.status?.toLowerCase() === "rejected" && (
+                    <div className="text-[11px] text-muted-foreground mt-1">
+                      残り有給日数は減少しません
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         )
       })}
-      
+
       {/* 修正ダイアログ */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1357,8 +1345,8 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
           {editingRequest && (
             <VacationRequestForm
               initialData={{
-                startDate: typeof editingRequest.startDate === 'string' 
-                  ? editingRequest.startDate 
+                startDate: typeof editingRequest.startDate === 'string'
+                  ? editingRequest.startDate
                   : editingRequest.startDate.toISOString().slice(0, 10),
                 endDate: typeof editingRequest.endDate === 'string'
                   ? editingRequest.endDate
@@ -1375,14 +1363,14 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
               force={editingRequest.status?.toLowerCase() === "approved" || editingRequest.status?.toLowerCase() === "rejected"}
               onSuccess={async () => {
                 console.log('[VacationList] 申請更新成功 - onSuccessコールバック実行')
-                
+
                 // ダイアログを閉じる
                 setIsEditDialogOpen(false)
                 setEditingRequest(null)
-                
+
                 // データを再読み込み
                 window.dispatchEvent(new Event('vacation-request-updated'))
-                
+
                 if (userRole === "employee" && employeeId) {
                   // 社員画面の場合
                   console.log('[VacationList] 社員画面データを再読み込み中...')
@@ -1401,7 +1389,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                   console.log('[VacationList] 管理者画面データを再読み込み中...')
                   try {
                     const currentView = filter === "pending" ? "pending" : "all"
-                    const url = supervisorId 
+                    const url = supervisorId
                       ? `/api/vacation/admin/applicants?view=${currentView}&supervisorId=${supervisorId}`
                       : `/api/vacation/admin/applicants?view=${currentView}`
                     console.log('[VacationList] 再読み込みURL:', url)
@@ -1417,7 +1405,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                     console.error('[VacationList] 管理者画面データ再読み込みエラー:', error)
                   }
                 }
-                
+
                 console.log('[VacationList] onSuccessコールバック完了')
               }}
             />
@@ -1525,7 +1513,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                   setIsPasswordDialogOpen(false)
                   setPassword("")
                   setPasswordError("")
-                  
+
                   if (passwordDialogAction === 'edit') {
                     // 確認ダイアログを表示
                     if (confirm("本当に編集しますか？編集すると承認済みの場合は消化された有給が戻り、新しい申請として再処理されます。")) {
@@ -1540,7 +1528,7 @@ export function VacationList({ userRole, filter, onEmployeeClick, employeeId, fi
                       }
                     }
                   }
-                  
+
                   setPasswordDialogAction(null)
                   setPasswordDialogRequestId(null)
                   setPasswordDialogEditingRequest(null)

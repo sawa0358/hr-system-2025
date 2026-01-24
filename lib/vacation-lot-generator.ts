@@ -42,7 +42,7 @@ export async function generateGrantLotsForEmployee(
   const cfg = await loadAppConfig(employee.configVersion || undefined);
   const today = until || new Date();
   const joinDate = new Date(employee.joinDate);
-  
+
   // 設定バージョンを社員レコードに保存（未設定の場合のみ）
   if (!employee.configVersion && cfg.version) {
     await prisma.employee.update({
@@ -65,7 +65,7 @@ export async function generateGrantLotsForEmployee(
       const { getDefaultVacationPattern, getVacationPatternFromWeeklyPattern } = await import('./vacation-pattern');
       pattern = getDefaultVacationPattern(employee.employeeType) || getVacationPatternFromWeeklyPattern(employee.weeklyPattern) || null;
     }
-    
+
     const daysGranted = chooseGrantDaysForEmployee(
       pattern,
       anchor.yearsSinceJoin,
@@ -172,9 +172,76 @@ export async function generateGrantLotsForEmployee(
     });
 
     generated++;
+
+    // 付与ロット作成後に、遅延されていた消化（Deferred Consumption）を処理
+    await processDeferredRequests(employeeId);
   }
 
   return { generated, updated };
+}
+
+/**
+ * 遅延されていた消化（Deferred Consumption）を処理
+ * 決済済みだが未消化の申請を検索し、可能なものを消化する
+ */
+async function processDeferredRequests(employeeId: string) {
+  const { consumeLIFO, commitConsumption } = await import('./vacation-consumption');
+
+  // 決済済み(finalizedByあり)かつ未消化(consumptionsなし)の申請を取得
+  const deferredRequests = await prisma.timeOffRequest.findMany({
+    where: {
+      employeeId,
+      status: 'APPROVED',
+      finalizedBy: { not: null },
+      consumptions: { none: {} },
+    },
+    orderBy: { startDate: 'asc' },
+  });
+
+  if (deferredRequests.length === 0) return;
+
+  console.log(`[Deferred Consumption] Found ${deferredRequests.length} requests for employee ${employeeId}`);
+
+  for (const req of deferredRequests) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        // 残日数を計算（totalDaysがあればそれを使用）
+        const daysToUse = req.totalDays ? Number(req.totalDays) : 0; // 0の場合はconsumeLIFO等は実質スキップされるが、totalDaysは必須のはず
+
+        if (daysToUse <= 0) return;
+
+        // 消化試行
+        // 指定された申請日の時点で有効なロットを探す
+        const breakdown = await consumeLIFO(req.employeeId, daysToUse, req.startDate, tx);
+
+        // 消化実行（DB更新）
+        await commitConsumption(req, breakdown, tx);
+
+        // Breakdown情報を更新
+        await tx.timeOffRequest.update({
+          where: { id: req.id },
+          data: {
+            breakdownJson: JSON.stringify(breakdown),
+          },
+        });
+
+        console.log(`[Deferred Consumption] Successfully consumed request ${req.id}`);
+        // 監査ログ
+        await tx.auditLog.create({
+          data: {
+            employeeId: req.employeeId,
+            actor: 'system',
+            action: 'DEFERRED_CONSUMPTION_EXECUTE',
+            entity: `TimeOffRequest:${req.id}`,
+            payload: JSON.stringify({ breakdown, daysToUse }),
+          },
+        });
+      });
+    } catch (e: any) {
+      // 失敗してもエラーにせず、次の申請の処理や後続の処理に進む（まだロットが無い等の可能性があるため）
+      console.log(`[Deferred Consumption] Skipped request ${req.id}: ${e.message}`);
+    }
+  }
 }
 
 /**

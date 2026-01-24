@@ -71,10 +71,13 @@ export async function POST(
         // 来期の日付の申請かどうかをチェック
         const today = new Date()
         today.setHours(0, 0, 0, 0)
+        // 判定は日付のみで行う
         const isNextPeriod = await isNextPeriodDate(req.employeeId, req.startDate, today)
-        
+        let isDeferred = false
+
         if (isNextPeriod) {
-          // 来期の申請の場合、付与日以降でないと決済できない
+          // 来期の申請の場合、付与日が到来していないため消化を「遅延」させる
+          // 新付与日になったタイミングで自動的に消化されるようにする
           const nextPeriodInfo = await getNextPeriodInfo(req.employeeId, today)
           if (nextPeriodInfo) {
             // 日付のみを比較（時刻の影響を排除）
@@ -83,14 +86,10 @@ export async function POST(
               nextPeriodInfo.nextGrantDate.getMonth(),
               nextPeriodInfo.nextGrantDate.getDate()
             )
-            // 付与日が今日より後の場合のみエラー（付与日当日は決済可能）
+            // 付与日が今日より後の場合、消化を遅延（付与日当日は通常通り消化可能）
             if (nextGrantDateOnly > today) {
-              const nextGrantDateStr = nextPeriodInfo.nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '/')
-              return NextResponse.json({ 
-                error: `来期中の申請のため、新付与日:${nextGrantDateStr}以降に決済してください`,
-                isNextPeriodRequest: true,
-                nextGrantDate: nextPeriodInfo.nextGrantDate.toISOString(),
-              }, { status: 400 })
+              isDeferred = true
+              console.log(`[POST /api/vacation/requests/approve] Like a next period request. Deferring consumption. RequestID: ${req.id}`)
             }
           }
         }
@@ -112,61 +111,66 @@ export async function POST(
           )
         }
 
-        // LIFOで消化を実行
-        const breakdown = await consumeLIFO(req.employeeId, daysToUse, req.startDate, tx)
+        let breakdown = null
 
-        // Consumptionレコードを作成（日毎）
-        const consumptions = []
-        const startDate = new Date(req.startDate)
-        const endDate = new Date(req.endDate)
-        const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-        
-        let lotIndex = 0
-        let lotRemaining = breakdown.breakdown[lotIndex]?.days || 0
-        let currentLotId = breakdown.breakdown[lotIndex]?.lotId
+        // 通常消化（遅延でない場合のみ実行）
+        if (!isDeferred) {
+          // LIFOで消化を実行
+          breakdown = await consumeLIFO(req.employeeId, daysToUse, req.startDate, tx)
 
-        for (let i = 0; i < daysDiff && currentLotId; i++) {
-          const date = new Date(startDate)
-          date.setDate(date.getDate() + i)
+          // Consumptionレコードを作成（日毎）
+          const consumptions = []
+          const startDate = new Date(req.startDate)
+          const endDate = new Date(req.endDate)
+          const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
 
-          if (lotRemaining > 0 && currentLotId) {
-            const daysPerDate = daysToUse / daysDiff
-            const actualDays = Math.min(lotRemaining, daysPerDate)
+          let lotIndex = 0
+          let lotRemaining = breakdown.breakdown[lotIndex]?.days || 0
+          let currentLotId = breakdown.breakdown[lotIndex]?.lotId
 
-            consumptions.push({
-              employeeId: req.employeeId,
-              requestId: req.id,
-              lotId: currentLotId,
-              date,
-              daysUsed: actualDays,
-            })
+          for (let i = 0; i < daysDiff && currentLotId; i++) {
+            const date = new Date(startDate)
+            date.setDate(date.getDate() + i)
 
-            lotRemaining -= actualDays
+            if (lotRemaining > 0 && currentLotId) {
+              const daysPerDate = daysToUse / daysDiff
+              const actualDays = Math.min(lotRemaining, daysPerDate)
 
-            if (lotRemaining <= 0) {
-              lotIndex++
-              if (lotIndex < breakdown.breakdown.length) {
-                lotRemaining = breakdown.breakdown[lotIndex].days
-                currentLotId = breakdown.breakdown[lotIndex].lotId
-              } else {
-                currentLotId = undefined
+              consumptions.push({
+                employeeId: req.employeeId,
+                requestId: req.id,
+                lotId: currentLotId!,
+                date,
+                daysUsed: actualDays,
+              })
+
+              lotRemaining -= actualDays
+
+              if (lotRemaining <= 0) {
+                lotIndex++
+                if (lotIndex < breakdown.breakdown.length) {
+                  lotRemaining = breakdown.breakdown[lotIndex].days
+                  currentLotId = breakdown.breakdown[lotIndex].lotId
+                } else {
+                  currentLotId = undefined
+                }
               }
             }
           }
-        }
 
-        // データベース更新
-        for (const b of breakdown.breakdown) {
-          await tx.grantLot.update({
-            where: { id: b.lotId },
-            data: { daysRemaining: { decrement: b.days } },
-          })
-        }
+          // データベース更新
+          for (const b of breakdown.breakdown) {
+            await tx.grantLot.update({
+              where: { id: b.lotId },
+              data: { daysRemaining: { decrement: b.days } },
+            })
+          }
 
-        for (const c of consumptions) {
-          await tx.consumption.create({
-            data: c,
-          })
+          for (const c of consumptions) {
+            await tx.consumption.create({
+              data: c,
+            })
+          }
         }
 
         // 決済完了を更新
@@ -175,7 +179,7 @@ export async function POST(
           data: {
             finalizedBy: approverId,
             // totalDaysは既に上司承認時に設定されているので、そのまま使用
-            breakdownJson: JSON.stringify(breakdown),
+            breakdownJson: breakdown ? JSON.stringify(breakdown) : null,
           },
           include: {
             employee: {
@@ -195,7 +199,7 @@ export async function POST(
             actor: `user:${approverId}`,
             action: "REQUEST_FINALIZE",
             entity: `TimeOffRequest:${req.id}`,
-            payload: JSON.stringify({ breakdown, daysToUse }),
+            payload: JSON.stringify({ breakdown, daysToUse, isDeferred }),
           },
         })
 
@@ -203,15 +207,20 @@ export async function POST(
         if (finalized.employee?.email) {
           const { sendMail } = await import('@/lib/mail')
           const { format } = await import('date-fns')
-          
+
           const subject = `【有給承認】あなたの有給申請が承認・決済されました`
           const formattedStart = format(finalized.startDate, 'yyyy年MM月dd日')
           const formattedEnd = format(finalized.endDate, 'yyyy年MM月dd日')
-          
+
+          let statusMessage = 'あなたの有給申請が承認・決済されました。'
+          if (isDeferred) {
+            statusMessage += '（有給消化は新付与日の到来時に自動的に行われます）'
+          }
+
           const textBody = [
             `${finalized.employee.name}さん`,
             '',
-            'あなたの有給申請が承認・決済されました。',
+            statusMessage,
             `期間：${formattedStart} 〜 ${formattedEnd}`,
             `日数：${daysToUse}日`,
             finalized.reason ? `理由：${finalized.reason}` : undefined,
@@ -220,10 +229,10 @@ export async function POST(
             '詳細はHRシステムで確認してください。',
             'https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee',
           ].filter(Boolean).join('\n')
-          
+
           const htmlBody = [
             `<p>${finalized.employee.name}さん</p>`,
-            '<p><strong>あなたの有給申請が承認・決済されました。</strong></p>',
+            `<p><strong>${statusMessage}</strong></p>`,
             `<p>期間：${formattedStart} 〜 ${formattedEnd}</p>`,
             `<p>日数：<strong>${daysToUse}日</strong></p>`,
             finalized.reason ? `<p>理由：${finalized.reason}</p>` : '',
@@ -231,14 +240,14 @@ export async function POST(
             '<p>詳細はHRシステムで確認してください。</p>',
             '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee">https://hr-system-2025-33b161f586cd.herokuapp.com/leave/employee</a></p>',
           ].join('')
-          
+
           const mailResult = await sendMail({
             to: finalized.employee.email,
             subject,
             text: textBody,
             html: htmlBody,
           })
-          
+
           if (mailResult.success) {
             console.log('[POST /api/vacation/requests/approve] 申請者へのメール通知送信成功:', finalized.employee.email)
           } else if (!mailResult.skipped) {
@@ -246,7 +255,7 @@ export async function POST(
           }
         }
 
-        return NextResponse.json({ success: true, breakdown, finalized: true })
+        return NextResponse.json({ success: true, breakdown, finalized: true, isDeferred })
       }
 
       // 通常の承認待ちの申請を上司が承認する場合
@@ -331,14 +340,14 @@ export async function POST(
       if (hrAndAdmins.length > 0) {
         const { sendMail } = await import('@/lib/mail')
         const { format } = await import('date-fns')
-        
+
         const recipientEmails = hrAndAdmins.map(u => u.email).filter((email): email is string => Boolean(email))
-        
+
         if (recipientEmails.length > 0) {
           const subject = `【決済待ち】${updated.employee.name}さんの有給申請が承認されました`
           const formattedStart = format(updated.startDate, 'yyyy年MM月dd日')
           const formattedEnd = format(updated.endDate, 'yyyy年MM月dd日')
-          
+
           const textBody = [
             '管理者・総務各位',
             '',
@@ -351,7 +360,7 @@ export async function POST(
             '決済処理をお願いします。',
             'https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin',
           ].filter(Boolean).join('\n')
-          
+
           const htmlBody = [
             '<p>管理者・総務各位</p>',
             `<p><strong>${updated.employee.name}さんの有給申請が上司により承認されました。</strong></p>`,
@@ -362,14 +371,14 @@ export async function POST(
             '<p>決済処理をお願いします。</p>',
             '<p><a href="https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin">https://hr-system-2025-33b161f586cd.herokuapp.com/leave/admin</a></p>',
           ].join('')
-          
+
           const mailResult = await sendMail({
             to: recipientEmails,
             subject,
             text: textBody,
             html: htmlBody,
           })
-          
+
           if (mailResult.success) {
             console.log('[POST /api/vacation/requests/approve] 管理者・総務へのメール通知送信成功:', recipientEmails.length, '名')
           } else if (!mailResult.skipped) {
@@ -389,14 +398,14 @@ export async function POST(
     console.error("Error code:", error?.code)
     console.error("Request ID:", params?.id)
     console.error("================================")
-    
+
     if (error instanceof Error && error.message.includes("INSUFFICIENT_BALANCE")) {
       return NextResponse.json(
         { error: "残高不足のため承認できません", details: error.message },
         { status: 400 }
       )
     }
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: "承認処理に失敗しました",
       details: error?.message || "Unknown error",
       code: error?.code || "NO_CODE"

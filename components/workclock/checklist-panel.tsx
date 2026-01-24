@@ -132,10 +132,16 @@ export function ChecklistPanel({ worker, workerId, patternId, selectedDate, onRe
                         })
 
                         // パターンのアイテム報酬を提出時のものに上書き
+                        // ※ただし、チェックされた項目のみ上書きし、未チェック項目はパターン定義のrewardを維持する
                         items = items.map(item => {
                             const subItem = submissionItemMap.get(item.title?.trim())
+                            // 提出データにrewardが存在し、かつチェック済み（または自由記入済み）の場合のみ上書き
                             if (subItem && typeof subItem.reward === 'number') {
-                                return { ...item, reward: subItem.reward }
+                                const wasChecked = subItem.isChecked || (subItem.isFreeText && subItem.freeTextValue?.trim())
+                                if (wasChecked) {
+                                    return { ...item, reward: subItem.reward }
+                                }
+                                // 未チェック項目はパターン定義のrewardを維持（上書きしない）
                             }
                             return item
                         })

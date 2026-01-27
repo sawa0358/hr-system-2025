@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { format } from "date-fns"
+import { format, subMonths } from "date-fns"
 import { ja } from "date-fns/locale"
 import {
     ArrowLeft,
@@ -194,13 +194,18 @@ export default function BulkCompletionPage() {
                             {/* Date Filter */}
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-500">対象年月（必須）</label>
-                                <div className="relative">
+                                <div className="flex flex-col gap-1">
                                     <Input
                                         type="date"
                                         value={date}
                                         onChange={(e) => setDate(e.target.value)}
                                         className="w-[180px]"
                                     />
+                                    {date && (
+                                        <Badge variant="secondary" className="text-[10px] font-medium bg-indigo-50 text-indigo-700 border-indigo-200 justify-center w-[180px]">
+                                            {format(subMonths(new Date(date), 2), "yyyy年M月", { locale: ja })}確定分に反映
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
 

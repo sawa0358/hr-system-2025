@@ -28,7 +28,8 @@ import {
   Trophy,
   X,
   Heart,
-  Medal
+  Medal,
+  Calculator
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import {
@@ -110,6 +111,7 @@ export default function EvaluationsPage() {
   const [rankingFiscalYearLoaded, setRankingFiscalYearLoaded] = useState(false)
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  const isManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
   const isStoreManager = currentUser?.role === 'store_manager'
 
   // 年度設定からランキングのデフォルト期間を取得
@@ -352,13 +354,23 @@ export default function EvaluationsPage() {
         <Collapsible defaultOpen={false} className="space-y-4 group/header">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800">
-                <Filter className="w-4 h-4" />
-                <span className="text-xs font-bold">設定・フィルタ</span>
-                <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
-              </Button>
-            </CollapsibleTrigger>
+            <div className="flex flex-col md:flex-row items-end gap-2">
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800">
+                  <Filter className="w-4 h-4" />
+                  <span className="text-xs font-bold">設定・フィルタ</span>
+                  <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
+                </Button>
+              </CollapsibleTrigger>
+              {isManager && (
+                <Link href="/evaluations/admin/bulk-completion">
+                  <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800 bg-white">
+                    <Calculator className="w-4 h-4" />
+                    <span className="text-xs font-bold">完工実績一括入力</span>
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
 
           <CollapsibleContent className="space-y-6">

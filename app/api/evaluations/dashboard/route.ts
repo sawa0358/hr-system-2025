@@ -11,6 +11,7 @@ export async function GET(request: Request) {
         const dateStr = searchParams.get('date') // Selected Date e.g. 2026-01-06
         const teamId = searchParams.get('teamId')
         const employeeId = searchParams.get('employeeId')
+        const storeManagerTeamId = searchParams.get('storeManagerTeamId') // 店長用チームフィルタ
 
         if (!dateStr) return NextResponse.json({ error: 'Date is required' }, { status: 400 })
         const selectedDate = new Date(dateStr)
@@ -131,11 +132,13 @@ export async function GET(request: Request) {
         })
 
         // 3. 社員リストの取得
+        // 店長の場合は自分のチームのメンバーのみ表示
+        const effectiveTeamId = storeManagerTeamId || teamId
         const employees = await prisma.employee.findMany({
             where: {
                 status: 'active',
                 isPersonnelEvaluationTarget: true,
-                ...(teamId ? { personnelEvaluationTeamId: teamId } : {})
+                ...(effectiveTeamId ? { personnelEvaluationTeamId: effectiveTeamId } : {})
             },
             select: {
                 id: true,

@@ -95,9 +95,17 @@ export default function EvaluationEntryPage() {
     const [employeeName, setEmployeeName] = useState("")
     const [teamName, setTeamName] = useState("")
     const [thankYouConfig, setThankYouConfig] = useState({ send: 5, receive: 10 })
+    const [targetEmployeeTeamId, setTargetEmployeeTeamId] = useState<string | null>(null)
 
     const isAdminOrHrOrManager = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
     const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+    const isStoreManager = currentUser?.role === 'store_manager'
+    // 店長は同じチームのメンバーの閲覧のみ可能（編集不可）
+    const isStoreManagerViewingTeamMember = isStoreManager &&
+        currentUser?.personnelEvaluationTeamId &&
+        targetEmployeeTeamId &&
+        currentUser.personnelEvaluationTeamId === targetEmployeeTeamId &&
+        currentUser.id !== userId
 
     useEffect(() => {
         if (dateStr) {
@@ -169,6 +177,8 @@ export default function EvaluationEntryPage() {
                 if (empData && empData.name) {
                     setEmployeeName(empData.name)
                     setTeamName(empData.personnelEvaluationTeam?.name || "")
+                    // 対象社員のチームIDを設定（店長のアクセス制御用）
+                    setTargetEmployeeTeamId(empData.personnelEvaluationTeamId || null)
 
                     // Set Numeric Goal Flag
                     if (empData.isNumericGoalEnabled !== undefined) {
@@ -395,7 +405,17 @@ export default function EvaluationEntryPage() {
 
                 // 5. Lock Logic
                 setIsLocked(subData.isLocked)
-                if (subData.isLocked) {
+
+                // 店長が同じチームメンバーを閲覧する場合は編集不可
+                const isStoreManagerViewing = currentUser?.role === 'store_manager' &&
+                    currentUser?.personnelEvaluationTeamId &&
+                    empData.personnelEvaluationTeamId &&
+                    currentUser.personnelEvaluationTeamId === empData.personnelEvaluationTeamId &&
+                    currentUser.id !== userId
+
+                if (isStoreManagerViewing) {
+                    setCanEdit(false) // 店長は閲覧のみ
+                } else if (subData.isLocked) {
                     setCanEdit(isAdminOrHrOrManager)
                 } else {
                     setCanEdit(true)
@@ -891,7 +911,7 @@ export default function EvaluationEntryPage() {
             <header className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm px-4 py-3">
                 <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 md:gap-4 overflow-hidden">
-                        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager') && (
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager' || currentUser?.role === 'store_manager') && (
                             <Link href="/evaluations" className="shrink-0">
                                 <Button variant="ghost" size="icon">
                                     <ArrowLeft className="w-5 h-5 text-slate-600" />

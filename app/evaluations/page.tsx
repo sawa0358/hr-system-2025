@@ -43,7 +43,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible" 
+} from "@/components/ui/collapsible"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -93,10 +93,11 @@ export default function EvaluationsPage() {
   const [newPromptText, setNewPromptText] = useState('')
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
+  const isStoreManager = currentUser?.role === 'store_manager'
 
   useEffect(() => {
     if (currentUser) {
-      const allowedRoles = ['admin', 'hr', 'manager']
+      const allowedRoles = ['admin', 'hr', 'manager', 'store_manager']
       if (!allowedRoles.includes(currentUser.role || '')) {
         // Redirect to today's entry page for self
         const todayStr = format(new Date(), 'yyyy-MM-dd')
@@ -168,7 +169,16 @@ export default function EvaluationsPage() {
     if (viewMode === 'daily') {
       setLoading(true)
       const dateStr = format(currentDate, 'yyyy-MM-dd')
-      fetch(`/api/evaluations/dashboard?date=${dateStr}`)
+      // 店長の場合は自分のチームIDをパラメータに追加（API側でフィルタリング）
+      const teamParam = isStoreManager && currentUser?.personnelEvaluationTeamId
+        ? `&storeManagerTeamId=${currentUser.personnelEvaluationTeamId}`
+        : ''
+      fetch(`/api/evaluations/dashboard?date=${dateStr}${teamParam}`, {
+        headers: {
+          'x-employee-id': currentUser?.id || '',
+          'x-employee-role': currentUser?.role || ''
+        }
+      })
         .then(res => res.json())
         .then(d => {
           setData(d)
@@ -245,215 +255,215 @@ export default function EvaluationsPage() {
   return (
     <div className="min-h-screen bg-[#f8fafc]">
       <div className="p-4 md:p-8 space-y-6">
-                {/* Header Area */}
+        {/* Header Area */}
         <Collapsible defaultOpen={false} className="space-y-4 group/header">
-            <div className="flex items-center justify-between">
-                 <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
-                 <CollapsibleTrigger asChild>
-                    <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800">
-                        <Filter className="w-4 h-4" />
-                        <span className="text-xs font-bold">設定・フィルタ</span>
-                        <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
-                    </Button>
-                 </CollapsibleTrigger>
-            </div>
-
-            <CollapsibleContent className="space-y-6">
-                {/* Header Controls */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pt-2">
-                     <div className="flex flex-col md:flex-row md:items-center gap-4 lg:gap-6 flex-1">
-                         <div className="flex items-center gap-3 flex-wrap mt-2 md:mt-0">
-              <div className="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm shrink-0">
-                <Button
-                  variant={viewMode === 'daily' ? 'default' : 'ghost'}
-                  size="sm"
-                  className={cn("text-xs px-4", viewMode === 'daily' ? "bg-blue-600 shadow-sm" : "")}
-                  onClick={() => setViewMode('daily')}
-                >
-                  日次
-                </Button>
-                <Button
-                  variant={viewMode === 'monthly' ? 'default' : 'ghost'}
-                  size="sm"
-                  className={cn("text-xs px-4", viewMode === 'monthly' ? "bg-blue-600 shadow-sm" : "")}
-                  onClick={() => setViewMode('monthly')}
-                >
-                  期間
-                </Button>
-              </div>
-
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("h-9 justify-start text-left font-normal border-slate-200", !dateRange && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4 text-slate-500" />
-                    {viewMode === 'daily' ? (
-                      format(currentDate, "yyyy/MM/dd", { locale: ja })
-                    ) : (
-                      dateRange?.from ? (
-                        dateRange.to ? (
-                          <>{format(dateRange.from, "yyyy/MM/dd")} - {format(dateRange.to, "yyyy/MM/dd")}</>
-                        ) : (
-                          format(dateRange.from, "yyyy/MM/dd")
-                        )
-                      ) : (
-                        <span>期間を選択</span>
-                      )
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  {viewMode === 'daily' ? (
-                    <Calendar
-                      mode="single"
-                      selected={currentDate}
-                      onSelect={(date) => date && setCurrentDate(date)}
-                      initialFocus
-                      locale={ja}
-                    />
-                  ) : (
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                      locale={ja}
-                    />
-                  )}
-                </PopoverContent>
-              </Popover>
-
-              <Select defaultValue="standard">
-                <SelectTrigger className="w-[180px] h-9 border-slate-200">
-                  <SelectValue placeholder="目標パターン" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="standard">標準的な目標</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full"
-                onClick={() => setIsPromptDialogOpen(true)}
-              >
-                <Plus className="w-4 h-4" />
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight whitespace-nowrap shrink-0">人事考課システム</h1>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800">
+                <Filter className="w-4 h-4" />
+                <span className="text-xs font-bold">設定・フィルタ</span>
+                <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
               </Button>
-            </div>
-                     </div>
-                     <div className="flex items-center gap-2 mt-4 lg:mt-0 flex-wrap lg:justify-end">
-            <Button
-              disabled={loadingReports}
-              onClick={async () => {
-                if (viewMode !== 'monthly') {
-                  alert('AIレポート生成は「期間」ビューでのみ利用可能です。')
-                  return
-                }
-                if (!dateRange?.from || !dateRange?.to) {
-                  alert('期間を選択してください。')
-                  return
-                }
-                setLoadingReports(true)
-                try {
-                  const res = await fetch('/api/evaluations/ai-report', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'x-employee-id': currentUser?.id || ''
-                    },
-                    body: JSON.stringify({
-                      startDate: dateRange.from,
-                      endDate: dateRange.to
-                    })
-                  })
-                  const json = await res.json()
-                  alert(json.message || 'AI Report Generated')
-
-                  // Refresh reports
-                  const start = format(dateRange.from, 'yyyy-MM-dd')
-                  const end = format(dateRange.to, 'yyyy-MM-dd')
-                  const rRes = await fetch(`/api/evaluations/ai-report?startDate=${start}&endDate=${end}`)
-                  const rJson = await rRes.json()
-                  setAiReports(rJson.reports || [])
-                } catch (e) {
-                  console.error(e)
-                  alert('Error generating report')
-                } finally {
-                  setLoadingReports(false)
-                }
-              }}
-              className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white gap-2 font-bold h-9">
-              {loadingReports ? <Bot className="w-4 h-4 animate-bounce" /> : <Sparkles className="w-4 h-4" />}
-              AIレポートを生成
-            </Button>
-            <Button variant="outline" className="gap-2 h-9 border-slate-200">
-              <div className="flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-blue-500" />
-                <span>AIに聞く</span>
-              </div>
-            </Button>
+            </CollapsibleTrigger>
           </div>
+
+          <CollapsibleContent className="space-y-6">
+            {/* Header Controls */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pt-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-4 lg:gap-6 flex-1">
+                <div className="flex items-center gap-3 flex-wrap mt-2 md:mt-0">
+                  <div className="flex bg-white border border-slate-200 p-1 rounded-lg shadow-sm shrink-0">
+                    <Button
+                      variant={viewMode === 'daily' ? 'default' : 'ghost'}
+                      size="sm"
+                      className={cn("text-xs px-4", viewMode === 'daily' ? "bg-blue-600 shadow-sm" : "")}
+                      onClick={() => setViewMode('daily')}
+                    >
+                      日次
+                    </Button>
+                    <Button
+                      variant={viewMode === 'monthly' ? 'default' : 'ghost'}
+                      size="sm"
+                      className={cn("text-xs px-4", viewMode === 'monthly' ? "bg-blue-600 shadow-sm" : "")}
+                      onClick={() => setViewMode('monthly')}
+                    >
+                      期間
+                    </Button>
+                  </div>
+
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className={cn("h-9 justify-start text-left font-normal border-slate-200", !dateRange && "text-muted-foreground")}>
+                        <CalendarIcon className="mr-2 h-4 w-4 text-slate-500" />
+                        {viewMode === 'daily' ? (
+                          format(currentDate, "yyyy/MM/dd", { locale: ja })
+                        ) : (
+                          dateRange?.from ? (
+                            dateRange.to ? (
+                              <>{format(dateRange.from, "yyyy/MM/dd")} - {format(dateRange.to, "yyyy/MM/dd")}</>
+                            ) : (
+                              format(dateRange.from, "yyyy/MM/dd")
+                            )
+                          ) : (
+                            <span>期間を選択</span>
+                          )
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      {viewMode === 'daily' ? (
+                        <Calendar
+                          mode="single"
+                          selected={currentDate}
+                          onSelect={(date) => date && setCurrentDate(date)}
+                          initialFocus
+                          locale={ja}
+                        />
+                      ) : (
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={dateRange?.from}
+                          selected={dateRange}
+                          onSelect={setDateRange}
+                          numberOfMonths={2}
+                          locale={ja}
+                        />
+                      )}
+                    </PopoverContent>
+                  </Popover>
+
+                  <Select defaultValue="standard">
+                    <SelectTrigger className="w-[180px] h-9 border-slate-200">
+                      <SelectValue placeholder="目標パターン" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">標準的な目標</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 h-9 p-1 w-9 rounded-full"
+                    onClick={() => setIsPromptDialogOpen(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
+              </div>
+              <div className="flex items-center gap-2 mt-4 lg:mt-0 flex-wrap lg:justify-end">
+                <Button
+                  disabled={loadingReports}
+                  onClick={async () => {
+                    if (viewMode !== 'monthly') {
+                      alert('AIレポート生成は「期間」ビューでのみ利用可能です。')
+                      return
+                    }
+                    if (!dateRange?.from || !dateRange?.to) {
+                      alert('期間を選択してください。')
+                      return
+                    }
+                    setLoadingReports(true)
+                    try {
+                      const res = await fetch('/api/evaluations/ai-report', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-employee-id': currentUser?.id || ''
+                        },
+                        body: JSON.stringify({
+                          startDate: dateRange.from,
+                          endDate: dateRange.to
+                        })
+                      })
+                      const json = await res.json()
+                      alert(json.message || 'AI Report Generated')
 
-                {/* Filters Block */}
-                <div className="bg-[#f1f5f9] rounded-xl p-4 shadow-sm border border-slate-100">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <Label className="text-[10px] text-slate-500 font-bold ml-1">チーム</Label>
-              <Select value={filterTeam} onValueChange={setFilterTeam}>
-                <SelectTrigger className="bg-white border-0 h-9">
-                  <SelectValue placeholder="すべて" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="A">営業Aチーム</SelectItem>
-                  <SelectItem value="B">営業Bチーム</SelectItem>
-                </SelectContent>
-              </Select>
+                      // Refresh reports
+                      const start = format(dateRange.from, 'yyyy-MM-dd')
+                      const end = format(dateRange.to, 'yyyy-MM-dd')
+                      const rRes = await fetch(`/api/evaluations/ai-report?startDate=${start}&endDate=${end}`)
+                      const rJson = await rRes.json()
+                      setAiReports(rJson.reports || [])
+                    } catch (e) {
+                      console.error(e)
+                      alert('Error generating report')
+                    } finally {
+                      setLoadingReports(false)
+                    }
+                  }}
+                  className="bg-[#8b5cf6] hover:bg-[#7c3aed] text-white gap-2 font-bold h-9">
+                  {loadingReports ? <Bot className="w-4 h-4 animate-bounce" /> : <Sparkles className="w-4 h-4" />}
+                  AIレポートを生成
+                </Button>
+                <Button variant="outline" className="gap-2 h-9 border-slate-200">
+                  <div className="flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-blue-500" />
+                    <span>AIに聞く</span>
+                  </div>
+                </Button>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] text-slate-500 font-bold ml-1">雇用形態</Label>
-              <Select value={filterEmployment} onValueChange={setFilterEmployment}>
-                <SelectTrigger className="bg-white border-0 h-9">
-                  <SelectValue placeholder="すべて" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                  <SelectItem value="full">正社員</SelectItem>
-                  <SelectItem value="part">パート</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Filters Block */}
+            <div className="bg-[#f1f5f9] rounded-xl p-4 shadow-sm border border-slate-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 font-bold ml-1">チーム</Label>
+                  <Select value={filterTeam} onValueChange={setFilterTeam}>
+                    <SelectTrigger className="bg-white border-0 h-9">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="A">営業Aチーム</SelectItem>
+                      <SelectItem value="B">営業Bチーム</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 font-bold ml-1">雇用形態</Label>
+                  <Select value={filterEmployment} onValueChange={setFilterEmployment}>
+                    <SelectTrigger className="bg-white border-0 h-9">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                      <SelectItem value="full">正社員</SelectItem>
+                      <SelectItem value="part">パート</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 font-bold ml-1">職種</Label>
+                  <Select value={filterRole} onValueChange={setFilterRole}>
+                    <SelectTrigger className="bg-white border-0 h-9">
+                      <SelectValue placeholder="すべて" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">すべて</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-slate-500 font-bold ml-1">並び順</Label>
+                  <Select value={sortOrder} onValueChange={setSortOrder}>
+                    <SelectTrigger className="bg-white border-0 h-9">
+                      <SelectValue placeholder="登録日時 (新しい順)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="registration-newest">登録日時 (新しい順)</SelectItem>
+                      <SelectItem value="registration-oldest">登録日時 (古い順)</SelectItem>
+                      <SelectItem value="name-asc">社員名 (五十音順)</SelectItem>
+                      <SelectItem value="points-desc">獲得pt (多い順)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] text-slate-500 font-bold ml-1">職種</Label>
-              <Select value={filterRole} onValueChange={setFilterRole}>
-                <SelectTrigger className="bg-white border-0 h-9">
-                  <SelectValue placeholder="すべて" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">すべて</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[10px] text-slate-500 font-bold ml-1">並び順</Label>
-              <Select value={sortOrder} onValueChange={setSortOrder}>
-                <SelectTrigger className="bg-white border-0 h-9">
-                  <SelectValue placeholder="登録日時 (新しい順)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="registration-newest">登録日時 (新しい順)</SelectItem>
-                  <SelectItem value="registration-oldest">登録日時 (古い順)</SelectItem>
-                  <SelectItem value="name-asc">社員名 (五十音順)</SelectItem>
-                  <SelectItem value="points-desc">獲得pt (多い順)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-            </CollapsibleContent>
+          </CollapsibleContent>
         </Collapsible>
-        
+
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
           {/* Card 1: Current Month Contract */}
@@ -571,15 +581,15 @@ export default function EvaluationsPage() {
                 </div>
 
                 <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200">
-                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
-                        <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentDate(new Date())}>
-                        今月
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
-                        <ChevronRight className="w-4 h-4" />
-                    </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(subMonths(currentDate, 1))}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 px-3 text-xs font-bold hover:bg-white text-slate-700 mx-0.5" onClick={() => setCurrentDate(new Date())}>
+                    今月
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-7 w-8 px-0 hover:bg-white text-slate-600" onClick={() => setCurrentDate(addMonths(currentDate, 1))}>
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
 
@@ -609,7 +619,7 @@ export default function EvaluationsPage() {
                           const dayOfWeek = date.getDay() // 0:Sun, 1:Mon...
                           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                           const isSelected = dateStr === format(currentDate, 'yyyy-MM-dd')
-                          const count = calendarStats[dateStr] || 0
+                          const count = calendarStats[dateStr]?.count || 0
 
                           // Show only up to today if current month
                           if (isCurrentMonth && day > today.getDate()) return null;

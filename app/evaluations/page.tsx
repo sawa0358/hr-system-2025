@@ -1036,7 +1036,7 @@ export default function EvaluationsPage() {
 
       {/* ありがとうモーダル */}
       <Dialog open={isThankyouModalOpen} onOpenChange={setIsThankyouModalOpen}>
-        <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] flex flex-col">
+        <DialogContent className="w-[95vw] max-w-[95vw] md:max-w-[85vw] lg:max-w-[75vw] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
@@ -1061,36 +1061,56 @@ export default function EvaluationsPage() {
                 <table className="w-full">
                   <thead className="bg-slate-50 sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[40%]">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[35%]">
                         送信者 → 受信者
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[60%]">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[65%]">
                         メッセージ
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {thankyouList.map((item, idx) => (
-                      <tr key={item.id || idx} className="hover:bg-pink-50/50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-800">{item.fromName}</span>
-                            <span className="text-slate-400">→</span>
-                            <span className="font-medium text-pink-600">{item.toNames}</span>
-                            {item.recipientType === 'team' && (
-                              <Badge variant="outline" className="text-[10px] px-1 py-0 text-blue-500 border-blue-200">
-                                {item.teamName || 'チーム'}
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-slate-600 whitespace-pre-wrap break-words">
-                            {item.message || <span className="text-slate-400 italic">（メッセージなし）</span>}
-                          </p>
-                        </td>
-                      </tr>
-                    ))}
+                    {thankyouList.map((item, idx) => {
+                      // 受信者の表示を決定
+                      let recipientDisplay: React.ReactNode
+                      if (item.recipientType === 'all') {
+                        // 全員宛て
+                        recipientDisplay = (
+                          <Badge className="bg-purple-100 text-purple-600 hover:bg-purple-100 font-bold">
+                            全員
+                          </Badge>
+                        )
+                      } else if (item.recipientType === 'team') {
+                        // チーム宛て
+                        recipientDisplay = (
+                          <Badge className="bg-blue-100 text-blue-600 hover:bg-blue-100 font-bold">
+                            {item.teamName || 'チーム'}
+                          </Badge>
+                        )
+                      } else {
+                        // 個人宛て
+                        recipientDisplay = (
+                          <span className="font-medium text-pink-600">{item.toNames}</span>
+                        )
+                      }
+
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-pink-50/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-slate-800">{item.fromName}</span>
+                              <span className="text-slate-400">→</span>
+                              {recipientDisplay}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-sm text-slate-600 whitespace-pre-wrap break-words">
+                              {item.message || <span className="text-slate-400 italic">（メッセージなし）</span>}
+                            </p>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

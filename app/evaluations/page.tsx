@@ -205,46 +205,6 @@ export default function EvaluationsPage() {
     }
   }
 
-  const handleApproveSubmission = async (userId: string, date: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (!confirm('この報告を承認しますか？')) return
-
-    try {
-      const res = await fetch('/api/evaluations/submissions/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-employee-id': currentUser?.id || ''
-        },
-        body: JSON.stringify({
-          userId,
-          date,
-          status: 'approved'
-        })
-      })
-
-      if (res.ok) {
-        // Refresh data
-        const dateStr = format(currentDate, 'yyyy-MM-dd')
-        const teamParam = isStoreManager && currentUser?.personnelEvaluationTeamId
-          ? `&storeManagerTeamId=${currentUser.personnelEvaluationTeamId}`
-          : ''
-        const refreshRes = await fetch(`/api/evaluations/dashboard?date=${dateStr}${teamParam}`, {
-          headers: {
-            'x-employee-id': currentUser?.id || '',
-            'x-employee-role': currentUser?.role || ''
-          }
-        })
-        const d = await refreshRes.json()
-        setData(d)
-      } else {
-        alert('承認に失敗しました')
-      }
-    } catch (e) {
-      console.error(e)
-      alert('エラーが発生しました')
-    }
-  }
 
   const handleUpdateReport = async () => {
     try {
@@ -878,28 +838,7 @@ export default function EvaluationsPage() {
                           <div className="text-[10px] text-slate-400 font-bold">{item.team}</div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className={cn("font-bold",
-                              item.status === '承認済み' ? "text-emerald-600" :
-                                item.status === '登録済' ? "text-slate-800" : "text-slate-400"
-                            )}>
-                              {item.status}
-                            </div>
-                            {item.status === '登録済' && isAdminOrHr && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[10px] gap-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                onClick={(e) => handleApproveSubmission(item.id, format(currentDate, 'yyyy-MM-dd'), e)}
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                承認
-                              </Button>
-                            )}
-                            {item.status === '承認済み' && (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            )}
-                          </div>
+                          <div className={cn("font-bold", item.status === '登録済' ? "text-slate-800" : "text-slate-400")}>{item.status}</div>
                           <div className="text-[10px] text-slate-400">{item.statusDate}</div>
                         </td>
                         <td className="px-4 py-4">

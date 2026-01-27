@@ -248,13 +248,12 @@ export async function GET(request: Request) {
         // 5. 当日の提出状況取得
         const submissions = await prisma.personnelEvaluationSubmission.findMany({
             where: {
-                date: selectedDate,
+                date: selectedDate, // 正規化済み前提
                 employeeId: { in: employeeIds }
             },
             select: {
                 employeeId: true,
-                createdAt: true,
-                status: true,
+                createdAt: true, // 登録日時
                 note: true,
                 items: {
                     where: { textValue: { not: null } },
@@ -284,21 +283,11 @@ export async function GET(request: Request) {
             }
             if (comments.length === 0 && sub) comments.push('記入なし')
 
-            let displayStatus = '未登録'
-            if (sub) {
-                if (sub.status === 'approved') {
-                    displayStatus = '承認済み'
-                } else {
-                    displayStatus = '登録済'
-                }
-            }
-
             return {
                 id: emp.id,
                 name: emp.name,
                 team: emp.personnelEvaluationTeam?.name || '未所属',
-                status: displayStatus,
-                rawStatus: sub?.status || 'none',
+                status: sub ? '登録済' : '未登録',
                 statusDate: sub ? sub.createdAt.toISOString().slice(5, 10).replace('-', '/') : '-', // MM/DD
                 dailyPt: `${pts.daily.toLocaleString()}pt`,
                 monthlyPt: `${pts.monthly.toLocaleString()}pt`,

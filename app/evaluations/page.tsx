@@ -27,7 +27,8 @@ import {
   Save,
   Trophy,
   X,
-  Heart
+  Heart,
+  Medal
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import {
@@ -98,6 +99,17 @@ export default function EvaluationsPage() {
   const [thankyouModalDate, setThankyouModalDate] = useState<string>('')
   const [thankyouList, setThankyouList] = useState<any[]>([])
   const [loadingThankyous, setLoadingThankyous] = useState(false)
+
+  // ありがとうランキングモーダル用
+  const [isRankingModalOpen, setIsRankingModalOpen] = useState(false)
+  const [rankingData, setRankingData] = useState<any[]>([])
+  const [rankingTeams, setRankingTeams] = useState<any[]>([])
+  const [loadingRanking, setLoadingRanking] = useState(false)
+  const [rankingPeriod, setRankingPeriod] = useState<DateRange | undefined>({
+    from: subMonths(new Date(), 1),
+    to: new Date()
+  })
+  const [rankingTeamFilter, setRankingTeamFilter] = useState('all')
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const isStoreManager = currentUser?.role === 'store_manager'
@@ -551,7 +563,32 @@ export default function EvaluationsPage() {
 
         {/* Settings Buttons for Admins */}
         {isAdminOrHr && (
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200 text-pink-700 hover:bg-pink-100 shadow-sm"
+              onClick={() => {
+                setIsRankingModalOpen(true)
+                // 初回ロード
+                if (rankingPeriod?.from && rankingPeriod?.to) {
+                  setLoadingRanking(true)
+                  const start = format(rankingPeriod.from, 'yyyy-MM-dd')
+                  const end = format(rankingPeriod.to, 'yyyy-MM-dd')
+                  fetch(`/api/evaluations/thankyous/ranking?startDate=${start}&endDate=${end}&teamId=${rankingTeamFilter}`)
+                    .then(res => res.json())
+                    .then(data => {
+                      setRankingData(data.ranking || [])
+                      setRankingTeams(data.teams || [])
+                      setLoadingRanking(false)
+                    })
+                    .catch(() => setLoadingRanking(false))
+                }
+              }}
+            >
+              <Medal className="w-4 h-4" />
+              ありがとうランキング
+            </Button>
             <Link href="/evaluations/settings/fiscal-year">
               <Button variant="outline" size="sm" className="gap-2 bg-white shadow-sm">
                 <CalendarIcon className="w-4 h-4 text-emerald-600" />
@@ -1119,6 +1156,190 @@ export default function EvaluationsPage() {
 
           <DialogFooter className="border-t pt-4">
             <Button variant="outline" onClick={() => setIsThankyouModalOpen(false)}>
+              閉じる
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ありがとうランキングモーダル */}
+      <Dialog open={isRankingModalOpen} onOpenChange={setIsRankingModalOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] md:max-w-[85vw] lg:max-w-[75vw] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Medal className="w-5 h-5 text-amber-500" />
+              <span>ありがとうランキング</span>
+              <Badge className="bg-amber-100 text-amber-600 hover:bg-amber-100">
+                {rankingData.length}名
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* フィルター */}
+          <div className="flex flex-wrap items-center gap-4 py-3 border-b">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-slate-500 font-bold whitespace-nowrap">期間:</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 text-xs">
+                    <CalendarIcon className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                    {rankingPeriod?.from ? (
+                      rankingPeriod.to ? (
+                        <>{format(rankingPeriod.from, "yyyy/MM/dd")} - {format(rankingPeriod.to, "yyyy/MM/dd")}</>
+                      ) : (
+                        format(rankingPeriod.from, "yyyy/MM/dd")
+                      )
+                    ) : (
+                      <span>期間を選択</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={rankingPeriod?.from}
+                    selected={rankingPeriod}
+                    onSelect={setRankingPeriod}
+                    numberOfMonths={2}
+                    locale={ja}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-slate-500 font-bold whitespace-nowrap">チーム:</Label>
+              <Select value={rankingTeamFilter} onValueChange={setRankingTeamFilter}>
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue placeholder="すべて" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">すべて</SelectItem>
+                  {rankingTeams.map((team: any) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              size="sm"
+              className="h-8 bg-pink-600 hover:bg-pink-700"
+              onClick={() => {
+                if (rankingPeriod?.from && rankingPeriod?.to) {
+                  setLoadingRanking(true)
+                  const start = format(rankingPeriod.from, 'yyyy-MM-dd')
+                  const end = format(rankingPeriod.to, 'yyyy-MM-dd')
+                  fetch(`/api/evaluations/thankyous/ranking?startDate=${start}&endDate=${end}&teamId=${rankingTeamFilter}`)
+                    .then(res => res.json())
+                    .then(data => {
+                      setRankingData(data.ranking || [])
+                      setRankingTeams(data.teams || [])
+                      setLoadingRanking(false)
+                    })
+                    .catch(() => setLoadingRanking(false))
+                }
+              }}
+            >
+              <Search className="w-3.5 h-3.5 mr-1" />
+              検索
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            {loadingRanking ? (
+              <div className="flex items-center justify-center h-32 text-slate-500">
+                読み込み中...
+              </div>
+            ) : rankingData.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-slate-400">
+                データがありません
+              </div>
+            ) : (
+              <div className="overflow-y-auto max-h-[calc(85vh-280px)]">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-amber-50 to-pink-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-slate-600 uppercase tracking-wider w-16">
+                        順位
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        社員名
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-28">
+                        チーム
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-pink-600 uppercase tracking-wider w-24">
+                        <div className="flex flex-col items-center">
+                          <span>受取pt</span>
+                        </div>
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-pink-500 uppercase tracking-wider w-20">
+                        受取数
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-blue-600 uppercase tracking-wider w-24">
+                        送信pt
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-bold text-blue-500 uppercase tracking-wider w-20">
+                        送信数
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rankingData.map((item: any, idx: number) => {
+                      // 順位メダル表示
+                      let rankDisplay: React.ReactNode
+                      if (idx === 0 && item.received.pts > 0) {
+                        rankDisplay = <span className="text-xl">🥇</span>
+                      } else if (idx === 1 && item.received.pts > 0) {
+                        rankDisplay = <span className="text-xl">🥈</span>
+                      } else if (idx === 2 && item.received.pts > 0) {
+                        rankDisplay = <span className="text-xl">🥉</span>
+                      } else {
+                        rankDisplay = <span className="text-sm font-bold text-slate-500">{idx + 1}</span>
+                      }
+
+                      return (
+                        <tr key={item.id} className="hover:bg-amber-50/50 transition-colors">
+                          <td className="px-4 py-3 text-center">
+                            {rankDisplay}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium text-slate-800">{item.name}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-xs text-slate-500">{item.teamName || '-'}</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-bold text-pink-600">{item.received.pts.toLocaleString()}</span>
+                            <span className="text-xs text-slate-400 ml-0.5">pt</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant="secondary" className="bg-pink-100 text-pink-600 hover:bg-pink-100">
+                              {item.received.count}件
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="font-bold text-blue-600">{item.sent.pts.toLocaleString()}</span>
+                            <span className="text-xs text-slate-400 ml-0.5">pt</span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-600 hover:bg-blue-100">
+                              {item.sent.count}件
+                            </Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setIsRankingModalOpen(false)}>
               閉じる
             </Button>
           </DialogFooter>

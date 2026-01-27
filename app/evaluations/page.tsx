@@ -26,7 +26,8 @@ import {
   Edit,
   Save,
   Trophy,
-  X
+  X,
+  Heart
 } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import {
@@ -91,6 +92,12 @@ export default function EvaluationsPage() {
   const [editingPrompt, setEditingPrompt] = useState<any>(null)
   const [newPromptName, setNewPromptName] = useState('')
   const [newPromptText, setNewPromptText] = useState('')
+
+  // ありがとうモーダル用
+  const [isThankyouModalOpen, setIsThankyouModalOpen] = useState(false)
+  const [thankyouModalDate, setThankyouModalDate] = useState<string>('')
+  const [thankyouList, setThankyouList] = useState<any[]>([])
+  const [loadingThankyous, setLoadingThankyous] = useState(false)
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const isStoreManager = currentUser?.role === 'store_manager'
@@ -222,6 +229,26 @@ export default function EvaluationsPage() {
 
   const tableData = data?.table || []
   const calendarStats = data?.calendar || {}
+
+  // ありがとうモーダルを開く
+  const openThankyouModal = async (dateStr: string) => {
+    setThankyouModalDate(dateStr)
+    setIsThankyouModalOpen(true)
+    setLoadingThankyous(true)
+    try {
+      const teamParam = isStoreManager && currentUser?.personnelEvaluationTeamId
+        ? `&teamId=${currentUser.personnelEvaluationTeamId}`
+        : ''
+      const res = await fetch(`/api/evaluations/thankyous?date=${dateStr}${teamParam}`)
+      const data = await res.json()
+      setThankyouList(data.thankyous || [])
+    } catch (e) {
+      console.error(e)
+      setThankyouList([])
+    } finally {
+      setLoadingThankyous(false)
+    }
+  }
 
   // Filter Table Data
   const filteredTable = tableData.filter((item: any) => {
@@ -598,7 +625,10 @@ export default function EvaluationsPage() {
                   <thead className="bg-[#1e293b] text-white">
                     <tr>
                       <th className="px-2 py-2 border-r border-slate-700 w-14 text-center whitespace-nowrap">{format(currentDate, 'M月')}</th>
-                      <th className="px-2 py-2 text-center whitespace-nowrap">登録数</th>
+                      <th className="px-2 py-2 border-r border-slate-700 text-center whitespace-nowrap">登録数</th>
+                      <th className="px-2 py-2 text-center whitespace-nowrap">
+                        <Heart className="w-3 h-3 inline text-pink-300 fill-pink-300" />
+                      </th>
                     </tr>
                   </thead>
                 </table>
@@ -620,6 +650,7 @@ export default function EvaluationsPage() {
                           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
                           const isSelected = dateStr === format(currentDate, 'yyyy-MM-dd')
                           const count = calendarStats[dateStr]?.count || 0
+                          const thankYouCount = calendarStats[dateStr]?.thankYouCount || 0
 
                           // Show only up to today if current month
                           if (isCurrentMonth && day > today.getDate()) return null;
@@ -639,7 +670,7 @@ export default function EvaluationsPage() {
                               )}>
                                 {day}({['日', '月', '火', '水', '木', '金', '土'][dayOfWeek]})
                               </td>
-                              <td className="px-2 py-2.5 text-right">
+                              <td className="px-2 py-2.5 text-center border-r">
                                 {count > 0 && (
                                   <Badge variant="secondary" className={cn(
                                     "bg-slate-200 text-slate-600 font-bold h-5 min-w-[20px] px-1 justify-center rounded-full",
@@ -647,6 +678,30 @@ export default function EvaluationsPage() {
                                   )}>
                                     {count}
                                   </Badge>
+                                )}
+                              </td>
+                              <td className="px-2 py-2.5 text-center">
+                                {thankYouCount > 0 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      openThankyouModal(dateStr)
+                                    }}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full transition-all",
+                                      "hover:scale-110 hover:bg-pink-100",
+                                      isSelected ? "text-white hover:text-pink-600" : "text-pink-500"
+                                    )}
+                                  >
+                                    <Heart className={cn(
+                                      "w-3.5 h-3.5",
+                                      isSelected ? "fill-white" : "fill-pink-500"
+                                    )} />
+                                    <span className={cn(
+                                      "text-xs font-bold",
+                                      isSelected ? "" : "text-pink-600"
+                                    )}>{thankYouCount}</span>
+                                  </button>
                                 )}
                               </td>
                             </tr>
@@ -971,6 +1026,77 @@ export default function EvaluationsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPromptDialogOpen(false)}>閉じる</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ありがとうモーダル */}
+      <Dialog open={isThankyouModalOpen} onOpenChange={setIsThankyouModalOpen}>
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-pink-500 fill-pink-500" />
+              <span>{thankyouModalDate ? format(new Date(thankyouModalDate), 'yyyy年M月d日') : ''} のありがとう一覧</span>
+              <Badge className="bg-pink-100 text-pink-600 hover:bg-pink-100">
+                {thankyouList.length}件
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-hidden">
+            {loadingThankyous ? (
+              <div className="flex items-center justify-center h-32 text-slate-500">
+                読み込み中...
+              </div>
+            ) : thankyouList.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-slate-400">
+                この日のありがとうはありません
+              </div>
+            ) : (
+              <div className="overflow-y-auto max-h-[calc(85vh-180px)]">
+                <table className="w-full">
+                  <thead className="bg-slate-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[40%]">
+                        送信者 → 受信者
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-bold text-slate-600 uppercase tracking-wider w-[60%]">
+                        メッセージ
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {thankyouList.map((item, idx) => (
+                      <tr key={item.id || idx} className="hover:bg-pink-50/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-800">{item.fromName}</span>
+                            <span className="text-slate-400">→</span>
+                            <span className="font-medium text-pink-600">{item.toNames}</span>
+                            {item.recipientType === 'team' && (
+                              <Badge variant="outline" className="text-[10px] px-1 py-0 text-blue-500 border-blue-200">
+                                チーム
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-sm text-slate-600 whitespace-pre-wrap break-words">
+                            {item.message || <span className="text-slate-400 italic">（メッセージなし）</span>}
+                          </p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setIsThankyouModalOpen(false)}>
+              閉じる
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

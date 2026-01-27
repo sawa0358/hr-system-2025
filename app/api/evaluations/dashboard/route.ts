@@ -50,6 +50,14 @@ export async function GET(request: Request) {
         if (employeeId) {
             submissionCriteria.employeeId = employeeId
         }
+        // 店長用フィルタ
+        if (storeManagerTeamId) {
+            const teamEmployees = await prisma.employee.findMany({
+                where: { personnelEvaluationTeamId: storeManagerTeamId },
+                select: { id: true }
+            })
+            submissionCriteria.employeeId = { in: teamEmployees.map(e => e.id) }
+        }
 
         const monthlySubmissions = await prisma.personnelEvaluationSubmission.groupBy({
             by: ['date'],
@@ -59,7 +67,7 @@ export async function GET(request: Request) {
             }
         })
 
-        const calendarStats: Record<string, { count: number, hasReceivedThankYou: boolean }> = {}
+        const calendarStats: Record<string, { count: number, hasReceivedThankYou: boolean, thankYouCount: number }> = {}
 
         // ありがとう受信アイテムの取得 (対象社員がいる場合のみ)
         const receivedThankYouDates = new Set<string>()
@@ -108,12 +116,39 @@ export async function GET(request: Request) {
             })
         }
 
+        // ありがとう送信アイテムの日付別カウント（管理者ダッシュボード用）
+        const thankYouItems = await prisma.personnelEvaluationSubmissionItem.findMany({
+            where: {
+                submission: {
+                    date: {
+                        gte: selectedMonthStart,
+                        lte: selectedMonthEnd
+                    },
+                    ...(storeManagerTeamId ? {
+                        employee: { personnelEvaluationTeamId: storeManagerTeamId }
+                    } : {})
+                },
+                title: 'ありがとう送信'
+            },
+            select: {
+                submission: {
+                    select: { date: true }
+                }
+            }
+        })
+
+        const thankYouCountByDate = new Map<string, number>()
+        thankYouItems.forEach(item => {
+            const d = item.submission.date.toISOString().split('T')[0]
+            thankYouCountByDate.set(d, (thankYouCountByDate.get(d) || 0) + 1)
+        })
+
         // 月の日数をループして初期化（データがない日もオブジェクトを作るため）
         const daysInMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate()
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), i)
             const dStr = d.toISOString().split('T')[0]
-            calendarStats[dStr] = { count: 0, hasReceivedThankYou: false }
+            calendarStats[dStr] = { count: 0, hasReceivedThankYou: false, thankYouCount: 0 }
         }
 
         // 提出数を反映
@@ -128,6 +163,13 @@ export async function GET(request: Request) {
         receivedThankYouDates.forEach(d => {
             if (calendarStats[d]) {
                 calendarStats[d].hasReceivedThankYou = true
+            }
+        })
+
+        // ありがとう数を反映
+        thankYouCountByDate.forEach((count, d) => {
+            if (calendarStats[d]) {
+                calendarStats[d].thankYouCount = count
             }
         })
 

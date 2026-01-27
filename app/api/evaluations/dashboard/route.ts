@@ -356,32 +356,12 @@ export async function GET(request: Request) {
         const twoMonthsAgoStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd, employeeIds)
 
         // Fiscal Year Cumulative Completion Stats (完工累計)
-        // 1. 目標額: 数字目標ONの全社員の月次完工目標 × 12
+        // 1. 目標額: 当月の完工目標合計 × 12 (画面上の月次目標額と整合させるため、currentMonthStatsを利用)
         // 2. 達成額: 2ヶ月前の日付が含まれる年度の開始〜2ヶ月前までの完工実績合計
 
-        // 数字目標ONの社員と月次完工目標を取得
-        const goalEnabledEmployees = await prisma.employee.findMany({
-            where: {
-                status: 'active',
-                isPersonnelEvaluationTarget: true,
-                isNumericGoalEnabled: true
-            },
-            include: {
-                personnelEvaluationGoals: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 1
-                }
-            }
-        })
-
         // 月次完工目標の合計 × 12 = 年間累計目標
-        let monthlyCompletionTargetSum = 0
-        goalEnabledEmployees.forEach((emp: any) => {
-            const goal = emp.personnelEvaluationGoals[0]
-            if (goal) {
-                monthlyCompletionTargetSum += Number(goal.completionTargetAmount) || 0
-            }
-        })
+        // currentMonthStatsはフィルタリング済みの社員の当月Goal集計結果
+        const monthlyCompletionTargetSum = Number(currentMonthStats.completion.target) || 0
         const annualCompletionTarget = monthlyCompletionTargetSum * 12
 
         // 2ヶ月前の日付を計算

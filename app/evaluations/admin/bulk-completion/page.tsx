@@ -22,10 +22,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/lib/auth-context"
 
 export default function BulkCompletionPage() {
     const router = useRouter()
     const { toast } = useToast()
+    const { currentUser, isAuthenticated } = useAuth()
 
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -40,8 +42,13 @@ export default function BulkCompletionPage() {
     // Edited values: { [employeeId]: value }
     const [editedValues, setEditedValues] = useState<Record<string, string>>({})
 
+    const isStoreManager = currentUser?.role === 'store_manager'
+    const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr' || currentUser?.role === 'manager'
+
     // Fetch Teams
     useEffect(() => {
+        if (!isAuthenticated || !currentUser) return
+
         const fetchTeams = async () => {
             try {
                 const res = await fetch('/api/evaluations/settings/teams')
@@ -54,10 +61,12 @@ export default function BulkCompletionPage() {
             }
         }
         fetchTeams()
-    }, [])
+    }, [isAuthenticated, currentUser])
 
     // Fetch Data
     const fetchData = async () => {
+        if (!isAuthenticated || !currentUser) return
+
         setLoading(true)
         try {
             const params = new URLSearchParams()
@@ -65,7 +74,12 @@ export default function BulkCompletionPage() {
             if (selectedTeam !== 'all') params.set('teamId', selectedTeam)
             if (searchQuery) params.set('query', searchQuery)
 
-            const res = await fetch(`/api/evaluations/batch/completion?${params.toString()}`)
+            const res = await fetch(`/api/evaluations/batch/completion?${params.toString()}`, {
+                headers: {
+                    'x-employee-id': currentUser.id,
+                    'x-employee-role': currentUser.role || ''
+                }
+            })
             if (!res.ok) throw new Error('Failed to fetch data')
 
             const data = await res.json()
@@ -74,8 +88,6 @@ export default function BulkCompletionPage() {
             // Initialize editedValues with current values
             const initialValues: Record<string, string> = {}
             data.forEach((emp: any) => {
-                // If value is 0, show empty string for easier input? Or keeping 0 is fine.
-                // Let's keep 0 if it exists.
                 initialValues[emp.id] = String(emp.completionAchieved || 0)
             })
             setEditedValues(initialValues)
@@ -94,9 +106,9 @@ export default function BulkCompletionPage() {
     // Trigger fetch on filter change
     useEffect(() => {
         fetchData()
-    }, [date, selectedTeam]) // searchQuery is triggered manually or by debounce if needed. Let's do manual enter or blur for now, or use debounce? 
-    // Just dependency on date/team for now, search query on blur/enter or easy implementation: add search button or effect.
-    // Let's add effect for searchQuery with debounce
+    }, [date, selectedTeam, isAuthenticated, currentUser])
+
+    // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => {
             fetchData()
@@ -106,16 +118,15 @@ export default function BulkCompletionPage() {
 
 
     const handleValueChange = (id: string, value: string) => {
-        // Allow numbers only or empty
         if (value === '' || /^-?\d*\.?\d*$/.test(value)) {
             setEditedValues(prev => ({ ...prev, [id]: value }))
         }
     }
 
     const handleSave = async () => {
+        if (!currentUser) return
         setSaving(true)
         try {
-            // Prepare payload
             const items = Object.entries(editedValues).map(([id, val]) => ({
                 employeeId: id,
                 amount: val === '' ? 0 : Number(val)
@@ -123,7 +134,11 @@ export default function BulkCompletionPage() {
 
             const res = await fetch('/api/evaluations/batch/completion', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-employee-id': currentUser.id,
+                    'x-employee-role': currentUser.role || ''
+                },
                 body: JSON.stringify({
                     date,
                     items
@@ -138,7 +153,6 @@ export default function BulkCompletionPage() {
                 className: "bg-emerald-500 text-white"
             })
 
-            // Refresh data to be sure
             fetchData()
 
         } catch (error) {
@@ -152,7 +166,6 @@ export default function BulkCompletionPage() {
         }
     }
 
-    // Keyboard navigation helper
     const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
         if (e.key === 'Enter') {
             e.preventDefault()
@@ -161,6 +174,20 @@ export default function BulkCompletionPage() {
                 (nextInput as HTMLInputElement).focus()
             }
         }
+    }
+
+    if (!isAuthenticated) {
+        return <div className="p-8 text-center text-slate-500">認証情報を読み込み中...</div>
+    }
+
+    const canAccess = isAdminOrHr || isStoreManager
+    if (!canAccess) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <p className="text-slate-500 font-medium">このページにアクセスする権限がありません。</p>
+                <Button onClick={() => router.push('/evaluations')}>戻る</Button>
+            </div>
+        )
     }
 
     return (
@@ -181,7 +208,7 @@ export default function BulkCompletionPage() {
                         disabled={saving || loading}
                         className="bg-blue-600 hover:bg-blue-700 min-w-[120px]"
                     >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-1" />}
                         一括保存
                     </Button>
                 </div>
@@ -209,20 +236,26 @@ export default function BulkCompletionPage() {
                                 </div>
                             </div>
 
-                            {/* Team Filter */}
+                            {/* Team Filter - Hide for Store Manager */}
                             <div className="space-y-1">
                                 <label className="text-xs font-medium text-slate-500">チーム</label>
-                                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                                    <SelectTrigger className="w-[180px]">
-                                        <SelectValue placeholder="全チーム" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">全チーム</SelectItem>
-                                        {teams.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {isStoreManager ? (
+                                    <div className="h-9 px-3 flex items-center bg-slate-100 rounded-md border text-sm text-slate-600 font-medium min-w-[180px]">
+                                        {employees[0]?.teamName || '自チームのみ'}
+                                    </div>
+                                ) : (
+                                    <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                                        <SelectTrigger className="w-[180px]">
+                                            <SelectValue placeholder="全チーム" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">全チーム</SelectItem>
+                                            {teams.map(t => (
+                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
 
                             {/* Search */}
@@ -241,7 +274,7 @@ export default function BulkCompletionPage() {
                         </div>
 
                         <div className="text-sm text-slate-500">
-                            対象: <span className="font-bold text-slate-900">{employees.length}</span> 名
+                            表示対象: <span className="font-bold text-slate-900">{employees.length}</span> 名
                         </div>
                     </div>
                 </CardHeader>

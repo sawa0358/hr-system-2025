@@ -362,7 +362,7 @@ export default function EvaluationsPage() {
                   <ChevronDown className="w-4 h-4 transition-transform group-data-[state=open]/header:rotate-180" />
                 </Button>
               </CollapsibleTrigger>
-              {isManager && (
+              {(isManager || isStoreManager) && (
                 <Link href="/evaluations/admin/bulk-completion">
                   <Button variant="outline" size="sm" className="gap-2 border-slate-200 text-slate-500 hover:text-slate-800 bg-white">
                     <Calculator className="w-4 h-4" />

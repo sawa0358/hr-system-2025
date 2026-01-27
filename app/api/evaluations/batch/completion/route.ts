@@ -9,8 +9,11 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url)
         const dateStr = searchParams.get('date') // yyyy-MM-dd
-        const teamId = searchParams.get('teamId')
+        const teamIdParam = searchParams.get('teamId')
         const query = searchParams.get('query') || ''
+
+        const employeeId = request.headers.get('x-employee-id')
+        const employeeRole = request.headers.get('x-employee-role')
 
         if (!dateStr) {
             return NextResponse.json({ error: 'Date is required' }, { status: 400 })
@@ -26,12 +29,24 @@ export async function GET(request: Request) {
             isNumericGoalEnabled: true,
         }
 
-        if (teamId && teamId !== 'all') {
-            whereClause.personnelEvaluationTeamId = teamId
+        // 権限による制限
+        if (employeeRole === 'store_manager' && employeeId) {
+            const currentUser = await prisma.employee.findUnique({
+                where: { id: employeeId },
+                select: { personnelEvaluationTeamId: true }
+            })
+            if (currentUser?.personnelEvaluationTeamId) {
+                whereClause.personnelEvaluationTeamId = currentUser.personnelEvaluationTeamId
+            } else {
+                // チーム未設定の店長は誰も見れない
+                return NextResponse.json([])
+            }
+        } else if (teamIdParam && teamIdParam !== 'all') {
+            whereClause.personnelEvaluationTeamId = teamIdParam
         }
 
         if (query) {
-            whereClause.OR = [
+            whereClause.AND = [
                 { name: { contains: query } },
                 { employeeNumber: { contains: query } }
             ]
@@ -87,18 +102,44 @@ export async function POST(request: Request) {
         const body = await request.json()
         const { date, items } = body // items: { employeeId: string, amount: number }[]
 
+        const employeeId = request.headers.get('x-employee-id')
+        const employeeRole = request.headers.get('x-employee-role')
+
         if (!date || !items || !Array.isArray(items)) {
             return NextResponse.json({ error: 'Invalid data' }, { status: 400 })
         }
 
         const period = date.slice(0, 7)
-        const updatedCount = 0
+        // const updatedCount = 0 // This variable is no longer used after the transaction change.
 
         // トランザクションで一括処理したいが、Upsertが必要なのでループ処理
         // パフォーマンス懸念がある場合は $transaction で囲む
 
+        // 店長の場合のセキュリティチェック
+        let allowedEmployeeIds: string[] | null = null
+        if (employeeRole === 'store_manager' && employeeId) {
+            const currentUser = await prisma.employee.findUnique({
+                where: { id: employeeId },
+                select: { personnelEvaluationTeamId: true }
+            })
+            if (currentUser?.personnelEvaluationTeamId) {
+                const teamMembers = await prisma.employee.findMany({
+                    where: { personnelEvaluationTeamId: currentUser.personnelEvaluationTeamId },
+                    select: { id: true }
+                })
+                allowedEmployeeIds = teamMembers.map(m => m.id)
+            } else {
+                return NextResponse.json({ error: 'Permission denied' }, { status: 403 })
+            }
+        }
+
         await prisma.$transaction(
-            items.map((item: any) => {
+            items.filter((item: any) => {
+                if (allowedEmployeeIds) {
+                    return allowedEmployeeIds.includes(item.employeeId)
+                }
+                return true
+            }).map((item: any) => {
                 // 文字列で受け取るかもしれないので数値化
                 const amount = item.amount === '' ? 0 : Number(item.amount)
 

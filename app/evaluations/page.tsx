@@ -1079,7 +1079,7 @@ export default function EvaluationsPage() {
                             <span className="font-medium text-pink-600">{item.toNames}</span>
                             {item.recipientType === 'team' && (
                               <Badge variant="outline" className="text-[10px] px-1 py-0 text-blue-500 border-blue-200">
-                                チーム
+                                {item.teamName || 'チーム'}
                               </Badge>
                             )}
                           </div>

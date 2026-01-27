@@ -73,12 +73,25 @@ export async function GET(request: Request) {
             }
         })
 
-        // 受信者の名前を取得
+        // 受信者の名前とチーム情報を取得
         const recipients = await prisma.employee.findMany({
             where: { id: { in: Array.from(recipientIds) } },
-            select: { id: true, name: true }
+            select: {
+                id: true,
+                name: true,
+                personnelEvaluationTeam: {
+                    select: { name: true }
+                }
+            }
         })
         const recipientMap = new Map(recipients.map(r => [r.id, r.name]))
+
+        // チーム名を取得するためのマップ（受信者の最初のメンバーのチーム名を使用）
+        const getTeamNameFromRecipients = (toIds: string[]) => {
+            if (toIds.length === 0) return null
+            const firstRecipient = recipients.find(r => r.id === toIds[0])
+            return firstRecipient?.personnelEvaluationTeam?.name || null
+        }
 
         // レスポンス用データを整形
         const result = thankYouItems.map(item => {
@@ -98,6 +111,9 @@ export async function GET(request: Request) {
 
             const recipientNames = toIds.map(id => recipientMap.get(id) || '不明').join('、')
 
+            // チーム宛ての場合、チーム名を取得
+            const teamName = recipientType === 'team' ? getTeamNameFromRecipients(toIds) : null
+
             return {
                 id: item.id,
                 fromName: item.submission.employee.name,
@@ -105,6 +121,7 @@ export async function GET(request: Request) {
                 toNames: recipientNames,
                 toIds,
                 recipientType,
+                teamName, // チーム名を追加
                 message: item.thankYouMessage || ''
             }
         })

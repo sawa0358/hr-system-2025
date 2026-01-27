@@ -783,8 +783,8 @@ export default function EvaluationEntryPage() {
                 {/* Completion Stats */}
                 <div className="bg-slate-900 text-white p-4">
                     <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
-                        2025年11月
-                        <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
+                        {format(subMonths(parseISO(dateStr), 2), 'yyyy年M月', { locale: ja })}
+                        <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定した{format(subMonths(parseISO(dateStr), 2), 'M月', { locale: ja })}分</Badge>
                         <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">{teamName || 'チーム未設定'}</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
@@ -870,7 +870,7 @@ export default function EvaluationEntryPage() {
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Label className="text-slate-700 font-bold text-base">完工実績金額</Label>
-                                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定 2ヶ月前</Badge>
+                                    <Badge variant="outline" className="text-[10px] text-slate-500 bg-slate-50 border-slate-200">確定した{format(subMonths(parseISO(dateStr), 2), 'M月', { locale: ja })}分</Badge>
                                 </div>
                                 <div className="text-right">
                                     <span className="text-[10px] text-slate-400 block">目標設定額</span>

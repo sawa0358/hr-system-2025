@@ -355,14 +355,112 @@ export async function GET(request: Request) {
         // So we use current month data for this section's stats.
         const twoMonthsAgoStats = await aggregateGoals(selectedMonthStart, selectedMonthEnd, employeeIds)
 
-        // Fiscal Year (Current)
-        const fyStats = await aggregateGoals(fyStart, fyEnd, employeeIds)
+        // Fiscal Year Cumulative Completion Stats (完工累計)
+        // 1. 目標額: 数字目標ONの全社員の月次完工目標 × 12
+        // 2. 達成額: 2ヶ月前の日付が含まれる年度の開始〜2ヶ月前までの完工実績合計
+
+        // 数字目標ONの社員と月次完工目標を取得
+        const goalEnabledEmployees = await prisma.employee.findMany({
+            where: {
+                status: 'active',
+                isPersonnelEvaluationTarget: true,
+                isNumericGoalEnabled: true
+            },
+            include: {
+                personnelEvaluationGoals: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        })
+
+        // 月次完工目標の合計 × 12 = 年間累計目標
+        let monthlyCompletionTargetSum = 0
+        goalEnabledEmployees.forEach((emp: any) => {
+            const goal = emp.personnelEvaluationGoals[0]
+            if (goal) {
+                monthlyCompletionTargetSum += Number(goal.completionTargetAmount) || 0
+            }
+        })
+        const annualCompletionTarget = monthlyCompletionTargetSum * 12
+
+        // 2ヶ月前の日付を計算
+        const twoMonthsAgoDate = new Date(selectedDate)
+        twoMonthsAgoDate.setMonth(twoMonthsAgoDate.getMonth() - 2)
+
+        // 2ヶ月前の日付が含まれる年度を探す
+        let fyForCompletion = await prisma.personnelEvaluationFiscalYear.findFirst({
+            where: {
+                startDate: { lte: twoMonthsAgoDate },
+                endDate: { gte: twoMonthsAgoDate }
+            }
+        })
+
+        let fyCompStart: Date, fyCompEnd: Date
+        if (fyForCompletion) {
+            fyCompStart = fyForCompletion.startDate
+            fyCompEnd = fyForCompletion.endDate
+        } else {
+            // 設定がなければ4月開始の標準年度と仮定
+            const year = twoMonthsAgoDate.getFullYear()
+            const month = twoMonthsAgoDate.getMonth() + 1
+            const startYear = month >= 4 ? year : year - 1
+            fyCompStart = new Date(startYear, 3, 1)
+            fyCompEnd = new Date(startYear + 1, 2, 31)
+        }
+
+        // 年度開始から2ヶ月前までの期間を生成
+        // 注意: 完工実績は「確定2ヶ月前」として入力されるため、データ上のperiodは完工月+2ヶ月となっている
+        // 例: 4月完工分は6月のデータ(period="yyyy-06")として保存されている
+        const completionPeriods: string[] = []
+        let compY = fyCompStart.getFullYear()
+        let compM = fyCompStart.getMonth()
+        const targetY = twoMonthsAgoDate.getFullYear()
+        const targetM = twoMonthsAgoDate.getMonth()
+
+        while (compY < targetY || (compY === targetY && compM <= targetM)) {
+            // 完工月 (compY, compM) に対応するデータ月は +2ヶ月
+            const dataDate = new Date(compY, compM + 2, 1)
+            const dataPeriod = `${dataDate.getFullYear()}-${String(dataDate.getMonth() + 1).padStart(2, '0')}`
+            completionPeriods.push(dataPeriod)
+
+            compM++
+            if (compM > 11) {
+                compM = 0
+                compY++
+            }
+        }
+
+        // 完工達成額の集計
+        const completionGoals = await prisma.personnelEvaluationGoal.findMany({
+            where: {
+                period: { in: completionPeriods },
+                employeeId: { in: employeeIds }
+            }
+        })
+
+        let annualCompletionAchieved = 0
+        completionGoals.forEach((g: any) => {
+            annualCompletionAchieved += Number(g.completionAchievedAmount) || 0
+        })
+
+        const annualCompletionRate = annualCompletionTarget > 0
+            ? ((annualCompletionAchieved / annualCompletionTarget) * 100).toFixed(1)
+            : '0.0'
+
+        const fyStats = {
+            completion: {
+                target: annualCompletionTarget,
+                achieved: annualCompletionAchieved,
+                rate: annualCompletionRate
+            }
+        }
 
         return NextResponse.json({
             calendar: calendarStats,
             table: tableData,
             periodLabel: format(selectedDate, 'yyyy年M月'),
-            fiscalYearLabel: fiscalYear ? fiscalYear.name : `${fyStart.getFullYear()}年度`,
+            fiscalYearLabel: fyForCompletion ? fyForCompletion.name : `${fyCompStart.getFullYear()}年度`,
             stats: {
                 currentMonth: currentMonthStats,
                 twoMonthsAgo: twoMonthsAgoStats,

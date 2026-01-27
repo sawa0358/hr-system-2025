@@ -557,8 +557,73 @@ export default function EvaluationsPage() {
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
+        {/* Stats Row - モバイルで折りたたみ */}
+        {/* Mobile: Collapsible */}
+        <div className="md:hidden">
+          <Collapsible>
+            <CollapsibleTrigger className="flex items-center justify-between w-full bg-slate-200 p-3 rounded-lg font-bold text-slate-700 text-sm [&[data-state=open]>svg]:rotate-180">
+              数値サマリー
+              <ChevronDown className="w-4 h-4 transition-transform duration-200" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="grid grid-cols-1 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
+                {/* Card 1: Current Month Contract */}
+                <div className="flex flex-col border-b last:border-0 border-slate-100">
+                  <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold">
+                    {data?.periodLabel || format(currentDate, 'yyyy年M月')}
+                  </div>
+                  <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
+                    <div className="text-center font-bold">契約達成額</div>
+                    <div className="text-center font-bold">契約目標額</div>
+                    <div className="text-center font-bold">達成率</div>
+                  </div>
+                  <div className="grid grid-cols-3 p-3 gap-2">
+                    <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">¥{f(stats.currentMonth.contract.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">{stats.currentMonth.contract.rate}%</div>
+                  </div>
+                </div>
+                {/* Card 2: Two Months Ago Completion */}
+                <div className="flex flex-col border-b last:border-0 border-slate-100">
+                  <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold flex justify-center items-center gap-2">
+                    {format(subMonths(currentDate, 2), 'yyyy年M月')}
+                    <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">確定した{format(subMonths(currentDate, 2), 'M月', { locale: ja })}分</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
+                    <div className="text-center font-bold">完工達成額</div>
+                    <div className="text-center font-bold">完工目標額</div>
+                    <div className="text-center font-bold">達成率</div>
+                  </div>
+                  <div className="grid grid-cols-3 p-3 gap-2">
+                    <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">¥{f(stats.twoMonthsAgo.completion.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">{stats.twoMonthsAgo.completion.rate}%</div>
+                  </div>
+                </div>
+                {/* Card 3: Fiscal Year Completion */}
+                <div className="flex flex-col">
+                  <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold flex justify-center items-center gap-2">
+                    {data?.fiscalYearLabel || '今年度'}
+                    <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">完工累計</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
+                    <div className="text-center font-bold">完工達成額</div>
+                    <div className="text-center font-bold">完工目標額</div>
+                    <div className="text-center font-bold">達成率</div>
+                  </div>
+                  <div className="grid grid-cols-3 p-3 gap-2">
+                    <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.achieved)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">¥{f(stats.fiscalYear.completion.target)}<span className="text-[10px] text-slate-500 ml-1">(千円)</span></div>
+                    <div className="text-center font-bold text-lg">{stats.fiscalYear.completion.rate}%</div>
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+
+        {/* Desktop: Always visible */}
+        <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-0 border rounded-lg overflow-hidden shadow-sm bg-white">
           {/* Card 1: Current Month Contract */}
           <div className="flex flex-col border-r last:border-0 border-slate-100">
             <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold">
@@ -579,7 +644,7 @@ export default function EvaluationsPage() {
           <div className="flex flex-col border-r last:border-0 border-slate-100">
             <div className="bg-[#0f172a] text-white text-center py-2 text-sm font-bold flex justify-center items-center gap-2">
               {format(subMonths(currentDate, 2), 'yyyy年M月')}
-              <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">確定: 2ヶ月前</Badge>
+              <Badge className="bg-slate-700 text-[10px] hover:bg-slate-700 border-0 h-5">確定した{format(subMonths(currentDate, 2), 'M月', { locale: ja })}分</Badge>
             </div>
             <div className="grid grid-cols-3 bg-[#1e293b] text-white text-[10px] py-1 px-2 border-b border-slate-700">
               <div className="text-center font-bold">完工達成額</div>

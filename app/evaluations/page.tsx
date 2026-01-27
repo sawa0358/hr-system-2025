@@ -232,6 +232,7 @@ export default function EvaluationsPage() {
 
   // ありがとうモーダルを開く
   const openThankyouModal = async (dateStr: string) => {
+    console.log('[openThankyouModal] Opening modal for:', dateStr)
     setThankyouModalDate(dateStr)
     setIsThankyouModalOpen(true)
     setLoadingThankyous(true)
@@ -239,11 +240,14 @@ export default function EvaluationsPage() {
       const teamParam = isStoreManager && currentUser?.personnelEvaluationTeamId
         ? `&teamId=${currentUser.personnelEvaluationTeamId}`
         : ''
-      const res = await fetch(`/api/evaluations/thankyous?date=${dateStr}${teamParam}`)
+      const url = `/api/evaluations/thankyous?date=${dateStr}${teamParam}`
+      console.log('[openThankyouModal] Fetching:', url)
+      const res = await fetch(url)
       const data = await res.json()
+      console.log('[openThankyouModal] Response:', data)
       setThankyouList(data.thankyous || [])
     } catch (e) {
-      console.error(e)
+      console.error('[openThankyouModal] Error:', e)
       setThankyouList([])
     } finally {
       setLoadingThankyous(false)

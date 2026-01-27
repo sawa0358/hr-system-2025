@@ -14,14 +14,24 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Date is required' }, { status: 400 })
         }
 
-        const targetDate = new Date(dateStr)
-        targetDate.setHours(0, 0, 0, 0)
+        // 日付範囲を作成（その日の0時から23時59分59秒まで）
+        const targetDateStart = new Date(dateStr)
+        targetDateStart.setHours(0, 0, 0, 0)
+        const targetDateEnd = new Date(dateStr)
+        targetDateEnd.setHours(23, 59, 59, 999)
+
+        console.log('[thankyous API] dateStr:', dateStr)
+        console.log('[thankyous API] targetDateStart:', targetDateStart.toISOString())
+        console.log('[thankyous API] targetDateEnd:', targetDateEnd.toISOString())
 
         // ありがとう送信アイテムを取得
         const thankYouItems = await prisma.personnelEvaluationSubmissionItem.findMany({
             where: {
                 submission: {
-                    date: targetDate,
+                    date: {
+                        gte: targetDateStart,
+                        lte: targetDateEnd
+                    },
                     ...(teamId ? {
                         employee: { personnelEvaluationTeamId: teamId }
                     } : {})
@@ -45,6 +55,8 @@ export async function GET(request: Request) {
                 }
             }
         })
+
+        console.log('[thankyous API] Found items:', thankYouItems.length)
 
         // 受信者のID一覧を取得
         const recipientIds = new Set<string>()

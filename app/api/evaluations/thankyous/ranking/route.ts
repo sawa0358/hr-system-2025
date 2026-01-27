@@ -24,7 +24,7 @@ export async function GET(request: Request) {
         // 評価対象の社員を取得
         const employeeFilter: any = {
             isPersonnelEvaluationTarget: true,
-            isActive: true
+            status: 'active'
         }
         if (teamId && teamId !== 'all') {
             employeeFilter.personnelEvaluationTeamId = teamId

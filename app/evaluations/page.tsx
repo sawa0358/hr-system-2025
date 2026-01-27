@@ -105,14 +105,63 @@ export default function EvaluationsPage() {
   const [rankingData, setRankingData] = useState<any[]>([])
   const [rankingTeams, setRankingTeams] = useState<any[]>([])
   const [loadingRanking, setLoadingRanking] = useState(false)
-  const [rankingPeriod, setRankingPeriod] = useState<DateRange | undefined>({
-    from: subMonths(new Date(), 1),
-    to: new Date()
-  })
+  const [rankingPeriod, setRankingPeriod] = useState<DateRange | undefined>(undefined)
   const [rankingTeamFilter, setRankingTeamFilter] = useState('all')
+  const [rankingFiscalYearLoaded, setRankingFiscalYearLoaded] = useState(false)
 
   const isAdminOrHr = currentUser?.role === 'admin' || currentUser?.role === 'hr'
   const isStoreManager = currentUser?.role === 'store_manager'
+
+  // 年度設定からランキングのデフォルト期間を取得
+  useEffect(() => {
+    if (!rankingFiscalYearLoaded) {
+      fetch('/api/evaluations/settings/fiscal-year')
+        .then(res => res.json())
+        .then(data => {
+          if (data.fiscalYears && data.fiscalYears.length > 0) {
+            // 現在の日付が含まれる年度を探す
+            const now = new Date()
+            const currentFy = data.fiscalYears.find((fy: any) => {
+              const start = new Date(fy.startDate)
+              const end = new Date(fy.endDate)
+              return now >= start && now <= end
+            })
+            if (currentFy) {
+              setRankingPeriod({
+                from: new Date(currentFy.startDate),
+                to: new Date(currentFy.endDate)
+              })
+            } else if (data.fiscalYears.length > 0) {
+              // 現在の年度が見つからない場合は最新の年度を使用
+              const latestFy = data.fiscalYears[0]
+              setRankingPeriod({
+                from: new Date(latestFy.startDate),
+                to: new Date(latestFy.endDate)
+              })
+            }
+          } else {
+            // 年度設定がない場合はデフォルト（今年度の4月〜3月）
+            const now = new Date()
+            const year = now.getFullYear()
+            const month = now.getMonth() + 1
+            const startYear = month >= 4 ? year : year - 1
+            setRankingPeriod({
+              from: new Date(startYear, 3, 1), // 4月1日
+              to: new Date(startYear + 1, 2, 31) // 3月31日
+            })
+          }
+          setRankingFiscalYearLoaded(true)
+        })
+        .catch(() => {
+          // エラー時はデフォルトで1ヶ月前〜今日
+          setRankingPeriod({
+            from: subMonths(new Date(), 1),
+            to: new Date()
+          })
+          setRankingFiscalYearLoaded(true)
+        })
+    }
+  }, [rankingFiscalYearLoaded])
 
   useEffect(() => {
     if (currentUser) {
@@ -149,6 +198,47 @@ export default function EvaluationsPage() {
         }
       } else {
         alert('削除に失敗しました')
+      }
+    } catch (e) {
+      console.error(e)
+      alert('エラーが発生しました')
+    }
+  }
+
+  const handleApproveSubmission = async (userId: string, date: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('この報告を承認しますか？')) return
+
+    try {
+      const res = await fetch('/api/evaluations/submissions/status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-employee-id': currentUser?.id || ''
+        },
+        body: JSON.stringify({
+          userId,
+          date,
+          status: 'approved'
+        })
+      })
+
+      if (res.ok) {
+        // Refresh data
+        const dateStr = format(currentDate, 'yyyy-MM-dd')
+        const teamParam = isStoreManager && currentUser?.personnelEvaluationTeamId
+          ? `&storeManagerTeamId=${currentUser.personnelEvaluationTeamId}`
+          : ''
+        const refreshRes = await fetch(`/api/evaluations/dashboard?date=${dateStr}${teamParam}`, {
+          headers: {
+            'x-employee-id': currentUser?.id || '',
+            'x-employee-role': currentUser?.role || ''
+          }
+        })
+        const d = await refreshRes.json()
+        setData(d)
+      } else {
+        alert('承認に失敗しました')
       }
     } catch (e) {
       console.error(e)
@@ -788,7 +878,28 @@ export default function EvaluationsPage() {
                           <div className="text-[10px] text-slate-400 font-bold">{item.team}</div>
                         </td>
                         <td className="px-4 py-4">
-                          <div className={cn("font-bold", item.status === '登録済' ? "text-slate-800" : "text-slate-400")}>{item.status}</div>
+                          <div className="flex items-center gap-2">
+                            <div className={cn("font-bold",
+                              item.status === '承認済み' ? "text-emerald-600" :
+                                item.status === '登録済' ? "text-slate-800" : "text-slate-400"
+                            )}>
+                              {item.status}
+                            </div>
+                            {item.status === '登録済' && isAdminOrHr && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-[10px] gap-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                onClick={(e) => handleApproveSubmission(item.id, format(currentDate, 'yyyy-MM-dd'), e)}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                承認
+                              </Button>
+                            )}
+                            {item.status === '承認済み' && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            )}
+                          </div>
                           <div className="text-[10px] text-slate-400">{item.statusDate}</div>
                         </td>
                         <td className="px-4 py-4">

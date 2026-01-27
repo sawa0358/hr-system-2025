@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url)
         const dateStr = searchParams.get('date')
-        const teamId = searchParams.get('teamId') // 店長用フィルタ
+        // teamIdパラメータは受け取るが使用しない（全社員のありがとうを表示）
 
         if (!dateStr) {
             return NextResponse.json({ error: 'Date is required' }, { status: 400 })
@@ -24,17 +24,14 @@ export async function GET(request: Request) {
         console.log('[thankyous API] targetDateStart:', targetDateStart.toISOString())
         console.log('[thankyous API] targetDateEnd:', targetDateEnd.toISOString())
 
-        // ありがとう送信アイテムを取得
+        // ありがとう送信アイテムを取得（チームフィルタなし：全社員のありがとうを表示）
         const thankYouItems = await prisma.personnelEvaluationSubmissionItem.findMany({
             where: {
                 submission: {
                     date: {
                         gte: targetDateStart,
                         lte: targetDateEnd
-                    },
-                    ...(teamId ? {
-                        employee: { personnelEvaluationTeamId: teamId }
-                    } : {})
+                    }
                 },
                 title: 'ありがとう送信'
             },

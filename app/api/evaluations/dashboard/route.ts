@@ -117,16 +117,14 @@ export async function GET(request: Request) {
         }
 
         // ありがとう送信アイテムの日付別カウント（管理者ダッシュボード用）
+        // 店長も含め全員のありがとうを表示（チームフィルタなし）
         const thankYouItems = await prisma.personnelEvaluationSubmissionItem.findMany({
             where: {
                 submission: {
                     date: {
                         gte: selectedMonthStart,
                         lte: selectedMonthEnd
-                    },
-                    ...(storeManagerTeamId ? {
-                        employee: { personnelEvaluationTeamId: storeManagerTeamId }
-                    } : {})
+                    }
                 },
                 title: 'ありがとう送信'
             },

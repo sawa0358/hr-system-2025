@@ -614,31 +614,6 @@ export default function EvaluationsPage() {
         {/* Settings Buttons for Admins */}
         {isAdminOrHr && (
           <div className="flex justify-end gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200 text-pink-700 hover:bg-pink-100 shadow-sm"
-              onClick={() => {
-                setIsRankingModalOpen(true)
-                // 初回ロード
-                if (rankingPeriod?.from && rankingPeriod?.to) {
-                  setLoadingRanking(true)
-                  const start = format(rankingPeriod.from, 'yyyy-MM-dd')
-                  const end = format(rankingPeriod.to, 'yyyy-MM-dd')
-                  fetch(`/api/evaluations/thankyous/ranking?startDate=${start}&endDate=${end}&teamId=${rankingTeamFilter}`)
-                    .then(res => res.json())
-                    .then(data => {
-                      setRankingData(data.ranking || [])
-                      setRankingTeams(data.teams || [])
-                      setLoadingRanking(false)
-                    })
-                    .catch(() => setLoadingRanking(false))
-                }
-              }}
-            >
-              <Medal className="w-4 h-4" />
-              ありがとうランキング
-            </Button>
             <Link href="/evaluations/settings/fiscal-year">
               <Button variant="outline" size="sm" className="gap-2 bg-white shadow-sm">
                 <CalendarIcon className="w-4 h-4 text-emerald-600" />
@@ -665,6 +640,33 @@ export default function EvaluationsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-6">
             {/* Left Sidebar: Calendar */}
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 space-y-4 lg:sticky lg:top-4 relative">
+              {/* ありがとうランキングボタン */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200 text-pink-700 hover:bg-pink-100 shadow-sm"
+                onClick={() => {
+                  setIsRankingModalOpen(true)
+                  // 初回ロード
+                  if (rankingPeriod?.from && rankingPeriod?.to) {
+                    setLoadingRanking(true)
+                    const start = format(rankingPeriod.from, 'yyyy-MM-dd')
+                    const end = format(rankingPeriod.to, 'yyyy-MM-dd')
+                    fetch(`/api/evaluations/thankyous/ranking?startDate=${start}&endDate=${end}&teamId=${rankingTeamFilter}`)
+                      .then(res => res.json())
+                      .then(data => {
+                        setRankingData(data.ranking || [])
+                        setRankingTeams(data.teams || [])
+                        setLoadingRanking(false)
+                      })
+                      .catch(() => setLoadingRanking(false))
+                  }
+                }}
+              >
+                <Medal className="w-4 h-4" />
+                ありがとうランキング
+              </Button>
+
               <div className="flex items-center justify-between gap-2 p-1 flex-row lg:flex-col lg:items-stretch lg:gap-3">
                 <div className="flex items-center gap-1">
                   <Select value={format(currentDate, 'yyyy')} onValueChange={(v) => {

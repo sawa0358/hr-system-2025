@@ -747,7 +747,7 @@ export default function EvaluationEntryPage() {
                 <div className="bg-slate-900 text-white p-4">
                     <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
                         {format(parseISO(dateStr), 'yyyy年M月', { locale: ja })}
-                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">{teamName || 'チーム未設定'}</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
                         <div>契約達成額</div>
@@ -765,7 +765,7 @@ export default function EvaluationEntryPage() {
                     <div className="flex items-center justify-center gap-2 font-bold mb-4 text-base bg-slate-800 py-1 rounded">
                         2025年11月
                         <Badge variant="secondary" className="text-[10px] bg-slate-600 text-slate-200">確定: 2ヶ月前</Badge>
-                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">チーム全体</Badge>
+                        <Badge variant="secondary" className="text-[10px] bg-indigo-500 text-white border-indigo-400">{teamName || 'チーム未設定'}</Badge>
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-400 mb-1">
                         <div>完工達成額</div>
@@ -949,7 +949,7 @@ export default function EvaluationEntryPage() {
                 <div className="lg:hidden space-y-4 mb-6">
                     <Collapsible>
                         <CollapsibleTrigger className="flex items-center justify-between w-full bg-slate-200 p-3 rounded-lg font-bold text-slate-700 text-sm [&[data-state=open]>svg]:rotate-180">
-                            チーム全体数値
+                            {teamName ? `${teamName}の数値` : 'チーム数値'}
                             <ChevronDown className="w-4 h-4 transition-transform duration-200" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2">
@@ -1122,7 +1122,7 @@ export default function EvaluationEntryPage() {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             {/* Thank You Section - Fixed Bottom in Sticky Sidebar */}
                             <div className="hidden lg:block p-3 pt-4 border-t border-slate-200 bg-white shrink-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] max-h-[40vh] overflow-y-auto custom-scrollbar">
                                 {renderThankYouSection()}
@@ -1253,107 +1253,107 @@ export default function EvaluationEntryPage() {
                             </CollapsibleTrigger>
                             <CollapsibleContent>
                                 <div className="grid grid-cols-2 gap-4 pt-2">
-                                {items.filter(i => i.type === 'photo').map((item, idx) => {
-                                    const photoIndex = items.findIndex(it => it.id === item.id)
-                                    return (
-                                        <Card
-                                            key={item.id}
-                                            className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden"
-                                            onDragOver={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                            }}
-                                            onDrop={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                                if (!canEdit) return
+                                    {items.filter(i => i.type === 'photo').map((item, idx) => {
+                                        const photoIndex = items.findIndex(it => it.id === item.id)
+                                        return (
+                                            <Card
+                                                key={item.id}
+                                                className="border-dashed border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors overflow-hidden"
+                                                onDragOver={(e) => {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                    if (!canEdit) return
 
-                                                const file = e.dataTransfer.files?.[0]
-                                                if (file && file.type.startsWith('image/')) {
-                                                    const reader = new FileReader()
-                                                    reader.onload = (ev) => {
-                                                        const newItems = [...items]
-                                                        newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
-                                                        setItems(newItems)
+                                                    const file = e.dataTransfer.files?.[0]
+                                                    if (file && file.type.startsWith('image/')) {
+                                                        const reader = new FileReader()
+                                                        reader.onload = (ev) => {
+                                                            const newItems = [...items]
+                                                            newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
+                                                            setItems(newItems)
+                                                        }
+                                                        reader.readAsDataURL(file)
                                                     }
-                                                    reader.readAsDataURL(file)
-                                                }
-                                            }}
-                                        >
-                                            <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative group">
-                                                {/* Mandatory Badge */}
-                                                {item.mandatory && (
-                                                    <div className="absolute top-2 left-2 z-10">
-                                                        <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>
-                                                    </div>
-                                                )}
+                                                }}
+                                            >
+                                                <CardContent className="p-4 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px] relative group">
+                                                    {/* Mandatory Badge */}
+                                                    {item.mandatory && (
+                                                        <div className="absolute top-2 left-2 z-10">
+                                                            <Badge variant="outline" className="text-[9px] text-red-500 border-red-200 bg-red-50 px-1 py-0 h-4 leading-none flex items-center">必須</Badge>
+                                                        </div>
+                                                    )}
 
-                                                {item.photoUrl ? (
-                                                    <div className="w-full space-y-2">
-                                                        <div className="relative">
-                                                            <img src={item.photoUrl} alt={item.title} className="w-full h-32 object-cover rounded shadow-sm" />
-                                                            <Button
-                                                                size="sm"
-                                                                variant="destructive"
-                                                                className="absolute top-2 right-2 h-6 px-2 text-xs opacity-80 hover:opacity-100"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation()
+                                                    {item.photoUrl ? (
+                                                        <div className="w-full space-y-2">
+                                                            <div className="relative">
+                                                                <img src={item.photoUrl} alt={item.title} className="w-full h-32 object-cover rounded shadow-sm" />
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="destructive"
+                                                                    className="absolute top-2 right-2 h-6 px-2 text-xs opacity-80 hover:opacity-100"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        const newItems = [...items]
+                                                                        newItems[photoIndex] = { ...item, photoUrl: null, photoComment: '' } // Clear url and comment
+                                                                        setItems(newItems)
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="w-3 h-3 mr-1" /> 削除
+                                                                </Button>
+                                                            </div>
+                                                            <Input
+                                                                value={item.photoComment || ''}
+                                                                onChange={(e) => {
                                                                     const newItems = [...items]
-                                                                    newItems[photoIndex] = { ...item, photoUrl: null, photoComment: '' } // Clear url and comment
+                                                                    newItems[photoIndex] = { ...item, photoComment: e.target.value }
                                                                     setItems(newItems)
                                                                 }}
-                                                            >
-                                                                <Trash2 className="w-3 h-3 mr-1" /> 削除
-                                                            </Button>
+                                                                placeholder="コメントを入力..."
+                                                                className="text-xs h-8 bg-white"
+                                                                disabled={!canEdit}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
                                                         </div>
-                                                        <Input
-                                                            value={item.photoComment || ''}
-                                                            onChange={(e) => {
-                                                                const newItems = [...items]
-                                                                newItems[photoIndex] = { ...item, photoComment: e.target.value }
-                                                                setItems(newItems)
-                                                            }}
-                                                            placeholder="コメントを入力..."
-                                                            className="text-xs h-8 bg-white"
-                                                            disabled={!canEdit}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        />
-                                                    </div>
-                                                ) : (
-                                                    <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full py-4">
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            capture="environment"
-                                                            className="hidden"
-                                                            disabled={!canEdit}
-                                                            onChange={async (e) => {
-                                                                const file = e.target.files?.[0]
-                                                                if (!file) return
-                                                                // Convert to base64
-                                                                const reader = new FileReader()
-                                                                reader.onload = (ev) => {
-                                                                    const newItems = [...items]
-                                                                    newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
-                                                                    setItems(newItems)
-                                                                }
-                                                                reader.readAsDataURL(file)
-                                                            }}
-                                                        />
-                                                        <Camera className="w-8 h-8 opacity-50 mb-2" />
-                                                        <span className="text-xs font-bold text-slate-600">{item.title}</span>
-                                                        <span className="text-[10px] text-slate-400 mt-1">タップして撮影・ドロップ</span>
-                                                        {item.points > 0 && <span className="text-[10px] text-blue-500 font-bold mt-1">+{item.points}pt</span>}
-                                                    </label>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })}
-                                {items.filter(i => i.type === 'photo').length === 0 && (
-                                    <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
-                                )}
-                            </div>
+                                                    ) : (
+                                                        <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full py-4">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                capture="environment"
+                                                                className="hidden"
+                                                                disabled={!canEdit}
+                                                                onChange={async (e) => {
+                                                                    const file = e.target.files?.[0]
+                                                                    if (!file) return
+                                                                    // Convert to base64
+                                                                    const reader = new FileReader()
+                                                                    reader.onload = (ev) => {
+                                                                        const newItems = [...items]
+                                                                        newItems[photoIndex] = { ...item, photoUrl: ev.target?.result as string }
+                                                                        setItems(newItems)
+                                                                    }
+                                                                    reader.readAsDataURL(file)
+                                                                }}
+                                                            />
+                                                            <Camera className="w-8 h-8 opacity-50 mb-2" />
+                                                            <span className="text-xs font-bold text-slate-600">{item.title}</span>
+                                                            <span className="text-[10px] text-slate-400 mt-1">タップして撮影・ドロップ</span>
+                                                            {item.points > 0 && <span className="text-[10px] text-blue-500 font-bold mt-1">+{item.points}pt</span>}
+                                                        </label>
+                                                    )}
+                                                </CardContent>
+                                            </Card>
+                                        )
+                                    })}
+                                    {items.filter(i => i.type === 'photo').length === 0 && (
+                                        <div className="col-span-2 text-sm text-slate-400 italic">写真項目の設定はありません</div>
+                                    )}
+                                </div>
                             </CollapsibleContent>
                         </Collapsible>
 

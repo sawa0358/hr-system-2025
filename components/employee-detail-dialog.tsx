@@ -38,6 +38,7 @@ type PendingVerificationAction =
   | { type: "employment-type" }
   | { type: "status-change" }
   | { type: "personnel-evaluation" }
+  | { type: "reno-crm" }
 
 interface EmployeeDetailDialogProps {
   open: boolean
@@ -277,6 +278,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       description: employee?.description || '',
       parentEmployeeId: employee?.parentEmployeeId || null,
       isPersonnelEvaluationTarget: employee?.isPersonnelEvaluationTarget ?? false,
+      isRenoCrmUser: employee?.isRenoCrmUser ?? false,
     }
     console.log('formData初期化:', initialData)
     console.log('employee.isSuspended:', employee?.isSuspended)
@@ -292,7 +294,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         isSuspended: latestEmployee.isSuspended ?? false,
         employeeType: latestEmployee.employeeType || '正社員',
         description: latestEmployee.description || '',
-        isPersonnelEvaluationTarget: latestEmployee.isPersonnelEvaluationTarget ?? false
+        isPersonnelEvaluationTarget: latestEmployee.isPersonnelEvaluationTarget ?? false,
+        isRenoCrmUser: latestEmployee.isRenoCrmUser ?? false
       }))
       console.log('formData更新 - isSuspended:', latestEmployee.isSuspended)
       console.log('formData更新 - employeeType:', latestEmployee.employeeType)
@@ -655,6 +658,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [isEmploymentTypeEditingEnabled, setIsEmploymentTypeEditingEnabled] = useState(isNewEmployee)
   const [isStatusEditingEnabled, setIsStatusEditingEnabled] = useState(isNewEmployee)
   const [isPersonnelEvaluationEditingEnabled, setIsPersonnelEvaluationEditingEnabled] = useState(isNewEmployee)
+  const [isRenoCrmEditingEnabled, setIsRenoCrmEditingEnabled] = useState(isNewEmployee)
   const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false)
   const [pendingVerificationAction, setPendingVerificationAction] = useState<PendingVerificationAction | null>(null)
   const [saving, setSaving] = useState(false)
@@ -671,6 +675,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setIsEmploymentTypeEditingEnabled(!requiresJoinDateVerification)
       setIsStatusEditingEnabled(!requiresJoinDateVerification)
       setIsPersonnelEvaluationEditingEnabled(!requiresJoinDateVerification)
+      setIsRenoCrmEditingEnabled(!requiresJoinDateVerification)
     }
   }, [open, requiresJoinDateVerification])
 
@@ -1610,6 +1615,19 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     setIsVerificationDialogOpen(true)
   }
 
+  const handleRequestRenoCrmEdit = () => {
+    if (
+      !requiresJoinDateVerification ||
+      isRenoCrmEditingEnabled ||
+      isAllInputDisabled ||
+      !canEditUserInfo
+    ) {
+      return
+    }
+    setPendingVerificationAction({ type: "reno-crm" })
+    setIsVerificationDialogOpen(true)
+  }
+
   const handleJoinDateInputInteraction = (
     event: React.MouseEvent<HTMLInputElement> | React.FocusEvent<HTMLInputElement>
   ) => {
@@ -1648,6 +1666,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setIsStatusEditingEnabled(true)
     } else if (pendingVerificationAction?.type === "personnel-evaluation") {
       setIsPersonnelEvaluationEditingEnabled(true)
+    } else if (pendingVerificationAction?.type === "reno-crm") {
+      setIsRenoCrmEditingEnabled(true)
     }
     setPendingVerificationAction(null)
   }
@@ -1825,6 +1845,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                             />
                           </div>
                         )}
+
+                        {/* Reno_CRM対象者設定 - 削除済み */}
                       </div>
                       <div className="col-span-2 space-y-2">
                         {!isNewEmployee && (
@@ -2033,6 +2055,46 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                       <p className="text-xs text-slate-500">※ 変更するにはログインパスワードの入力が必要です</p>
                     )}
                   </div>
+
+                  {/* Reno_CRM対象者設定 */}
+                  {isAdminOrHR && (
+                    <div className="space-y-2 mt-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Label>Reno_CRM対象者</Label>
+                          {requiresJoinDateVerification && canEditUserInfo && (
+                            isRenoCrmEditingEnabled ? (
+                              <span className="text-xs text-emerald-600">認証済み</span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={handleRequestRenoCrmEdit}
+                                className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-sm"
+                              >
+                                <Lock className="w-4 h-4 text-amber-600 cursor-pointer" />
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">ONにするとReno_CRMシステムと連携されます</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Switch
+                          checked={formData.isRenoCrmUser}
+                          onCheckedChange={(checked) => setFormData({ ...formData, isRenoCrmUser: checked })}
+                          className="data-[state=checked]:bg-blue-600"
+                          disabled={
+                            isAllInputDisabled ||
+                            (requiresJoinDateVerification && !isRenoCrmEditingEnabled)
+                          }
+                        />
+                        <span className="text-sm">対象者とする</span>
+                      </div>
+                      {requiresJoinDateVerification && !isRenoCrmEditingEnabled && canEditUserInfo && (
+                        <p className="text-xs text-slate-500">※ 変更するにはログインパスワードの入力が必要です</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

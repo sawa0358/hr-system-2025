@@ -301,7 +301,7 @@ export function RewardManagerModal({
   }
 
   const handleApplyPreset = async (preset: RewardPreset) => {
-    if (!confirm(`「${preset.description}」(¥${preset.amount.toLocaleString()}) を今月の報酬に追加しますか？`)) return
+    if (!confirm(`「${preset.description}」(${preset.amount < 0 ? `-¥${Math.abs(preset.amount).toLocaleString()}` : `¥${preset.amount.toLocaleString()}`}) を今月の報酬に追加しますか？`)) return
 
     if (!currentUser?.id) {
       toast.error('ログインが必要です。再度ログインしてください。')
@@ -420,11 +420,12 @@ export function RewardManagerModal({
                     <Input
                       id="amount"
                       type="number"
-                      placeholder="例: 5000"
+                      placeholder="例: 5000 / -1000"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       required
                     />
+                    <p className="text-xs text-muted-foreground">※ マイナス値で差引（控除）になります</p>
                   </div>
                 </div>
                 <div className="grid gap-2">
@@ -458,15 +459,20 @@ export function RewardManagerModal({
                   </div>
                 ) : (
                   rewards.map((reward) => (
-                    <div key={reward.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
+                    <div key={reward.id} className={`flex items-center justify-between p-3 rounded-lg border group ${reward.amount < 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50'}`}>
                       <div className="min-w-0 flex-1 mr-4">
-                        <div className="text-sm font-medium truncate">{reward.description}</div>
+                        <div className="text-sm font-medium truncate">
+                          {reward.amount < 0 && <span className="text-red-500 mr-1">▲</span>}
+                          {reward.description}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {new Date(reward.date).toLocaleDateString()}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-sm">¥{reward.amount.toLocaleString()}</span>
+                        <span className={`font-bold text-sm ${reward.amount < 0 ? 'text-red-600' : ''}`}>
+                          {reward.amount < 0 ? `-¥${Math.abs(reward.amount).toLocaleString()}` : `¥${reward.amount.toLocaleString()}`}
+                        </span>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -484,9 +490,14 @@ export function RewardManagerModal({
             </div>
             <div className="pt-2 border-t flex justify-between items-center shrink-0">
               <span className="font-semibold text-sm">合計</span>
-              <span className="font-bold text-lg">
-                ¥{rewards.reduce((acc, r) => acc + r.amount, 0).toLocaleString()}
-              </span>
+              {(() => {
+                const total = rewards.reduce((acc, r) => acc + r.amount, 0)
+                return (
+                  <span className={`font-bold text-lg ${total < 0 ? 'text-red-600' : ''}`}>
+                    {total < 0 ? `-¥${Math.abs(total).toLocaleString()}` : `¥${total.toLocaleString()}`}
+                  </span>
+                )
+              })()}
             </div>
           </TabsContent>
 
@@ -513,7 +524,7 @@ export function RewardManagerModal({
                     <Input
                       id="p-amount"
                       type="number"
-                      placeholder="金額"
+                      placeholder="例: 5000 / -1000"
                       value={presetAmount}
                       onChange={(e) => setPresetAmount(e.target.value)}
                       required
@@ -539,9 +550,12 @@ export function RewardManagerModal({
                     </Button>
                   </div>
                   {presets.map((preset) => (
-                    <div key={preset.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group">
+                    <div key={preset.id} className={`flex items-center justify-between p-3 rounded-lg border group ${preset.amount < 0 ? 'bg-red-50 border-red-200' : 'bg-slate-50'}`}>
                       <div className="min-w-0 flex-1 mr-4">
-                        <div className="text-sm font-medium truncate">{preset.description}</div>
+                        <div className="text-sm font-medium truncate">
+                          {preset.amount < 0 && <span className="text-red-500 mr-1">▲</span>}
+                          {preset.description}
+                        </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Switch
                             checked={preset.isEnabled}
@@ -555,7 +569,9 @@ export function RewardManagerModal({
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-sm mr-2">¥{preset.amount.toLocaleString()}</span>
+                        <span className={`font-bold text-sm mr-2 ${preset.amount < 0 ? 'text-red-600' : ''}`}>
+                          {preset.amount < 0 ? `-¥${Math.abs(preset.amount).toLocaleString()}` : `¥${preset.amount.toLocaleString()}`}
+                        </span>
                         <Button
                           variant="secondary"
                           size="sm"

@@ -162,7 +162,7 @@ function calculatePatternBreakdowns(
 
   // 特別報酬（集計のみ、明細は従来通り別枠で表示）
   const rewardAmount = rewards.reduce((acc, r) => acc + r.amount, 0)
-  if (rewardAmount > 0) {
+  if (rewardAmount !== 0) {
     breakdowns.push({
       label: '特別報酬・経費',
       rate: rewardAmount,
@@ -299,7 +299,9 @@ export function generatePDFContent(
           const d = new Date(r.date);
           dateStr = `${d.getMonth() + 1}/${d.getDate()}`;
         }
-        return `<span style="font-size: 10px; color: #555; margin-right: 12px;">・${dateStr ? `(${dateStr}) ` : ''}${r.description || '報酬'}: ¥${r.amount.toLocaleString()}</span>`;
+        const amountStr = r.amount < 0 ? `-¥${Math.abs(r.amount).toLocaleString()}` : `¥${r.amount.toLocaleString()}`;
+        const amountColor = r.amount < 0 ? 'color: #c00;' : 'color: #555;';
+        return `<span style="font-size: 10px; ${amountColor} margin-right: 12px;">・${dateStr ? `(${dateStr}) ` : ''}${r.description || '報酬'}: ${amountStr}</span>`;
       }).join('');
 
       return `
@@ -311,7 +313,7 @@ export function generatePDFContent(
               </div>
               <div style="display: flex; flex-wrap: wrap;">${rewardDetailsHtml}</div>
             </div>
-            <span style="font-weight: bold; white-space: nowrap; margin-left: 16px;">¥${item.amount.toLocaleString()}</span>
+            <span style="font-weight: bold; white-space: nowrap; margin-left: 16px;${item.amount < 0 ? ' color: #c00;' : ''}">${item.amount < 0 ? `-¥${Math.abs(item.amount).toLocaleString()}` : `¥${item.amount.toLocaleString()}`}</span>
           </div>
         </div>
       `;

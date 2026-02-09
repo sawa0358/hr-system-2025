@@ -154,6 +154,9 @@ export default function SettingsPage() {
     role: 'worker' as 'admin' | 'worker',
     notes: '',
     transferDestination: '',
+    // インボイス経過措置
+    invoiceUnregistered: false,
+    invoiceAdjustmentRate: '',
     // 消費税設定
     billingTaxEnabled: false,
     billingTaxRate: '',
@@ -430,6 +433,8 @@ export default function SettingsPage() {
       role: 'worker',
       notes: '',
       transferDestination: '',
+      invoiceUnregistered: false,
+      invoiceAdjustmentRate: '',
       billingTaxEnabled: false,
       billingTaxRate: '',
       taxType: 'exclusive',
@@ -519,40 +524,46 @@ export default function SettingsPage() {
             wagePatternLabelA: wageLabels.A,
             wagePatternLabelB: wageLabels.B,
             wagePatternLabelC: wageLabels.C,
-            // 追加の時給パターン金額をDBに保存
+            // 追加の時給パターン金額をDBに保存（空欄は null を送信して DB を null に更新）
             hourlyRateB:
               formData.hourlyRatePatternB !== ''
                 ? Number(formData.hourlyRatePatternB)
-                : undefined,
+                : null,
             hourlyRateC:
               formData.hourlyRatePatternC !== ''
                 ? Number(formData.hourlyRatePatternC)
-                : undefined,
+                : null,
             // 回数パターン名（ラベル）をDBに保存
             countPatternLabelA: countLabels.A,
             countPatternLabelB: countLabels.B,
             countPatternLabelC: countLabels.C,
-            // 回数パターン金額をDBに保存
+            // 回数パターン金額をDBに保存（空欄は null を送信して DB を null に更新）
             countRateA:
               formData.countRateA !== ''
                 ? Number(formData.countRateA)
-                : undefined,
+                : null,
             countRateB:
               formData.countRateB !== ''
                 ? Number(formData.countRateB)
-                : undefined,
+                : null,
             countRateC:
               formData.countRateC !== ''
                 ? Number(formData.countRateC)
-                : undefined,
-            // 月額固定金額をDBに保存（0 または空なら未設定）
+                : null,
+            // 月額固定金額をDBに保存（空欄は null を送信して DB を null に更新）
             monthlyFixedAmount:
               formData.monthlyFixedAmount !== ''
                 ? Number(formData.monthlyFixedAmount)
-                : undefined,
+                : null,
             monthlyFixedEnabled:
               formData.monthlyFixedAmount !== '' &&
               Number(formData.monthlyFixedAmount) > 0,
+            // インボイス経過措置
+            invoiceUnregistered: formData.invoiceUnregistered,
+            invoiceAdjustmentRate:
+              formData.invoiceUnregistered && formData.invoiceAdjustmentRate !== ''
+                ? Number(formData.invoiceAdjustmentRate)
+                : null,
             billingTaxEnabled: formData.billingTaxEnabled,
             billingTaxRate: taxRateValue,
             taxType: formData.taxType,
@@ -644,6 +655,12 @@ export default function SettingsPage() {
           monthlyFixedEnabled:
             formData.monthlyFixedAmount !== '' &&
             Number(formData.monthlyFixedAmount) > 0,
+          // インボイス経過措置
+          invoiceUnregistered: formData.invoiceUnregistered,
+          invoiceAdjustmentRate:
+            formData.invoiceUnregistered && formData.invoiceAdjustmentRate !== ''
+              ? Number(formData.invoiceAdjustmentRate)
+              : undefined,
           billingTaxEnabled: formData.billingTaxEnabled,
           billingTaxRate: taxRateValue,
           taxType: formData.taxType,
@@ -763,6 +780,11 @@ export default function SettingsPage() {
       notes: worker.notes || '',
       transferDestination: worker.transferDestination || '',
       employeeId: worker.employeeId || '',
+      invoiceUnregistered: (worker as any).invoiceUnregistered ?? false,
+      invoiceAdjustmentRate:
+        typeof (worker as any).invoiceAdjustmentRate === 'number'
+          ? String((worker as any).invoiceAdjustmentRate)
+          : '',
       billingTaxEnabled: worker.billingTaxEnabled ?? false,
       billingTaxRate:
         typeof worker.billingTaxRate === 'number'
@@ -1486,6 +1508,70 @@ export default function SettingsPage() {
                           placeholder="〒000-0000 東京都..."
                           disabled={!isWorkerEditUnlocked}
                         />
+                      </div>
+
+                      {/* インボイス経過措置 */}
+                      <div className="grid gap-3 rounded-lg border border-dashed border-orange-200 bg-orange-50/50 p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <Label className="text-sm">インボイス経過措置</Label>
+                            <p className="text-xs text-muted-foreground">
+                              適格請求書未登録の場合、消費税相当額の一定割合を報酬から差し引きます。
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Switch
+                              checked={formData.invoiceUnregistered}
+                              onCheckedChange={(checked) =>
+                                setFormData({
+                                  ...formData,
+                                  invoiceUnregistered: checked,
+                                  // ONにした時にデフォルト値を設定
+                                  invoiceAdjustmentRate: checked && formData.invoiceAdjustmentRate === '' ? '20' : formData.invoiceAdjustmentRate,
+                                })
+                              }
+                              disabled={!isWorkerEditUnlocked}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {formData.invoiceUnregistered ? '未登録' : '登録済'}
+                            </span>
+                          </div>
+                        </div>
+                        {formData.invoiceUnregistered && (
+                          <div className="grid grid-cols-[120px,1fr] items-center gap-3">
+                            <Label
+                              htmlFor="invoiceAdjustmentRate"
+                              className="text-xs text-muted-foreground"
+                            >
+                              控除率（%）
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id="invoiceAdjustmentRate"
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={formData.invoiceAdjustmentRate}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    invoiceAdjustmentRate: e.target.value,
+                                  })
+                                }
+                                placeholder="例: 20"
+                                disabled={!isWorkerEditUnlocked}
+                                className="max-w-[120px]"
+                              />
+                              <span className="text-xs text-muted-foreground">%</span>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-[11px] text-orange-600">
+                                ※ 税額の{formData.invoiceAdjustmentRate || '??'}%を報酬から差し引きます（2026年9月まで20%、2026年10月から50%）
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* 請求・消費税設定 */}
@@ -2325,6 +2411,24 @@ export default function SettingsPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* インボイス経過措置 */}
+                      {(viewingWorker as any).invoiceUnregistered && (
+                        <div className="grid gap-3 rounded-lg border border-dashed border-orange-200 bg-orange-50/50 p-4">
+                          <Label className="text-sm font-medium">インボイス経過措置</Label>
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <p className="text-sm">適格請求書未登録</p>
+                              <p className="text-xs text-muted-foreground">
+                                消費税相当額の{(viewingWorker as any).invoiceAdjustmentRate ?? '-'}%を報酬から差し引き
+                              </p>
+                            </div>
+                            <Badge variant="destructive" className="bg-orange-500">
+                              控除率 {(viewingWorker as any).invoiceAdjustmentRate ?? '-'}%
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
 
                       {/* 請求・消費税設定 */}
                       <div className="grid gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">

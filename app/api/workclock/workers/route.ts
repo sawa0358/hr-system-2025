@@ -224,6 +224,9 @@ export async function POST(request: NextRequest) {
       countRateC,
       monthlyFixedAmount,
       monthlyFixedEnabled,
+      // インボイス経過措置
+      invoiceUnregistered,
+      invoiceAdjustmentRate,
       teams,
       role,
       notes,
@@ -328,6 +331,14 @@ export async function POST(request: NextRequest) {
             ? parseInt(monthlyFixedAmount, 10)
             : undefined,
         monthlyFixedEnabled: monthlyFixedEnabled ?? false,
+        // インボイス経過措置
+        invoiceUnregistered: invoiceUnregistered ?? false,
+        invoiceAdjustmentRate:
+          invoiceAdjustmentRate !== undefined &&
+            invoiceAdjustmentRate !== null &&
+            Number.isFinite(Number(invoiceAdjustmentRate))
+            ? Number(invoiceAdjustmentRate)
+            : null,
         billingTaxEnabled: billingTaxEnabled ?? false,
         billingTaxRate:
           billingTaxRate !== undefined &&

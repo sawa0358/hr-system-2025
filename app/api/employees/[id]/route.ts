@@ -449,6 +449,7 @@ export async function PUT(
       isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
       retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
       isPersonnelEvaluationTarget: body.isPersonnelEvaluationTarget !== undefined ? body.isPersonnelEvaluationTarget : false,
+      isRenoCrmUser: body.isRenoCrmUser !== undefined ? body.isRenoCrmUser : false,
       orgChartLabel: (() => {
         if (body.orgChartLabel === undefined) {
           return undefined;
@@ -502,6 +503,7 @@ export async function PUT(
       'privacyPosition', 'privacyUrl', 'privacyAddress', 'privacyBio', 'privacyEmail',
       'privacyWorkPhone', 'privacyExtension', 'privacyMobilePhone', 'privacyBirthDate',
       'orgChartLabel', 'orgChartOrder', 'description', 'employeeNumber', 'employeeType', 'employeeId', 'isPersonnelEvaluationTarget',
+      'isRenoCrmUser',
       // 有給管理用フィールド
       'employmentType', 'weeklyPattern', 'configVersion', 'vacationPattern'
     ];

@@ -83,6 +83,7 @@ export async function GET() {
               isInvisibleTop: true,
               avatar: true,
               isPersonnelEvaluationTarget: true,
+              isRenoCrmUser: true,
               orgChartLabel: true,
               createdAt: true,
               updatedAt: true,
@@ -398,6 +399,7 @@ export async function POST(request: NextRequest) {
         })(),
         showInOrgChart: body.showInOrgChart !== undefined ? body.showInOrgChart : true,
         isSuspended: body.isSuspended !== undefined ? body.isSuspended : false,
+        isRenoCrmUser: body.isRenoCrmUser !== undefined ? body.isRenoCrmUser : false,
         retirementDate: body.retirementDate ? new Date(body.retirementDate) : null,
         // 公開設定（デフォルトは全て公開）
         privacyDisplayName: body.privacyDisplayName !== undefined ? body.privacyDisplayName : true,

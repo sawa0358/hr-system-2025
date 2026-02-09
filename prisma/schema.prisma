@@ -107,6 +107,8 @@ model Employee {
   orgChartOrder         Int?
   description           String?
   
+  isRenoCrmUser         Boolean           @default(false) // Reno_CRM対象者かどうか
+
   // 有給管理用フィールド
   employmentType        EmploymentType?  // 雇用形態（FULL_TIME or PART_TIME）
   weeklyPattern         Int?             // 週の所定勤務日数（1-4、PART_TIMEのみ必須）
@@ -829,6 +831,9 @@ model WorkClockWorker {
   // 月額固定（金額とON/OFF）
   monthlyFixedAmount     Int?
   monthlyFixedEnabled    Boolean  @default(false)
+  // インボイス経過措置（適格請求書未登録者向け）
+  invoiceUnregistered    Boolean  @default(false) // 適格請求書未登録フラグ
+  invoiceAdjustmentRate  Float?                   // 経過措置の控除率（例: 20, 50）
   // 消費税設定
   billingTaxEnabled      Boolean  @default(false) // 消費税を請求に反映するか
   billingTaxRate         Float?                // 個別の消費税率（例: 10.0）。未設定時は標準税率を使用

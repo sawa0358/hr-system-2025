@@ -191,6 +191,9 @@ export async function PUT(
       countRateC,
       monthlyFixedAmount,
       monthlyFixedEnabled,
+      // インボイス経過措置
+      invoiceUnregistered,
+      invoiceAdjustmentRate,
       teams,
       role,
       notes,
@@ -262,13 +265,26 @@ export async function PUT(
               ? parseFloat(countRateC)
               : undefined,
         monthlyFixedAmount:
-          monthlyFixedAmount !== undefined && monthlyFixedAmount !== null
-            ? parseInt(monthlyFixedAmount, 10)
-            : undefined,
+          monthlyFixedAmount === null
+            ? null
+            : monthlyFixedAmount !== undefined
+              ? parseInt(monthlyFixedAmount, 10)
+              : undefined,
         monthlyFixedEnabled:
           monthlyFixedEnabled !== undefined && monthlyFixedEnabled !== null
             ? Boolean(monthlyFixedEnabled)
             : undefined,
+        // インボイス経過措置
+        invoiceUnregistered:
+          invoiceUnregistered !== undefined && invoiceUnregistered !== null
+            ? Boolean(invoiceUnregistered)
+            : undefined,
+        invoiceAdjustmentRate:
+          invoiceAdjustmentRate === null
+            ? null
+            : invoiceAdjustmentRate !== undefined && Number.isFinite(Number(invoiceAdjustmentRate))
+              ? Number(invoiceAdjustmentRate)
+              : undefined,
         billingTaxEnabled:
           billingTaxEnabled !== undefined && billingTaxEnabled !== null
             ? Boolean(billingTaxEnabled)

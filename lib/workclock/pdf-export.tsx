@@ -226,7 +226,7 @@ export function generatePDFContent(
     .reduce((sum, b) => sum + b.amount, 0);
   const baseAmountBeforeTax = subtotalWithholding + subtotalNonWithholding;
 
-  // 3. 消費税計算
+  // 3. 消費税設定の取得
   const billingTaxEnabled: boolean = (worker as any).billingTaxEnabled ?? false;
   const workerTaxRateRaw = (worker as any).billingTaxRate;
   const taxType: 'exclusive' | 'inclusive' = (worker as any).taxType || 'exclusive';
@@ -251,18 +251,43 @@ export function generatePDFContent(
     subtotalNonWithholdingExclTax = subtotalNonWithholding;
   }
 
-  const baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
+  let baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
 
+  // 3.5. インボイス経過措置（適格請求書未登録者の控除）
+  const invoiceUnregistered: boolean = (worker as any).invoiceUnregistered ?? false;
+  const invoiceAdjustmentRatePercent: number =
+    invoiceUnregistered && typeof (worker as any).invoiceAdjustmentRate === 'number'
+      ? (worker as any).invoiceAdjustmentRate
+      : 0;
+  const hasInvoiceAdjustment = invoiceUnregistered && invoiceAdjustmentRatePercent > 0 && effectiveTaxRatePercent > 0;
+
+  // インボイス調整額 = 税抜報酬額 × 消費税率 × 控除率
+  const invoiceAdjustmentAmount: number = hasInvoiceAdjustment
+    ? Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100) * (invoiceAdjustmentRatePercent / 100))
+    : 0;
+
+  // 調整額を比例配分して源泉あり/なし小計から差し引く
+  if (invoiceAdjustmentAmount > 0 && baseAmountExclTax > 0) {
+    const adjustmentForWithholding = Math.floor(
+      invoiceAdjustmentAmount * subtotalWithholdingExclTax / baseAmountExclTax
+    );
+    const adjustmentForNonWithholding = invoiceAdjustmentAmount - adjustmentForWithholding;
+    subtotalWithholdingExclTax = subtotalWithholdingExclTax - adjustmentForWithholding;
+    subtotalNonWithholdingExclTax = subtotalNonWithholdingExclTax - adjustmentForNonWithholding;
+    baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
+  }
+
+  // 4. 消費税計算（インボイス調整後の税抜金額に対して）
   let taxAmount: number;
   let totalWithTax: number;
 
   if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
     if (taxType === 'inclusive') {
-      // 内税：税抜金額から税額を逆算
-      taxAmount = baseAmountBeforeTax - baseAmountExclTax;
-      totalWithTax = baseAmountBeforeTax;
+      // 内税：調整後の税抜金額から税額を算出
+      taxAmount = Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100));
+      totalWithTax = baseAmountExclTax + taxAmount;
     } else {
-      // 外税：税抜金額に税率を掛ける
+      // 外税：調整後の税抜金額に税率を掛ける
       taxAmount = Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100));
       totalWithTax = baseAmountExclTax + taxAmount;
     }
@@ -271,13 +296,13 @@ export function generatePDFContent(
     totalWithTax = baseAmountExclTax;
   }
 
-  // 4. 源泉徴収税額の計算（源泉あり小計の税抜金額に対してのみ計算）
+  // 5. 源泉徴収税額の計算（調整後の源泉あり小計に対してのみ計算）
   const hasWithholding = subtotalWithholdingExclTax > 0;
   const withholdingTaxAmount: number = hasWithholding
     ? calculateWithholdingTax(subtotalWithholdingExclTax, withholdingRates)
     : 0;
 
-  // 5. 最終支払額
+  // 6. 最終支払額
   const finalPaymentAmount: number = totalWithTax - withholdingTaxAmount;
 
   // --- 表示用HTMLの組み立て ---
@@ -640,9 +665,37 @@ export function generatePDFContent(
             <span class="summary-value">${formatDuration(monthlyTotal.hours, monthlyTotal.minutes)}</span>
           </div>
           ${breakdownRowsHtml}
+          ${hasInvoiceAdjustment
+      ? `
+          <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
+            <span class="summary-label">報酬小計（税抜）</span>
+            <span class="summary-value">¥${Math.floor(baseAmountBeforeTax).toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="grid-column: 1 / -1; color: #c60;">
+            <span class="summary-label">インボイス経過措置調整（税額の${invoiceAdjustmentRatePercent}%）</span>
+            <span class="summary-value">-¥${invoiceAdjustmentAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="grid-column: 1 / -1; font-weight: bold;">
+            <span class="summary-label">調整後報酬額（税抜）</span>
+            <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
+          </div>
+              `
+      : ''
+    }
           ${billingTaxEnabled
-      ? taxType === 'inclusive'
+      ? hasInvoiceAdjustment
         ? `
+          <div class="summary-item">
+            <span class="summary-label">消費税（${effectiveTaxRatePercent}%・外税）</span>
+            <span class="summary-value">¥${taxAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item total-amount">
+            <span class="summary-label">税込合計</span>
+            <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
+          </div>
+                `
+        : taxType === 'inclusive'
+          ? `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">報酬額（税込）</span>
             <span class="summary-value">¥${Math.floor(totalWithTax).toLocaleString()}</span>
@@ -656,7 +709,7 @@ export function generatePDFContent(
             <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
           </div>
                 `
-        : `
+          : `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">税抜小計</span>
             <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
@@ -688,11 +741,18 @@ export function generatePDFContent(
             <span class="summary-value" style="font-weight: bold; font-size: 1.2em;">¥${Math.floor(finalPaymentAmount).toLocaleString()}</span>
           </div>
           <div class="tax-note" style="font-size: 10px; color: #666; margin-top: 8px;">
-            <p>※ 源泉徴収税は「源泉あり小計」（税抜）に対して計算しています。</p>
+            <p>※ 源泉徴収税は「源泉あり小計」（税抜${hasInvoiceAdjustment ? '・インボイス調整後' : ''}）に対して計算しています。</p>
             <p>※ 100万円以下: ${withholdingRates.rateUnder1M}%、100万円超（超過分）: ${withholdingRates.rateOver1M}%</p>
+            ${hasInvoiceAdjustment ? `<p>※ インボイス経過措置: 適格請求書発行事業者未登録のため、消費税相当額の${invoiceAdjustmentRatePercent}%を調整しています。</p>` : ''}
           </div>
               `
-      : ''
+      : hasInvoiceAdjustment
+        ? `
+          <div class="tax-note" style="font-size: 10px; color: #666; margin-top: 8px;">
+            <p>※ インボイス経過措置: 適格請求書発行事業者未登録のため、消費税相当額の${invoiceAdjustmentRatePercent}%を調整しています。</p>
+          </div>
+              `
+        : ''
     }
         </div>
       </div>

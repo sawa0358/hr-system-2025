@@ -50,6 +50,10 @@ export interface Worker {
   // 振込先
   transferDestination?: string
 
+  // インボイス経過措置（適格請求書未登録者向け）
+  invoiceUnregistered?: boolean // 適格請求書未登録フラグ
+  invoiceAdjustmentRate?: number // 経過措置の控除率（例: 20, 50）
+
   // 消費税設定
   billingTaxEnabled?: boolean // 消費税を請求に反映するか
   billingTaxRate?: number // 個別の消費税率

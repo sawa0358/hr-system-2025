@@ -1,10 +1,8 @@
 /**
  * Chatwork API: ルームへファイル＋メッセージを送信
  * @see https://developer.chatwork.com/reference/post-rooms-room_id-files
- * Node 本番環境では form-data パッケージで multipart を送信（502 回避）
+ * Reno CRM と同じ方式: グローバル FormData + Blob で送信（Content-Type は fetch に任せる）
  */
-
-import FormData from 'form-data'
 
 const CHATWORK_API_BASE = 'https://api.chatwork.com/v2'
 
@@ -39,22 +37,20 @@ export async function sendFileToRoom(
   }
 
   try {
+    // Reno CRM 契約書送信と同じ方式: Blob + グローバル FormData（Content-Type は付けない）
+    const blob = new Blob([fileBuffer])
     const form = new FormData()
-    form.append('file', fileBuffer, { filename: fileName })
+    form.append('file', blob, fileName)
     if (message != null && String(message).trim()) {
       form.append('message', String(message).trim().slice(0, 1000))
     }
 
-    const body = form.getBuffer()
-    const headers = {
-      'X-ChatWorkToken': token.trim(),
-      ...form.getHeaders(),
-    }
-
     const res = await fetch(`${CHATWORK_API_BASE}/rooms/${trimmedRoomId}/files`, {
       method: 'POST',
-      headers,
-      body,
+      headers: {
+        'X-ChatWorkToken': token.trim(),
+      },
+      body: form,
     })
 
     if (!res.ok) {

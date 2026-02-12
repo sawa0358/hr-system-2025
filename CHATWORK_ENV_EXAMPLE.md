@@ -30,9 +30,15 @@ CHATWORK_API_TOKEN=あなたのAPIトークン
 ## 本番で送信されない場合の確認（3点）
 
 1. **Heroku にトークンを設定したか**
-   - Heroku ダッシュボード → アプリ → Settings → Config Vars → Reveal Config Vars
-   - `CHATWORK_API_TOKEN` を追加し、Chatwork で発行したトークンを貼り付けて保存
+   - **CLI で設定（推奨）:** トークンを取得したら、以下を実行（`YOUR_TOKEN` を実際のトークンに置き換え）
+     ```bash
+     heroku config:set CHATWORK_API_TOKEN=YOUR_TOKEN -a hr-system-2025
+     ```
+   - **ダッシュボード:** Heroku ダッシュボード → アプリ → Settings → Config Vars → Reveal Config Vars → `CHATWORK_API_TOKEN` を追加して保存
    - 設定後は再デプロイ不要（すぐ反映）
+   - **確認:** 本番でトークンが読まれているか確認するには  
+     `heroku run 'node -e "console.log(!!process.env.CHATWORK_API_TOKEN)"' -a hr-system-2025`  
+     → `true` と出れば設定済み
 
 2. **本番で「Chatwork送信先」を登録したか**
    - 本番とローカルは**別データベース**のため、ローカルで登録したルームIDは本番にはありません

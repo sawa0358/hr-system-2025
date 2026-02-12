@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { saveEmployeeToS3 } from '@/lib/s3-client';
 
+export const dynamic = 'force-dynamic';
+
 // Prismaクライアントの初期化確認
 console.log('Prismaクライアント初期化確認:', !!prisma);
 

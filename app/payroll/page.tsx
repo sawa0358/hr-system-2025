@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { AIAskButton } from "@/components/ai-ask-button"
-import { Users } from "lucide-react"
+import { Users, Settings } from "lucide-react"
+import Link from "next/link"
 // import { mockEmployees } from "@/lib/mock-data" // フォールバックとして使用しない
 import { PayrollUploadDialog } from "@/components/payroll-upload-dialog"
 import { useAuth } from "@/lib/auth-context"
@@ -219,7 +221,17 @@ ${isAdminOrHR ? `- 給与or請求明細のアップロード（個別/一括）
             <h1 className="text-3xl font-bold text-slate-900 mb-2">給与or請求管理</h1>
             <p className="text-slate-600">カードをクリックして給与or請求明細を管理</p>
           </div>
-          {canUseAI && <AIAskButton context={buildAIContext()} />}
+          <div className="flex items-center gap-2">
+            {isAdminOrHR && (
+              <Button variant="outline" asChild>
+                <Link href="/payroll/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Chatwork送信先設定
+                </Link>
+              </Button>
+            )}
+            {canUseAI && <AIAskButton context={buildAIContext()} />}
+          </div>
         </div>
 
         {isAdminOrHR && (

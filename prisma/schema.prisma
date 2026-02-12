@@ -161,6 +161,9 @@ model Employee {
   // 家族構成関係
   familyMembers         FamilyMember[]
 
+  // 給与・請求管理 → Chatwork 送信先設定（1:1）
+  payrollChatworkSetting PayrollChatworkSetting?
+
   // WorkClock（業務委託時間管理）関係
   workClockWorkers      WorkClockWorker[]
 
@@ -278,6 +281,19 @@ model Folder {
   updatedAt  DateTime @updatedAt
 
   @@map("folders")
+}
+
+// 給与・請求管理：社員とChatworkルームの紐付け（Chatwork送信先）
+model PayrollChatworkSetting {
+  id               String   @id @default(cuid())
+  employeeId       String   @unique
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  chatworkRoomId   String   // ChatworkルームID（送信先）
+  defaultMessage   String?  // 定型文（任意）
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("payroll_chatwork_settings")
 }
 
 model ActivityLog {

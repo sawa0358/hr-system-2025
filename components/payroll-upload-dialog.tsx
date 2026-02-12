@@ -12,6 +12,9 @@ import { Upload, Folder, Plus, FileText, Download, Trash2, Edit2, X } from "luci
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AIAskButton } from "@/components/ai-ask-button"
 import { Card, CardContent } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/lib/auth-context"
+import { Textarea } from "@/components/ui/textarea"
 
 interface PayrollUploadDialogProps {
   open: boolean
@@ -51,6 +54,12 @@ export function PayrollUploadDialog({
   // DBから取得したファイル情報（永続化データ）
   const [dbFiles, setDbFiles] = useState<{ [key: string]: { id: string; name: string; createdAt: string }[] }>({})
   const [isLoadingDbFiles, setIsLoadingDbFiles] = useState(false)
+  // Chatwork送信確認モーダル（アップロード前に表示）
+  const [chatworkConfirmOpen, setChatworkConfirmOpen] = useState(false)
+  const [pendingUpload, setPendingUpload] = useState<{ folderKey: string; file: File; fileName: string } | null>(null)
+  const [chatworkConfirmMessage, setChatworkConfirmMessage] = useState("")
+  const { toast } = useToast()
+  const { currentUser } = useAuth()
 
   // 個人別ファイル管理のためのキー生成
   const getStorageKey = (folderKey: string) => {
@@ -323,79 +332,105 @@ export function PayrollUploadDialog({
     })
   }
 
+  const doActualUpload = async (
+    folderKey: string,
+    file: File,
+    fileName: string,
+    sendToChatwork: boolean,
+    chatworkMessage?: string
+  ) => {
+    let employeeIdToUse = employee?.id || ''
+    if (isAllEmployeesMode && !employeeIdToUse) {
+      try {
+        const r = await fetch('/api/payroll/all-employee-id')
+        if (r.ok) {
+          const d = await r.json()
+          employeeIdToUse = d.employeeId
+        } else {
+          alert('全員分用の設定が未完了です。管理者に連絡してください。')
+          return
+        }
+      } catch {
+        alert('全員分用の設定取得に失敗しました')
+        return
+      }
+    }
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('category', 'payroll')
+    const finalFolderKey = isAllEmployeesMode ? `全員分/${folderKey}` : folderKey
+    formData.append('folder', finalFolderKey)
+    const response = await fetch('/api/files/upload', {
+      method: 'POST',
+      headers: { 'x-employee-id': employeeIdToUse },
+      body: formData,
+    })
+    if (!response.ok) {
+      console.error('ファイルアップロード失敗:', await response.text())
+      toast({ title: 'アップロードに失敗しました', variant: 'destructive' })
+      return
+    }
+    let result: { fileId?: string } = {}
+    try {
+      result = await response.json()
+    } catch {
+      toast({ title: 'アップロード応答の処理に失敗しました', variant: 'destructive' })
+      return
+    }
+    await fetchFilesFromDB()
+    const newFiles = [...(uploadedFiles[folderKey] || []), file.name]
+    setUploadedFiles({ ...uploadedFiles, [folderKey]: newFiles })
+    saveFilesToStorage(folderKey, newFiles)
+    if (sendToChatwork && !isAllEmployeesMode && employee?.id && result?.fileId && currentUser?.id) {
+      try {
+        const sendRes = await fetch('/api/chatwork/send-payroll-file', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-employee-id': currentUser.id,
+          },
+          body: JSON.stringify({
+            fileId: result.fileId,
+            employeeId: employee.id,
+            message: chatworkMessage?.trim() || undefined,
+          }),
+        })
+        if (sendRes.ok) {
+          toast({ title: 'Chatworkへ送信しました', description: 'ファイルを送信先ルームに送信しました' })
+        } else {
+          const errData = await sendRes.json().catch(() => ({}))
+          toast({
+            title: 'Chatwork送信に失敗しました',
+            description: errData.error || '送信先が未設定の可能性があります。設定画面でルームIDを登録してください。',
+            variant: 'destructive',
+          })
+        }
+      } catch (e) {
+        console.error('Chatwork送信エラー:', e)
+        toast({ title: 'Chatwork送信に失敗しました', variant: 'destructive' })
+      }
+    }
+  }
+
   const handleFileUpload = async (folderKey: string, fileName?: string, file?: File) => {
     try {
       if (file) {
-        // 全員分モードの場合、PAYROLL_ALL_EMPLOYEE_IDを取得
-        let employeeIdToUse = employee?.id || ''
-
-        if (isAllEmployeesMode && !employeeIdToUse) {
-          // 全員分モードで employee.id が無い場合、APIから取得
-          try {
-            const response = await fetch('/api/payroll/all-employee-id')
-            if (response.ok) {
-              const data = await response.json()
-              employeeIdToUse = data.employeeId
-            } else {
-              console.error('全員分用のemployeeID取得に失敗しました')
-              alert('全員分用の設定が未完了です。管理者に連絡してください。')
-              return
-            }
-          } catch (error) {
-            console.error('全員分用のemployeeID取得エラー:', error)
-            alert('全員分用の設定取得に失敗しました')
-            return
-          }
+        if (!isAllEmployeesMode && employee?.id) {
+          setPendingUpload({ folderKey, file, fileName: fileName || file.name })
+          setChatworkConfirmMessage('')
+          setChatworkConfirmOpen(true)
+          return
         }
-
-        // 実際のファイルアップロード処理
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('category', 'payroll')
-
-        // 全員分モードの場合、フォルダ名の先頭に「全員分/」を付ける（DB上で分離するため）
-        const finalFolderKey = isAllEmployeesMode ? `全員分/${folderKey}` : folderKey
-        formData.append('folder', finalFolderKey)
-
-        const response = await fetch('/api/files/upload', {
-          method: 'POST',
-          headers: {
-            'x-employee-id': employeeIdToUse,
-          },
-          body: formData
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          console.log('ファイルアップロード成功:', result)
-
-          // DBからファイル一覧を再取得（他デバイスでも表示されるように）
-          await fetchFilesFromDB()
-
-          // localStorageにも一時的に保存（即時反映のため）
-          const newFiles = [...(uploadedFiles[folderKey] || []), file.name]
-          setUploadedFiles({
-            ...uploadedFiles,
-            [folderKey]: newFiles,
-          })
-          saveFilesToStorage(folderKey, newFiles)
-        } else {
-          console.error('ファイルアップロード失敗:', await response.text())
-          alert('ファイルのアップロードに失敗しました')
-        }
+        await doActualUpload(folderKey, file, fileName || file.name, false)
       } else {
-        // ファイル名のみの場合（既存の動作）
         const name = fileName || `給与明細_${new Date().toLocaleDateString()}.pdf`
         const newFiles = [...(uploadedFiles[folderKey] || []), name]
-        setUploadedFiles({
-          ...uploadedFiles,
-          [folderKey]: newFiles,
-        })
+        setUploadedFiles({ ...uploadedFiles, [folderKey]: newFiles })
         saveFilesToStorage(folderKey, newFiles)
       }
     } catch (error) {
       console.error('ファイルアップロードエラー:', error)
-      alert('ファイルのアップロードに失敗しました')
+      toast({ title: 'ファイルのアップロードに失敗しました', variant: 'destructive' })
     }
   }
 
@@ -638,6 +673,7 @@ export function PayrollUploadDialog({
   if (!employee) return null
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto payroll-upload-dialog">
         <DialogHeader>
@@ -1296,5 +1332,68 @@ export function PayrollUploadDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={chatworkConfirmOpen} onOpenChange={setChatworkConfirmOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Chatworkへ送信しますか？</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-slate-600">
+          ファイルをアップロードした後、この社員のChatworkルームに説明文とファイルを送信します。
+        </p>
+        <div className="space-y-2">
+          <Label>メッセージ（任意）</Label>
+          <Textarea
+            placeholder="送信する説明文を入力..."
+            value={chatworkConfirmMessage}
+            onChange={(e) => setChatworkConfirmMessage(e.target.value)}
+            rows={3}
+            className="resize-none"
+          />
+        </div>
+        <div className="flex justify-end gap-2 pt-4">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (pendingUpload) {
+                try {
+                  await doActualUpload(pendingUpload.folderKey, pendingUpload.file, pendingUpload.fileName, false)
+                } catch (e) {
+                  console.error('アップロードエラー:', e)
+                  toast({ title: 'アップロードに失敗しました', variant: 'destructive' })
+                }
+                setPendingUpload(null)
+              }
+              setChatworkConfirmOpen(false)
+            }}
+          >
+            送信しない
+          </Button>
+          <Button
+            onClick={async () => {
+              if (pendingUpload) {
+                try {
+                  await doActualUpload(
+                    pendingUpload.folderKey,
+                    pendingUpload.file,
+                    pendingUpload.fileName,
+                    true,
+                    chatworkConfirmMessage
+                  )
+                } catch (e) {
+                  console.error('アップロード・送信エラー:', e)
+                  toast({ title: '処理に失敗しました', variant: 'destructive' })
+                }
+                setPendingUpload(null)
+              }
+              setChatworkConfirmOpen(false)
+            }}
+          >
+            Chatworkへ送信する
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   )
 }

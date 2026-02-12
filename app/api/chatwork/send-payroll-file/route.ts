@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       where: { employeeId: file.employeeId },
     })
     if (!setting?.chatworkRoomId?.trim()) {
+      console.error('[Chatwork] 送信先未設定 employeeId=', file.employeeId)
       return NextResponse.json(
         { error: 'この社員のChatwork送信先が未設定です。給与or請求管理の設定でルームIDを登録してください。' },
         { status: 400 }
@@ -114,12 +115,14 @@ export async function POST(request: NextRequest) {
     )
 
     if (!result.success) {
+      console.error('[Chatwork] 送信失敗:', result.error, 'roomId=', setting.chatworkRoomId)
       return NextResponse.json(
         { error: result.error || 'Chatworkへの送信に失敗しました' },
         { status: 502 }
       )
     }
 
+    console.log('[Chatwork] 送信成功 roomId=', setting.chatworkRoomId)
     return NextResponse.json({ success: true })
   } catch (e) {
     console.error('POST /api/chatwork/send-payroll-file error:', e)

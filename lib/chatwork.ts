@@ -1,7 +1,10 @@
 /**
  * Chatwork API: ルームへファイル＋メッセージを送信
  * @see https://developer.chatwork.com/reference/post-rooms-room_id-files
+ * Node 本番環境では form-data パッケージで multipart を送信（502 回避）
  */
+
+import FormData from 'form-data'
 
 const CHATWORK_API_BASE = 'https://api.chatwork.com/v2'
 
@@ -26,6 +29,7 @@ export async function sendFileToRoom(
 ): Promise<SendFileToRoomResult> {
   const token = process.env.CHATWORK_API_TOKEN
   if (!token || !token.trim()) {
+    console.error('[Chatwork] CHATWORK_API_TOKEN が未設定です（本番ではHerokuのConfig Varsに追加してください）')
     return { success: false, error: 'CHATWORK_API_TOKEN が設定されていません' }
   }
 
@@ -35,19 +39,22 @@ export async function sendFileToRoom(
   }
 
   try {
-    const formData = new FormData()
-    formData.append('file', new Blob([fileBuffer]), fileName)
+    const form = new FormData()
+    form.append('file', fileBuffer, { filename: fileName })
     if (message != null && String(message).trim()) {
-      const msg = String(message).trim().slice(0, 1000)
-      formData.append('message', msg)
+      form.append('message', String(message).trim().slice(0, 1000))
+    }
+
+    const body = form.getBuffer()
+    const headers = {
+      'X-ChatWorkToken': token.trim(),
+      ...form.getHeaders(),
     }
 
     const res = await fetch(`${CHATWORK_API_BASE}/rooms/${trimmedRoomId}/files`, {
       method: 'POST',
-      headers: {
-        'X-ChatWorkToken': token,
-      },
-      body: formData,
+      headers,
+      body,
     })
 
     if (!res.ok) {

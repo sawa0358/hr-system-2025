@@ -484,11 +484,11 @@ export async function PUT(
         const trimmed = String(body.description).trim();
         return trimmed !== '' ? trimmed : null;
       })(),
-      // 有給管理用フィールド
-      employmentType: body.employmentType || null,
-      weeklyPattern: body.weeklyPattern || null,
-      configVersion: body.configVersion || null,
-      vacationPattern: body.vacationPattern || null,
+      // 有給管理用フィールド（送信されていない場合はundefinedを維持→cleanedUpdateDataで除外→既存値を保持）
+      employmentType: body.employmentType !== undefined ? (body.employmentType || null) : undefined,
+      weeklyPattern: body.weeklyPattern !== undefined ? (body.weeklyPattern || null) : undefined,
+      configVersion: body.configVersion !== undefined ? (body.configVersion || null) : undefined,
+      vacationPattern: body.vacationPattern !== undefined ? (body.vacationPattern || null) : undefined,
     };
 
     console.log('Prisma update実行前のデータ:', JSON.stringify(updateData, null, 2));

@@ -5,6 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Sidebar } from "@/components/sidebar"
+import { RouteGuard } from "@/components/route-guard"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
 import { ClientOnly } from "@/components/client-only"
@@ -47,7 +48,7 @@ export default function RootLayout({
               <div className="flex h-screen overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 overflow-auto bg-slate-50 relative">
-                  {children}
+                  <RouteGuard>{children}</RouteGuard>
                 </main>
               </div>
             </Suspense>

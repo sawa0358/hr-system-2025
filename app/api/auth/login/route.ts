@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
         position: employee.position,
         organization: employee.organization,
         employeeType: employee.employeeType,
-        isPersonnelEvaluationTarget: employee.isPersonnelEvaluationTarget
+        isPersonnelEvaluationTarget: employee.isPersonnelEvaluationTarget,
+        personnelEvaluationTeamId: employee.personnelEvaluationTeamId
       }
     });
 

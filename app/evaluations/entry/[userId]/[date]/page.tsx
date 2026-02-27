@@ -107,6 +107,34 @@ export default function EvaluationEntryPage() {
         currentUser.personnelEvaluationTeamId === targetEmployeeTeamId &&
         currentUser.id !== userId
 
+    // アクセス制御: general/sub_manager は自分のエントリーのみ閲覧可
+    useEffect(() => {
+        if (!currentUser || !userId || userId === currentUser.id) return
+        if (isAdminOrHrOrManager) return // manager/hr/admin は全員閲覧可
+        if (isStoreManager) return // 店長はデータ読み込み後にチーム検証（下のuseEffect）
+        // general/sub_manager/viewer → 自分以外はリダイレクト
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        router.replace(`/evaluations/entry/${currentUser.id}/${todayStr}`)
+    }, [currentUser, userId, isAdminOrHrOrManager, isStoreManager, router])
+
+    // 店長のチームメンバー検証（データ読み込み完了後）
+    useEffect(() => {
+        if (!isStoreManager || !currentUser || userId === currentUser.id || loading) return
+        // targetEmployeeTeamIdが設定された = データ読み込み済み
+        if (targetEmployeeTeamId === null && !loading) {
+            // チーム未所属の社員 → 店長はアクセス不可
+            const todayStr = format(new Date(), 'yyyy-MM-dd')
+            router.replace(`/evaluations/entry/${currentUser.id}/${todayStr}`)
+            return
+        }
+        const isSameTeam = currentUser.personnelEvaluationTeamId &&
+            currentUser.personnelEvaluationTeamId === targetEmployeeTeamId
+        if (!isSameTeam) {
+            const todayStr = format(new Date(), 'yyyy-MM-dd')
+            router.replace(`/evaluations/entry/${currentUser.id}/${todayStr}`)
+        }
+    }, [isStoreManager, currentUser, userId, targetEmployeeTeamId, loading, router])
+
     useEffect(() => {
         if (dateStr) {
             setCurrentCalendarDate(parseISO(dateStr))

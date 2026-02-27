@@ -9,8 +9,8 @@ export interface RouteAccessRule {
   allowExternalWorkers?: boolean
   /** 許可する雇用形態リスト（指定時のみチェック） */
   allowedEmployeeTypes?: string[]
-  /** 複雑なルール用のカスタムチェック関数 */
-  customCheck?: (user: any, permissions: Permission) => boolean
+  /** 複雑なルール用のカスタムチェック関数（pathnameも参照可能） */
+  customCheck?: (user: any, permissions: Permission, pathname: string) => boolean
 }
 
 // 具体的なパスを先に定義（startsWith マッチのため順序が重要）
@@ -37,6 +37,17 @@ export const routeAccessRules: RouteAccessRule[] = [
   // 管理者専用
   { path: "/logs", permission: "viewLogs" },
 
+  // 有給管理 - 管理者サブページ（親ルールより先に定義）
+  { path: "/leave/settings", permission: "editLeaveManagement" },
+  {
+    path: "/leave/admin",
+    customCheck: (user) => {
+      const role = user.role || "viewer"
+      return ["store_manager", "manager", "hr", "admin"].includes(role)
+    },
+    allowedEmployeeTypes: ["正社員", "契約社員", "パートタイム", "派遣社員"],
+  },
+
   // 有給管理 - 雇用形態制限あり
   {
     path: "/leave",
@@ -44,14 +55,40 @@ export const routeAccessRules: RouteAccessRule[] = [
     allowedEmployeeTypes: ["正社員", "契約社員", "パートタイム", "派遣社員"],
   },
 
-  // 人事考課 - 対象者 OR 管理権限
+  // 人事考課 - 管理・設定ページ（親ルールより先に定義）
+  { path: "/evaluations/settings", permission: "editEvaluations" },
+  { path: "/evaluations/admin", permission: "editEvaluations" },
+
+  // 人事考課 - エントリーページ（ロール別アクセス制御）
   {
-    path: "/evaluations",
-    permission: "viewOwnEvaluations",
-    customCheck: (user, perms) => {
-      return user.isPersonnelEvaluationTarget || perms.viewEvaluations
+    path: "/evaluations/entry",
+    customCheck: (user, perms, pathname) => {
+      const role = user.role || "viewer"
+      // manager/hr/admin は全エントリーにアクセス可
+      if (["manager", "hr", "admin"].includes(role)) return true
+      // store_manager は自分 + チームメンバー（チーム検証はページレベルで実施）
+      if (role === "store_manager") return true
+      // 人事考課対象者（general/sub_manager等）は自分のエントリーのみ
+      if (user.isPersonnelEvaluationTarget) {
+        const segments = pathname.split("/")
+        const entryUserId = segments[3] // ["", "evaluations", "entry", userId, date]
+        return entryUserId === user.id
+      }
+      return false
     },
   },
+
+  // 人事考課 - メインページ（store_manager以上）
+  {
+    path: "/evaluations",
+    customCheck: (user) => {
+      const role = user.role || "viewer"
+      return ["store_manager", "manager", "hr", "admin"].includes(role)
+    },
+  },
+
+  // 給与 - 設定ページ（親ルールより先に定義）
+  { path: "/payroll/settings", permission: "editPayroll" },
 
   // 標準的な権限ベースルート
   { path: "/employees", permission: "viewOwnProfile" },
@@ -117,7 +154,7 @@ export function checkRouteAccess(
   }
 
   // カスタムチェック
-  if (rule.customCheck && !rule.customCheck(user, permissions)) {
+  if (rule.customCheck && !rule.customCheck(user, permissions, pathname)) {
     return { allowed: false, redirectTo }
   }
 

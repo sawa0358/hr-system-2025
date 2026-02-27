@@ -14,9 +14,9 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   const [authorized, setAuthorized] = useState(false)
 
   useEffect(() => {
-    // 未認証時はLoginModalに任せる（ブロックしない）
+    // 未認証時はページコンテンツを非表示（LoginModalが背景を覆う）
     if (!isAuthenticated || !currentUser) {
-      setAuthorized(true)
+      setAuthorized(false)
       return
     }
 

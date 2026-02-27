@@ -85,7 +85,7 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={() => { }}>
-      <DialogContent className="sm:max-w-md" showCloseButton={false}>
+      <DialogContent className="sm:max-w-md" showCloseButton={false} overlayClassName="bg-[#B4D5E7]">
         <DialogHeader>
           <div className="flex items-center justify-center mb-4">
             <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center">

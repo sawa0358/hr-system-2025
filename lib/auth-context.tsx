@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const AUTH_EXPIRATION_DAYS = 30;
 
 // セッションバージョン: アプリ更新時にこの値を変更すると全ユーザーが強制再ログイン
-const SESSION_VERSION = "3.7.6";
+const SESSION_VERSION = "3.7.7";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any | null>(null)
@@ -102,14 +102,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser()
   }, [])
 
-  // ページがバックグラウンドから戻った時（モバイルでタブが復元された時）にセッションを再確認
+  // サーバーのバージョンをチェックし、不一致なら強制ログアウト
+  const checkServerVersion = async () => {
+    try {
+      const storedVersion = localStorage.getItem("sessionVersion")
+      if (!storedVersion) return // 未ログインなら不要
+      const res = await fetch("/api/version", { cache: "no-store" })
+      if (!res.ok) return
+      const { version } = await res.json()
+      if (version && version !== storedVersion) {
+        console.log(`[Auth] Server version changed (stored: ${storedVersion}, server: ${version}) - forcing re-login`)
+        localStorage.removeItem("currentUser")
+        localStorage.removeItem("sessionVersion")
+        sessionStorage.removeItem("currentUser")
+        setCurrentUser(null)
+        setIsAuthenticated(false)
+        window.location.reload()
+      }
+    } catch {
+      // ネットワークエラー時は無視
+    }
+  }
+
+  // ページがバックグラウンドから戻った時 + 定期チェック
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        // サーバーバージョンチェック（デプロイ後の強制ログアウト）
+        checkServerVersion()
         // セッションが切れている場合は、ストレージから再読み込み
         const user = loadUserFromStorage()
         if (user) {
-          // 現在のユーザーと異なる場合のみ更新（無限ループ防止）
           setCurrentUser((prevUser: any) => {
             if (!prevUser || prevUser.id !== user.id) {
               console.log("[v0] Restored session on visibility change")
@@ -122,11 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // フォーカス時にもセッションを再確認（モバイルでタブが復元された時）
     const handleFocus = () => {
+      checkServerVersion()
       const user = loadUserFromStorage()
       if (user) {
-        // 現在のユーザーと異なる場合のみ更新（無限ループ防止）
         setCurrentUser((prevUser: any) => {
           if (!prevUser || prevUser.id !== user.id) {
             console.log("[v0] Restored session on focus")
@@ -138,10 +160,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // 5分ごとにサーバーバージョンをチェック
+    const intervalId = setInterval(checkServerVersion, 5 * 60 * 1000)
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('focus', handleFocus)
 
     return () => {
+      clearInterval(intervalId)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }

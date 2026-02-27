@@ -3026,7 +3026,7 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           </div>
 
           <div className="flex justify-between items-center mt-6 pt-6 border-t">
-            {!isNewEmployee && (currentUser?.role === 'manager' || currentUser?.role === 'hr' || currentUser?.role === 'admin') && canEditInvisibleTop && (
+            {!isNewEmployee && (currentUser?.role === 'hr' || currentUser?.role === 'admin') && canEditInvisibleTop && (
               <Button
                 variant={formData.isSuspended ? "default" : "destructive"}
                 onClick={async () => {

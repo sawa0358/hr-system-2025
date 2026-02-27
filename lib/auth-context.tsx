@@ -14,6 +14,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const AUTH_EXPIRATION_DAYS = 30;
 
+// セッションバージョン: アプリ更新時にこの値を変更すると全ユーザーが強制再ログイン
+const SESSION_VERSION = "3.7.6";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -37,6 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (savedUser) {
         const user = JSON.parse(savedUser)
+
+        // セッションバージョンチェック: バージョン不一致は強制再ログイン
+        const storedVersion = localStorage.getItem("sessionVersion")
+        if (storedVersion !== SESSION_VERSION) {
+          console.log(`[Auth] Session version mismatch (stored: ${storedVersion}, current: ${SESSION_VERSION}) - forcing re-login`)
+          localStorage.removeItem("currentUser")
+          localStorage.removeItem("sessionVersion")
+          sessionStorage.removeItem("currentUser")
+          return null
+        }
 
         // 有効期限のチェック（30日）
         if (user.expiresAt && new Date().getTime() > user.expiresAt) {
@@ -153,6 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // 永続保持：localStorage（ブラウザを閉じても保持）
     localStorage.setItem("currentUser", JSON.stringify(userData))
+    localStorage.setItem("sessionVersion", SESSION_VERSION)
     // sessionStorageの古いデータを念のためクリア
     sessionStorage.removeItem("currentUser")
 
@@ -178,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ストレージからユーザー情報を削除（ユーザーが意図的にログアウトした時のみ実行）
     localStorage.removeItem("currentUser")
+    localStorage.removeItem("sessionVersion")
     sessionStorage.removeItem("currentUser")
     console.log("AuthContext - Cleared user data from both storages")
 

@@ -252,6 +252,7 @@ export function generatePDFContent(
   }
 
   let baseAmountExclTax = subtotalWithholdingExclTax + subtotalNonWithholdingExclTax;
+  const baseAmountExclTaxBeforeAdjustment = baseAmountExclTax; // インボイス調整前の税抜額を保持
 
   // 3.5. インボイス経過措置（適格請求書未登録者の控除）
   const invoiceUnregistered: boolean = (worker as any).invoiceUnregistered ?? false;
@@ -666,7 +667,26 @@ export function generatePDFContent(
           </div>
           ${breakdownRowsHtml}
           ${hasInvoiceAdjustment
-      ? `
+      ? taxType === 'inclusive'
+        ? `
+          <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
+            <span class="summary-label">報酬小計（税込）</span>
+            <span class="summary-value">¥${Math.floor(baseAmountBeforeTax).toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="font-size: 11px; color: #666;">
+            <span class="summary-label">　└ 税抜相当額</span>
+            <span class="summary-value">¥${Math.floor(baseAmountExclTaxBeforeAdjustment).toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="grid-column: 1 / -1; color: #c60;">
+            <span class="summary-label">インボイス経過措置調整（税額の${invoiceAdjustmentRatePercent}%）</span>
+            <span class="summary-value">-¥${invoiceAdjustmentAmount.toLocaleString()}</span>
+          </div>
+          <div class="summary-item" style="grid-column: 1 / -1; font-weight: bold;">
+            <span class="summary-label">調整後報酬額（税抜）</span>
+            <span class="summary-value">¥${Math.floor(baseAmountExclTax).toLocaleString()}</span>
+          </div>
+              `
+        : `
           <div class="summary-item" style="grid-column: 1 / -1; padding-top: 10px; border-top: 2px solid #333;">
             <span class="summary-label">報酬小計（税抜）</span>
             <span class="summary-value">¥${Math.floor(baseAmountBeforeTax).toLocaleString()}</span>
@@ -686,7 +706,7 @@ export function generatePDFContent(
       ? hasInvoiceAdjustment
         ? `
           <div class="summary-item">
-            <span class="summary-label">消費税（${effectiveTaxRatePercent}%・外税）</span>
+            <span class="summary-label">消費税（${effectiveTaxRatePercent}%・${taxType === 'inclusive' ? '内税' : '外税'}）</span>
             <span class="summary-value">¥${taxAmount.toLocaleString()}</span>
           </div>
           <div class="summary-item total-amount">

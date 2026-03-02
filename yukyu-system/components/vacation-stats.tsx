@@ -38,6 +38,10 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
   const [grantCalculationDetails, setGrantCalculationDetails] = useState<any>(null)
   const [loadingGrantDetails, setLoadingGrantDetails] = useState(false)
 
+  // 社員用: 期間セレクター
+  const [periodsData, setPeriodsData] = useState<any[]>([])
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>('current')
+
   useEffect(() => {
     const load = async () => {
       if (!employeeId || userRole !== "employee") return
@@ -74,6 +78,42 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     }
   }, [employeeId, userRole])
 
+  // 社員用: 期間データ（grant-calculation API）を取得
+  useEffect(() => {
+    const loadPeriods = async () => {
+      if (!employeeId || userRole !== "employee") return
+      try {
+        const res = await fetch(`/api/vacation/grant-calculation/${employeeId}`)
+        if (res.ok) {
+          const json = await res.json()
+          if (json.periods && Array.isArray(json.periods)) {
+            setPeriodsData(json.periods)
+            setGrantCalculationDetails(json)
+          }
+        }
+      } catch (error) {
+        console.error("期間データ取得エラー:", error)
+      }
+    }
+    loadPeriods()
+    const handleUpdate = () => loadPeriods()
+    window.addEventListener('vacation-request-updated', handleUpdate)
+    return () => window.removeEventListener('vacation-request-updated', handleUpdate)
+  }, [employeeId, userRole])
+
+  // 選択された期間のデータを取得
+  const selectedPeriod = periodsData.find(p => p.periodKey === selectedPeriodKey)
+  const isCurrentPeriod = selectedPeriodKey === 'current'
+
+  // 表示用の値を計算（今期はstats APIのリアルタイムデータ、それ以外はgrant-calculationデータ）
+  const displayUsed = isCurrentPeriod ? (statsData?.used ?? 0) : (selectedPeriod?.usedDays ?? 0)
+  const displayPending = isCurrentPeriod ? (statsData?.pending ?? 0) : (selectedPeriod?.pendingDays ?? 0)
+  const displayCurrentPending = isCurrentPeriod ? (statsData?.currentPending ?? 0) : (selectedPeriod?.pendingDays ?? 0)
+  const displayNextPending = isCurrentPeriod ? (statsData?.nextPending ?? 0) : 0
+  const displayTotalGranted = isCurrentPeriod ? (statsData?.totalGranted ?? 0) : (selectedPeriod?.totalGranted ?? 0)
+  const displayRemaining = Math.max(0, displayTotalGranted - displayUsed - displayCurrentPending)
+  const periodLabel = selectedPeriod?.label || '今期'
+
   const employeeStats: Array<{
     title: string
     value: string
@@ -82,52 +122,45 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     subtitle?: string
   }> = [
       {
-        title: "今期の残り有給日数",
-        value: loading ? "-" : (() => {
-          // 総付与数 - 取得済み - 今期の申請中 = 今期の残り有給日数
-          // ※来期の申請中は今期の残りから引かない
-          const totalGranted = statsData?.totalGranted ?? 0
-          const used = statsData?.used ?? 0
-          const currentPending = statsData?.currentPending ?? 0
-          const calculated = Math.max(0, totalGranted - used - currentPending)
-          return `${calculated.toFixed(1)}日`
-        })(),
+        title: `${periodLabel}の残り有給日数`,
+        value: loading ? "-" : `${displayRemaining.toFixed(1)}日`,
         icon: Calendar,
         color: "text-chart-1",
-        subtitle: statsData?.totalGranted !== undefined && statsData?.used !== undefined && statsData?.currentPending !== undefined
-          ? `総付与: ${statsData.totalGranted.toFixed(1)}日 - 取得済み: ${statsData.used.toFixed(1)}日 - 今期申請中: ${statsData.currentPending.toFixed(1)}日`
-          : undefined,
+        subtitle: `総付与: ${displayTotalGranted.toFixed(1)}日 - 取得済み: ${displayUsed.toFixed(1)}日 - 申請中: ${displayCurrentPending.toFixed(1)}日`,
       },
       {
         title: "取得済み",
-        value: loading ? "-" : `${(statsData?.used ?? 0).toFixed(1)}日`,
+        value: loading ? "-" : `${displayUsed.toFixed(1)}日`,
         icon: CheckCircle,
         color: "text-chart-2",
-        subtitle: statsData?.totalGranted ? `使用率: ${((statsData.used / statsData.totalGranted) * 100).toFixed(1)}%` : undefined,
+        subtitle: displayTotalGranted > 0 ? `使用率: ${((displayUsed / displayTotalGranted) * 100).toFixed(1)}%` : undefined,
       },
       {
         title: "申請中",
-        value: loading ? "-" : `${(statsData?.pending ?? 0).toFixed(1)}日`,
+        value: loading ? "-" : `${displayPending.toFixed(1)}日`,
         icon: Clock,
         color: "text-chart-3",
         subtitle: (() => {
-          if (statsData?.totalGranted === undefined || statsData?.used === undefined || statsData?.pending === undefined) {
-            return undefined
+          if (isCurrentPeriod && displayNextPending > 0) {
+            return `今期: ${displayCurrentPending.toFixed(1)}日 / 来期: ${displayNextPending.toFixed(1)}日`
           }
-          const nextPending = statsData.nextPending ?? 0
-          const currentPending = statsData.currentPending ?? 0
-          if (nextPending > 0) {
-            return `今期: ${currentPending.toFixed(1)}日 / 来期: ${nextPending.toFixed(1)}日`
-          }
-          return `承認後残り: ${Math.max(0, (statsData.totalGranted ?? 0) - (statsData.used ?? 0) - currentPending).toFixed(1)}日`
+          return `承認後残り: ${Math.max(0, displayTotalGranted - displayUsed - displayCurrentPending).toFixed(1)}日`
         })(),
       },
       {
         title: "総付与数",
-        value: loading ? "-" : `${(statsData?.totalGranted ?? 0).toFixed(1)}日`,
+        value: loading ? "-" : `${displayTotalGranted.toFixed(1)}日`,
         icon: Calendar,
         color: "text-chart-4",
-        subtitle: statsData?.joinDate ? `入社: ${new Date(statsData.joinDate).toISOString().slice(0, 10).replaceAll('-', '/')}` : undefined,
+        subtitle: (() => {
+          if (selectedPeriod) {
+            const parts: string[] = []
+            if (selectedPeriod.carryOverDays > 0) parts.push(`繰越: ${selectedPeriod.carryOverDays}日`)
+            if (selectedPeriod.newGrantDays !== undefined) parts.push(`新付与: ${selectedPeriod.newGrantDays}日`)
+            if (parts.length > 0) return parts.join(' + ')
+          }
+          return statsData?.joinDate ? `入社: ${new Date(statsData.joinDate).toISOString().slice(0, 10).replaceAll('-', '/')}` : undefined
+        })(),
       },
     ]
 
@@ -259,8 +292,11 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
     if (!canViewCalculationDetails || userRole !== "employee" || !employeeId) return
 
     setShowTotalGrantedDialog(true)
-    setLoadingGrantDetails(true)
 
+    // 既にperiodデータ取得時にgrantCalculationDetailsがセットされている場合はスキップ
+    if (grantCalculationDetails) return
+
+    setLoadingGrantDetails(true)
     try {
       const res = await fetch(`/api/vacation/grant-calculation/${employeeId}`)
       if (res.ok) {
@@ -283,6 +319,31 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
         <div className="md:col-span-2 lg:col-span-4 -mb-2 text-sm text-muted-foreground">
           {statsData?.joinDate && (
             <span>入社日: {new Date(statsData.joinDate).toISOString().slice(0, 10).replaceAll('-', '/')}</span>
+          )}
+        </div>
+      )}
+      {/* 期間セレクター（社員用） */}
+      {userRole === "employee" && periodsData.length > 0 && (
+        <div className="md:col-span-2 lg:col-span-4 -mb-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {periodsData.map((period) => (
+              <Button
+                key={period.periodKey}
+                variant={selectedPeriodKey === period.periodKey ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setSelectedPeriodKey(period.periodKey)}
+              >
+                {period.label}
+              </Button>
+            ))}
+          </div>
+          {selectedPeriod && (
+            <div className="mt-1.5 text-sm text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{selectedPeriod.startDate} 〜 {selectedPeriod.endDate || '未定'}</span>
+              {selectedPeriodKey === 'next' && <span className="text-orange-500 text-xs ml-1">（予定）</span>}
+            </div>
           )}
         </div>
       )}

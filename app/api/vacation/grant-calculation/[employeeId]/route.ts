@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getNextGrantDate, getPreviousGrantDate, chooseGrantDaysForEmployee, diffInYearsHalfStep } from "@/lib/vacation-grant-lot"
 import { loadAppConfig } from "@/lib/vacation-config"
+import { generateGrantLotsForEmployee } from "@/lib/vacation-lot-generator"
+
+/** ローカルTZで YYYY-MM-DD 文字列を生成（toISOStringはUTC変換されるため使わない） */
+function toLocalDateStr(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
 /**
  * 特定時点での有効ロットの残日数を計算（失効していないもの）
@@ -65,6 +74,13 @@ export async function GET(
     const joinDate = new Date(employee.joinDate)
     const cfg = await loadAppConfig(employee.configVersion || undefined)
 
+    // 付与ロットが未生成の場合に備えて、計算前に自動生成を実行（冪等）
+    try {
+      await generateGrantLotsForEmployee(employeeId)
+    } catch (e) {
+      console.error(`[grant-calculation] ロット自動生成エラー (${employeeId}):`, e)
+    }
+
     // 現在から過去3回の付与日を取得
     // 今期の開始付与日（直近の付与日）
     const currentGrantDate = getPreviousGrantDate(joinDate, cfg, today)
@@ -126,12 +142,9 @@ export async function GET(
       })
 
       // 一昨年の新付与日数
+      const twoYearsAgoGrantStr = toLocalDateStr(twoYearsAgoGrantDate)
       const newGrantLot = twoYearsAgoLots.find(lot => {
-        const lotDate = new Date(lot.grantDate)
-        const grantDate = new Date(twoYearsAgoGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() &&
-          lotDate.getMonth() === grantDate.getMonth() &&
-          lotDate.getDate() === grantDate.getDate()
+        return toLocalDateStr(new Date(lot.grantDate)) === twoYearsAgoGrantStr
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -146,16 +159,16 @@ export async function GET(
       const carryOverToLastYear = Math.max(0, newGrantDays - twoYearsAgoUsedDays)
 
       twoYearsAgoData = {
-        startDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
-        endDate: twoYearsAgoGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        startDate: toLocalDateStr(twoYearsAgoGrantDate).replaceAll('-', '/'),
+        endDate: toLocalDateStr(twoYearsAgoGrantDateNext).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
         usedDays: Math.round(twoYearsAgoUsedDays * 2) / 2,
         totalGranted: Math.round(twoYearsAgoTotalGranted * 2) / 2,
         carryOverDays: Math.round(carryOverDays * 2) / 2,
-        carryOverToDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
-        newGrantDate: twoYearsAgoGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        carryOverToDate: toLocalDateStr(twoYearsAgoGrantDate).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: toLocalDateStr(twoYearsAgoGrantDate).replaceAll('-', ''),
         newGrantDays: Math.round(newGrantDays * 2) / 2,
         totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
-        carryOverToNextPeriod: lastYearGrantDate ? lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriod: lastYearGrantDate ? toLocalDateStr(lastYearGrantDate).replaceAll('-', '') : null,
         carryOverToNextPeriodDays: lastYearGrantDate ? carryOverToLastYear : 0,
       }
     }
@@ -197,12 +210,9 @@ export async function GET(
       })
 
       // 昨年の新付与日数
+      const lastYearGrantStr = toLocalDateStr(lastYearGrantDate)
       const newGrantLot = lastYearLots.find(lot => {
-        const lotDate = new Date(lot.grantDate)
-        const grantDate = new Date(lastYearGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() &&
-          lotDate.getMonth() === grantDate.getMonth() &&
-          lotDate.getDate() === grantDate.getDate()
+        return toLocalDateStr(new Date(lot.grantDate)) === lastYearGrantStr
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -217,16 +227,16 @@ export async function GET(
       const carryOverToCurrent = Math.max(0, newGrantDays - lastYearUsedDays)
 
       lastYearData = {
-        startDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
-        endDate: lastYearGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        startDate: toLocalDateStr(lastYearGrantDate).replaceAll('-', '/'),
+        endDate: toLocalDateStr(lastYearGrantDateNext).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
         usedDays: Math.round(lastYearUsedDays * 2) / 2,
         totalGranted: Math.round(lastYearTotalGranted * 2) / 2,
         carryOverDays: Math.round(carryOverDays * 2) / 2,
-        carryOverToDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
-        newGrantDate: lastYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        carryOverToDate: toLocalDateStr(lastYearGrantDate).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: toLocalDateStr(lastYearGrantDate).replaceAll('-', ''),
         newGrantDays: Math.round(newGrantDays * 2) / 2,
         totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
-        carryOverToNextPeriod: currentGrantDate ? currentGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriod: currentGrantDate ? toLocalDateStr(currentGrantDate).replaceAll('-', '') : null,
         carryOverToNextPeriodDays: currentGrantDate ? carryOverToCurrent : 0,
       }
     }
@@ -268,12 +278,9 @@ export async function GET(
       })
 
       // 今期の新付与日数
+      const currentGrantStr = toLocalDateStr(currentGrantDate)
       const newGrantLot = currentYearLots.find(lot => {
-        const lotDate = new Date(lot.grantDate)
-        const grantDate = new Date(currentGrantDate)
-        return lotDate.getFullYear() === grantDate.getFullYear() &&
-          lotDate.getMonth() === grantDate.getMonth() &&
-          lotDate.getDate() === grantDate.getDate()
+        return toLocalDateStr(new Date(lot.grantDate)) === currentGrantStr
       })
       const newGrantDays = newGrantLot ? Number(newGrantLot.daysGranted) : 0
 
@@ -289,16 +296,16 @@ export async function GET(
       const carryOverToNext = nextGrantDate ? Math.max(0, newGrantDays - currentYearUsedDays) : 0
 
       currentYearData = {
-        startDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
-        endDate: currentGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
+        startDate: toLocalDateStr(currentGrantDate).replaceAll('-', '/'),
+        endDate: toLocalDateStr(currentGrantDateNext).replaceAll('-', '/'), // 次の付与日（期間の終了日として表示）
         usedDays: Math.round(currentYearUsedDays * 2) / 2,
         totalGranted: Math.round(currentYearTotalGranted * 2) / 2,
         carryOverDays: Math.round(carryOverDays * 2) / 2,
-        carryOverToDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', ''), // 繰越し先の日付
-        newGrantDate: currentGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        carryOverToDate: toLocalDateStr(currentGrantDate).replaceAll('-', ''), // 繰越し先の日付
+        newGrantDate: toLocalDateStr(currentGrantDate).replaceAll('-', ''),
         newGrantDays: Math.round(newGrantDays * 2) / 2,
         totalAtGrantDate: Math.round(totalAtGrantDate * 2) / 2,
-        carryOverToNextPeriod: nextGrantDate ? nextGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriod: nextGrantDate ? toLocalDateStr(nextGrantDate).replaceAll('-', '') : null,
         carryOverToNextPeriodDays: nextGrantDate ? carryOverToNext : 0,
       }
     }
@@ -338,14 +345,14 @@ export async function GET(
       )
 
       nextYearData = {
-        startDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
-        endDate: nextYearGrantDateNext ? nextYearGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/') : null,
+        startDate: toLocalDateStr(nextYearGrantDate).replaceAll('-', '/'),
+        endDate: nextYearGrantDateNext ? toLocalDateStr(nextYearGrantDateNext).replaceAll('-', '/') : null,
         usedDays: 0, // 来期はまだ使用日数がない
         pendingDays: Math.round(nextYearPendingDays * 2) / 2,
         totalGranted: Math.round(nextYearTotalGranted * 2) / 2,
         carryOverDays: Math.round(carryOverToNextYear * 2) / 2,
-        carryOverToDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
-        newGrantDate: nextYearGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        carryOverToDate: toLocalDateStr(nextYearGrantDate).replaceAll('-', ''),
+        newGrantDate: toLocalDateStr(nextYearGrantDate).replaceAll('-', ''),
         newGrantDays: Math.round(nextGrantDays * 2) / 2,
         totalAtGrantDate: Math.round(nextYearTotalGranted * 2) / 2,
       }
@@ -448,11 +455,9 @@ export async function GET(
         },
         orderBy: { grantDate: 'asc' },
       })
+      const olderGrantStr = toLocalDateStr(olderGrantDate)
       const olderLot = olderLots.find(lot => {
-        const d = new Date(lot.grantDate)
-        return d.getFullYear() === olderGrantDate.getFullYear() &&
-          d.getMonth() === olderGrantDate.getMonth() &&
-          d.getDate() === olderGrantDate.getDate()
+        return toLocalDateStr(new Date(lot.grantDate)) === olderGrantStr
       })
       const olderNewGrantDays = olderLot ? Number(olderLot.daysGranted) : 0
       const olderTotalAtGrantDate = olderCarryOverDays + olderNewGrantDays
@@ -461,15 +466,15 @@ export async function GET(
       periods.push({
         label: `${periodCount}期前`,
         periodKey: `minus${periodCount}`,
-        startDate: olderGrantDate.toISOString().slice(0, 10).replaceAll('-', '/'),
-        endDate: olderGrantDateNext.toISOString().slice(0, 10).replaceAll('-', '/'),
+        startDate: toLocalDateStr(olderGrantDate).replaceAll('-', '/'),
+        endDate: toLocalDateStr(olderGrantDateNext).replaceAll('-', '/'),
         usedDays: Math.round(olderUsedDays * 2) / 2,
         totalGranted: Math.round(olderTotalAtGrantDate * 2) / 2,
         carryOverDays: Math.round(olderCarryOverDays * 2) / 2,
-        newGrantDate: olderGrantDate.toISOString().slice(0, 10).replaceAll('-', ''),
+        newGrantDate: toLocalDateStr(olderGrantDate).replaceAll('-', ''),
         newGrantDays: Math.round(olderNewGrantDays * 2) / 2,
         totalAtGrantDate: Math.round(olderTotalAtGrantDate * 2) / 2,
-        carryOverToNextPeriod: prevGrantDate ? prevGrantDate.toISOString().slice(0, 10).replaceAll('-', '') : null,
+        carryOverToNextPeriod: prevGrantDate ? toLocalDateStr(prevGrantDate).replaceAll('-', '') : null,
         carryOverToNextPeriodDays: Math.round(olderCarryOverOut * 2) / 2,
       })
 

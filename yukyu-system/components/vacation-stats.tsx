@@ -2,7 +2,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, Clock, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -322,28 +321,28 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
           )}
         </div>
       )}
-      {/* 期間セレクター（社員用） */}
+      {/* 期間セレクター（社員用・プルダウン：来期/今期/昨年のみ） */}
       {userRole === "employee" && periodsData.length > 0 && (
-        <div className="md:col-span-2 lg:col-span-4 -mb-2">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {periodsData.map((period) => (
-              <Button
-                key={period.periodKey}
-                variant={selectedPeriodKey === period.periodKey ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs px-2.5"
-                onClick={() => setSelectedPeriodKey(period.periodKey)}
-              >
-                {period.label}
-              </Button>
-            ))}
-          </div>
+        <div className="md:col-span-2 lg:col-span-4 -mb-2 flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedPeriodKey}
+            onChange={(e) => setSelectedPeriodKey(e.target.value)}
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {periodsData
+              .filter(p => ['next', 'current', 'last', 'twoYearsAgo', 'minus3'].includes(p.periodKey))
+              .map((period) => (
+                <option key={period.periodKey} value={period.periodKey}>
+                  {period.label}
+                </option>
+              ))}
+          </select>
           {selectedPeriod && (
-            <div className="mt-1.5 text-sm text-muted-foreground flex items-center gap-1">
+            <span className="text-sm text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" />
-              <span>{selectedPeriod.startDate} 〜 {selectedPeriod.endDate || '未定'}</span>
+              {selectedPeriod.startDate} 〜 {selectedPeriod.endDate || '未定'}
               {selectedPeriodKey === 'next' && <span className="text-orange-500 text-xs ml-1">（予定）</span>}
-            </div>
+            </span>
           )}
         </div>
       )}

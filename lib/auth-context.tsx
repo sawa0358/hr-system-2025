@@ -15,7 +15,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const AUTH_EXPIRATION_DAYS = 30;
 
 // セッションバージョン: アプリ更新時にこの値を変更すると全ユーザーが強制再ログイン
-const SESSION_VERSION = "3.8.1";
+const SESSION_VERSION = "3.8.2";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any | null>(null)

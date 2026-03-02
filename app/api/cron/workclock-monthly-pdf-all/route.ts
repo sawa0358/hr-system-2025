@@ -129,6 +129,9 @@ export async function GET(request: NextRequest) {
       phone?: string | null
       address?: string | null
       notes?: string | null
+      billingTaxEnabled?: boolean
+      billingTaxRate?: number | null
+      taxType?: 'exclusive' | 'inclusive'
     }
 
     type TimeEntryForPDF = {
@@ -227,6 +230,9 @@ export async function GET(request: NextRequest) {
         phone: worker.phone || undefined,
         address: worker.address || undefined,
         notes: worker.notes || undefined,
+        billingTaxEnabled: worker.billingTaxEnabled ?? false,
+        billingTaxRate: worker.billingTaxRate,
+        taxType: (worker.taxType === 'inclusive' ? 'inclusive' : 'exclusive') as 'exclusive' | 'inclusive',
       }
 
       const entriesForPdf: TimeEntryForPDF[] = entries.map((e) => ({

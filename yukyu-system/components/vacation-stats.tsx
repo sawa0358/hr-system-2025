@@ -321,7 +321,7 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
           )}
         </div>
       )}
-      {/* 期間セレクター（社員用・プルダウン：来期/今期/昨年のみ） */}
+      {/* 期間セレクター（社員用・プルダウン：運用開始時期に基づく動的フィルター） */}
       {userRole === "employee" && periodsData.length > 0 && (
         <div className="md:col-span-2 lg:col-span-4 -mb-2 flex items-center gap-2 flex-wrap">
           <select
@@ -330,7 +330,25 @@ export function VacationStats({ userRole, employeeId }: VacationStatsProps) {
             className="h-8 rounded-md border border-input bg-background px-2 text-sm"
           >
             {periodsData
-              .filter(p => ['next', 'current', 'last', 'twoYearsAgo', 'minus3'].includes(p.periodKey))
+              .filter(p => {
+                // 今期は常に表示
+                if (p.periodKey === 'current') return true
+                // 来期: 今期の終了が3ヶ月以内に迫った場合のみ表示
+                if (p.periodKey === 'next') {
+                  const currentPeriod = periodsData.find(cp => cp.periodKey === 'current')
+                  if (!currentPeriod?.endDate) return false
+                  const endDate = new Date(currentPeriod.endDate.replace(/\//g, '-'))
+                  const threeMonthsBefore = new Date(endDate)
+                  threeMonthsBefore.setMonth(threeMonthsBefore.getMonth() - 3)
+                  return new Date() >= threeMonthsBefore
+                }
+                // 過去の期間: 運用開始(2026-03)の24ヶ月前以降のデータのみ表示
+                // → 昨年は表示、一昨年以前は時間経過で自然に表示される
+                if (!p.startDate) return false
+                const startDate = new Date(p.startDate.replace(/\//g, '-'))
+                const dataCutoff = new Date('2024-03-01')
+                return startDate >= dataCutoff
+              })
               .map((period) => (
                 <option key={period.periodKey} value={period.periodKey}>
                   {period.label}

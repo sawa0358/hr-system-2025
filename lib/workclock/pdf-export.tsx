@@ -242,9 +242,11 @@ export function generatePDFContent(
   let subtotalNonWithholdingExclTax: number; // 源泉なし小計の税抜金額
 
   if (billingTaxEnabled && effectiveTaxRatePercent > 0 && taxType === 'inclusive') {
-    // 内税の場合：小計に税が含まれているので税抜金額に変換
-    subtotalWithholdingExclTax = Math.floor(subtotalWithholding / (1 + effectiveTaxRatePercent / 100));
-    subtotalNonWithholdingExclTax = Math.floor(subtotalNonWithholding / (1 + effectiveTaxRatePercent / 100));
+    // 内税の場合：税額を四捨五入で算出し、税込額から差し引いて税抜額を得る
+    const withholdingTaxPortion = Math.round(subtotalWithholding * effectiveTaxRatePercent / (100 + effectiveTaxRatePercent));
+    subtotalWithholdingExclTax = subtotalWithholding - withholdingTaxPortion;
+    const nonWithholdingTaxPortion = Math.round(subtotalNonWithholding * effectiveTaxRatePercent / (100 + effectiveTaxRatePercent));
+    subtotalNonWithholdingExclTax = subtotalNonWithholding - nonWithholdingTaxPortion;
   } else {
     // 外税または消費税なしの場合：小計がそのまま税抜金額
     subtotalWithholdingExclTax = subtotalWithholding;
@@ -284,12 +286,12 @@ export function generatePDFContent(
 
   if (billingTaxEnabled && effectiveTaxRatePercent > 0) {
     if (taxType === 'inclusive') {
-      // 内税：調整後の税抜金額から税額を算出
-      taxAmount = Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100));
+      // 内税：調整後の税抜金額から税額を四捨五入で算出
+      taxAmount = Math.round(baseAmountExclTax * (effectiveTaxRatePercent / 100));
       totalWithTax = baseAmountExclTax + taxAmount;
     } else {
-      // 外税：調整後の税抜金額に税率を掛ける
-      taxAmount = Math.floor(baseAmountExclTax * (effectiveTaxRatePercent / 100));
+      // 外税：調整後の税抜金額に税率を掛けて四捨五入
+      taxAmount = Math.round(baseAmountExclTax * (effectiveTaxRatePercent / 100));
       totalWithTax = baseAmountExclTax + taxAmount;
     }
   } else {

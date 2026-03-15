@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ユーザー名またはメールアドレスで社員を検索
-    const employee = await prisma.employee.findFirst({
+    // ユーザー名またはメールアドレスで社員候補を検索（同名対応のためfindMany）
+    const candidates = await prisma.employee.findMany({
       where: {
         OR: [
           { name: username },
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    if (!employee) {
+    if (candidates.length === 0) {
       console.log(`[Auth] ユーザー未検出: "${username}"`);
       return NextResponse.json(
         { error: 'ユーザー名またはパスワードが正しくありません' },
@@ -34,38 +34,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ステータスチェック（停止/休職/退職）
-    if (employee.isSuspended || employee.status === 'suspended') {
-      return NextResponse.json(
-        { error: 'このアカウントは停止中です。管理者にお問い合わせください。' },
-        { status: 403 }
-      );
-    }
-    if (employee.status === 'leave' || employee.status === 'retired') {
-      return NextResponse.json(
-        { error: 'このアカウントは休職中または退職済みです。管理者にお問い合わせください。' },
-        { status: 403 }
-      );
-    }
+    console.log(`[Auth] 候補${candidates.length}件: "${username}"`);
 
-    // ロールが未設定の場合はログイン不可
-    if (!employee.role) {
-      return NextResponse.json(
-        { error: 'ユーザー名またはパスワードが正しくありません' },
-        { status: 401 }
-      );
+    // 候補の中からパスワードが一致し、ログイン可能な社員を探す
+    let employee = null;
+    for (const candidate of candidates) {
+      // ロールが未設定はスキップ
+      if (!candidate.role) continue;
+      // 停止・休職・退職はスキップ
+      if (candidate.isSuspended || candidate.status === 'suspended') continue;
+      if (candidate.status === 'leave' || candidate.status === 'retired') continue;
+
+      const isValid = await verifyPassword(password, candidate.password);
+      console.log(`[Auth] 検証: "${candidate.name}" (ID: ${candidate.id}), pwHashed=${isPasswordHashed(candidate.password)}, inputLen=${password.length}, storedLen=${candidate.password.length}, valid=${isValid}`);
+      if (isValid) {
+        employee = candidate;
+        break;
+      }
     }
 
-    // パスワード検証（bcryptハッシュ・平文の両方に対応）
-    const pwIsHashed = isPasswordHashed(employee.password);
-    const inputLen = password.length;
-    const storedLen = employee.password.length;
-    console.log(`[Auth] ユーザー検出: "${employee.name}" (ID: ${employee.id}), pwHashed=${pwIsHashed}, inputLen=${inputLen}, storedLen=${storedLen}`);
-
-    const isValid = await verifyPassword(password, employee.password);
-    console.log(`[Auth] 検証結果: valid=${isValid}`);
-
-    if (!isValid) {
+    if (!employee) {
+      // パスワード不一致の場合、停止/休職/退職の候補があるか確認してメッセージを分ける
+      const suspendedCandidate = candidates.find(c => c.isSuspended || c.status === 'suspended');
+      if (suspendedCandidate) {
+        return NextResponse.json(
+          { error: 'このアカウントは停止中です。管理者にお問い合わせください。' },
+          { status: 403 }
+        );
+      }
+      const leaveCandidate = candidates.find(c => c.status === 'leave' || c.status === 'retired');
+      if (leaveCandidate) {
+        return NextResponse.json(
+          { error: 'このアカウントは休職中または退職済みです。管理者にお問い合わせください。' },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { error: 'ユーザー名またはパスワードが正しくありません' },
         { status: 401 }
@@ -73,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 平文パスワードの場合、自動的にハッシュ化して更新（遅延マイグレーション）
-    if (!pwIsHashed) {
+    if (!isPasswordHashed(employee.password)) {
       try {
         const hashed = await hashPassword(password);
         // ハッシュ化直後に検証テスト（デバッグ用）

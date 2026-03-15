@@ -46,19 +46,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Cookie からJWTトークンを取得
-  const cookieHeader = request.headers.get('cookie')
-  let token: string | null = null
-  if (cookieHeader) {
-    const cookies = cookieHeader.split(';').map(c => c.trim())
-    for (const cookie of cookies) {
-      if (cookie.startsWith(`${COOKIE_NAME}=`)) {
-        token = cookie.substring(COOKIE_NAME.length + 1)
-        break
-      }
-    }
-  }
+  const token = request.cookies.get(COOKIE_NAME)?.value
 
   if (!token) {
+    console.log(`[Middleware] 401 no-token: ${pathname}, cookies: ${request.cookies.getAll().map(c => c.name).join(',')}`)
     return NextResponse.json(
       { error: '認証が必要です' },
       { status: 401 }
@@ -80,7 +71,8 @@ export async function middleware(request: NextRequest) {
         headers: requestHeaders,
       },
     })
-  } catch {
+  } catch (err) {
+    console.log(`[Middleware] 401 jwt-invalid: ${pathname}, tokenLen=${token.length}, err=${err instanceof Error ? err.message : err}`)
     return NextResponse.json(
       { error: '認証が無効です。再ログインしてください。' },
       { status: 401 }

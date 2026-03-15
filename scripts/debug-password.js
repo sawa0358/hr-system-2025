@@ -3,34 +3,37 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function test() {
-  const emp = await prisma.employee.findFirst({
-    where: { name: '大澤仁志' },
+  // テスト用: 既知のパスワードでハッシュ→検証のフローを確認
+  const knownPw = 'test_password_123';
+  const knownHash = await bcrypt.hash(knownPw, 12);
+  const knownVerify = await bcrypt.compare(knownPw, knownHash);
+  console.log('=== bcrypt self-test ===');
+  console.log('Hash:', knownHash);
+  console.log('Verify:', knownVerify);
+
+  // DB復元後のバックアップb051からのデータを確認
+  // 最初の5人の社員パスワード状態を表示
+  const employees = await prisma.employee.findMany({
+    take: 5,
     select: { id: true, name: true, password: true }
   });
 
-  if (!emp) {
-    console.log('Employee not found');
-    await prisma.$disconnect();
-    return;
+  console.log('\n=== Employee passwords ===');
+  for (const emp of employees) {
+    const pw = emp.password || '(empty)';
+    const isHashed = pw.startsWith('$2');
+    console.log(`${emp.name}: len=${pw.length}, hashed=${isHashed}, first7=${pw.substring(0,7)}`);
+
+    if (isHashed) {
+      // ハッシュが正しいフォーマットか
+      const validFormat = /^\$2[aby]\$\d{2}\$.{53}$/.test(pw);
+      console.log(`  format_valid=${validFormat}`);
+
+      // 元のパスワード（名前と同じかもしれない）でテスト
+      const nameMatch = await bcrypt.compare(emp.name, pw);
+      console.log(`  name_as_pw=${nameMatch}`);
+    }
   }
-
-  console.log('Name:', emp.name);
-  console.log('PW length:', emp.password.length);
-  console.log('Starts $2:', emp.password.startsWith('$2'));
-  console.log('First 10:', emp.password.substring(0, 10));
-
-  // bcrypt hash format check
-  const valid = /^\$2[aby]\$\d{2}\$.{53}$/.test(emp.password);
-  console.log('Valid bcrypt format:', valid);
-
-  // bcrypt self-test
-  const h = await bcrypt.hash('test123', 12);
-  const r = await bcrypt.compare('test123', h);
-  console.log('bcrypt self-test:', r);
-
-  // Check if double-hashed (hash of a hash)
-  const isDoubleHashed = emp.password.startsWith('$2') && emp.password.length > 70;
-  console.log('Possibly double-hashed:', isDoubleHashed);
 
   await prisma.$disconnect();
 }

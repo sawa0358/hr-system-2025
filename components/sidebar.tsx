@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button"
 import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
 import { LoginModal } from "@/components/login-modal"
+import { APP_VERSION } from "@/lib/version"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
@@ -429,7 +430,7 @@ export function Sidebar() {
               </div>
               <div className="flex flex-col justify-center">
                 <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">HR System</span>
-                <span className="text-xs text-sidebar-foreground/50">v3.8.4</span>
+                <span className="text-xs text-sidebar-foreground/50">{APP_VERSION}</span>
               </div>
             </div>
           )}

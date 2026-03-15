@@ -165,9 +165,7 @@ export async function GET() {
       parentEmployeeId: emp.parentEmployeeId
     })));
 
-    // パスワードをレスポンスから除外
-    const safeEmployees = processedEmployees.map(excludePassword);
-    return NextResponse.json(safeEmployees);
+    return NextResponse.json(processedEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
     console.error('エラーの詳細:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : undefined);
@@ -345,7 +343,7 @@ export async function POST(request: NextRequest) {
         })(),
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
-        password: await hashPassword(body.password),
+        password: body.password,
         role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
         myNumber: (() => {
           if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {
@@ -529,7 +527,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      employee: excludePassword(employee)
+      employee: employee
     });
   } catch (error: any) {
     console.error('社員作成エラー:', error);

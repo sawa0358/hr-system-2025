@@ -75,26 +75,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 平文パスワードの場合、自動的にハッシュ化して更新（遅延マイグレーション）
-    if (!isPasswordHashed(employee.password)) {
-      try {
-        const hashed = await hashPassword(password);
-        // ハッシュ化直後に検証テスト（デバッグ用）
-        const verifyTest = await verifyPassword(password, hashed);
-        console.log(`[Auth] 遅延ハッシュ化: "${employee.name}", hashLen=${hashed.length}, verifyTest=${verifyTest}`);
-        if (verifyTest) {
-          await prisma.employee.update({
-            where: { id: employee.id },
-            data: { password: hashed }
-          });
-          console.log(`[Auth] パスワードハッシュ化完了: "${employee.name}"`);
-        } else {
-          console.error(`[Auth] ハッシュ化後の検証失敗! ハッシュ化をスキップ: "${employee.name}"`);
-        }
-      } catch (e) {
-        console.error('[Auth] パスワードの自動ハッシュ化に失敗:', e);
-      }
-    }
+    // 遅延ハッシュ化は無効化（Reno CRM等の外部システムとの互換性のため）
 
     // JWT セッショントークン生成
     const sessionPayload: SessionPayload = {

@@ -11,15 +11,11 @@ node scripts/switch-schema.js prod
 echo "📦 Prismaクライアントを生成中..."
 npx prisma generate
 
-# データベースマイグレーションの実行
-echo "🗄️ データベースマイグレーションを実行中..."
+# データベースマイグレーション（スキーマ変更がある場合のみ有効化）
+# ⚠️ prisma db push はデータ消失の原因となるため、スキーマ変更がない限り実行しない
+# スキーマ変更が必要な場合は、手動で heroku run npx prisma db push を実行すること
 set -e
-# if ! npx prisma migrate deploy; then
-#   echo "⚠️ migrate deploy に失敗しました。migration.sql の欠落などが原因の可能性があります。"
-#   echo "➡️ 代替として schema をDBへ直接適用します（db push）。"
-  echo "➡️ スキーマ同期を実行します。"
-  npx prisma db push
-# fi
+echo "ℹ️ スキーマ変更なし - db push をスキップします。"
 
 # 「見えないTOP」社員の自動作成
 echo "👤 「見えないTOP」社員を自動作成中..."

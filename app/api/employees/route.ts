@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { saveEmployeeToS3 } from '@/lib/s3-client';
+import { hashPassword } from '@/lib/password';
+
+// レスポンスからパスワードを除外するヘルパー
+function excludePassword<T extends Record<string, any>>(employee: T): Omit<T, 'password'> {
+  const { password, ...rest } = employee;
+  return rest;
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -158,7 +165,9 @@ export async function GET() {
       parentEmployeeId: emp.parentEmployeeId
     })));
 
-    return NextResponse.json(processedEmployees);
+    // パスワードをレスポンスから除外
+    const safeEmployees = processedEmployees.map(excludePassword);
+    return NextResponse.json(safeEmployees);
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
     console.error('エラーの詳細:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : undefined);
@@ -336,7 +345,7 @@ export async function POST(request: NextRequest) {
         })(),
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
-        password: body.password,
+        password: await hashPassword(body.password),
         role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
         myNumber: (() => {
           if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {
@@ -520,7 +529,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      employee
+      employee: excludePassword(employee)
     });
   } catch (error: any) {
     console.error('社員作成エラー:', error);

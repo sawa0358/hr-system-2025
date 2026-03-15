@@ -18,6 +18,7 @@ interface PasswordVerificationDialogProps {
 export function PasswordVerificationDialog({ open, onOpenChange, onVerified, currentUser, actionType }: PasswordVerificationDialogProps) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [isVerifying, setIsVerifying] = useState(false)
 
   const isJoinDateContext = actionType === "join-date"
   const isWorkClockContext = actionType === "workclock-billing"
@@ -59,15 +60,34 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
                 ? "人事考課システムの対象者から外すと、過去の評価データへのアクセス権限等に影響する可能性があります。"
                 : "マイナンバーは機密情報です。管理者・総務権限を持つユーザーのみ閲覧できます。"
 
-  const handleVerify = () => {
-    // 現在のユーザーのパスワードと照合
-    if (currentUser && password === currentUser.password) {
-      onVerified()
-      onOpenChange(false)
-      setPassword("")
-      setError("")
-    } else {
-      setError("パスワードが正しくありません")
+  const handleVerify = async () => {
+    if (!currentUser?.id || !password) return
+
+    setIsVerifying(true)
+    setError("")
+
+    try {
+      // サーバーサイドでパスワードを検証
+      const response = await fetch('/api/auth/verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId: currentUser.id, password }),
+      })
+
+      const data = await response.json()
+
+      if (data.valid) {
+        onVerified()
+        onOpenChange(false)
+        setPassword("")
+        setError("")
+      } else {
+        setError("パスワードが正しくありません")
+      }
+    } catch {
+      setError("検証に失敗しました。再試行してください。")
+    } finally {
+      setIsVerifying(false)
     }
   }
 
@@ -120,8 +140,8 @@ export function PasswordVerificationDialog({ open, onOpenChange, onVerified, cur
           >
             キャンセル
           </Button>
-          <Button onClick={handleVerify} className="bg-blue-600 hover:bg-blue-700">
-            認証する
+          <Button onClick={handleVerify} className="bg-blue-600 hover:bg-blue-700" disabled={isVerifying}>
+            {isVerifying ? "認証中..." : "認証する"}
           </Button>
         </div>
       </DialogContent>

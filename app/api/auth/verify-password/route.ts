@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyPassword } from '@/lib/password'
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,8 +27,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // パスワードを照合
-    const isValid = employee.password === password
+    // パスワードを照合（bcryptハッシュ・平文の両方に対応）
+    const isValid = await verifyPassword(password, employee.password)
 
     return NextResponse.json({ valid: isValid })
   } catch (error) {
@@ -38,4 +39,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

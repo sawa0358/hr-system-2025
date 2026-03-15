@@ -1,6 +1,8 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
+const INVISIBLE_TOP_PASSWORD = process.env.INVISIBLE_TOP_PASSWORD || 'invisible-top-' + Date.now();
 
 async function autoCreateInvisibleTop() {
   try {
@@ -37,7 +39,7 @@ async function autoCreateInvisibleTop() {
           showInOrgChart: true,
           parentEmployeeId: null,
           isInvisibleTop: true,
-          password: "invisible-top-secure-password-2024"
+          password: bcrypt.hashSync(INVISIBLE_TOP_PASSWORD, 12)
         }
       });
       console.log('✅ 既存の「見えないTOP」社員を更新しました');
@@ -60,7 +62,7 @@ async function autoCreateInvisibleTop() {
           showInOrgChart: true,
           parentEmployeeId: null,
           isInvisibleTop: true,
-          password: "invisible-top-secure-password-2024"
+          password: bcrypt.hashSync(INVISIBLE_TOP_PASSWORD, 12)
         }
       });
       console.log('✅ 新しい「見えないTOP」社員を作成しました');

@@ -33,6 +33,10 @@ next-env.d.ts
 # uploads directory
 uploads/
 
+# backup files
+backups/
+production_data_backup/
+
 # database
 prisma/dev.db
 prisma/*.db.backup*

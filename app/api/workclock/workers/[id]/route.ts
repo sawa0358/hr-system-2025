@@ -383,7 +383,7 @@ export async function PUT(
       requestBody, // デバッグ用にbodyの中身も出力（パスワード等は注意が必要だが開発環境前提）
     })
 
-    const isDev = true // process.env.NODE_ENV === 'development' // 強制的に詳細を表示
+    const isDev = process.env.NODE_ENV === 'development'
     return NextResponse.json(
       {
         error: 'ワーカーの更新に失敗しました',

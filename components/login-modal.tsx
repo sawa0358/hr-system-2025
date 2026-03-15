@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Building2, AlertCircle } from "lucide-react"
 
 interface LoginModalProps {
@@ -31,54 +30,33 @@ export function LoginModal({ open, onLoginSuccess }: LoginModalProps) {
     setIsLoading(true)
 
     try {
-      // データベースから社員情報を取得
-      console.log("Fetching employees from API...")
-      const response = await fetch('/api/employees')
-      console.log("API response status:", response.status)
+      // サーバーサイドでログイン認証（パスワードはサーバー側で検証）
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: name, password }),
+      })
 
-      if (response.ok) {
-        const employees = await response.json()
-        console.log("Found employees:", employees.length)
-        const employee = employees.find((emp: any) => emp.name === name && emp.password === password && emp.role)
-        console.log("Found employee:", employee ? `${employee.name} (ID: ${employee.id}, Role: ${employee.role})` : "None")
+      const data = await response.json()
 
-        if (employee) {
-          // 停止中ユーザーのログインをブロック
-          if (employee.isSuspended || employee.status === 'suspended') {
-            setError("このアカウントは停止中です。管理者にお問い合わせください。")
-            setIsLoading(false)
-            return
+      if (response.ok && data.success) {
+        onLoginSuccess(data.user)
+        setIsLoading(false)
+        // ログイン成功後、人事考課対象者の場合は人事考課ページに、そうでない場合はタスク管理ページにリダイレクト
+        setTimeout(() => {
+          if (data.user.isPersonnelEvaluationTarget) {
+            router.push('/evaluations')
+          } else {
+            router.push('/tasks')
           }
-
-          // 休職・退職ユーザーのログインをブロック
-          if (employee.status === 'leave' || employee.status === 'retired') {
-            setError("このアカウントは休職中または退職済みです。管理者にお問い合わせください。")
-            setIsLoading(false)
-            return
-          }
-
-          onLoginSuccess(employee)
-          setIsLoading(false)
-          // ログイン成功後、人事考課対象者の場合は人事考課ページに、そうでない場合はタスク管理ページにリダイレクト
-          setTimeout(() => {
-            if (employee.isPersonnelEvaluationTarget) {
-              router.push('/evaluations')
-            } else {
-              router.push('/tasks')
-            }
-          }, 100)
-        } else {
-          setError("名前またはパスワードが正しくありません")
-          setIsLoading(false)
-        }
+        }, 100)
       } else {
-        console.error("Failed to fetch employees from API, status:", response.status)
-        setError("サーバーに接続できません。しばらく待ってから再試行してください。")
+        setError(data.error || "名前またはパスワードが正しくありません")
         setIsLoading(false)
       }
     } catch (error) {
       console.error('ログインエラー:', error)
-      setError("ログインに失敗しました")
+      setError("サーバーに接続できません。しばらく待ってから再試行してください。")
       setIsLoading(false)
     }
   }

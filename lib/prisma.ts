@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import path from 'path';
+import bcrypt from 'bcryptjs';
 
 if (!process.env.DATABASE_URL) {
   // 開発環境向けのフォールバック - 絶対パスを使用
@@ -80,7 +81,7 @@ async function ensureInvisibleTopEmployee() {
           showInOrgChart: true,
           parentEmployeeId: null,
           isInvisibleTop: true,
-          password: "invisible-top-secure-password-2024"
+          password: bcrypt.hashSync(process.env.INVISIBLE_TOP_PASSWORD || 'invisible-top-' + Date.now(), 12)
         }
       });
       console.log('✅ 「見えないTOP」社員を自動作成しました');

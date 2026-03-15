@@ -4,6 +4,13 @@ import {
   saveEmployeeToS3,
   saveFamilyMembersToS3
 } from '@/lib/s3-client';
+import { hashPassword } from '@/lib/password';
+
+// レスポンスからパスワードを除外するヘルパー
+function excludePassword<T extends Record<string, any>>(obj: T): Omit<T, 'password'> {
+  const { password, ...rest } = obj;
+  return rest;
+}
 
 // JSON配列をパースするヘルパー関数
 function parseJsonArray(value: string): string[] {
@@ -56,7 +63,7 @@ export async function GET(
       familyMembers: familyMembers, // 家族データを追加
     };
 
-    return NextResponse.json(processedEmployee);
+    return NextResponse.json(excludePassword(processedEmployee));
   } catch (error) {
     console.error('社員取得エラー:', error);
     return NextResponse.json(
@@ -368,7 +375,7 @@ export async function PUT(
       })(),
       joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
       status: body.status,
-      password: body.password,
+      password: body.password ? await hashPassword(body.password) : undefined,
       role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
       myNumber: (() => {
         if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {
@@ -648,10 +655,10 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      employee: {
+      employee: excludePassword({
         ...updatedEmployee,
         familyMembers: updatedFamilyMembers
-      }
+      })
     });
   } catch (error: any) {
     console.error('社員更新エラー:', error);

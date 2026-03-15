@@ -25,4 +25,8 @@ set -e
 echo "👤 「見えないTOP」社員を自動作成中..."
 node scripts/auto-create-invisible-top.js
 
+# パスワードハッシュ化マイグレーション
+echo "🔒 パスワードハッシュ化マイグレーションを実行中..."
+node scripts/migrate-passwords.js
+
 echo "✅ デプロイ後の自動セットアップが完了しました！"

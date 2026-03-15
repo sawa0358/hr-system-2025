@@ -58,8 +58,13 @@ export async function POST(request: NextRequest) {
 
     // パスワード検証（bcryptハッシュ・平文の両方に対応）
     const pwIsHashed = isPasswordHashed(employee.password);
+    const inputLen = password.length;
+    const storedLen = employee.password.length;
+    console.log(`[Auth] ユーザー検出: "${employee.name}" (ID: ${employee.id}), pwHashed=${pwIsHashed}, inputLen=${inputLen}, storedLen=${storedLen}`);
+
     const isValid = await verifyPassword(password, employee.password);
-    console.log(`[Auth] ユーザー検出: "${employee.name}" (ID: ${employee.id}), pwHashed=${pwIsHashed}, valid=${isValid}`);
+    console.log(`[Auth] 検証結果: valid=${isValid}`);
+
     if (!isValid) {
       return NextResponse.json(
         { error: 'ユーザー名またはパスワードが正しくありません' },
@@ -68,13 +73,21 @@ export async function POST(request: NextRequest) {
     }
 
     // 平文パスワードの場合、自動的にハッシュ化して更新（遅延マイグレーション）
-    if (!isPasswordHashed(employee.password)) {
+    if (!pwIsHashed) {
       try {
         const hashed = await hashPassword(password);
-        await prisma.employee.update({
-          where: { id: employee.id },
-          data: { password: hashed }
-        });
+        // ハッシュ化直後に検証テスト（デバッグ用）
+        const verifyTest = await verifyPassword(password, hashed);
+        console.log(`[Auth] 遅延ハッシュ化: "${employee.name}", hashLen=${hashed.length}, verifyTest=${verifyTest}`);
+        if (verifyTest) {
+          await prisma.employee.update({
+            where: { id: employee.id },
+            data: { password: hashed }
+          });
+          console.log(`[Auth] パスワードハッシュ化完了: "${employee.name}"`);
+        } else {
+          console.error(`[Auth] ハッシュ化後の検証失敗! ハッシュ化をスキップ: "${employee.name}"`);
+        }
       } catch (e) {
         console.error('[Auth] パスワードの自動ハッシュ化に失敗:', e);
       }

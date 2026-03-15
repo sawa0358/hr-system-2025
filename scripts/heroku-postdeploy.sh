@@ -21,8 +21,8 @@ echo "ℹ️ スキーマ変更なし - db push をスキップします。"
 echo "👤 「見えないTOP」社員を自動作成中..."
 node scripts/auto-create-invisible-top.js
 
-# パスワードハッシュ化マイグレーション
-echo "🔒 パスワードハッシュ化マイグレーションを実行中..."
-node scripts/migrate-passwords.js
+# パスワードハッシュ化は遅延マイグレーション方式（ログイン時に個別ハッシュ化）を採用
+# バルクマイグレーション（migrate-passwords.js）は必要に応じて手動実行:
+#   heroku run "node scripts/migrate-passwords.js" --app hr-system-2025
 
 echo "✅ デプロイ後の自動セットアップが完了しました！"

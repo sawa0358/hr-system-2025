@@ -1,6 +1,3 @@
-// ベーススキーマ - 共通のモデル定義
-// このファイルを元に、環境別のスキーマを自動生成します
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,230 +7,156 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ユーザーロール
-enum UserRole {
-  viewer
-  general
-  sub_manager
-  store_manager
-  manager
-  hr
-  admin
-}
-
-// 社員ステータス
-enum EmployeeStatus {
-  active
-  leave
-  retired
-  suspended
-  copy
-}
-
-// 雇用形態（有給管理用）
-enum EmploymentType {
-  FULL_TIME
-  PART_TIME
-}
-
-// 申請単位
-enum RequestUnit {
-  DAY
-  HOUR
-}
-
-// 申請ステータス（有給管理用詳細版）
-enum RequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
-// WorkClock用 時給パターン
-enum WagePattern {
-  A
-  B
-  C
-}
-
 model Employee {
-  id                    String            @id @default(cuid())
-  employeeId            String            @unique
-  employeeNumber        String            @unique
-  employeeType          String
-  name                  String
-  furigana              String?
-  email                 String?
-  phone                 String?
-  department            String
-  position              String
-  organization          String
-  team                  String?
-  joinDate              DateTime
-  status                EmployeeStatus    @default(active)
-  password              String
-  role                  UserRole?
-  myNumber              String?
-  userId                String?
-  url                   String?
-  address               String?
-  selfIntroduction      String?
-  phoneInternal         String?
-  phoneMobile           String?
-  birthDate             DateTime?
-  avatar                String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  showInOrgChart        Boolean           @default(true)
-  parentEmployeeId      String?
-  isInvisibleTop        Boolean           @default(false)
-  isSuspended           Boolean           @default(false)
-  retirementDate        DateTime?
-  privacyDisplayName    Boolean           @default(true)
-  privacyOrganization   Boolean           @default(true)
-  privacyDepartment     Boolean           @default(true)
-  privacyPosition       Boolean           @default(true)
-  privacyUrl            Boolean           @default(true)
-  privacyAddress        Boolean           @default(true)
-  privacyBio            Boolean           @default(true)
-  privacyEmail          Boolean           @default(true)
-  privacyWorkPhone      Boolean           @default(true)
-  privacyExtension      Boolean           @default(true)
-  privacyMobilePhone    Boolean           @default(true)
-  privacyBirthDate      Boolean           @default(false)
-  orgChartLabel         String?
+  id                             String                          @id @default(cuid())
+  employeeId                     String                          @unique
+  employeeNumber                 String                          @unique
+  employeeType                   String
+  name                           String
+  furigana                       String?
+  email                          String?
+  phone                          String?
+  department                     String
+  position                       String
+  organization                   String
+  team                           String?
+  joinDate                       DateTime
+  status                         EmployeeStatus                  @default(active)
+  password                       String
+  role                           UserRole?
+  myNumber                       String?
+  userId                         String?
+  url                            String?
+  address                        String?
+  selfIntroduction               String?
+  phoneInternal                  String?
+  phoneMobile                    String?
+  birthDate                      DateTime?
+  avatar                         String?
+  createdAt                      DateTime                        @default(now())
+  updatedAt                      DateTime                        @updatedAt
+  showInOrgChart                 Boolean                         @default(true)
+  parentEmployeeId               String?
+  isInvisibleTop                 Boolean                         @default(false)
+  isSuspended                    Boolean                         @default(false)
+  retirementDate                 DateTime?
+  privacyDisplayName             Boolean                         @default(true)
+  privacyOrganization            Boolean                         @default(true)
+  privacyDepartment              Boolean                         @default(true)
+  privacyPosition                Boolean                         @default(true)
+  privacyUrl                     Boolean                         @default(true)
+  privacyAddress                 Boolean                         @default(true)
+  privacyBio                     Boolean                         @default(true)
+  privacyEmail                   Boolean                         @default(true)
+  privacyWorkPhone               Boolean                         @default(true)
+  privacyExtension               Boolean                         @default(true)
+  privacyMobilePhone             Boolean                         @default(true)
+  privacyBirthDate               Boolean                         @default(false)
+  orgChartLabel                  String?
   /// 組織図の同階層内の並び順（左から0,1,2,...）
-  orgChartOrder         Int?
-  description           String?
-  
-  isRenoCrmUser         Boolean           @default(false) // Reno_CRM対象者かどうか
-
-  // 有給管理用フィールド
-  employmentType        EmploymentType?  // 雇用形態（FULL_TIME or PART_TIME）
-  weeklyPattern         Int?             // 週の所定勤務日数（1-4、PART_TIMEのみ必須）
-  configVersion         String?          // 使用中の設定バージョン
-  vacationPattern       String?           // 有給計算パターン（"A", "B-1", "B-2", "B-3", "B-4"）
-  
-  // リレーション
-  evaluations           Evaluation[]
-  attendance            Attendance[]
-  payroll               Payroll[]
-  files                 File[]
-  folders               Folder[]
-  activityLogs          ActivityLog[]
-  leaveRequests         LeaveRequest[]
-  vacationBalances      VacationBalance[]
-  vacationRequests      VacationRequest[]
-  
-  // 有給管理（ロットベース）関係
-  grantLots             GrantLot[]
-  consumptions          Consumption[]
-  timeOffRequests       TimeOffRequest[]
-  alertEvents           AlertEvent[]
-  auditLogs             AuditLog[]
-  convenienceCategoriesCreated ConvenienceCategory[] @relation("ConvenienceCategoryCreatedBy")
-  convenienceCategoriesUpdated ConvenienceCategory[] @relation("ConvenienceCategoryUpdatedBy")
-  convenienceEntriesCreated    ConvenienceEntry[]    @relation("ConvenienceEntryCreatedBy")
-  convenienceEntriesUpdated    ConvenienceEntry[]    @relation("ConvenienceEntryUpdatedBy")
-  
-  // ワークスペース関係
-  workspaceMembers      WorkspaceMember[]
-  createdWorkspaces     Workspace[] @relation("WorkspaceCreator")
-  
-  // タスク関係
-  assignedTasks         Task[] @relation("TaskAssignee")
-  taskMembers           TaskMember[]
-  
-  // カード関係
-  createdCards          Card[] @relation("CardCreator")
-  cardMembers           CardMember[]
-  
-  // ボード関係
-  createdBoards         Board[] @relation("BoardCreator")
-  
-  // カスタムフォルダ関係
-  customFolders         CustomFolder[] @relation("CustomFolderEmployee")
-  
-  // ユーザー設定関係
-  userSettings          UserSettings[] @relation("UserSettingsEmployee")
-  
-  // 家族構成関係
-  familyMembers         FamilyMember[]
-
-  // 給与・請求管理 → Chatwork 送信先設定（1:1）
-  payrollChatworkSetting PayrollChatworkSetting?
-
-  // WorkClock（業務委託時間管理）関係
-  workClockWorkers      WorkClockWorker[]
-
-  // 人事考課システム
+  orgChartOrder                  Int?
+  description                    String?
+  isRenoCrmUser                  Boolean                         @default(false)
+  employmentType                 EmploymentType?
+  weeklyPattern                  Int?
+  configVersion                  String?
+  vacationPattern                String?
   isPersonnelEvaluationTarget    Boolean                         @default(false)
-  isNumericGoalEnabled           Boolean                         @default(true) // 数字目標の有無
+  isNumericGoalEnabled           Boolean                         @default(true)
   personnelEvaluationTeamId      String?
-  personnelEvaluationTeam        PersonnelEvaluationTeam?        @relation(fields: [personnelEvaluationTeamId], references: [id], onDelete: SetNull)
   personnelEvaluationPatternId   String?
-  personnelEvaluationPattern     PersonnelEvaluationPattern?     @relation(fields: [personnelEvaluationPatternId], references: [id], onDelete: SetNull)
-  personnelEvaluationSubmissions PersonnelEvaluationSubmission[]
+  activityLogs                   ActivityLog[]
+  alertEvents                    AlertEvent[]
+  attendance                     Attendance[]
+  auditLogs                      AuditLog[]
+  createdBoards                  Board[]                         @relation("BoardCreator")
+  cardMembers                    CardMember[]
+  createdCards                   Card[]                          @relation("CardCreator")
+  consumptions                   Consumption[]
+  convenienceCategoriesUpdated   ConvenienceCategory[]           @relation("ConvenienceCategoryUpdatedBy")
+  convenienceCategoriesCreated   ConvenienceCategory[]           @relation("ConvenienceCategoryCreatedBy")
+  convenienceEntriesUpdated      ConvenienceEntry[]              @relation("ConvenienceEntryUpdatedBy")
+  convenienceEntriesCreated      ConvenienceEntry[]              @relation("ConvenienceEntryCreatedBy")
+  customFolders                  CustomFolder[]                  @relation("CustomFolderEmployee")
+  personnelEvaluationPattern     PersonnelEvaluationPattern?     @relation(fields: [personnelEvaluationPatternId], references: [id])
+  personnelEvaluationTeam        PersonnelEvaluationTeam?        @relation(fields: [personnelEvaluationTeamId], references: [id])
+  evaluations                    Evaluation[]
+  familyMembers                  FamilyMember[]
+  files                          File[]
+  folders                        Folder[]
+  grantLots                      GrantLot[]
+  leaveRequests                  LeaveRequest[]
+  payroll                        Payroll[]
+  payrollChatworkSetting         PayrollChatworkSetting?
   personnelEvaluationGoals       PersonnelEvaluationGoal[]
   personnelEvaluationPointLogs   PersonnelEvaluationPointLog[]
+  personnelEvaluationSubmissions PersonnelEvaluationSubmission[]
+  taskMembers                    TaskMember[]
+  assignedTasks                  Task[]                          @relation("TaskAssignee")
+  timeOffRequests                TimeOffRequest[]
+  userSettings                   UserSettings[]                  @relation("UserSettingsEmployee")
+  vacationBalances               VacationBalance[]
+  vacationRequests               VacationRequest[]
+  workClockWorkers               WorkClockWorker?
+  workspaceMembers               WorkspaceMember[]
+  createdWorkspaces              Workspace[]                     @relation("WorkspaceCreator")
 
   @@map("employees")
 }
 
 model Evaluation {
-  id            String   @id @default(cuid())
-  employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  period        String
-  evaluator     String
-  status        String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id         String   @id @default(cuid())
+  employeeId String
+  period     String
+  evaluator  String
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("evaluations")
 }
 
 model Task {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
-  status      String   @default("todo")
-  priority    String   @default("medium")
+  status      String       @default("todo")
+  priority    String       @default("medium")
   dueDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   employeeId  String
-  employee    Employee @relation("TaskAssignee", fields: [employeeId], references: [id], onDelete: Cascade)
   members     TaskMember[]
+  employee    Employee     @relation("TaskAssignee", fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
 }
 
 model TaskMember {
-  id        String   @id @default(cuid())
-  taskId    String
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  taskId     String
   employeeId String
-  employee  Employee @relation(fields: [employeeId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@unique([taskId, employeeId])
   @@map("task_members")
 }
 
 model Attendance {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   date       DateTime
   clockIn    DateTime?
   clockOut   DateTime?
   breakStart DateTime?
   breakEnd   DateTime?
-  status     String   @default("present")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  status     String    @default("present")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("attendance")
 }
@@ -241,12 +164,12 @@ model Attendance {
 model Payroll {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   period     String
   amount     Float
   status     String   @default("pending")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("payroll")
 }
@@ -254,7 +177,6 @@ model Payroll {
 model File {
   id           String   @id @default(cuid())
   employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   originalName String
   filename     String
   filePath     String?
@@ -265,6 +187,7 @@ model File {
   folderName   String?
   taskId       String?
   createdAt    DateTime @default(now())
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("files")
 }
@@ -272,26 +195,25 @@ model File {
 model Folder {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   name       String
   parentId   String?
-  parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
-  children   Folder[] @relation("FolderHierarchy")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  parent     Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id])
+  children   Folder[] @relation("FolderHierarchy")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("folders")
 }
 
-// 給与・請求管理：社員とChatworkルームの紐付け（Chatwork送信先）
 model PayrollChatworkSetting {
-  id               String   @id @default(cuid())
-  employeeId       String   @unique
-  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  chatworkRoomId   String   // ChatworkルームID（送信先）
-  defaultMessage   String?  // 定型文（任意）
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String   @id @default(cuid())
+  employeeId     String   @unique
+  chatworkRoomId String
+  defaultMessage String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("payroll_chatwork_settings")
 }
@@ -299,13 +221,13 @@ model PayrollChatworkSetting {
 model ActivityLog {
   id        String   @id @default(cuid())
   userId    String
-  user      Employee @relation(fields: [userId], references: [id], onDelete: Cascade)
   userName  String
   action    String
   module    String
   details   String
   metadata  Json?
   createdAt DateTime @default(now())
+  user      Employee @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("activity_logs")
 }
@@ -313,7 +235,6 @@ model ActivityLog {
 model LeaveRequest {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   startDate  DateTime
   endDate    DateTime
   type       String
@@ -321,20 +242,21 @@ model LeaveRequest {
   status     String   @default("pending")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("leave_requests")
 }
 
 model Workspace {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
   description String?
   createdBy   String?
-  creator     Employee? @relation("WorkspaceCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  members     WorkspaceMember[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
   boards      Board[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  members     WorkspaceMember[]
+  creator     Employee?         @relation("WorkspaceCreator", fields: [createdBy], references: [id])
 
   @@map("workspaces")
 }
@@ -342,29 +264,29 @@ model Workspace {
 model WorkspaceMember {
   id          String    @id @default(cuid())
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id])
   role        String    @default("member")
   createdAt   DateTime  @default(now())
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, employeeId])
   @@map("workspace_members")
 }
 
 model Board {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
   description String?
   workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy   String?
-  creator     Employee? @relation("BoardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  position    Int      @default(0)
+  position    Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   lists       BoardList[]
+  creator     Employee?   @relation("BoardCreator", fields: [createdBy], references: [id])
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   cards       Card[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   @@map("boards")
 }
@@ -374,36 +296,36 @@ model BoardList {
   title     String
   position  Int
   boardId   String
-  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
-  cards     Card[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards     Card[]
 
   @@map("board_lists")
 }
 
 model Card {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   title       String
   description String?
   position    Int
   listId      String
-  list        BoardList @relation(fields: [listId], references: [id], onDelete: Cascade)
   boardId     String
-  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   createdBy   String?
-  creator     Employee? @relation("CardCreator", fields: [createdBy], references: [id], onDelete: SetNull)
-  members     CardMember[]
   attachments Json?
   labels      Json?
   checklists  Json?
   dueDate     DateTime?
-  priority    String   @default("medium")
-  status      String   @default("todo")
+  priority    String       @default("medium")
+  status      String       @default("todo")
   cardColor   String?
-  isArchived  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isArchived  Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     CardMember[]
+  creator     Employee?    @relation("CardCreator", fields: [createdBy], references: [id])
+  board       Board        @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  list        BoardList    @relation(fields: [listId], references: [id], onDelete: Cascade)
 
   @@map("cards")
 }
@@ -411,19 +333,18 @@ model Card {
 model CardMember {
   id         String   @id @default(cuid())
   cardId     String
-  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
   createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  card       Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
 
   @@unique([cardId, employeeId])
   @@map("card_members")
 }
 
 model FamilyMember {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   employeeId   String
-  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   name         String
   relationship String
   birthDate    DateTime?
@@ -431,8 +352,9 @@ model FamilyMember {
   address      String?
   myNumber     String?
   description  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("family_members")
 }
@@ -440,12 +362,12 @@ model FamilyMember {
 model CustomFolder {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation("CustomFolderEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   category   String   @default("employee")
   name       String
   order      Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  employee   Employee @relation("CustomFolderEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("custom_folders")
 }
@@ -453,11 +375,11 @@ model CustomFolder {
 model UserSettings {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
   key        String
   value      String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  employee   Employee @relation("UserSettingsEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, key])
   @@map("user_settings")
@@ -465,7 +387,7 @@ model UserSettings {
 
 model MasterData {
   id        String   @id @default(cuid())
-  type      String   // 'department', 'position', 'employeeType', 'organization'
+  type      String
   value     String
   label     String
   order     Int      @default(0)
@@ -476,29 +398,18 @@ model MasterData {
   @@map("master_data")
 }
 
-// ==========================
-// 有給管理用 追加モデル
-// ==========================
-
 model VacationSettings {
   id                   String   @id @default(cuid())
-
-  // 基本設定
-  initialGrantPeriod   Int      // 初回付与までの期間（月）
-  grantPeriod          Int      // 付与間隔（月）
-  carryOverLimit       Int      // 繰越上限日数
-  validityYears        Int      // 有効期間（年）
-  minimumMandatoryDays Int      // 最低取得日数（義務）
-
-  // 正社員設定
-  fullTimeGrantDays    Int      // 正社員付与日数（A値）
-
-  // パート社員設定（週勤務日数別）
-  partTime1DayGrant    Int      // 週1日勤務時の付与日数
-  partTime2DayGrant    Int      // 週2日勤務時の付与日数
-  partTime3DayGrant    Int      // 週3日勤務時の付与日数
-  partTime4DayGrant    Int      // 週4日勤務時の付与日数
-
+  initialGrantPeriod   Int
+  grantPeriod          Int
+  carryOverLimit       Int
+  validityYears        Int
+  minimumMandatoryDays Int
+  fullTimeGrantDays    Int
+  partTime1DayGrant    Int
+  partTime2DayGrant    Int
+  partTime3DayGrant    Int
+  partTime4DayGrant    Int
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -507,11 +418,8 @@ model VacationSettings {
 
 model VacationGrantSchedule {
   id                String   @id @default(cuid())
-
-  // 勤続年数別付与日数設定
   serviceYears      Float
   fullTimeGrantDays Int
-
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -520,14 +428,11 @@ model VacationGrantSchedule {
 
 model PartTimeGrantSchedule {
   id              String   @id @default(cuid())
-
-  // 勤続年数と週勤務日数別設定
   serviceDays     Int
   workDaysPerWeek Int
   grantDays       Int
-  annualMinDays   Int      // 年間勤務日数（最小）
-  annualMaxDays   Int      // 年間勤務日数（最大）
-
+  annualMinDays   Int
+  annualMaxDays   Int
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -536,19 +441,16 @@ model PartTimeGrantSchedule {
 }
 
 model VacationBalance {
-  id            String   @id @default(cuid())
+  id            String          @id @default(cuid())
   employeeId    String
-
-  grantDate     DateTime  // 付与日
-  grantDays     Int       // 付与日数
-  remainingDays Float     // 残日数
-  expiryDate    DateTime  // 有効期限
-  isExpired     Boolean   @default(false)
-
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  grantDate     DateTime
+  grantDays     Int
+  remainingDays Float
+  expiryDate    DateTime
+  isExpired     Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   usages        VacationUsage[]
 
   @@index([employeeId, grantDate])
@@ -556,173 +458,145 @@ model VacationBalance {
 }
 
 model VacationRequest {
-  id           String         @id @default(cuid())
+  id           String          @id @default(cuid())
   employeeId   String
-
   startDate    DateTime
   endDate      DateTime
   usedDays     Float
   reason       String?
   status       RequestStatus
-
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-
-  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   usageDetails VacationUsage[]
 
   @@map("vacation_requests")
 }
 
 model VacationUsage {
-  id        String           @id @default(cuid())
+  id        String          @id @default(cuid())
   requestId String
   balanceId String
   usedDays  Float
-
-  createdAt DateTime         @default(now())
-
-  request   VacationRequest  @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  balance   VacationBalance  @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  createdAt DateTime        @default(now())
+  balance   VacationBalance @relation(fields: [balanceId], references: [id], onDelete: Cascade)
+  request   VacationRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@map("vacation_usage")
 }
 
 model AlertSettings {
-  id                     String   @id @default(cuid())
-  
-  // 3ヶ月前アラート
-  alert3MonthsBefore     Boolean  @default(true)
-  alert3MonthsThreshold  Int      @default(5)
-  
-  // 2ヶ月前アラート
-  alert2MonthsBefore     Boolean  @default(true)
-  alert2MonthsThreshold  Int      @default(3)
-  
-  // 1ヶ月前アラート
-  alert1MonthBefore      Boolean  @default(true)
-  alert1MonthThreshold   Int      @default(5)
-  
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-  
+  id                    String   @id @default(cuid())
+  alert3MonthsBefore    Boolean  @default(true)
+  alert3MonthsThreshold Int      @default(5)
+  alert2MonthsBefore    Boolean  @default(true)
+  alert2MonthsThreshold Int      @default(3)
+  alert1MonthBefore     Boolean  @default(true)
+  alert1MonthThreshold  Int      @default(5)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
   @@map("alert_settings")
 }
 
-// ==========================
-// ロットベース有給管理モデル（設計メモ準拠）
-// ==========================
-
-// 付与ロット: ある基準日に付与されたN日・有効期限付きのかたまり
 model GrantLot {
-  id            String   @id @default(cuid())
+  id            String        @id @default(cuid())
   employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   grantDate     DateTime
-  daysGranted   Decimal  // 小数対応（時間休は別換算で格納可）
+  daysGranted   Decimal
   daysRemaining Decimal
   expiryDate    DateTime
-  // 冪等性: 同一基準日時の再計算で重複を避けるため
-  dedupKey      String   @unique // employeeId + grantDate + daysGranted + configVersion 等のハッシュ
-  configVersion String?  // 使用した設定バージョン
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  dedupKey      String        @unique
+  configVersion String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   consumptions  Consumption[]
-  
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId, grantDate])
   @@map("grant_lots")
 }
 
-// 消化トランザクション: 申請承認により消費された日数（どのロットから何日使ったかの明細）
 model Consumption {
-  id             String   @id @default(cuid())
-  employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  requestId      String
-  request        TimeOffRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  lotId          String
-  lot            GrantLot @relation(fields: [lotId], references: [id], onDelete: Cascade)
-  date           DateTime // 実際の休暇日（複数日に跨ぐ場合は1日=1行 or hoursで分解）
-  daysUsed       Decimal  // 1 or 0.5 など（時間休は日換算）
-  createdAt      DateTime @default(now())
-  
+  id         String         @id @default(cuid())
+  employeeId String
+  requestId  String
+  lotId      String
+  date       DateTime
+  daysUsed   Decimal
+  createdAt  DateTime       @default(now())
+  lot        GrantLot       @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  request    TimeOffRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId, date])
   @@index([lotId])
   @@index([requestId])
   @@map("consumptions")
 }
 
-// 有給申請（詳細版）
 model TimeOffRequest {
-  id             String   @id @default(cuid())
-  employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  // 申請情報
-  startDate      DateTime
-  endDate        DateTime
-  unit           RequestUnit // DAY or HOUR
-  hoursPerDay    Int?        // 時間休計算用（会社の1日=8h等）
-  status         RequestStatus @default(PENDING)
-  approvedAt     DateTime?
-  // 承認フロー用フィールド
-  supervisorId   String?      // 選択した上司ID（必須）
-  approvedBy     String?      // 上司承認者ID
-  finalizedBy    String?      // 総務・管理者決済者ID
-  // 計算スナップショット
-  totalDays      Decimal?     // 承認時に確定
-  breakdownJson String?      // どのlotから何日使ったか（LIFO結果）をJSONで残す
-  reason         String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
-  consumptions   Consumption[]
-  
+  id            String        @id @default(cuid())
+  employeeId    String
+  startDate     DateTime
+  endDate       DateTime
+  unit          RequestUnit
+  hoursPerDay   Int?
+  status        RequestStatus @default(PENDING)
+  approvedAt    DateTime?
+  totalDays     Decimal?
+  breakdownJson String?
+  reason        String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  supervisorId  String?
+  approvedBy    String?
+  finalizedBy   String?
+  consumptions  Consumption[]
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([supervisorId])
   @@map("time_off_requests")
 }
 
-// アラートイベント
 model AlertEvent {
   id            String   @id @default(cuid())
   employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  kind          String   // e.g., "UNDER_USED_AT_3M_BEFORE"
-  referenceDate DateTime // 判定を行った基準日
-  details       String   // JSON: { checkpoint, consumed, required }
+  kind          String
+  referenceDate DateTime
+  details       String
   createdAt     DateTime @default(now())
-  
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@unique([employeeId, kind, referenceDate])
   @@index([employeeId])
   @@map("alert_events")
 }
 
-// 監査ログ
 model AuditLog {
-  id            String   @id @default(cuid())
-  employeeId    String?
-  employee      Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  actor         String   // system | user:{id}
-  action        String   // GRANT_CREATE / REQUEST_APPROVE / RECALC ...
-  entity        String   // GrantLot:xxx 等
-  payload       String   // JSON
-  createdAt     DateTime @default(now())
-  
+  id         String    @id @default(cuid())
+  employeeId String?
+  actor      String
+  action     String
+  entity     String
+  payload    String
+  createdAt  DateTime  @default(now())
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+
   @@index([employeeId])
   @@index([action])
   @@map("audit_logs")
 }
 
-// 有給管理設定（AppConfig）
 model VacationAppConfig {
-  id            String   @id @default(cuid())
-  version       String   @unique // 設定バージョン（主キー相当）
-  configJson    String   // AppConfigのJSON表現
-  isActive      Boolean  @default(false) // 現在使用中の設定
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id         String   @id @default(cuid())
+  version    String   @unique
+  configJson String
+  isActive   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   @@map("vacation_app_configs")
 }
 
@@ -744,32 +618,28 @@ model Bulletin {
   pinned      Boolean           @default(false)
   publishedAt DateTime          @default(now())
   categoryId  String?
-  category    BulletinCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  category    BulletinCategory? @relation(fields: [categoryId], references: [id])
 
   @@index([publishedAt])
   @@map("bulletins")
 }
 
-// ==========================
-// 便利機能（Convenience）
-// ==========================
-
 model ConvenienceCategory {
-  id            String   @id @default(cuid())
+  id            String             @id @default(cuid())
   tenantId      String?
   name          String
-  position      Int      @default(0)
-  isArchived    Boolean  @default(false)
-  isAdminOnly   Boolean  @default(false)
+  position      Int                @default(0)
+  isArchived    Boolean            @default(false)
+  isAdminOnly   Boolean            @default(false)
   deletedAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   createdBy     String?
   updatedBy     String?
-  createdByUser Employee? @relation("ConvenienceCategoryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updatedByUser Employee? @relation("ConvenienceCategoryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  updatedByUser Employee?          @relation("ConvenienceCategoryUpdatedBy", fields: [updatedBy], references: [id])
+  createdByUser Employee?          @relation("ConvenienceCategoryCreatedBy", fields: [createdBy], references: [id])
   entries       ConvenienceEntry[]
 
   @@index([tenantId, position])
@@ -777,21 +647,21 @@ model ConvenienceCategory {
 }
 
 model ConvenienceEntry {
-  id            String   @id @default(cuid())
+  id            String                @id @default(cuid())
   categoryId    String
-  category      ConvenienceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   title         String
   note          String?
-  position      Int      @default(0)
-  isArchived    Boolean  @default(false)
-  isAdminOnly   Boolean  @default(false)
+  position      Int                   @default(0)
+  isArchived    Boolean               @default(false)
+  isAdminOnly   Boolean               @default(false)
   deletedAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
   createdBy     String?
   updatedBy     String?
-  createdByUser Employee? @relation("ConvenienceEntryCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updatedByUser Employee? @relation("ConvenienceEntryUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  updatedByUser Employee?             @relation("ConvenienceEntryUpdatedBy", fields: [updatedBy], references: [id])
+  createdByUser Employee?             @relation("ConvenienceEntryCreatedBy", fields: [createdBy], references: [id])
+  category      ConvenienceCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   urls          ConvenienceEntryUrl[]
 
   @@index([categoryId, position])
@@ -799,122 +669,101 @@ model ConvenienceEntry {
 }
 
 model ConvenienceEntryUrl {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   entryId     String
-  entry       ConvenienceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   url         String
   description String?
-  position    Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  position    Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  entry       ConvenienceEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@index([entryId, position])
   @@map("convenience_entry_urls")
 }
 
-// ==========================
-// WorkClock（業務委託時間管理）用モデル
-// ==========================
-
 model WorkClockWorker {
-  id                     String   @id @default(cuid())
-  employeeId             String   @unique
-  employee               Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  name                   String
-  password               String?
-  companyName            String?
-  qualifiedInvoiceNumber String?
-  chatworkId             String?
-  email                  String
-  phone                  String?
-  address                String?
-  hourlyRate             Float
-  // 時給パターン名（ラベル）
-  wagePatternLabelA      String?  @default("Aパターン")
-  wagePatternLabelB      String?  @default("Bパターン")
-  wagePatternLabelC      String?  @default("Cパターン")
-  // 追加の時給パターン金額（任意）
-  hourlyRateB            Float?
-  hourlyRateC            Float?
-  // 回数ベースの支払いパターン（任意）
-  countPatternLabelA     String?  @default("回数Aパターン")
-  countPatternLabelB     String?  @default("回数Bパターン")
-  countPatternLabelC     String?  @default("回数Cパターン")
-  // 回数パターン金額（任意）
-  countRateA             Float?
-  countRateB             Float?
-  countRateC             Float?
-  // 月額固定（金額とON/OFF）
-  monthlyFixedAmount     Int?
-  monthlyFixedEnabled    Boolean  @default(false)
-  // インボイス経過措置（適格請求書未登録者向け）
-  invoiceUnregistered    Boolean  @default(false) // 適格請求書未登録フラグ
-  invoiceAdjustmentRate  Float?                   // 経過措置の控除率（例: 20, 50）
-  // 消費税設定
-  billingTaxEnabled      Boolean  @default(false) // 消費税を請求に反映するか
-  billingTaxRate         Float?                // 個別の消費税率（例: 10.0）。未設定時は標準税率を使用
-  taxType                String   @default("exclusive") // 'exclusive'（外税）| 'inclusive'（内税）
-  // 源泉徴収設定（全体）
-  withholdingTaxEnabled  Boolean  @default(false) // 源泉徴収対象かどうか（レガシー用）
-  // 時給パターン別の源泉徴収ON/OFF
-  withholdingHourlyA     Boolean  @default(false) // 時給パターンA源泉徴収
-  withholdingHourlyB     Boolean  @default(false) // 時給パターンB源泉徴収
-  withholdingHourlyC     Boolean  @default(false) // 時給パターンC源泉徴収
-  // 回数パターン別の源泉徴収ON/OFF
-  withholdingCountA      Boolean  @default(false) // 回数パターンA源泉徴収
-  withholdingCountB      Boolean  @default(false) // 回数パターンB源泉徴収
-  withholdingCountC      Boolean  @default(false) // 回数パターンC源泉徴収
-  // 月額固定の源泉徴収ON/OFF
-  withholdingMonthlyFixed Boolean @default(false) // 月額固定源泉徴収
-  teams                  String?  // JSON文字列（string[]）
-  role                   String   @default("worker") // 'worker' | 'admin'
-  notes                  String?
-  transferDestination    String? // 振込先
-  billingClientId        String?  // 請求先ID（任意）
-  billingClient          WorkClockBillingClient? @relation(fields: [billingClientId], references: [id], onDelete: SetNull)
-  allowPastEntryEdit     Boolean  @default(false) // 過去記録の編集許可
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  timeEntries            WorkClockTimeEntry[]
-  rewards                WorkClockReward[]
-  rewardPresets          WorkClockRewardPreset[]
-
-  // 業務チェックリスト関係
-  checklistPatterns    WorkClockChecklistPattern[]
-  isChecklistEnabled   Boolean                     @default(false)
-  checklistSubmissions WorkClockChecklistSubmission[]
+  id                      String                         @id @default(cuid())
+  employeeId              String                         @unique
+  name                    String
+  password                String?
+  companyName             String?
+  qualifiedInvoiceNumber  String?
+  chatworkId              String?
+  email                   String
+  phone                   String?
+  address                 String?
+  hourlyRate              Float
+  wagePatternLabelA       String?                        @default("Aパターン")
+  wagePatternLabelB       String?                        @default("Bパターン")
+  wagePatternLabelC       String?                        @default("Cパターン")
+  hourlyRateB             Float?
+  hourlyRateC             Float?
+  countPatternLabelA      String?                        @default("回数Aパターン")
+  countPatternLabelB      String?                        @default("回数Bパターン")
+  countPatternLabelC      String?                        @default("回数Cパターン")
+  countRateA              Float?
+  countRateB              Float?
+  countRateC              Float?
+  monthlyFixedAmount      Int?
+  monthlyFixedEnabled     Boolean                        @default(false)
+  invoiceUnregistered     Boolean                        @default(false)
+  invoiceAdjustmentRate   Float?
+  billingTaxEnabled       Boolean                        @default(false)
+  billingTaxRate          Float?
+  taxType                 String                         @default("exclusive")
+  withholdingTaxEnabled   Boolean                        @default(false)
+  withholdingHourlyA      Boolean                        @default(false)
+  withholdingHourlyB      Boolean                        @default(false)
+  withholdingHourlyC      Boolean                        @default(false)
+  withholdingCountA       Boolean                        @default(false)
+  withholdingCountB       Boolean                        @default(false)
+  withholdingCountC       Boolean                        @default(false)
+  withholdingMonthlyFixed Boolean                        @default(false)
+  teams                   String?
+  role                    String                         @default("worker")
+  notes                   String?
+  transferDestination     String?
+  billingClientId         String?
+  allowPastEntryEdit      Boolean                        @default(false)
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
+  isChecklistEnabled      Boolean                        @default(false)
+  checklistSubmissions    WorkClockChecklistSubmission[]
+  rewardPresets           WorkClockRewardPreset[]
+  rewards                 WorkClockReward[]
+  timeEntries             WorkClockTimeEntry[]
+  billingClient           WorkClockBillingClient?        @relation(fields: [billingClientId], references: [id])
+  employee                Employee                       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  checklistPatterns       WorkClockChecklistPattern[]    @relation("WorkClockChecklistPatternToWorkClockWorker")
 
   @@map("workclock_workers")
 }
 
-// 請求先マスタ（複数社登録可能）
 model WorkClockBillingClient {
-  id        String   @id @default(cuid())
-  name      String   @unique // 会社名（例: 株式会社ABC）
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        String            @id @default(cuid())
+  name      String            @unique
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
   workers   WorkClockWorker[]
 
   @@map("workclock_billing_clients")
 }
 
 model WorkClockTimeEntry {
-  id           String       @id @default(cuid())
+  id           String          @id @default(cuid())
   workerId     String
-  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date         DateTime
-  // 時給パターン（任意。A/B/Cのいずれか）
-  wagePattern  WagePattern? @default(A)
+  wagePattern  WagePattern?    @default(A)
   startTime    String
   endTime      String
-  breakMinutes Int          @default(0)
+  breakMinutes Int             @default(0)
   notes        String?
-  // 回数パターン（時給パターンと併用可能）
   countPattern WagePattern?
   count        Int?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  worker       WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId, date])
   @@map("workclock_time_entries")
@@ -923,12 +772,12 @@ model WorkClockTimeEntry {
 model WorkClockReward {
   id          String          @id @default(cuid())
   workerId    String
-  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   amount      Int
   description String
   date        DateTime
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId, date])
   @@map("workclock_rewards")
@@ -937,12 +786,12 @@ model WorkClockReward {
 model WorkClockRewardPreset {
   id          String          @id @default(cuid())
   workerId    String
-  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   amount      Int
   description String
   isEnabled   Boolean         @default(true)
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+  worker      WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId])
   @@map("workclock_reward_presets")
@@ -957,110 +806,95 @@ model WorkClockTeam {
   @@map("workclock_teams")
 }
 
-// ==========================
-// 業務チェックリスト用モデル
-// ==========================
-
-// 業務チェックリストパターン
 model WorkClockChecklistPattern {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id          String                         @id @default(cuid())
+  name        String
+  createdAt   DateTime                       @default(now())
+  updatedAt   DateTime                       @updatedAt
   items       WorkClockChecklistItem[]
-  workers     WorkClockWorker[]
   submissions WorkClockChecklistSubmission[]
+  workers     WorkClockWorker[]              @relation("WorkClockChecklistPatternToWorkClockWorker")
 
   @@map("workclock_checklist_patterns")
 }
 
-// 業務チェックリスト項目
 model WorkClockChecklistItem {
   id            String                    @id @default(cuid())
   patternId     String
-  pattern       WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
   title         String
   reward        Float                     @default(0)
   isMandatory   Boolean                   @default(false)
-  isFreeText    Boolean                   @default(false) // 自由記入欄かどうか
-  isDescription Boolean                   @default(false) // 説明文かどうか（表示のみ）
+  isFreeText    Boolean                   @default(false)
+  isDescription Boolean                   @default(false)
   category      String?
   position      Int                       @default(0)
   createdAt     DateTime                  @default(now())
   updatedAt     DateTime                  @updatedAt
+  pattern       WorkClockChecklistPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
 
   @@index([patternId])
   @@map("workclock_checklist_items")
 }
 
-// 業務チェックリスト提出（報告）
 model WorkClockChecklistSubmission {
-  id            String          @id @default(cuid())
+  id            String                             @id @default(cuid())
   workerId      String
-  worker        WorkClockWorker @relation(fields: [workerId], references: [id], onDelete: Cascade)
   date          DateTime
-  
-  // どのパターンで提出したか
   patternId     String?
-  pattern       WorkClockChecklistPattern? @relation(fields: [patternId], references: [id], onDelete: SetNull)
-
   memo          String?
   photoUrl      String?
-  hasPhoto      Boolean         @default(false)
-  isSafetyAlert Boolean         @default(false)
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  items  WorkClockChecklistSubmissionItem[]
-  photos WorkClockChecklistPhoto[]
+  hasPhoto      Boolean                            @default(false)
+  isSafetyAlert Boolean                            @default(false)
+  createdAt     DateTime                           @default(now())
+  updatedAt     DateTime                           @updatedAt
+  photos        WorkClockChecklistPhoto[]
+  items         WorkClockChecklistSubmissionItem[]
+  pattern       WorkClockChecklistPattern?         @relation(fields: [patternId], references: [id])
+  worker        WorkClockWorker                    @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@index([workerId, date])
   @@map("workclock_checklist_submissions")
 }
 
-// 提出時のチェック項目スナップショット
 model WorkClockChecklistSubmissionItem {
   id            String                       @id @default(cuid())
   submissionId  String
-  submission    WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   title         String
   reward        Float
   isMandatory   Boolean
   isChecked     Boolean
-  isFreeText    Boolean                      @default(false) // 自由記入欄かどうか
-  isDescription Boolean                      @default(false) // 説明文かどうか
-  freeTextValue String? // 自由記入欄の入力値
+  isFreeText    Boolean                      @default(false)
+  isDescription Boolean                      @default(false)
+  freeTextValue String?
   category      String?
   createdAt     DateTime                     @default(now())
+  submission    WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([submissionId])
   @@map("workclock_checklist_submission_items")
 }
 
-// 業務チェックリスト写真（複数枚対応）
 model WorkClockChecklistPhoto {
   id           String                       @id @default(cuid())
   submissionId String
-  submission   WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   url          String
   createdAt    DateTime                     @default(now())
+  submission   WorkClockChecklistSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([submissionId])
   @@map("workclock_checklist_photos")
 }
 
-// WorkClock AI Report Model
 model WorkClockAIReport {
   id          String   @id @default(cuid())
-  date        DateTime // レポート対象日
-  summary     String // AI生成サマリー
-  promptId    String? // 使用したプロンプトID
-  promptName  String? // プロンプト名（スナップショット）
-  workerCount Int // 対象ワーカー数
-  alerts      Int // アラート件数
-  totalReward Int // 合計インセンティブ
-  createdBy   String // 作成者ID
+  date        DateTime
+  summary     String
+  promptId    String?
+  promptName  String?
+  workerCount Int
+  alerts      Int
+  totalReward Int
+  createdBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -1070,192 +904,202 @@ model WorkClockAIReport {
   @@map("workclock_ai_reports")
 }
 
-// ==========================
-// 人事考課システム用モデル
-// ==========================
-
-// 評価対象チーム
 model PersonnelEvaluationTeam {
   id        String     @id @default(cuid())
   name      String     @unique
-  members   Employee[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  members   Employee[]
 
   @@map("personnel_evaluation_teams")
 }
 
-// 評価チェックリストパターン
 model PersonnelEvaluationPattern {
   id          String                    @id @default(cuid())
   name        String
   description String?
-  items       PersonnelEvaluationItem[]
-  employees   Employee[]
   createdAt   DateTime                  @default(now())
   updatedAt   DateTime                  @updatedAt
+  employees   Employee[]
+  items       PersonnelEvaluationItem[]
 
   @@map("personnel_evaluation_patterns")
 }
 
-// 評価チェックリスト項目
 model PersonnelEvaluationItem {
   id          String                     @id @default(cuid())
   patternId   String
-  pattern     PersonnelEvaluationPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
   title       String
-  description String? // 説明文
-  points      Float   @default(0) // pt (寸志から変更)
-  isMandatory Boolean @default(false)
-  type        String  @default("checkbox") // checkbox, text, description, photo, thank_you
-  position    Int     @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?
+  points      Float                      @default(0)
+  isMandatory Boolean                    @default(false)
+  type        String                     @default("checkbox")
+  position    Int                        @default(0)
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+  pattern     PersonnelEvaluationPattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
 
   @@index([patternId])
   @@map("personnel_evaluation_items")
 }
 
-// 毎日の評価提出
 model PersonnelEvaluationSubmission {
-  id         String   @id @default(cuid())
+  id         String                              @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  date       DateTime // 提出日
+  date       DateTime
   patternId  String?
-  status     String   @default("submitted") // submitted, locked
-
-  // スナップショットや備考
-  note String?
-
-  items  PersonnelEvaluationSubmissionItem[]
-  photos PersonnelEvaluationPhoto[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status     String                              @default("submitted")
+  note       String?
+  createdAt  DateTime                            @default(now())
+  updatedAt  DateTime                            @updatedAt
+  photos     PersonnelEvaluationPhoto[]
+  items      PersonnelEvaluationSubmissionItem[]
+  employee   Employee                            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, date])
   @@index([date])
   @@map("personnel_evaluation_submissions")
 }
 
-// 提出内容詳細
 model PersonnelEvaluationSubmissionItem {
-  id           String                        @id @default(cuid())
-  submissionId String
-  submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  itemId       String? // 対応する項目ID（なくても良いが履歴として）
-
-  title  String // スナップショット
-  description String? // 説明文スナップショット
-  points Float // 獲得ポイント（スナップショット）
-
-  isChecked Boolean @default(false)
-  textValue String? // 自由記述などを格納
-
-  // ありがとうpt用
-  thankYouTo      String? // 対象者IDリスト（JSON想定）または代表者ID
+  id              String                        @id @default(cuid())
+  submissionId    String
+  itemId          String?
+  title           String
+  points          Float
+  isChecked       Boolean                       @default(false)
+  textValue       String?
+  thankYouTo      String?
   thankYouMessage String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+  description     String?
+  submission      PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([submissionId])
   @@map("personnel_evaluation_submission_items")
 }
 
-// 写真
 model PersonnelEvaluationPhoto {
   id           String                        @id @default(cuid())
   submissionId String
-  submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   url          String
-  comment      String? // 写真へのコメント
   createdAt    DateTime                      @default(now())
+  comment      String?
+  submission   PersonnelEvaluationSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
 
   @@index([submissionId])
   @@map("personnel_evaluation_photos")
 }
 
-// 目標管理（月次または期次）
 model PersonnelEvaluationGoal {
-  id         String   @id @default(cuid())
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  period     String // e.g. "2026-01" or "2026-H1"
-
-  // 契約
-  contractTargetAmount   Decimal @default(0)
-  contractAchievedAmount Decimal @default(0)
-
-  // 完工
-  completionTargetAmount   Decimal @default(0)
-  completionAchievedAmount Decimal @default(0)
-
-  isLocked Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                       String   @id @default(cuid())
+  employeeId               String
+  period                   String
+  contractTargetAmount     Decimal  @default(0)
+  contractAchievedAmount   Decimal  @default(0)
+  completionTargetAmount   Decimal  @default(0)
+  completionAchievedAmount Decimal  @default(0)
+  isLocked                 Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  employee                 Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@unique([employeeId, period])
   @@map("personnel_evaluation_goals")
 }
 
-// ありがとうポイント等のログ（集計用）
 model PersonnelEvaluationPointLog {
   id         String   @id @default(cuid())
-  employeeId String // ポイント獲得者
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
   date       DateTime
   points     Float
-  type       String // "checklist", "thank_you_received", "thank_you_sent"
-  sourceId   String? // SubmissionItem ID etc
-
-  createdAt DateTime @default(now())
+  type       String
+  sourceId   String?
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, date])
   @@map("personnel_evaluation_point_logs")
 }
 
-// 年度設定
 model PersonnelEvaluationFiscalYear {
   id        String   @id @default(cuid())
-  name      String // 年度名称 (例: "2025年度")
-  startDate DateTime // 年度開始日
-  endDate   DateTime // 年度終了日
+  name      String
+  startDate DateTime
+  endDate   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("personnel_evaluation_fiscal_years")
 }
 
-// AI分析レポート（人事考課）
 model PersonnelEvaluationAIReport {
-  id          String   @id @default(cuid())
-  startDate   DateTime // 対象期間開始
-  endDate     DateTime // 対象期間終了
-  summary     String   // AI生成サマリー
-  promptId    String?  // 使用したプロンプトID
-  promptName  String?  // プロンプト名
-  employeeCount Int    // 対象社員数
-  totalPoints Float    // 合計獲得ポイント
-  createdBy   String   // 作成者ID
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  startDate     DateTime
+  endDate       DateTime
+  summary       String
+  promptId      String?
+  promptName    String?
+  employeeCount Int
+  totalPoints   Float
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([startDate, endDate])
   @@index([createdBy])
   @@map("personnel_evaluation_ai_reports")
 }
 
-// 人事考課システム設定
 model PersonnelEvaluationConfig {
-  id                    String   @id @default(cuid())
-  key                   String   @unique // 設定キー
-  value                 String   // 設定値 (JSON or simple string)
-  description           String?  // 説明
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("personnel_evaluation_config")
+}
+
+enum UserRole {
+  viewer
+  general
+  sub_manager
+  store_manager
+  manager
+  hr
+  admin
+}
+
+enum EmployeeStatus {
+  active
+  leave
+  retired
+  suspended
+  copy
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+}
+
+enum RequestUnit {
+  DAY
+  HOUR
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum WagePattern {
+  A
+  B
+  C
 }

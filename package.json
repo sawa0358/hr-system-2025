@@ -37,7 +37,8 @@
     "db:backup": "./scripts/db-backup-before-migration.sh",
     "db:restore": "./scripts/db-restore-from-backup.sh",
     "db:status": "npx prisma migrate status",
-    "cron:daily": "node scripts/run-daily-grants.js"
+    "cron:daily": "node scripts/run-daily-grants.js",
+    "backup:gdrive": "node scripts/backup-to-gdrive.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.917.0",
@@ -85,6 +86,7 @@
     "date-fns": "latest",
     "embla-carousel-react": "8.5.1",
     "geist": "latest",
+    "googleapis": "^171.4.0",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.1",
     "jspdf": "^2.5.1",

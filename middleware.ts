@@ -64,7 +64,8 @@ export async function middleware(request: NextRequest) {
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-employee-id', payload.id as string)
     requestHeaders.set('x-employee-role', payload.role as string)
-    requestHeaders.set('x-employee-name', payload.name as string)
+    // 日本語名はHTTPヘッダーに直接設定できないためURIエンコード
+    requestHeaders.set('x-employee-name', encodeURIComponent(payload.name as string))
 
     return NextResponse.next({
       request: {

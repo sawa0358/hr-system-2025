@@ -17,8 +17,8 @@ set -e
 # if ! npx prisma migrate deploy; then
 #   echo "⚠️ migrate deploy に失敗しました。migration.sql の欠落などが原因の可能性があります。"
 #   echo "➡️ 代替として schema をDBへ直接適用します（db push）。"
-  echo "➡️ スキーマ修復のため強制的に db push を実行します。"
-  npx prisma db push --accept-data-loss
+  echo "➡️ スキーマ同期を実行します。"
+  npx prisma db push
 # fi
 
 # 「見えないTOP」社員の自動作成

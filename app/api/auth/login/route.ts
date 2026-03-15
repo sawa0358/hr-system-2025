@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!employee) {
+      console.log(`[Auth] ユーザー未検出: "${username}"`);
       return NextResponse.json(
         { error: 'ユーザー名またはパスワードが正しくありません' },
         { status: 401 }
@@ -56,7 +57,9 @@ export async function POST(request: NextRequest) {
     }
 
     // パスワード検証（bcryptハッシュ・平文の両方に対応）
+    const pwIsHashed = isPasswordHashed(employee.password);
     const isValid = await verifyPassword(password, employee.password);
+    console.log(`[Auth] ユーザー検出: "${employee.name}" (ID: ${employee.id}), pwHashed=${pwIsHashed}, valid=${isValid}`);
     if (!isValid) {
       return NextResponse.json(
         { error: 'ユーザー名またはパスワードが正しくありません' },

@@ -6,9 +6,9 @@ import {
 } from '@/lib/s3-client';
 import { hashPassword } from '@/lib/password';
 
-// レスポンスからパスワードを除外するヘルパー
-function excludePassword<T extends Record<string, any>>(obj: T): Omit<T, 'password'> {
-  const { password, ...rest } = obj;
+// レスポンスからパスワード関連フィールドを除外するヘルパー
+function excludePassword<T extends Record<string, any>>(obj: T): Omit<T, 'password' | 'rawPassword'> {
+  const { password, rawPassword, ...rest } = obj;
   return rest;
 }
 
@@ -128,7 +128,7 @@ export async function PUT(
       });
       return NextResponse.json({
         success: true,
-        employee
+        employee: excludePassword(employee)
       });
     }
 

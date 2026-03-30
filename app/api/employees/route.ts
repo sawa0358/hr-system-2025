@@ -3,9 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { saveEmployeeToS3 } from '@/lib/s3-client';
 import { hashPassword } from '@/lib/password';
 
-// レスポンスからパスワードを除外するヘルパー
-function excludePassword<T extends Record<string, any>>(employee: T): Omit<T, 'password'> {
-  const { password, ...rest } = employee;
+// レスポンスからパスワード関連フィールドを除外するヘルパー
+function excludePassword<T extends Record<string, any>>(employee: T): Omit<T, 'password' | 'rawPassword'> {
+  const { password, rawPassword, ...rest } = employee;
   return rest;
 }
 
@@ -165,7 +165,7 @@ export async function GET() {
       parentEmployeeId: emp.parentEmployeeId
     })));
 
-    return NextResponse.json(processedEmployees);
+    return NextResponse.json(processedEmployees.map(excludePassword));
   } catch (error) {
     console.error('社員一覧取得エラー:', error);
     console.error('エラーの詳細:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : undefined);

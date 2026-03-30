@@ -133,8 +133,16 @@ export async function POST(request: NextRequest) {
 /**
  * バックアップ状態を取得
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // 認可チェック: admin/hr のみバックアップ状態を閲覧可能
+    const userRole = request.headers.get('x-employee-role')
+    if (userRole !== 'admin' && userRole !== 'hr') {
+      return NextResponse.json(
+        { error: 'バックアップ情報の閲覧は管理者または総務のみが可能です' },
+        { status: 403 }
+      )
+    }
     const backupDir = BACKUP_CONFIG.backupDir;
     const enabled = process.env.AUTO_BACKUP === 'true' || process.env.NODE_ENV === 'production';
     

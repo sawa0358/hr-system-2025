@@ -61,7 +61,7 @@ export async function GET() {
               team: true,
               joinDate: true,
               status: true,
-              password: true,
+              // password: セキュリティのためAPIレスポンスから除外
               role: true,
               myNumber: true,
               userId: true,
@@ -179,6 +179,15 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   console.log('POST /api/employees 開始');
   try {
+    // 認可チェック: admin または hr のみ社員の新規作成を許可
+    const userRole = request.headers.get('x-employee-role')
+    if (userRole !== 'admin' && userRole !== 'hr') {
+      return NextResponse.json(
+        { error: '社員の新規登録は管理者または総務のみが可能です' },
+        { status: 403 }
+      )
+    }
+
     console.log('リクエストボディの解析開始');
     const body = await request.json();
     console.log('新規社員登録リクエスト:', body);
@@ -527,7 +536,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      employee: employee
+      employee: excludePassword(employee)
     });
   } catch (error: any) {
     console.error('社員作成エラー:', error);

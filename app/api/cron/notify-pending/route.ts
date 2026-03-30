@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
     const authToken = request.nextUrl.searchParams.get("token")
     const expectedToken = process.env.CRON_SECRET_TOKEN
 
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}` && authToken !== expectedToken) {
+    if (!expectedToken) {
+      console.error('[Cron] CRON_SECRET_TOKEN が設定されていません')
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+    if (authHeader !== `Bearer ${expectedToken}` && authToken !== expectedToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

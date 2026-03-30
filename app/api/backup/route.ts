@@ -17,6 +17,15 @@ const BACKUP_CONFIG = {
  */
 export async function POST(request: NextRequest) {
   try {
+    // 認可チェック: admin のみバックアップ実行を許可
+    const userRole = request.headers.get('x-employee-role')
+    if (userRole !== 'admin' && userRole !== 'hr') {
+      return NextResponse.json(
+        { error: 'バックアップの実行は管理者または総務のみが可能です' },
+        { status: 403 }
+      )
+    }
+
     const { reason } = await request.json();
     
     console.log(`🔄 バックアップAPI実行開始 (理由: ${reason})`);

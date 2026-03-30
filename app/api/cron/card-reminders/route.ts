@@ -20,13 +20,14 @@ export async function POST(request: NextRequest) {
     const tokenFromQuery = request.nextUrl.searchParams.get("token")
     const cronSecretToken = process.env.CRON_SECRET_TOKEN
 
-    if (cronSecretToken) {
-      const providedToken = authHeader?.replace("Bearer ", "") || tokenFromQuery
-
-      if (providedToken !== cronSecretToken) {
-        console.warn("[Cron] 不正なトークンでのアクセス試行")
-        return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
-      }
+    if (!cronSecretToken) {
+      console.error('[Cron] CRON_SECRET_TOKEN が設定されていません')
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+    const providedToken = authHeader?.replace("Bearer ", "") || tokenFromQuery
+    if (providedToken !== cronSecretToken) {
+      console.warn("[Cron] 不正なトークンでのアクセス試行")
+      return NextResponse.json({ error: "認証が必要です" }, { status: 401 })
     }
 
     console.log("[Cron] カード期限通知処理を開始します")

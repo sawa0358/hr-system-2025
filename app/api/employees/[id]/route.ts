@@ -63,7 +63,7 @@ export async function GET(
       familyMembers: familyMembers, // 家族データを追加
     };
 
-    return NextResponse.json(processedEmployee);
+    return NextResponse.json(excludePassword(processedEmployee));
   } catch (error) {
     console.error('社員取得エラー:', error);
     return NextResponse.json(
@@ -78,6 +78,15 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // 認可チェック: admin または hr のみ社員情報の編集を許可
+    const userRole = request.headers.get('x-employee-role')
+    if (userRole !== 'admin' && userRole !== 'hr') {
+      return NextResponse.json(
+        { error: '社員情報の編集は管理者または総務のみが可能です' },
+        { status: 403 }
+      )
+    }
+
     // 古いIDを検出
     if (params.id.includes('cmganegqz')) {
       console.error('古いIDが検出されました:', params.id)
@@ -655,10 +664,10 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      employee: {
+      employee: excludePassword({
         ...updatedEmployee,
         familyMembers: updatedFamilyMembers
-      }
+      })
     });
   } catch (error: any) {
     console.error('社員更新エラー:', error);

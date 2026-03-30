@@ -6,8 +6,7 @@ const MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30日
 function getSecretKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET
   if (!secret) {
-    console.warn('[Session] SESSION_SECRET 環境変数が未設定です。開発用のデフォルトキーを使用します。本番環境では必ず設定してください。')
-    return new TextEncoder().encode('hr-system-dev-secret-key-change-in-production')
+    throw new Error('[Session] SESSION_SECRET 環境変数が未設定です。.env に SESSION_SECRET を設定してください。')
   }
   return new TextEncoder().encode(secret)
 }

@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyPassword } from '@/lib/password'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    // レート制限: IPアドレスあたり1分間に5回まで
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateCheck = checkRateLimit(`verify:${ip}`)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: '試行回数が上限に達しました。しばらく待ってから再度お試しください。', valid: false },
+        { status: 429 }
+      )
+    }
+
     const body = await request.json()
     const { employeeId, password } = body
 

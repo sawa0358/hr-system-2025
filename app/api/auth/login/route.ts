@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, hashPassword, isPasswordHashed } from '@/lib/password';
 import { createSessionToken, getSessionCookieHeader, type SessionPayload } from '@/lib/session';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // レート制限: IPアドレスあたり1分間に5回まで
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rateCheck = checkRateLimit(`login:${ip}`)
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: 'ログイン試行回数が上限に達しました。しばらく待ってから再度お試しください。' },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { username, password } = body;
 

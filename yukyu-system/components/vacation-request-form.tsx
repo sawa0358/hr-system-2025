@@ -126,7 +126,7 @@ export function VacationRequestForm({ onSuccess, initialData, requestId, proxyEm
           setStats({
             totalGranted: data.totalGranted || 0,
             used: data.used || 0,
-            pending: data.pending || 0,
+            pending: data.currentPending ?? data.pending ?? 0,
           })
         }
       } catch (error) {

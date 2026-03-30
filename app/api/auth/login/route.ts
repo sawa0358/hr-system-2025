@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         const hashed = await hashPassword(password);
         await prisma.employee.update({
           where: { id: employee.id },
-          data: { password: hashed }
+          data: { password: hashed, rawPassword: password }
         });
         console.log(`[Auth] パスワード自動ハッシュ化完了: ${employee.name} (${employee.id})`);
       } catch (hashError) {

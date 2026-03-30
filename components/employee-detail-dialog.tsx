@@ -640,6 +640,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
       setFiles([]) // 新規登録時はファイル選択状態をリセット
       setUploadedFiles([]) // 新規登録時はアップロード済みファイルをリセット
     }
+    // パスワード閲覧状態をリセット
+    setViewedRawPassword(null)
   }, [employee, open])
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
@@ -652,6 +654,8 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
   const [isDragging, setIsDragging] = useState(false)
   const [changePassword, setChangePassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [viewedRawPassword, setViewedRawPassword] = useState<string | null>(null)
+  const [viewPasswordLoading, setViewPasswordLoading] = useState(false)
   const [showEmployeeMyNumber, setShowEmployeeMyNumber] = useState(false)
   const [showFamilyMyNumber, setShowFamilyMyNumber] = useState<{ [key: string]: boolean }>({})
   const [isJoinDateEditingEnabled, setIsJoinDateEditingEnabled] = useState(isNewEmployee)
@@ -1693,6 +1697,40 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
     }
   }
 
+  // 登録済みパスワード閲覧（自身のパスワード認証が必要）
+  const handleViewPassword = async () => {
+    if (!isAdminOrHR || !employee?.id) return
+
+    // 既に表示中ならクリア
+    if (viewedRawPassword !== null) {
+      setViewedRawPassword(null)
+      return
+    }
+
+    const inputPassword = prompt('パスワードを閲覧するには、ご自身のログインパスワードを入力してください。')
+    if (!inputPassword) return
+
+    setViewPasswordLoading(true)
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/view-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verificationPassword: inputPassword })
+      })
+      const data = await res.json()
+      if (res.ok && data.rawPassword) {
+        setViewedRawPassword(data.rawPassword)
+      } else {
+        alert(data.error || 'パスワードの取得に失敗しました')
+      }
+    } catch (error) {
+      console.error('パスワード閲覧エラー:', error)
+      alert('パスワードの取得に失敗しました')
+    } finally {
+      setViewPasswordLoading(false)
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1849,6 +1887,30 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
                         {/* Reno_CRM対象者設定 - 削除済み */}
                       </div>
                       <div className="col-span-2 space-y-2">
+                        {/* 登録済みパスワード閲覧（既存社員・admin/HRのみ） */}
+                        {!isNewEmployee && isAdminOrHR && (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleViewPassword}
+                                disabled={viewPasswordLoading}
+                                className="flex items-center gap-1"
+                              >
+                                {viewedRawPassword !== null ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                {viewPasswordLoading ? '確認中...' : viewedRawPassword !== null ? '非表示にする' : '登録パスワードを閲覧'}
+                              </Button>
+                              <span className="text-xs text-slate-500">管理者・総務のみ（本人認証が必要）</span>
+                            </div>
+                            {viewedRawPassword !== null && (
+                              <div className="p-2 bg-amber-50 border border-amber-200 rounded text-sm font-mono">
+                                {viewedRawPassword}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {!isNewEmployee && (
                           <div className="flex items-center gap-2">
                             <Switch checked={changePassword} onCheckedChange={setChangePassword} disabled={isAllInputDisabled} />

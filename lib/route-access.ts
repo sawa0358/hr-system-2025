@@ -25,12 +25,11 @@ export const routeAccessRules: RouteAccessRule[] = [
       const employeeType = user.employeeType?.trim() || ""
       const isExternalWorker =
         employeeType.includes("業務委託") || employeeType.includes("外注先")
-      // viewer/general は外部ワーカーのみアクセス可
-      if (role === "viewer" || role === "general") {
-        return isExternalWorker
-      }
-      // sub_manager 以上は常にアクセス可
-      return true
+      // 業務委託・外注先は自分の勤務時間管理のためアクセス可
+      if (isExternalWorker) return true
+      // 正社員・契約社員は店長・マネージャー・総務・管理者のみアクセス可
+      const managerRoles = ["store_manager", "manager", "hr", "admin"]
+      return managerRoles.includes(role)
     },
   },
 

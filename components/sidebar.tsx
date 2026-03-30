@@ -462,11 +462,11 @@ export function Sidebar() {
 
               // 業務委託時間管理メニューの表示制御
               if (item.href === "/workclock") {
-                const isGeneral = role === "general"
-                const isViewer = role === "viewer"
-                // 一般ユーザー以外は表示 / 一般ユーザーでも「業務委託」「外注先」は表示
-                const canShowWorkclock =
-                  (!isGeneral && !isViewer) || (isGeneral && isExternalWorker)
+                // 業務委託・外注先は自分の勤務時間管理のため表示
+                // 正社員・契約社員は店長・マネージャー・総務・管理者のみ表示
+                const managerRoles = ["store_manager", "manager", "hr", "admin"]
+                const isManagerRole = managerRoles.includes(currentUser?.role || "")
+                const canShowWorkclock = isExternalWorker || isManagerRole
 
                 if (!canShowWorkclock) {
                   return null

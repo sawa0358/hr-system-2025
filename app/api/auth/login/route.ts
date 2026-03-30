@@ -75,7 +75,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 遅延ハッシュ化は無効化（Reno CRM等の外部システムとの互換性のため）
+    // 遅延ハッシュ化: 平文パスワードでログイン成功した場合、bcryptハッシュに自動移行
+    if (!isPasswordHashed(employee.password)) {
+      try {
+        const hashed = await hashPassword(password);
+        await prisma.employee.update({
+          where: { id: employee.id },
+          data: { password: hashed }
+        });
+        console.log(`[Auth] パスワード自動ハッシュ化完了: ${employee.name} (${employee.id})`);
+      } catch (hashError) {
+        console.error(`[Auth] パスワード自動ハッシュ化失敗（ログインは継続）:`, hashError);
+      }
+    }
 
     // JWT セッショントークン生成
     const sessionPayload: SessionPayload = {

@@ -384,7 +384,7 @@ export async function PUT(
       })(),
       joinDate: body.joinDate ? new Date(body.joinDate) : undefined,
       status: body.status,
-      password: body.password || undefined,
+      password: body.password ? await hashPassword(body.password) : undefined,
       role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
       myNumber: (() => {
         if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {

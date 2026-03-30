@@ -352,7 +352,7 @@ export async function POST(request: NextRequest) {
         })(),
         joinDate: body.joinDate ? new Date(body.joinDate) : new Date(),
         status: body.status || 'active',
-        password: body.password,
+        password: await hashPassword(body.password),
         role: normalizedRole && normalizedRole !== '' ? normalizedRole : null,
         myNumber: (() => {
           if (!body.myNumber || body.myNumber === '' || body.myNumber === null || body.myNumber === undefined) {

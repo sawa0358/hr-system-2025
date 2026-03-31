@@ -1,0 +1,383 @@
+/* ==========================================================================
+   Nordic Natural Theme — 北欧ナチュラルテーマ
+   Scandinavian design: natural materials, warmth, generous whitespace.
+   Apply by adding class="theme-nordic" to <html>.
+   ========================================================================== */
+
+
+.theme-nordic {
+  /* ---- Core palette ---- */
+  --background:            oklch(0.97 0.01 80);    /* #faf6f1 linen */
+  --foreground:            oklch(0.28 0.01 200);   /* #2d3436 charcoal */
+
+  --card:                  oklch(1.00 0.00 0);     /* white */
+  --card-foreground:       oklch(0.28 0.01 200);
+
+  --popover:               oklch(1.00 0.00 0);
+  --popover-foreground:    oklch(0.28 0.01 200);
+
+  /* ---- Primary: moss green ---- */
+  --primary:               oklch(0.58 0.06 150);   /* #6c8c72 */
+  --primary-foreground:    oklch(1.00 0.00 0);     /* white */
+
+  /* ---- Secondary: warm beige ---- */
+  --secondary:             oklch(0.96 0.01 75);    /* #f5f0eb */
+  --secondary-foreground:  oklch(0.28 0.01 200);
+
+  /* ---- Muted: soft warm gray ---- */
+  --muted:                 oklch(0.96 0.01 75);
+  --muted-foreground:      oklch(0.55 0.01 200);
+
+  /* ---- Accent: sand / warm tan ---- */
+  --accent:                oklch(0.74 0.09 65);    /* #d4a373 sand */
+  --accent-foreground:     oklch(0.28 0.01 200);
+
+  /* ---- Destructive: terracotta red ---- */
+  --destructive:           oklch(0.50 0.16 25);    /* #c44536 */
+  --destructive-foreground: oklch(1.00 0.00 0);
+
+  /* ---- Borders & inputs ---- */
+  --border:                oklch(0.88 0.01 70);    /* #e0d8cf warm gray */
+  --input:                 oklch(0.88 0.01 70);
+  --ring:                  oklch(0.58 0.06 150);   /* moss green focus ring */
+
+  /* ---- Border radius: soft, rounded ---- */
+  --radius:                1.25rem;
+
+  /* ---- Charts ---- */
+  --chart-1:               oklch(0.58 0.06 150);   /* moss green */
+  --chart-2:               oklch(0.74 0.09 65);    /* sand */
+  --chart-3:               oklch(0.60 0.08 55);    /* terracotta tan */
+  --chart-4:               oklch(0.70 0.05 180);   /* sage */
+  --chart-5:               oklch(0.50 0.16 25);    /* terracotta red */
+
+  /* ---- Sidebar ---- */
+  --sidebar:               oklch(1.00 0.00 0);     /* white */
+  --sidebar-foreground:    #2d3436;                 /* charcoal - high contrast */
+  --sidebar-primary:       oklch(0.58 0.06 150);   /* moss green */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:        oklch(0.94 0.02 75);    /* warm beige hover */
+  --sidebar-accent-foreground: #2d3436;             /* charcoal */
+  --sidebar-border:        oklch(0.88 0.01 70);
+  --sidebar-ring:          oklch(0.58 0.06 150);
+
+  /* ---- Typography ---- */
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ==========================================================================
+   Base overrides
+   ========================================================================== */
+
+.theme-nordic body {
+  background-color: oklch(0.97 0.01 80);
+  color: oklch(0.28 0.01 200);
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ==========================================================================
+   Cards — white surface, soft warm shadow
+   ========================================================================== */
+
+.theme-nordic .card,
+.theme-nordic [class*="card"] {
+  background-color: #ffffff;
+  border: 1px solid oklch(0.88 0.01 70);
+  border-radius: 1.25rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* ==========================================================================
+   Buttons — pill-shaped, organic feel
+   ========================================================================== */
+
+.theme-nordic button,
+.theme-nordic [role="button"],
+.theme-nordic .btn {
+  border-radius: 20px;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+}
+
+/* Primary button */
+.theme-nordic button[data-variant="default"],
+.theme-nordic .btn-primary {
+  background-color: oklch(0.58 0.06 150);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(108, 140, 114, 0.25);
+}
+
+.theme-nordic button[data-variant="default"]:hover,
+.theme-nordic .btn-primary:hover {
+  background-color: oklch(0.53 0.06 150);
+  box-shadow: 0 4px 14px rgba(108, 140, 114, 0.32);
+  transform: translateY(-1px);
+}
+
+/* Secondary / ghost button */
+.theme-nordic button[data-variant="outline"],
+.theme-nordic button[data-variant="ghost"],
+.theme-nordic .btn-outline {
+  border-color: oklch(0.88 0.01 70);
+  color: oklch(0.28 0.01 200);
+}
+
+.theme-nordic button[data-variant="outline"]:hover,
+.theme-nordic button[data-variant="ghost"]:hover {
+  background-color: oklch(0.96 0.01 75);
+}
+
+/* Destructive button */
+.theme-nordic button[data-variant="destructive"],
+.theme-nordic .btn-destructive {
+  background-color: oklch(0.50 0.16 25);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(196, 69, 54, 0.20);
+}
+
+/* ==========================================================================
+   Inputs & form controls
+   ========================================================================== */
+
+.theme-nordic input,
+.theme-nordic textarea,
+.theme-nordic select {
+  border-radius: 0.875rem;
+  border-color: oklch(0.88 0.01 70);
+  background-color: oklch(0.97 0.01 80);
+  font-family: 'DM Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-nordic input:focus,
+.theme-nordic textarea:focus,
+.theme-nordic select:focus {
+  border-color: oklch(0.58 0.06 150);
+  box-shadow: 0 0 0 3px rgba(108, 140, 114, 0.15);
+  outline: none;
+}
+
+/* ==========================================================================
+   Badges & tags
+   ========================================================================== */
+
+.theme-nordic .badge,
+.theme-nordic [class*="badge"] {
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Success badge: moss green */
+.theme-nordic .badge-success,
+.theme-nordic [class*="badge"][data-variant="success"] {
+  background-color: rgba(108, 140, 114, 0.12);
+  color: oklch(0.50 0.07 150);
+  border: 1px solid rgba(108, 140, 114, 0.25);
+}
+
+/* Warning badge: sand */
+.theme-nordic .badge-warning,
+.theme-nordic [class*="badge"][data-variant="warning"] {
+  background-color: rgba(212, 163, 115, 0.15);
+  color: oklch(0.58 0.10 60);
+  border: 1px solid rgba(212, 163, 115, 0.30);
+}
+
+/* Destructive badge: terracotta */
+.theme-nordic .badge-destructive,
+.theme-nordic [class*="badge"][data-variant="destructive"] {
+  background-color: rgba(196, 69, 54, 0.10);
+  color: oklch(0.50 0.16 25);
+  border: 1px solid rgba(196, 69, 54, 0.20);
+}
+
+/* ==========================================================================
+   Tables
+   ========================================================================== */
+
+.theme-nordic table {
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.theme-nordic thead {
+  background-color: oklch(0.96 0.01 75);
+}
+
+.theme-nordic thead th {
+  color: oklch(0.48 0.02 200);
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid oklch(0.88 0.01 70);
+}
+
+.theme-nordic tbody tr {
+  border-bottom: 1px solid oklch(0.92 0.01 72);
+  transition: background-color 0.12s ease;
+}
+
+.theme-nordic tbody tr:hover {
+  background-color: rgba(108, 140, 114, 0.04);
+}
+
+.theme-nordic tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* ==========================================================================
+   Dialogs / Modals
+   ========================================================================== */
+
+.theme-nordic [role="dialog"],
+.theme-nordic .dialog-content {
+  background-color: #ffffff;
+  border-radius: 1.5rem;
+  border: 1px solid oklch(0.88 0.01 70);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08), 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Overlay */
+.theme-nordic [data-radix-dialog-overlay],
+.theme-nordic [class*="overlay"] {
+  background-color: rgba(45, 52, 54, 0.40);
+  backdrop-filter: blur(2px);
+}
+
+/* ==========================================================================
+   Dropdowns / Popovers
+   ========================================================================== */
+
+.theme-nordic [data-radix-popper-content-wrapper] > *,
+.theme-nordic [role="menu"],
+.theme-nordic [role="listbox"],
+.theme-nordic .popover-content,
+.theme-nordic .dropdown-content {
+  background-color: #ffffff;
+  border: 1px solid oklch(0.88 0.01 70);
+  border-radius: 1rem;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.theme-nordic [role="menuitem"]:hover,
+.theme-nordic [role="option"]:hover {
+  background-color: oklch(0.96 0.01 75);
+  border-radius: 0.625rem;
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.theme-nordic [role="tablist"] {
+  background-color: oklch(0.96 0.01 75);
+  border-radius: 20px;
+  padding: 3px;
+}
+
+.theme-nordic [role="tab"][data-state="active"] {
+  background-color: #ffffff;
+  color: oklch(0.58 0.06 150);
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  font-weight: 500;
+}
+
+.theme-nordic [role="tab"] {
+  border-radius: 16px;
+  color: oklch(0.55 0.01 200);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-nordic [role="tab"]:hover {
+  color: oklch(0.28 0.01 200);
+}
+
+/* ==========================================================================
+   Charts — warm palette tones
+   ========================================================================== */
+
+.theme-nordic .recharts-line,
+.theme-nordic .recharts-bar {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+}
+
+/* ==========================================================================
+   Scrollbars — subtle, warm
+   ========================================================================== */
+
+.theme-nordic ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-nordic ::-webkit-scrollbar-track {
+  background: oklch(0.96 0.01 75);
+  border-radius: 3px;
+}
+
+.theme-nordic ::-webkit-scrollbar-thumb {
+  background: oklch(0.80 0.02 70);
+  border-radius: 3px;
+}
+
+.theme-nordic ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.68 0.03 70);
+}
+
+/* ==========================================================================
+   Focus visible — accessible moss green ring
+   ========================================================================== */
+
+.theme-nordic :focus-visible {
+  outline: 2px solid oklch(0.58 0.06 150);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* ==========================================================================
+   Selection highlight
+   ========================================================================== */
+
+.theme-nordic ::selection {
+  background-color: rgba(108, 140, 114, 0.20);
+  color: oklch(0.28 0.01 200);
+}
+
+/* ==========================================================================
+   Utility: primary color helpers (for inline Tailwind overrides)
+   ========================================================================== */
+
+.theme-nordic .text-primary   { color: oklch(0.58 0.06 150); }
+.theme-nordic .bg-primary     { background-color: oklch(0.58 0.06 150); }
+.theme-nordic .border-primary { border-color: oklch(0.58 0.06 150); }
+.theme-nordic .ring-primary   { --tw-ring-color: oklch(0.58 0.06 150); }
+
+.theme-nordic .text-accent    { color: oklch(0.74 0.09 65); }
+.theme-nordic .bg-accent      { background-color: oklch(0.74 0.09 65); }
+
+.theme-nordic .text-muted     { color: oklch(0.55 0.01 200); }
+.theme-nordic .bg-muted       { background-color: oklch(0.96 0.01 75); }
+
+/* ==========================================================================
+   Demo-mode blur (if used): softer blur with warm overlay
+   ========================================================================== */
+
+.theme-nordic .demo-blur {
+  filter: blur(5px);
+  transition: filter 0.2s ease;
+  user-select: none;
+}
+
+.theme-nordic .demo-blur:hover {
+  filter: blur(3px);
+}

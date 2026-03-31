@@ -9,6 +9,13 @@
       "autoPort": false
     },
     {
+      "name": "hr-system-dev-4000",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "-p", "4000"],
+      "port": 4000,
+      "autoPort": false
+    },
+    {
       "name": "reno-crm-dev",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["-c", "cd /Users/ohsawa/Desktop/MySystem.WebData/Reno_CRM/reno-crm-web && npm run dev"],

@@ -1,0 +1,293 @@
+/* ============================================================
+   昭和レトロ テーマ (Showa Retro Theme)
+   概念: 昭和の看板・喫茶店・額縁。温かみのある茶系トーン。
+   ============================================================ */
+
+
+.theme-showa {
+  /* ── CSS Variables ──────────────────────────────────────── */
+  --background:               oklch(0.97 0.01 85);   /* #faf6ee 古紙クリーム */
+  --foreground:               oklch(0.22 0.03 50);   /* #2e2218 焦げ茶 */
+
+  --card:                     oklch(0.96 0.02 90);   /* #faf3e0 生成り */
+  --card-foreground:          oklch(0.22 0.03 50);
+
+  --popover:                  oklch(0.96 0.02 90);
+  --popover-foreground:       oklch(0.22 0.03 50);
+
+  --primary:                  oklch(0.50 0.15 25);   /* #c04c38 朱赤 */
+  --primary-foreground:       oklch(0.97 0.01 85);
+
+  --secondary:                oklch(0.73 0.11 75);   /* #d4a24e 芥子色 */
+  --secondary-foreground:     oklch(0.22 0.03 50);
+
+  --muted:                    oklch(0.90 0.02 80);
+  --muted-foreground:         oklch(0.45 0.04 50);
+
+  --accent:                   oklch(0.73 0.11 75);   /* #d4a24e 芥子色 */
+  --accent-foreground:        oklch(0.22 0.03 50);
+
+  --destructive:              oklch(0.50 0.15 25);   /* 朱赤で統一 */
+  --destructive-foreground:   oklch(0.97 0.01 85);
+
+  --border:                   oklch(0.65 0.06 55);   /* 明るいブラウン */
+  --input:                    oklch(0.65 0.06 55);
+  --ring:                     oklch(0.50 0.15 25);
+
+  /* チャートカラー */
+  --chart-1:                  oklch(0.50 0.15 25);   /* 朱赤 */
+  --chart-2:                  oklch(0.73 0.11 75);   /* 芥子色 */
+  --chart-3:                  oklch(0.50 0.08 170);  /* 青緑 */
+  --chart-4:                  oklch(0.35 0.05 45);   /* 昭和茶 */
+  --chart-5:                  oklch(0.55 0.10 40);   /* 柿色 */
+
+  /* サイドバー: 濃紺 = 昭和の額縁 */
+  --sidebar:                  oklch(0.30 0.03 240);  /* #2b3a4e 濃紺 */
+  --sidebar-foreground:       #faf3e0;               /* 生成り */
+  --sidebar-primary:          oklch(0.73 0.11 75);   /* 芥子色アクセント */
+  --sidebar-primary-foreground: #2e2218;             /* 焦げ茶 on 芥子色 */
+  --sidebar-accent:           oklch(0.38 0.04 240);  /* 少し明るい濃紺 */
+  --sidebar-accent-foreground: #faf3e0;              /* 生成り */
+  --sidebar-border:           oklch(0.73 0.11 75);   /* 芥子色ライン */
+  --sidebar-ring:             oklch(0.50 0.15 25);
+
+  /* ボーダー半径: 小さめ = 昭和の直線的デザイン */
+  --radius: 0.25rem;
+
+  /* フォント */
+  font-family: 'Zen Maru Gothic', 'Hiragino Kaku Gothic ProN', 'メイリオ', sans-serif;
+}
+
+/* ── 背景: 古紙クリーム + 朱赤細線グリッド ──────────────── */
+.theme-showa body,
+.theme-showa [data-slot="app-background"] {
+  background-color: oklch(0.97 0.01 85);
+  background-image:
+    linear-gradient(rgba(192, 76, 56, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(192, 76, 56, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ── カード: 二重線ボーダー = 昭和の額縁 ────────────────── */
+.theme-showa [data-slot="card"],
+.theme-showa .card {
+  border: 3px double oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+  background-color: oklch(0.96 0.02 90);
+  box-shadow: 3px 3px 8px rgba(94, 64, 51, 0.15),
+              inset 0 0 0 1px rgba(212, 162, 78, 0.15);
+}
+
+/* ── カードヘッダー: 昭和看板 ──────────────────────────── */
+.theme-showa [data-slot="card-header"] {
+  border-bottom: 3px double oklch(0.35 0.05 45);
+}
+
+.theme-showa [data-slot="card-title"] {
+  color: oklch(0.96 0.02 90);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.theme-showa [data-slot="card-description"] {
+  color: oklch(0.80 0.04 80);
+}
+
+/* ── テーブル: 昭和看板スタイル ─────────────────────────── */
+.theme-showa table {
+  border: 3px double oklch(0.35 0.05 45);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.theme-showa thead tr {
+  background-color: oklch(0.35 0.05 45);  /* 昭和茶 = 看板背景 */
+}
+
+.theme-showa thead th {
+  color: oklch(0.96 0.02 90) !important;  /* 生成り文字 */
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-bottom: 3px double oklch(0.73 0.11 75);  /* 芥子色ライン */
+  padding: 0.6rem 1rem;
+}
+
+.theme-showa tbody tr {
+  border-bottom: 1px dashed oklch(0.60 0.04 50);  /* 破線の行区切り */
+}
+
+.theme-showa tbody tr:hover {
+  background-color: oklch(0.93 0.02 80);
+}
+
+.theme-showa td {
+  border-bottom: 1px dashed rgba(94, 64, 51, 0.3);
+  padding: 0.5rem 1rem;
+}
+
+/* ── ボタン: 角丸小さめ = 昭和直線的 ──────────────────────── */
+
+/* ── ナビゲーションヘッダー ──────────────────────────────── */
+.theme-showa header,
+.theme-showa [data-slot="header"],
+.theme-showa nav[class*="header"],
+.theme-showa [class*="navbar"] {
+  background-color: oklch(0.30 0.03 240);
+  border-bottom: 3px double oklch(0.73 0.11 75);
+  color: oklch(0.96 0.02 90);
+  box-shadow: 0 2px 8px rgba(94, 64, 51, 0.20);
+}
+
+/* ── 入力フォーム ────────────────────────────────────────── */
+.theme-showa input,
+.theme-showa textarea,
+.theme-showa select,
+.theme-showa [data-slot="input"] {
+  background-color: oklch(0.97 0.01 85);
+  border: 2px solid oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+  color: oklch(0.22 0.03 50);
+  box-shadow: inset 1px 1px 3px rgba(94, 64, 51, 0.12);
+}
+
+.theme-showa input:focus,
+.theme-showa textarea:focus,
+.theme-showa select:focus {
+  border-color: oklch(0.50 0.15 25);
+  outline: 2px solid oklch(0.50 0.15 25);
+  outline-offset: 1px;
+}
+
+/* ── バッジ ─────────────────────────────────────────────── */
+.theme-showa [data-slot="badge"],
+.theme-showa .badge {
+  border-radius: 0.2rem;
+  border: 1px solid oklch(0.35 0.05 45);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+}
+
+/* ── セパレーター ────────────────────────────────────────── */
+.theme-showa [data-slot="separator"],
+.theme-showa hr {
+  border: none;
+  border-top: 2px dashed oklch(0.60 0.05 50);
+  opacity: 0.5;
+}
+
+/* ── ドロップダウン / ポップオーバー ─────────────────────── */
+.theme-showa [data-slot="popover-content"],
+.theme-showa [data-slot="dropdown-menu-content"],
+.theme-showa [role="menu"],
+.theme-showa [role="listbox"] {
+  background-color: oklch(0.96 0.02 90);
+  border: 3px double oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+  box-shadow: 4px 4px 12px rgba(94, 64, 51, 0.20);
+}
+
+/* ── タブ ────────────────────────────────────────────────── */
+.theme-showa [data-slot="tabs-list"] {
+  background-color: oklch(0.90 0.02 80);
+  border: 2px solid oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+}
+
+.theme-showa [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: oklch(0.35 0.05 45);
+  color: oklch(0.96 0.02 90);
+  border-radius: 0.15rem;
+  box-shadow: 1px 1px 3px rgba(94, 64, 51, 0.15);
+}
+
+/* ── スクロールバー ──────────────────────────────────────── */
+.theme-showa ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.theme-showa ::-webkit-scrollbar-track {
+  background: oklch(0.90 0.02 80);
+}
+
+.theme-showa ::-webkit-scrollbar-thumb {
+  background-color: oklch(0.50 0.15 25);
+  border-radius: 2px;
+  border: 1px solid oklch(0.35 0.05 45);
+}
+
+/* ── セクション見出し: 看板スタイル ─────────────────────── */
+.theme-showa h1,
+.theme-showa h2,
+.theme-showa h3 {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: oklch(0.35 0.05 45);
+}
+
+.theme-showa h1 {
+  border-bottom: 3px double oklch(0.50 0.15 25);
+  padding-bottom: 0.4rem;
+}
+
+.theme-showa h2 {
+  border-left: 5px solid oklch(0.50 0.15 25);
+  padding-left: 0.6rem;
+}
+
+/* ── アラート / 通知 ─────────────────────────────────────── */
+.theme-showa [data-slot="alert"] {
+  border: 3px double oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+  background-color: oklch(0.96 0.02 90);
+}
+
+/* ── 成功色 (青緑) ───────────────────────────────────────── */
+.theme-showa [data-variant="success"],
+.theme-showa .text-success {
+  color: oklch(0.50 0.08 170);  /* #2e7d6e 昭和青緑 */
+}
+
+/* ── リンク ─────────────────────────────────────────────── */
+.theme-showa a:not([class*="button"]):not([class*="btn"]) {
+  color: oklch(0.50 0.15 25);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.theme-showa a:hover:not([class*="button"]):not([class*="btn"]) {
+  color: oklch(0.40 0.12 25);
+}
+
+/* ── ローディング / スピナー ─────────────────────────────── */
+.theme-showa [class*="spinner"],
+.theme-showa [class*="loading"] {
+  border-color: oklch(0.50 0.15 25);
+}
+
+/* ── ツールチップ ────────────────────────────────────────── */
+.theme-showa [data-slot="tooltip-content"],
+.theme-showa [role="tooltip"] {
+  background-color: oklch(0.35 0.05 45);
+  color: oklch(0.96 0.02 90);
+  border-radius: 0.2rem;
+  font-size: 0.8rem;
+}
+
+/* ── モーダル / ダイアログ ───────────────────────────────── */
+.theme-showa [data-slot="dialog-content"],
+.theme-showa [role="dialog"] {
+  background-color: oklch(0.96 0.02 90);
+  border: 3px double oklch(0.35 0.05 45);
+  border-radius: 0.25rem;
+  box-shadow: 6px 6px 20px rgba(94, 64, 51, 0.25);
+}
+
+.theme-showa [data-slot="dialog-header"] {
+  background-color: oklch(0.35 0.05 45);
+  color: oklch(0.96 0.02 90);
+  border-bottom: 3px double oklch(0.73 0.11 75);
+  padding: 0.75rem 1rem;
+  margin: -1.5rem -1.5rem 1rem -1.5rem;  /* カード内の場合の調整 */
+  border-radius: 0.1rem 0.1rem 0 0;
+}

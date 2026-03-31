@@ -28,6 +28,7 @@ import { useAuth } from "@/lib/auth-context"
 import { LoginModal } from "@/components/login-modal"
 import { APP_VERSION } from "@/lib/version"
 import { useDemoMode } from "@/hooks/useDemoMode"
+import { ThemeSwitcher } from "@/components/theme-switcher"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
@@ -417,12 +418,12 @@ export function Sidebar() {
       <aside
         ref={sidebarRef}
         className={cn(
-          "bg-[#f5f4cd] border-r border-slate-200 transition-all duration-300 flex flex-col",
+          "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
           collapsed ? "w-16" : "w-64",
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-200">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
           {!collapsed && (
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 bg-white rounded-xl shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -433,7 +434,7 @@ export function Sidebar() {
                 />
               </div>
               <div className="flex flex-col justify-center">
-                <span className="font-bold text-slate-900 text-lg leading-tight tracking-tight">HR System</span>
+                <span className="font-bold text-sidebar-foreground text-lg leading-tight tracking-tight">HR System</span>
                 <span className="text-xs text-sidebar-foreground/50">{APP_VERSION}</span>
               </div>
             </div>
@@ -502,8 +503,8 @@ export function Sidebar() {
                     }}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                      "hover:bg-blue-50 hover:text-blue-600",
-                      isActive ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-700",
+                      "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      isActive ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground" : "text-sidebar-foreground",
                     )}
                     title={collapsed ? item.label : undefined}
                   >
@@ -532,8 +533,8 @@ export function Sidebar() {
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
                     dropdownOpen || isInDropdownMenu
-                      ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white"
-                      : "bg-[#fdfdea] hover:bg-blue-50 hover:text-blue-600 text-slate-700",
+                      ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground"
+                      : "bg-sidebar hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground",
                   )}
                   title={collapsed ? "人事管理" : undefined}
                 >
@@ -553,7 +554,7 @@ export function Sidebar() {
 
                 {/* サブメニュー */}
                 {!collapsed && dropdownOpen && (
-                  <ul className="mt-1 ml-4 space-y-1 rounded-md bg-[#fdfdea] p-1">
+                  <ul className="mt-1 ml-4 space-y-1 rounded-md bg-sidebar-accent p-1">
                     {visibleDropdownItems.map((item) => {
                       const Icon = item.icon
                       // サブパスも含めてアクティブ判定（例: /leave, /leave/admin, /leave/employee なども含む）
@@ -585,8 +586,8 @@ export function Sidebar() {
                             }}
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm relative",
-                              "hover:bg-blue-50 hover:text-blue-600",
-                              isActive ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-600",
+                              "hover:bg-sidebar-primary/20 hover:text-sidebar-accent-foreground",
+                              isActive ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground" : "text-sidebar-accent-foreground",
                             )}
                           >
                             <Icon className="w-4 h-4 flex-shrink-0" />
@@ -625,8 +626,8 @@ export function Sidebar() {
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                    "hover:bg-blue-50 hover:text-blue-600",
-                    (pathname === "/convenience" && !isInDropdownMenu) ? "bg-blue-600 text-white hover:bg-blue-700 hover:text-white" : "text-slate-700"
+                    "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    (pathname === "/convenience" && !isInDropdownMenu) ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground" : "text-sidebar-foreground"
                   )}
                   title={collapsed ? "便利機能" : undefined}
                 >
@@ -641,7 +642,7 @@ export function Sidebar() {
 
           {visibleAdminMenuItems.length > 0 && !collapsed && !isExternalWorker && (
             <div className="mt-6">
-              <p className="px-3 text-xs font-semibold text-slate-500 uppercase mb-2">管理者メニュー</p>
+              <p className="px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase mb-2">管理者メニュー</p>
               <ul className="space-y-1">
                 {visibleAdminMenuItems.map((item) => {
                   const Icon = item.icon
@@ -687,11 +688,16 @@ export function Sidebar() {
           )}
         </nav>
 
+        {/* Theme Switcher */}
+        <div className="px-2 pb-1 border-t border-sidebar-border">
+          <ThemeSwitcher collapsed={collapsed} />
+        </div>
+
         {/* User Info */}
         {!collapsed && currentUser && (
-          <div className="p-4 border-t border-slate-200 bg-[#efefef]">
+          <div className="p-4 border-t border-sidebar-border bg-sidebar-accent">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold whitespace-nowrap overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground font-semibold whitespace-nowrap overflow-hidden">
                 {(() => {
                   const text = typeof window !== 'undefined'
                     ? (localStorage.getItem(`employee-avatar-text-${currentUser.id}`) || (currentUser.name || '?').slice(0, 3))
@@ -700,8 +706,8 @@ export function Sidebar() {
                 })()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{currentUser.name}</p>
-                <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{currentUser.name}</p>
+                <p className="text-xs text-sidebar-foreground/50 truncate">{currentUser.email}</p>
               </div>
             </div>
             {(currentUser.role === 'admin' || currentUser.role === 'hr') && (
@@ -712,7 +718,7 @@ export function Sidebar() {
                   "w-full justify-start mb-2",
                   isDemoMode
                     ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 hover:text-amber-900"
-                    : "text-slate-700 hover:text-blue-600 hover:border-blue-300 bg-transparent"
+                    : "text-sidebar-foreground hover:text-sidebar-primary hover:border-sidebar-primary bg-transparent"
                 )}
                 onClick={(e) => {
                   e.stopPropagation()
@@ -727,7 +733,7 @@ export function Sidebar() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-start text-slate-700 hover:text-red-600 hover:border-red-300 bg-transparent"
+              className="w-full justify-start text-sidebar-foreground hover:text-destructive hover:border-destructive bg-transparent"
               onClick={(e) => {
                 e.stopPropagation()
                 logout()

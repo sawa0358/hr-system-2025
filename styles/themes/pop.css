@@ -1,0 +1,555 @@
+/* ============================================================
+   Pop Theme — ポップテーマ
+   Vivid colors · Polka dots · Thick borders · Game-like fun
+   ============================================================ */
+
+
+/* ----------------------------------------------------------
+   CSS Variable Overrides
+   ---------------------------------------------------------- */
+.theme-pop {
+  /* Base */
+  --background:              oklch(0.99 0.01 90);       /* #FFFDF7 cream */
+  --foreground:              oklch(0.18 0.03 280);       /* #1a1a2e dark navy */
+
+  /* Card */
+  --card:                    oklch(1.00 0.00 0);         /* white */
+  --card-foreground:         oklch(0.18 0.03 280);
+
+  /* Popover */
+  --popover:                 oklch(1.00 0.00 0);
+  --popover-foreground:      oklch(0.18 0.03 280);
+
+  /* Primary — bright blue */
+  --primary:                 oklch(0.65 0.17 245);       /* #339AF0 */
+  --primary-foreground:      oklch(1.00 0.00 0);
+
+  /* Secondary — pop pink */
+  --secondary:               oklch(0.65 0.22 15);        /* #FF4D6D */
+  --secondary-foreground:    oklch(1.00 0.00 0);
+
+  /* Muted */
+  --muted:                   oklch(0.95 0.02 90);
+  --muted-foreground:        oklch(0.55 0.03 280);
+
+  /* Accent — pop yellow */
+  --accent:                  oklch(0.90 0.17 95);        /* #FFE135 */
+  --accent-foreground:       oklch(0.18 0.03 280);
+
+  /* Destructive — vivid red */
+  --destructive:             oklch(0.62 0.23 25);
+  --destructive-foreground:  oklch(1.00 0.00 0);
+
+  /* Border / Input / Ring */
+  --border:                  oklch(0.65 0.17 245);       /* blue border */
+  --input:                   oklch(0.65 0.17 245);
+  --ring:                    oklch(0.65 0.22 15);        /* pink ring */
+
+  /* Radius — rounded everything */
+  --radius:                  0.75rem;
+
+  /* Charts */
+  --chart-1:                 oklch(0.65 0.17 245);       /* blue */
+  --chart-2:                 oklch(0.65 0.22 15);        /* pink */
+  --chart-3:                 oklch(0.74 0.17 145);       /* green */
+  --chart-4:                 oklch(0.70 0.18 310);       /* purple */
+  --chart-5:                 oklch(0.72 0.20 55);        /* orange */
+
+  /* Sidebar */
+  --sidebar:                 oklch(0.40 0.18 280);       /* deep purple base (gradient via bg) */
+  --sidebar-foreground:      oklch(1.00 0.00 0);
+  --sidebar-primary:         oklch(0.90 0.17 95);        /* yellow highlight */
+  --sidebar-primary-foreground: oklch(0.18 0.03 280);
+  --sidebar-accent:          oklch(0.65 0.22 15);        /* pink accent */
+  --sidebar-accent-foreground: oklch(1.00 0.00 0);
+  --sidebar-border:          oklch(0.90 0.17 95);        /* yellow border */
+  --sidebar-ring:            oklch(0.90 0.17 95);
+
+  /* Font */
+  font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', 'Rounded Mplus 1c', sans-serif;
+}
+
+/* ----------------------------------------------------------
+   Polka Dot Background
+   ---------------------------------------------------------- */
+.theme-pop body,
+.theme-pop [data-slot="main"],
+.theme-pop main {
+  background-color: #FFFDF7;
+  background-image:
+    radial-gradient(circle, #FFE135 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+}
+
+/* ----------------------------------------------------------
+   Global Resets for Pop Feel
+   ---------------------------------------------------------- */
+.theme-pop * {
+  font-family: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', sans-serif;
+}
+
+/* ----------------------------------------------------------
+   Borders — thick & vivid
+   ---------------------------------------------------------- */
+.theme-pop .border,
+.theme-pop [class*="border"] {
+  border-width: 2px;
+}
+
+.theme-pop input,
+.theme-pop textarea,
+.theme-pop select {
+  border: 3px solid #339AF0 !important;
+  border-radius: 12px !important;
+  background-color: #ffffff !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-pop input:focus,
+.theme-pop textarea:focus,
+.theme-pop select:focus {
+  border-color: #FF4D6D !important;
+  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.25) !important;
+  outline: none !important;
+}
+
+/* ----------------------------------------------------------
+   Buttons — pill shape + press-down effect
+   ---------------------------------------------------------- */
+.theme-pop button,
+.theme-pop [role="button"],
+.theme-pop .btn {
+  border-radius: 25px !important;
+  border: 3px solid transparent;
+  font-weight: 700;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    background-color 0.15s ease;
+  cursor: pointer;
+}
+
+/* Primary button */
+.theme-pop button[data-slot="button"]:not([class*="outline"]):not([class*="ghost"]):not([class*="secondary"]):not([class*="destructive"]),
+.theme-pop .btn-primary {
+  background-color: #339AF0;
+  color: #ffffff;
+  border-color: #1864ab;
+  box-shadow: 0 4px 0 #1864ab;
+}
+
+.theme-pop button[data-slot="button"]:not([class*="outline"]):not([class*="ghost"]):not([class*="secondary"]):not([class*="destructive"]):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #1864ab;
+  background-color: #228be6;
+}
+
+.theme-pop button[data-slot="button"]:not([class*="outline"]):not([class*="ghost"]):not([class*="secondary"]):not([class*="destructive"]):active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #1864ab;
+}
+
+/* Destructive button */
+.theme-pop button[class*="destructive"] {
+  background-color: #FF4D6D;
+  border-color: #c92a2a;
+  box-shadow: 0 4px 0 #c92a2a;
+  color: #ffffff;
+}
+
+.theme-pop button[class*="destructive"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #c92a2a;
+}
+
+.theme-pop button[class*="destructive"]:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #c92a2a;
+}
+
+/* Outline button */
+.theme-pop button[class*="outline"] {
+  border: 3px solid #339AF0 !important;
+  color: #339AF0;
+  background: transparent;
+  box-shadow: 0 3px 0 #1864ab;
+}
+
+.theme-pop button[class*="outline"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 0 #1864ab;
+  background-color: #e7f5ff;
+}
+
+.theme-pop button[class*="outline"]:active {
+  transform: translateY(2px);
+  box-shadow: 0 0px 0 #1864ab;
+}
+
+/* Ghost button */
+.theme-pop button[class*="ghost"]:hover {
+  background-color: rgba(51, 154, 240, 0.12);
+  color: #339AF0;
+  border-radius: 25px !important;
+}
+
+/* Secondary button — pop pink */
+.theme-pop button[class*="secondary"] {
+  background-color: #FF4D6D;
+  color: #ffffff;
+  border-color: #c92a2a;
+  box-shadow: 0 4px 0 #c92a2a;
+}
+
+.theme-pop button[class*="secondary"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #c92a2a;
+  background-color: #fa5252;
+}
+
+.theme-pop button[class*="secondary"]:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #c92a2a;
+}
+
+/* ----------------------------------------------------------
+   Cards
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="card"],
+.theme-pop .card {
+  border: 3px solid #339AF0 !important;
+  border-radius: 20px !important;
+  box-shadow: 6px 6px 0 #1864ab;
+  background-color: #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-pop [data-slot="card"]:hover,
+.theme-pop .card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0 #1864ab;
+}
+
+/* ----------------------------------------------------------
+   Badges — colorful & rounded
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="badge"],
+.theme-pop .badge {
+  border-radius: 20px !important;
+  border: 2px solid currentColor;
+  font-weight: 700;
+  padding: 2px 12px;
+}
+
+.theme-pop [data-slot="badge"][class*="default"],
+.theme-pop .badge-default {
+  background-color: #339AF0;
+  color: #ffffff;
+  border-color: #1864ab;
+}
+
+.theme-pop [data-slot="badge"][class*="secondary"],
+.theme-pop .badge-secondary {
+  background-color: #FF4D6D;
+  color: #ffffff;
+  border-color: #c92a2a;
+}
+
+.theme-pop [data-slot="badge"][class*="outline"] {
+  background-color: transparent;
+  color: #339AF0;
+  border-color: #339AF0;
+}
+
+.theme-pop [data-slot="badge"][class*="destructive"] {
+  background-color: #FF4D6D;
+  color: #ffffff;
+}
+
+/* ----------------------------------------------------------
+   Table
+   ---------------------------------------------------------- */
+.theme-pop table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 3px solid #339AF0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.theme-pop thead tr {
+  background: linear-gradient(90deg, #339AF0, #7950F2);
+  color: #ffffff;
+}
+
+.theme-pop thead th {
+  font-weight: 800;
+  padding: 12px 16px;
+  color: #ffffff;
+}
+
+.theme-pop tbody tr {
+  border-bottom: 2px solid #e7f5ff;
+  transition: background-color 0.15s ease;
+}
+
+.theme-pop tbody tr:nth-child(even) {
+  background-color: #f0f4ff;
+}
+
+.theme-pop tbody tr:hover {
+  background-color: #e7f5ff;
+}
+
+/* ----------------------------------------------------------
+   Dialog / Modal
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="dialog-content"],
+.theme-pop [role="dialog"] {
+  border: 4px solid #339AF0 !important;
+  border-radius: 24px !important;
+  box-shadow: 8px 8px 0 #1864ab !important;
+}
+
+.theme-pop [data-slot="dialog-header"],
+.theme-pop [role="dialog"] header {
+  border-bottom: 3px solid #FFE135;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+}
+
+/* ----------------------------------------------------------
+   Tabs
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="tabs-list"],
+.theme-pop [role="tablist"] {
+  background-color: #e7f5ff;
+  border: 3px solid #339AF0;
+  border-radius: 25px;
+  padding: 4px;
+}
+
+.theme-pop [data-slot="tabs-trigger"],
+.theme-pop [role="tab"] {
+  border-radius: 20px !important;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.theme-pop [data-slot="tabs-trigger"][data-state="active"],
+.theme-pop [role="tab"][aria-selected="true"] {
+  background-color: #339AF0 !important;
+  color: #ffffff !important;
+  box-shadow: 0 3px 0 #1864ab;
+}
+
+/* ----------------------------------------------------------
+   Select / Dropdown
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="select-content"],
+.theme-pop [role="listbox"] {
+  border: 3px solid #339AF0 !important;
+  border-radius: 16px !important;
+  box-shadow: 4px 4px 0 #1864ab !important;
+  background-color: #ffffff;
+}
+
+.theme-pop [data-slot="select-item"]:hover,
+.theme-pop [role="option"]:hover {
+  background-color: #e7f5ff;
+  color: #339AF0;
+}
+
+/* ----------------------------------------------------------
+   Alerts
+   ---------------------------------------------------------- */
+.theme-pop [role="alert"],
+.theme-pop .alert {
+  border: 3px solid #FFE135;
+  border-radius: 16px;
+  background-color: #fffbe6;
+  box-shadow: 4px 4px 0 rgba(255, 193, 7, 0.4);
+}
+
+/* ----------------------------------------------------------
+   Scrollbar
+   ---------------------------------------------------------- */
+.theme-pop ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.theme-pop ::-webkit-scrollbar-track {
+  background: #e7f5ff;
+  border-radius: 10px;
+}
+
+.theme-pop ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #339AF0, #7950F2);
+  border-radius: 10px;
+  border: 2px solid #e7f5ff;
+}
+
+.theme-pop ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #228be6, #6741d9);
+}
+
+/* ----------------------------------------------------------
+   Headings
+   ---------------------------------------------------------- */
+.theme-pop h1,
+.theme-pop h2,
+.theme-pop h3 {
+  font-weight: 800;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+}
+
+.theme-pop h1 {
+  color: #339AF0;
+}
+
+.theme-pop h2 {
+  color: #1a1a2e;
+  border-bottom: 3px solid #FFE135;
+  padding-bottom: 4px;
+  display: inline-block;
+}
+
+/* ----------------------------------------------------------
+   Links
+   ---------------------------------------------------------- */
+.theme-pop a:not([class*="button"]):not([class*="btn"]):not([role="button"]) {
+  color: #339AF0;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #FFE135;
+  text-underline-offset: 3px;
+  transition: color 0.15s ease;
+}
+
+.theme-pop a:not([class*="button"]):not([class*="btn"]):not([role="button"]):hover {
+  color: #FF4D6D;
+  text-decoration-color: #FF4D6D;
+}
+
+/* ----------------------------------------------------------
+   Checkbox / Radio
+   ---------------------------------------------------------- */
+.theme-pop input[type="checkbox"],
+.theme-pop input[type="radio"] {
+  accent-color: #339AF0;
+  border: 2px solid #339AF0 !important;
+  border-radius: 6px !important;
+  width: 18px;
+  height: 18px;
+}
+
+/* ----------------------------------------------------------
+   Avatar
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="avatar"],
+.theme-pop .avatar {
+  border: 3px solid #FFE135;
+  box-shadow: 3px 3px 0 #339AF0;
+}
+
+/* ----------------------------------------------------------
+   Separator
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="separator"],
+.theme-pop hr {
+  background: linear-gradient(90deg, #339AF0, #FF4D6D, #FFE135);
+  height: 3px;
+  border: none;
+  border-radius: 2px;
+}
+
+/* ----------------------------------------------------------
+   Tooltip
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="tooltip-content"],
+.theme-pop [role="tooltip"] {
+  background-color: #1a1a2e;
+  color: #FFE135;
+  border: 2px solid #FFE135;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* ----------------------------------------------------------
+   Progress bar
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="progress"],
+.theme-pop progress,
+.theme-pop [role="progressbar"] {
+  border: 2px solid #339AF0;
+  border-radius: 20px;
+  background-color: #e7f5ff;
+  overflow: hidden;
+}
+
+.theme-pop [data-slot="progress"] > div,
+.theme-pop [role="progressbar"] > div {
+  background: linear-gradient(90deg, #339AF0, #7950F2, #FF4D6D);
+  border-radius: 20px;
+  transition: width 0.4s ease;
+}
+
+/* ----------------------------------------------------------
+   Switch
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="switch"][data-state="checked"] {
+  background-color: #51CF66 !important;
+  border: 2px solid #2f9e44 !important;
+}
+
+.theme-pop [data-slot="switch"][data-state="unchecked"] {
+  background-color: #dee2e6 !important;
+  border: 2px solid #adb5bd !important;
+}
+
+/* ----------------------------------------------------------
+   Skeleton loading
+   ---------------------------------------------------------- */
+.theme-pop [data-slot="skeleton"],
+.theme-pop .skeleton {
+  background: linear-gradient(90deg, #e7f5ff 25%, #d0ebff 50%, #e7f5ff 75%);
+  background-size: 200% 100%;
+  animation: pop-skeleton-shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+@keyframes pop-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ----------------------------------------------------------
+   Focus ring — vivid pink
+   ---------------------------------------------------------- */
+.theme-pop *:focus-visible {
+  outline: 3px solid #FF4D6D !important;
+  outline-offset: 2px !important;
+}
+
+/* ----------------------------------------------------------
+   Misc pop accents
+   ---------------------------------------------------------- */
+
+/* Status dot accents */
+.theme-pop .status-active::before,
+.theme-pop .online-indicator {
+  background-color: #51CF66;
+  box-shadow: 0 0 0 3px rgba(81, 207, 102, 0.3);
+}
+
+/* Number / stat display */
+.theme-pop .stat-number,
+.theme-pop [class*="text-4xl"],
+.theme-pop [class*="text-3xl"] {
+  font-weight: 800;
+  color: #339AF0;
+  text-shadow: 2px 2px 0 rgba(51, 154, 240, 0.2);
+}

@@ -1,0 +1,219 @@
+/* ============================================================
+   Glassmorphism Theme — glass.css
+   Apply by adding class="theme-glass" to <html>
+   ============================================================ */
+
+
+/* ── CSS variable overrides ── */
+.theme-glass {
+  /* Font */
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* Radius — larger for glassmorphism */
+  --radius: 1rem;
+
+  /* Background / Foreground */
+  --background:            oklch(0.93 0.03 270);
+  --foreground:            oklch(0.18 0.03 260);
+
+  /* Card */
+  --card:                  oklch(0.98 0.01 270 / 0.60);
+  --card-foreground:       oklch(0.18 0.03 260);
+
+  /* Popover */
+  --popover:               oklch(0.98 0.01 270 / 0.75);
+  --popover-foreground:    oklch(0.18 0.03 260);
+
+  /* Primary — Violet 600 #7c3aed */
+  --primary:               oklch(0.50 0.24 290);
+  --primary-foreground:    oklch(0.99 0.00 0);
+
+  /* Secondary */
+  --secondary:             oklch(0.92 0.04 290 / 0.50);
+  --secondary-foreground:  oklch(0.30 0.10 290);
+
+  /* Muted */
+  --muted:                 oklch(0.93 0.02 270 / 0.60);
+  --muted-foreground:      oklch(0.50 0.04 270);
+
+  /* Accent */
+  --accent:                oklch(0.90 0.06 290 / 0.55);
+  --accent-foreground:     oklch(0.30 0.10 290);
+
+  /* Destructive — Red #ef4444 */
+  --destructive:           oklch(0.63 0.22 25);
+  --destructive-foreground: oklch(0.99 0.00 0);
+
+  /* Border / Input / Ring */
+  --border:                oklch(0.85 0.04 270 / 0.40);
+  --input:                 oklch(0.96 0.02 270 / 0.55);
+  --ring:                  oklch(0.50 0.24 290 / 0.50);
+
+  /* Charts
+     chart-1: violet, chart-2: green, chart-3: amber,
+     chart-4: red,    chart-5: sky                    */
+  --chart-1:               oklch(0.50 0.24 290);
+  --chart-2:               oklch(0.65 0.17 162);
+  --chart-3:               oklch(0.75 0.17 80);
+  --chart-4:               oklch(0.63 0.22 25);
+  --chart-5:               oklch(0.68 0.15 225);
+
+  /* Sidebar */
+  --sidebar:               oklch(0.95 0.03 275 / 0.55);
+  --sidebar-foreground:    #1e1b4b;                 /* indigo-950 - very dark */
+  --sidebar-primary:       oklch(0.50 0.24 290);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:        oklch(0.90 0.06 290 / 0.55);
+  --sidebar-accent-foreground: #1e1b4b;             /* indigo-950 */
+  --sidebar-border:        oklch(0.85 0.04 270 / 0.30);
+  --sidebar-ring:          oklch(0.50 0.24 290 / 0.50);
+}
+
+/* ── Fixed gradient background ── */
+.theme-glass body {
+  background: linear-gradient(
+    135deg,
+    #e0e7ff 0%,
+    #f0e6ff 30%,
+    #fce7f3 60%,
+    #e0f2fe 100%
+  ) fixed;
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: oklch(0.18 0.03 260);
+}
+
+/* ── Glassmorphism mixin — shared styles ── */
+.theme-glass [data-slot="card"],
+.theme-glass .card,
+.theme-glass [class*="Card"] {
+  background: rgba(255, 255, 255, 0.60);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius, 1rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06),
+              0 2px 8px rgba(124, 58, 237, 0.06);
+}
+
+/* ── Popover / Dropdown glass ── */
+.theme-glass [data-slot="popover-content"],
+.theme-glass [role="dialog"],
+.theme-glass [role="listbox"],
+.theme-glass [role="menu"],
+.theme-glass [data-radix-popper-content-wrapper] > * {
+  background: rgba(255, 255, 255, 0.80) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.40) !important;
+  border-radius: var(--radius, 1rem) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.10),
+              0 4px 12px rgba(124, 58, 237, 0.08) !important;
+}
+
+/* ── Modal / Sheet glass ── */
+.theme-glass [data-slot="sheet-content"],
+.theme-glass [data-slot="dialog-content"] {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  border-radius: var(--radius, 1rem);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.12),
+              0 8px 24px rgba(124, 58, 237, 0.10);
+}
+
+/* ── Input / Select glass ── */
+.theme-glass input,
+.theme-glass textarea,
+.theme-glass select,
+.theme-glass [data-slot="input"],
+.theme-glass [data-slot="select-trigger"] {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  border-radius: calc(var(--radius, 1rem) * 0.75);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-glass input:focus,
+.theme-glass textarea:focus,
+.theme-glass select:focus,
+.theme-glass [data-slot="input"]:focus,
+.theme-glass [data-slot="select-trigger"]:focus {
+  border-color: oklch(0.50 0.24 290 / 0.60);
+  box-shadow: 0 0 0 3px oklch(0.50 0.24 290 / 0.15);
+  outline: none;
+}
+
+/* ── Button refinements ── */
+.theme-glass button[data-slot="button"],
+.theme-glass [class*="Button"][class*="primary"] {
+  border-radius: calc(var(--radius, 1rem) * 0.75);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-glass button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.25);
+}
+
+.theme-glass button:active {
+  transform: translateY(0);
+}
+
+/* ── Badge glass ── */
+.theme-glass [data-slot="badge"],
+.theme-glass .badge,
+.theme-glass [class*="Badge"] {
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Table rows ── */
+.theme-glass tr:hover td {
+  background: rgba(124, 58, 237, 0.05);
+  transition: background 0.15s ease;
+}
+
+/* ── Scrollbar styling ── */
+.theme-glass ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-glass ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.20);
+  border-radius: 999px;
+}
+
+.theme-glass ::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.30);
+  border-radius: 999px;
+}
+
+.theme-glass ::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.50);
+}
+
+/* ── Utility: explicit glass-card helper class ── */
+.theme-glass .glass-card {
+  background: rgba(255, 255, 255, 0.60);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius, 1rem);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Semantic color helpers ── */
+.theme-glass .text-success { color: #10b981; }
+.theme-glass .text-warning { color: #f59e0b; }
+.theme-glass .text-danger  { color: #ef4444; }
+
+.theme-glass .bg-success { background: rgba(16, 185, 129, 0.12); }
+.theme-glass .bg-warning { background: rgba(245, 158, 11, 0.12); }
+.theme-glass .bg-danger  { background: rgba(239, 68, 68, 0.12);  }

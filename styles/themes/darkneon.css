@@ -1,0 +1,626 @@
+/* =============================================================================
+   Dark Neon Theme - ダークネオン
+   Cyberpunk style: Near-black background with neon cyan glow
+   Apply by adding class="theme-darkneon" to <html>
+   ============================================================================= */
+
+.theme-darkneon {
+  /* ── Core color tokens (oklch) ─────────────────────────────────────── */
+  --background:            oklch(0.10 0.01 280);        /* #0a0a0f - nearly black */
+  --foreground:            oklch(0.93 0.01 250);        /* #e2e8f0 - light gray */
+
+  --card:                  oklch(0.13 0.01 280);        /* rgba(255,255,255,0.04) tinted dark */
+  --card-foreground:       oklch(0.93 0.01 250);
+
+  --popover:               oklch(0.12 0.01 280);
+  --popover-foreground:    oklch(0.93 0.01 250);
+
+  --primary:               oklch(0.78 0.15 200);        /* #22d3ee - cyan neon */
+  --primary-foreground:    oklch(0.10 0.01 280);        /* dark text on neon bg */
+
+  --secondary:             oklch(0.18 0.02 280);
+  --secondary-foreground:  oklch(0.93 0.01 250);
+
+  --muted:                 oklch(0.16 0.01 280);
+  --muted-foreground:      oklch(0.62 0.02 250);        /* #94a3b8 */
+
+  --accent:                oklch(0.56 0.22 300);        /* #a855f7 - purple accent */
+  --accent-foreground:     oklch(0.98 0.00 0);
+
+  --destructive:           oklch(0.68 0.15 25);         /* #f87171 - neon red */
+  --destructive-foreground: oklch(0.98 0.00 0);
+
+  --border:                oklch(0.25 0.02 250 / 0.3);  /* rgba(255,255,255,0.08) approx */
+  --input:                 oklch(0.20 0.02 280);
+  --ring:                  oklch(0.78 0.15 200);        /* cyan ring */
+
+  /* ── Chart colors ──────────────────────────────────────────────────── */
+  --chart-1:               oklch(0.78 0.15 200);        /* cyan */
+  --chart-2:               oklch(0.56 0.22 300);        /* purple */
+  --chart-3:               oklch(0.76 0.15 165);        /* #34d399 - neon green */
+  --chart-4:               oklch(0.83 0.16 85);         /* #fbbf24 - neon yellow */
+  --chart-5:               oklch(0.68 0.15 25);         /* neon red */
+
+  /* ── Sidebar ───────────────────────────────────────────────────────── */
+  --sidebar:               oklch(0.08 0.01 280);        /* darker than main bg */
+  --sidebar-foreground:    #e2e8f0;                      /* light gray */
+  --sidebar-primary:       oklch(0.78 0.15 200);        /* cyan */
+  --sidebar-primary-foreground: #ffffff;                /* white on cyan */
+  --sidebar-accent:        oklch(0.14 0.01 280);
+  --sidebar-accent-foreground: #22d3ee;                 /* cyan text */
+  --sidebar-border:        oklch(0.78 0.15 200 / 0.2); /* faint cyan border */
+  --sidebar-ring:          oklch(0.78 0.15 200);
+
+  /* ── Radius ────────────────────────────────────────────────────────── */
+  --radius: 0.5rem;
+
+  /* ── Inverted gray scale (DARK theme — lighter values = darker bg) ── */
+  --gray-50:  oklch(0.10 0.01 280);
+  --gray-100: oklch(0.12 0.01 280);
+  --gray-200: oklch(0.16 0.01 280);
+  --gray-300: oklch(0.22 0.01 280);
+  --gray-400: oklch(0.35 0.01 280);
+  --gray-500: oklch(0.50 0.01 280);
+  --gray-600: oklch(0.62 0.02 250);
+  --gray-700: oklch(0.72 0.01 250);
+  --gray-800: oklch(0.82 0.01 250);
+  --gray-900: oklch(0.93 0.01 250);
+
+  /* ── Neon glow custom properties ──────────────────────────────────── */
+  --neon-cyan:    #22d3ee;
+  --neon-green:   #34d399;
+  --neon-yellow:  #fbbf24;
+  --neon-red:     #f87171;
+  --neon-purple:  #a855f7;
+  --neon-bg:      #0a0a0f;
+
+  --glow-cyan-sm: 0 0 8px rgba(34, 211, 238, 0.40),
+                  0 0 16px rgba(34, 211, 238, 0.15);
+  --glow-cyan-md: 0 0 15px rgba(34, 211, 238, 0.40),
+                  0 0 30px rgba(34, 211, 238, 0.15),
+                  0 0 60px rgba(34, 211, 238, 0.05);
+  --glow-purple-sm: 0 0 8px rgba(168, 85, 247, 0.40),
+                    0 0 16px rgba(168, 85, 247, 0.15);
+
+  /* ── Font ─────────────────────────────────────────────────────────── */
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system,
+               BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color-scheme: dark;
+}
+
+/* =============================================================================
+   Background & base
+   ============================================================================= */
+
+.theme-darkneon body,
+.theme-darkneon [data-slot="body"] {
+  background-color: #0a0a0f;
+  color: #e2e8f0;
+  background-image:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(34, 211, 238, 0.06) 0%,
+      transparent 60%
+    );
+}
+
+/* =============================================================================
+   Cards
+   ============================================================================= */
+
+.theme-darkneon .card,
+.theme-darkneon [data-slot="card"] {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(34, 211, 238, 0.15);
+  box-shadow:
+    0 0 15px rgba(34, 211, 238, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-darkneon .card:hover,
+.theme-darkneon [data-slot="card"]:hover {
+  border-color: rgba(34, 211, 238, 0.30);
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.12),
+    0 0 40px rgba(34, 211, 238, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* =============================================================================
+   Buttons
+   ============================================================================= */
+
+/* Primary button — neon cyan */
+.theme-darkneon button[data-slot="button"]:not([data-variant]),
+.theme-darkneon .btn-primary,
+.theme-darkneon button.bg-primary {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 0.90) 0%,
+    rgba(34, 211, 238, 0.70) 100%
+  );
+  color: #0a0a0f;
+  border: 1px solid rgba(34, 211, 238, 0.60);
+  box-shadow: var(--glow-cyan-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.theme-darkneon button[data-slot="button"]:not([data-variant]):hover,
+.theme-darkneon .btn-primary:hover,
+.theme-darkneon button.bg-primary:hover {
+  box-shadow: var(--glow-cyan-md);
+  background: linear-gradient(
+    135deg,
+    rgba(34, 211, 238, 1.00) 0%,
+    rgba(34, 211, 238, 0.85) 100%
+  );
+  transition: box-shadow 0.2s ease, background 0.2s ease;
+}
+
+/* Outline / ghost buttons */
+.theme-darkneon button[data-variant="outline"],
+.theme-darkneon .btn-outline {
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #22d3ee;
+  background: transparent;
+}
+
+.theme-darkneon button[data-variant="outline"]:hover,
+.theme-darkneon .btn-outline:hover {
+  background: rgba(34, 211, 238, 0.08);
+  border-color: rgba(34, 211, 238, 0.60);
+  box-shadow: var(--glow-cyan-sm);
+  transition: all 0.2s ease;
+}
+
+/* Destructive button */
+.theme-darkneon button[data-variant="destructive"] {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.theme-darkneon button[data-variant="destructive"]:hover {
+  background: rgba(248, 113, 113, 0.25);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.30);
+}
+
+/* Focus ring */
+.theme-darkneon button:focus-visible,
+.theme-darkneon input:focus-visible,
+.theme-darkneon select:focus-visible,
+.theme-darkneon textarea:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #0a0a0f, 0 0 0 4px rgba(34, 211, 238, 0.60);
+}
+
+/* =============================================================================
+   Inputs & form controls
+   ============================================================================= */
+
+.theme-darkneon input,
+.theme-darkneon select,
+.theme-darkneon textarea,
+.theme-darkneon [data-slot="input"] {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #e2e8f0;
+  caret-color: #22d3ee;
+}
+
+.theme-darkneon input:focus,
+.theme-darkneon select:focus,
+.theme-darkneon textarea:focus,
+.theme-darkneon [data-slot="input"]:focus {
+  border-color: rgba(34, 211, 238, 0.60);
+  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15),
+              0 0 12px rgba(34, 211, 238, 0.10);
+  outline: none;
+}
+
+.theme-darkneon input::placeholder,
+.theme-darkneon textarea::placeholder {
+  color: #94a3b8;
+  opacity: 0.6;
+}
+
+/* =============================================================================
+   Tables
+   ============================================================================= */
+
+.theme-darkneon table {
+  border-collapse: collapse;
+}
+
+.theme-darkneon thead tr {
+  background: rgba(34, 211, 238, 0.06);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.20);
+}
+
+.theme-darkneon thead th {
+  color: #22d3ee;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.theme-darkneon tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.theme-darkneon tbody tr:hover {
+  background: rgba(34, 211, 238, 0.04);
+  transition: background 0.15s ease;
+}
+
+.theme-darkneon tbody td {
+  color: #e2e8f0;
+}
+
+/* =============================================================================
+   Badges / Tags
+   ============================================================================= */
+
+.theme-darkneon .badge,
+.theme-darkneon [data-slot="badge"] {
+  border: 1px solid rgba(34, 211, 238, 0.30);
+  background: rgba(34, 211, 238, 0.10);
+  color: #22d3ee;
+}
+
+.theme-darkneon .badge-success {
+  border-color: rgba(52, 211, 153, 0.30);
+  background: rgba(52, 211, 153, 0.10);
+  color: #34d399;
+}
+
+.theme-darkneon .badge-warning {
+  border-color: rgba(251, 191, 36, 0.30);
+  background: rgba(251, 191, 36, 0.10);
+  color: #fbbf24;
+}
+
+.theme-darkneon .badge-error,
+.theme-darkneon .badge-destructive {
+  border-color: rgba(248, 113, 113, 0.30);
+  background: rgba(248, 113, 113, 0.10);
+  color: #f87171;
+}
+
+/* =============================================================================
+   Popovers / Dropdowns / Menus
+   ============================================================================= */
+
+.theme-darkneon [data-slot="popover-content"],
+.theme-darkneon [role="menu"],
+.theme-darkneon [role="listbox"],
+.theme-darkneon [data-radix-popper-content-wrapper] > * {
+  background: #0d0d14;
+  border: 1px solid rgba(34, 211, 238, 0.20);
+  box-shadow:
+    0 0 20px rgba(34, 211, 238, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.60);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #e2e8f0;
+}
+
+.theme-darkneon [role="menuitem"]:hover,
+.theme-darkneon [role="option"]:hover,
+.theme-darkneon [role="menuitem"]:focus,
+.theme-darkneon [role="option"]:focus {
+  background: rgba(34, 211, 238, 0.10);
+  color: #22d3ee;
+  outline: none;
+}
+
+/* =============================================================================
+   Dialogs / Modals
+   ============================================================================= */
+
+.theme-darkneon [data-slot="dialog-overlay"],
+.theme-darkneon [data-radix-dialog-overlay] {
+  background: rgba(0, 0, 0, 0.80);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.theme-darkneon [data-slot="dialog-content"],
+.theme-darkneon [data-radix-dialog-content] {
+  background: #0d0d14;
+  border: 1px solid rgba(34, 211, 238, 0.20);
+  box-shadow:
+    0 0 40px rgba(34, 211, 238, 0.10),
+    0 24px 64px rgba(0, 0, 0, 0.70);
+  color: #e2e8f0;
+}
+
+/* =============================================================================
+   Tabs
+   ============================================================================= */
+
+.theme-darkneon [data-slot="tabs-list"],
+.theme-darkneon [role="tablist"] {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-darkneon [data-slot="tabs-trigger"][data-state="active"],
+.theme-darkneon [role="tab"][aria-selected="true"] {
+  background: rgba(34, 211, 238, 0.15);
+  color: #22d3ee;
+  box-shadow: var(--glow-cyan-sm);
+  border-color: rgba(34, 211, 238, 0.40);
+}
+
+.theme-darkneon [data-slot="tabs-trigger"]:hover,
+.theme-darkneon [role="tab"]:hover {
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.06);
+}
+
+/* =============================================================================
+   Progress bars
+   ============================================================================= */
+
+.theme-darkneon [data-slot="progress"],
+.theme-darkneon progress,
+.theme-darkneon [role="progressbar"] {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.theme-darkneon [data-slot="progress-indicator"],
+.theme-darkneon [role="progressbar"] > div {
+  background: linear-gradient(90deg, #22d3ee, #a855f7);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.50);
+}
+
+/* =============================================================================
+   Separator / Divider
+   ============================================================================= */
+
+.theme-darkneon [data-slot="separator"],
+.theme-darkneon hr {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* =============================================================================
+   Skeleton loader
+   ============================================================================= */
+
+.theme-darkneon [data-slot="skeleton"],
+.theme-darkneon .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(34, 211, 238, 0.06) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: neon-skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes neon-skeleton-pulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* =============================================================================
+   Tooltips
+   ============================================================================= */
+
+.theme-darkneon [data-slot="tooltip-content"],
+.theme-darkneon [role="tooltip"] {
+  background: #0d0d14;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  color: #e2e8f0;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+  font-size: 0.75rem;
+}
+
+/* =============================================================================
+   Switch / Toggle
+   ============================================================================= */
+
+.theme-darkneon [data-slot="switch"][data-state="checked"],
+.theme-darkneon button[role="switch"][aria-checked="true"] {
+  background: #22d3ee;
+  box-shadow: var(--glow-cyan-sm);
+}
+
+.theme-darkneon [data-slot="switch"][data-state="unchecked"],
+.theme-darkneon button[role="switch"][aria-checked="false"] {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* =============================================================================
+   Checkbox & Radio
+   ============================================================================= */
+
+.theme-darkneon [data-slot="checkbox"][data-state="checked"],
+.theme-darkneon input[type="checkbox"]:checked {
+  background: #22d3ee;
+  border-color: #22d3ee;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.40);
+}
+
+.theme-darkneon input[type="radio"]:checked {
+  accent-color: #22d3ee;
+}
+
+/* =============================================================================
+   Alert
+   ============================================================================= */
+
+.theme-darkneon [data-slot="alert"] {
+  background: rgba(34, 211, 238, 0.06);
+  border: 1px solid rgba(34, 211, 238, 0.20);
+  color: #e2e8f0;
+}
+
+.theme-darkneon [data-slot="alert-destructive"],
+.theme-darkneon [data-variant="destructive"][data-slot="alert"] {
+  background: rgba(248, 113, 113, 0.06);
+  border-color: rgba(248, 113, 113, 0.25);
+  color: #f87171;
+}
+
+/* =============================================================================
+   Neon text utility classes
+   ============================================================================= */
+
+.theme-darkneon .text-neon-cyan  { color: #22d3ee; text-shadow: 0 0 12px rgba(34, 211, 238, 0.60); }
+.theme-darkneon .text-neon-green { color: #34d399; text-shadow: 0 0 12px rgba(52, 211, 153, 0.60); }
+.theme-darkneon .text-neon-yellow { color: #fbbf24; text-shadow: 0 0 12px rgba(251, 191, 36, 0.60); }
+.theme-darkneon .text-neon-red   { color: #f87171; text-shadow: 0 0 12px rgba(248, 113, 113, 0.60); }
+.theme-darkneon .text-neon-purple { color: #a855f7; text-shadow: 0 0 12px rgba(168, 85, 247, 0.60); }
+
+/* =============================================================================
+   Custom scrollbar
+   ============================================================================= */
+
+.theme-darkneon ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-darkneon ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+
+.theme-darkneon ::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 238, 0.35);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.theme-darkneon ::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.65);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.40);
+}
+
+.theme-darkneon ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+.theme-darkneon * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, 0.35) rgba(255, 255, 255, 0.02);
+}
+
+/* =============================================================================
+   Selection highlight
+   ============================================================================= */
+
+.theme-darkneon ::selection {
+  background: rgba(34, 211, 238, 0.25);
+  color: #e2e8f0;
+}
+
+/* =============================================================================
+   Links
+   ============================================================================= */
+
+.theme-darkneon a {
+  color: #22d3ee;
+  text-decoration: none;
+}
+
+.theme-darkneon a:hover {
+  color: #67e8f9;
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.40);
+}
+
+/* =============================================================================
+   Heading accents
+   ============================================================================= */
+
+.theme-darkneon h1,
+.theme-darkneon h2 {
+  color: #e2e8f0;
+  letter-spacing: -0.01em;
+}
+
+.theme-darkneon h1 span.accent,
+.theme-darkneon h2 span.accent {
+  color: #22d3ee;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.50);
+}
+
+/* =============================================================================
+   Animations
+   ============================================================================= */
+
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.30),
+                0 0 20px rgba(34, 211, 238, 0.10);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.55),
+                0 0 40px rgba(34, 211, 238, 0.20),
+                0 0 60px rgba(34, 211, 238, 0.08);
+  }
+}
+
+.theme-darkneon .neon-pulse {
+  animation: neon-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes neon-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 24%, 55%                           { opacity: 0.85; }
+}
+
+.theme-darkneon .neon-flicker {
+  animation: neon-flicker 3s linear infinite;
+}
+
+/* =============================================================================
+   Stat / KPI cards (common in HR dashboards)
+   ============================================================================= */
+
+.theme-darkneon .stat-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(34, 211, 238, 0.12);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-darkneon .stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #22d3ee, transparent);
+  opacity: 0.60;
+}
+
+.theme-darkneon .stat-card .stat-value {
+  color: #22d3ee;
+  font-size: 2rem;
+  font-weight: 700;
+  text-shadow: 0 0 16px rgba(34, 211, 238, 0.40);
+  letter-spacing: -0.02em;
+}
+
+.theme-darkneon .stat-card .stat-label {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.25rem;
+}

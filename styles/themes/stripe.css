@@ -1,0 +1,704 @@
+/* ============================================================
+   Stripe風テーマ (stripe.css)
+   HR System — Next.js + Tailwind CSS + shadcn/ui
+   適用方法: <html class="theme-stripe"> に付与する
+   ============================================================ */
+
+
+/* ============================================================
+   CSS Variables Override
+   ============================================================ */
+.theme-stripe {
+  /* ---- Core Palette ---- */
+  --background:            oklch(0.98 0.005 240);   /* #f6f9fc */
+  --foreground:            oklch(0.22 0.05 240);     /* #0a2540 */
+
+  --card:                  oklch(1 0 0);             /* #ffffff */
+  --card-foreground:       oklch(0.22 0.05 240);
+
+  --popover:               oklch(1 0 0);
+  --popover-foreground:    oklch(0.22 0.05 240);
+
+  /* ---- Primary: Stripe Blurple #635bff ---- */
+  --primary:               oklch(0.54 0.24 275);
+  --primary-foreground:    oklch(1 0 0);
+
+  /* ---- Secondary ---- */
+  --secondary:             oklch(0.95 0.008 240);
+  --secondary-foreground:  oklch(0.28 0.05 240);
+
+  /* ---- Muted ---- */
+  --muted:                 oklch(0.95 0.006 240);
+  --muted-foreground:      oklch(0.55 0.03 240);
+
+  /* ---- Accent ---- */
+  --accent:                oklch(0.93 0.01 275);    /* primary-light #f0efff */
+  --accent-foreground:     oklch(0.54 0.24 275);
+
+  /* ---- Destructive: #ed5f74 ---- */
+  --destructive:           oklch(0.62 0.18 12);
+  --destructive-foreground: oklch(1 0 0);
+
+  /* ---- Border / Input / Ring ---- */
+  --border:                oklch(0.93 0.01 240);    /* #e3e8ee */
+  --input:                 oklch(0.93 0.01 240);
+  --ring:                  oklch(0.54 0.24 275);
+
+  /* ---- Radius ---- */
+  --radius:                10px;
+
+  /* ---- Chart Colors ---- */
+  --chart-1:               oklch(0.54 0.24 275);    /* Blurple */
+  --chart-2:               oklch(0.68 0.18 160);    /* Success green */
+  --chart-3:               oklch(0.75 0.16 60);     /* Warning amber */
+  --chart-4:               oklch(0.62 0.18 12);     /* Error red */
+  --chart-5:               oklch(0.46 0.14 240);    /* Deep blue */
+
+  /* ---- Sidebar: Dark Navy #0a2540 ---- */
+  --sidebar:               oklch(0.22 0.05 240);
+  --sidebar-foreground:    #ffffff;                 /* pure white text */
+  --sidebar-primary:       oklch(0.54 0.24 275);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:        oklch(0.30 0.05 240);
+  --sidebar-accent-foreground: #ffffff;             /* pure white text */
+  --sidebar-border:        oklch(0.30 0.05 240);
+  --sidebar-ring:          oklch(0.54 0.24 275);
+
+  /* ---- Custom Shadow Variables ---- */
+  --shadow-sm:             0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md:             0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg:             0 12px 40px rgba(0, 0, 0, 0.12);
+
+  /* ---- Stripe Gradient ---- */
+  --stripe-gradient:       linear-gradient(135deg, #635bff, #0070f3, #00c2ff);
+
+  /* ---- Typography ---- */
+  --font-sans:             'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                           Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* ============================================================
+   Base Styles
+   ============================================================ */
+.theme-stripe *,
+.theme-stripe *::before,
+.theme-stripe *::after {
+  box-sizing: border-box;
+}
+
+.theme-stripe body {
+  font-family: var(--font-sans);
+  background-color: oklch(var(--background));
+  color: oklch(var(--foreground));
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Typography
+   ============================================================ */
+.theme-stripe h1,
+.theme-stripe h2,
+.theme-stripe h3,
+.theme-stripe h4,
+.theme-stripe h5,
+.theme-stripe h6 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  color: oklch(0.22 0.05 240);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.theme-stripe p {
+  color: oklch(0.42 0.04 240);
+  line-height: 1.7;
+}
+
+/* ============================================================
+   Cards — Shadow-driven depth (no heavy borders)
+   ============================================================ */
+.theme-stripe .card,
+.theme-stripe [data-slot="card"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.theme-stripe .card:hover,
+.theme-stripe [data-slot="card"]:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+/* Primary Button */
+.theme-stripe button[data-variant="default"],
+.theme-stripe .btn-primary,
+.theme-stripe [data-slot="button"]:not([data-variant]) {
+  background: oklch(0.54 0.24 275);
+  color: oklch(1 0 0);
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+  padding: 0.5rem 1rem;
+  box-shadow: 0 2px 6px rgba(99, 91, 255, 0.35);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  cursor: pointer;
+}
+
+.theme-stripe button[data-variant="default"]:hover,
+.theme-stripe .btn-primary:hover,
+.theme-stripe [data-slot="button"]:not([data-variant]):hover {
+  background: oklch(0.48 0.24 275);
+  box-shadow: 0 4px 12px rgba(99, 91, 255, 0.45);
+  transform: translateY(-1px);
+}
+
+.theme-stripe button[data-variant="default"]:active,
+.theme-stripe .btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 3px rgba(99, 91, 255, 0.25);
+}
+
+/* Secondary / Outline Button */
+.theme-stripe button[data-variant="outline"],
+.theme-stripe .btn-outline {
+  background: oklch(1 0 0);
+  color: oklch(0.22 0.05 240);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: calc(var(--radius) - 2px);
+  font-weight: 500;
+  font-size: 13.5px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-stripe button[data-variant="outline"]:hover,
+.theme-stripe .btn-outline:hover {
+  border-color: oklch(0.54 0.24 275);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  color: oklch(0.54 0.24 275);
+}
+
+/* Ghost Button */
+.theme-stripe button[data-variant="ghost"],
+.theme-stripe .btn-ghost {
+  background: transparent;
+  color: oklch(0.54 0.24 275);
+  border: none;
+  font-weight: 500;
+  transition: background 0.15s ease;
+}
+
+.theme-stripe button[data-variant="ghost"]:hover,
+.theme-stripe .btn-ghost:hover {
+  background: oklch(0.93 0.01 275);
+}
+
+/* Destructive Button */
+.theme-stripe button[data-variant="destructive"],
+.theme-stripe .btn-destructive {
+  background: oklch(0.62 0.18 12);
+  color: oklch(1 0 0);
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(237, 95, 116, 0.3);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.theme-stripe button[data-variant="destructive"]:hover,
+.theme-stripe .btn-destructive:hover {
+  background: oklch(0.56 0.18 12);
+  box-shadow: 0 4px 12px rgba(237, 95, 116, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Navigation Bar (Top)
+   ============================================================ */
+.theme-stripe header,
+.theme-stripe .navbar {
+  background: oklch(1 0 0);
+  border-bottom: 1px solid oklch(0.93 0.01 240);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   Inputs & Form Elements
+   ============================================================ */
+.theme-stripe input,
+.theme-stripe textarea,
+.theme-stripe select,
+.theme-stripe [data-slot="input"],
+.theme-stripe [data-slot="textarea"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.88 0.01 240);
+  border-radius: calc(var(--radius) - 2px);
+  color: oklch(0.22 0.05 240);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-stripe input:focus,
+.theme-stripe textarea:focus,
+.theme-stripe select:focus,
+.theme-stripe [data-slot="input"]:focus,
+.theme-stripe [data-slot="textarea"]:focus {
+  outline: none;
+  border-color: oklch(0.54 0.24 275);
+  box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.15);
+}
+
+.theme-stripe input::placeholder,
+.theme-stripe textarea::placeholder {
+  color: oklch(0.65 0.02 240);
+}
+
+/* ============================================================
+   Labels
+   ============================================================ */
+.theme-stripe label,
+.theme-stripe [data-slot="label"] {
+  font-size: 13px;
+  font-weight: 600;
+  color: oklch(0.30 0.05 240);
+  letter-spacing: 0.01em;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+/* ============================================================
+   Tables
+   ============================================================ */
+.theme-stripe table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+}
+
+.theme-stripe thead tr {
+  background: oklch(0.97 0.005 240);
+  border-bottom: 2px solid oklch(0.93 0.01 240);
+}
+
+.theme-stripe thead th {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: oklch(0.42 0.04 240);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.theme-stripe tbody tr {
+  border-bottom: 1px solid oklch(0.96 0.005 240);
+  transition: background 0.1s ease;
+}
+
+.theme-stripe tbody tr:hover {
+  background: oklch(0.975 0.005 275);
+}
+
+.theme-stripe tbody td {
+  padding: 0.75rem 1rem;
+  color: oklch(0.30 0.04 240);
+}
+
+/* ============================================================
+   Badges / Tags
+   ============================================================ */
+.theme-stripe .badge,
+.theme-stripe [data-slot="badge"] {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* Default badge */
+.theme-stripe .badge-default,
+.theme-stripe [data-variant="default"].badge {
+  background: oklch(0.93 0.01 275);
+  color: oklch(0.54 0.24 275);
+}
+
+/* Success badge */
+.theme-stripe .badge-success {
+  background: oklch(0.92 0.08 155);
+  color: oklch(0.38 0.12 155);
+}
+
+/* Warning badge */
+.theme-stripe .badge-warning {
+  background: oklch(0.95 0.08 75);
+  color: oklch(0.45 0.12 60);
+}
+
+/* Error badge */
+.theme-stripe .badge-error,
+.theme-stripe .badge-destructive {
+  background: oklch(0.95 0.06 12);
+  color: oklch(0.45 0.15 12);
+}
+
+/* ============================================================
+   Dropdowns & Popovers
+   ============================================================ */
+.theme-stripe [data-slot="dropdown-menu-content"],
+.theme-stripe [data-slot="popover-content"],
+.theme-stripe [role="menu"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 0.25rem;
+}
+
+.theme-stripe [data-slot="dropdown-menu-item"],
+.theme-stripe [role="menuitem"] {
+  border-radius: calc(var(--radius) - 4px);
+  font-size: 13.5px;
+  padding: 0.45rem 0.75rem;
+  color: oklch(0.25 0.05 240);
+  transition: background 0.12s ease;
+  cursor: pointer;
+}
+
+.theme-stripe [data-slot="dropdown-menu-item"]:hover,
+.theme-stripe [role="menuitem"]:hover {
+  background: oklch(0.96 0.008 275);
+  color: oklch(0.54 0.24 275);
+}
+
+/* ============================================================
+   Dialogs / Modals
+   ============================================================ */
+.theme-stripe [data-slot="dialog-content"],
+.theme-stripe [role="dialog"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: calc(var(--radius) + 2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.theme-stripe [data-slot="dialog-header"] {
+  border-bottom: 1px solid oklch(0.93 0.01 240);
+  padding: 1.25rem 1.5rem;
+}
+
+.theme-stripe [data-slot="dialog-footer"] {
+  border-top: 1px solid oklch(0.93 0.01 240);
+  padding: 1rem 1.5rem;
+}
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+.theme-stripe [data-slot="tabs-list"] {
+  background: oklch(0.95 0.006 240);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.2rem;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.theme-stripe [data-slot="tabs-trigger"] {
+  color: oklch(0.50 0.03 240);
+  font-weight: 500;
+  font-size: 13.5px;
+  border-radius: calc(var(--radius) - 4px);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-stripe [data-slot="tabs-trigger"][data-state="active"] {
+  background: oklch(1 0 0);
+  color: oklch(0.54 0.24 275);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================================
+   Progress Bars
+   ============================================================ */
+.theme-stripe [data-slot="progress"] {
+  background: oklch(0.93 0.01 240);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.theme-stripe [data-slot="progress-indicator"] {
+  background: var(--stripe-gradient);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+/* ============================================================
+   Avatars
+   ============================================================ */
+.theme-stripe [data-slot="avatar"],
+.theme-stripe .avatar {
+  border-radius: 50%;
+  border: 2px solid oklch(1 0 0);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-stripe [data-slot="avatar-fallback"] {
+  background: var(--stripe-gradient);
+  color: oklch(1 0 0);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ============================================================
+   Scrollbars
+   ============================================================ */
+.theme-stripe ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-stripe ::-webkit-scrollbar-track {
+  background: oklch(0.95 0.005 240);
+}
+
+.theme-stripe ::-webkit-scrollbar-thumb {
+  background: oklch(0.82 0.015 240);
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+.theme-stripe ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.70 0.02 240);
+}
+
+/* ============================================================
+   Separator / Divider
+   ============================================================ */
+.theme-stripe [data-slot="separator"],
+.theme-stripe hr {
+  border: none;
+  border-top: 1px solid oklch(0.93 0.01 240);
+}
+
+/* ============================================================
+   Toast / Alerts
+   ============================================================ */
+.theme-stripe [data-slot="toast"],
+.theme-stripe .toast {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: oklch(0.22 0.05 240);
+  font-size: 13.5px;
+}
+
+/* ============================================================
+   Alert Components
+   ============================================================ */
+.theme-stripe [data-slot="alert"] {
+  border-radius: var(--radius);
+  border: 1px solid;
+  padding: 0.75rem 1rem;
+  font-size: 13.5px;
+}
+
+.theme-stripe [data-variant="default"].alert {
+  background: oklch(0.97 0.005 275);
+  border-color: oklch(0.85 0.08 275);
+  color: oklch(0.35 0.12 275);
+}
+
+.theme-stripe [data-variant="destructive"].alert {
+  background: oklch(0.97 0.03 12);
+  border-color: oklch(0.85 0.1 12);
+  color: oklch(0.45 0.15 12);
+}
+
+/* ============================================================
+   Switch / Toggle
+   ============================================================ */
+.theme-stripe [data-slot="switch"][data-state="checked"] {
+  background: oklch(0.54 0.24 275);
+  box-shadow: 0 0 0 2px rgba(99, 91, 255, 0.2);
+}
+
+/* ============================================================
+   Checkbox & Radio
+   ============================================================ */
+.theme-stripe [data-slot="checkbox"][data-state="checked"] {
+  background: oklch(0.54 0.24 275);
+  border-color: oklch(0.54 0.24 275);
+}
+
+/* ============================================================
+   Select
+   ============================================================ */
+.theme-stripe [data-slot="select-trigger"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.88 0.01 240);
+  border-radius: calc(var(--radius) - 2px);
+  box-shadow: var(--shadow-sm);
+  font-size: 13.5px;
+  color: oklch(0.22 0.05 240);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-stripe [data-slot="select-trigger"]:focus {
+  border-color: oklch(0.54 0.24 275);
+  box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.15);
+}
+
+.theme-stripe [data-slot="select-content"] {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+.theme-stripe [data-slot="select-item"]:hover,
+.theme-stripe [data-slot="select-item"][data-highlighted] {
+  background: oklch(0.96 0.008 275);
+  color: oklch(0.54 0.24 275);
+}
+
+/* ============================================================
+   Skeleton Loader
+   ============================================================ */
+.theme-stripe .skeleton,
+.theme-stripe [data-slot="skeleton"] {
+  background: linear-gradient(
+    90deg,
+    oklch(0.93 0.005 240) 25%,
+    oklch(0.96 0.005 240) 50%,
+    oklch(0.93 0.005 240) 75%
+  );
+  background-size: 200% 100%;
+  animation: stripe-skeleton 1.5s ease-in-out infinite;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+@keyframes stripe-skeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   Stripe Gradient Utility Classes
+   ============================================================ */
+.theme-stripe .stripe-gradient {
+  background: var(--stripe-gradient);
+}
+
+.theme-stripe .stripe-gradient-text {
+  background: var(--stripe-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   Focus Visible (Accessibility)
+   ============================================================ */
+.theme-stripe *:focus-visible {
+  outline: 2px solid oklch(0.54 0.24 275);
+  outline-offset: 2px;
+  border-radius: calc(var(--radius) - 4px);
+}
+
+/* ============================================================
+   Stat Cards (HR System specific)
+   ============================================================ */
+.theme-stripe .stat-card {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.93 0.01 240);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.25rem 1.5rem;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.theme-stripe .stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.theme-stripe .stat-card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: oklch(0.22 0.05 240);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.theme-stripe .stat-card-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(0.55 0.03 240);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 0.25rem;
+}
+
+.theme-stripe .stat-card-trend-up {
+  color: oklch(0.50 0.15 155);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.theme-stripe .stat-card-trend-down {
+  color: oklch(0.55 0.15 12);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Page Header
+   ============================================================ */
+.theme-stripe .page-header {
+  border-bottom: 1px solid oklch(0.93 0.01 240);
+  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.theme-stripe .page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: oklch(0.22 0.05 240);
+  letter-spacing: -0.02em;
+}
+
+.theme-stripe .page-header p {
+  color: oklch(0.52 0.03 240);
+  font-size: 13.5px;
+  margin-top: 0.25rem;
+}
+
+/* ============================================================
+   Transition Utilities
+   ============================================================ */
+.theme-stripe .hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-stripe .hover-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}

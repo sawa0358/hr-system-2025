@@ -4,6 +4,14 @@ import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import "@/styles/themes/wamon.css"
+import "@/styles/themes/glass.css"
+import "@/styles/themes/stripe.css"
+import "@/styles/themes/darkneon.css"
+import "@/styles/themes/nordic.css"
+import "@/styles/themes/pop.css"
+import "@/styles/themes/showa.css"
+import "@/styles/themes/comic.css"
 import { Sidebar } from "@/components/sidebar"
 import { RouteGuard } from "@/components/route-guard"
 import { Suspense } from "react"
@@ -42,6 +50,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" suppressHydrationWarning translate="no">
+      <head>
+        {/* テーマ用Google Fonts (動的読み込みのフォールバック) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
         <GlobalErrorHandler />
         <ErrorBoundary>
@@ -51,7 +64,7 @@ export default function RootLayout({
                 <DemoMaskController />
                 <div className="flex h-screen overflow-hidden">
                   <Sidebar />
-                  <main className="flex-1 overflow-auto bg-slate-50 relative">
+                  <main className="flex-1 overflow-auto bg-background relative">
                     <RouteGuard>{children}</RouteGuard>
                   </main>
                 </div>

@@ -1,0 +1,269 @@
+/* ============================================================
+   和モダン (Wamon) Theme
+   Japanese Traditional Colors + Modern Layout
+   Washi Paper Texture Feel
+   ============================================================ */
+
+
+/* ============================================================
+   CSS Variable Overrides for .theme-wamon
+   ============================================================ */
+
+.theme-wamon {
+  /* --- Base --- */
+  --background: oklch(0.98 0.005 80);        /* #faf8f5 和紙白 washi-shiro */
+  --foreground: oklch(0.25 0.01 50);         /* #2d2926 墨色 sumi-iro */
+
+  /* --- Card --- */
+  --card: oklch(0.97 0.006 78);              /* slightly warmer than background */
+  --card-foreground: oklch(0.25 0.01 50);    /* 墨色 sumi-iro */
+
+  /* --- Popover --- */
+  --popover: oklch(0.98 0.005 80);
+  --popover-foreground: oklch(0.25 0.01 50);
+
+  /* --- Primary: 紅色 beni-iro --- */
+  --primary: oklch(0.52 0.16 20);            /* #c53d43 紅色 */
+  --primary-foreground: oklch(0.98 0.005 80); /* warm white on red */
+
+  /* --- Secondary --- */
+  --secondary: oklch(0.96 0.008 80);         /* #f5f2ed cream washi */
+  --secondary-foreground: oklch(0.25 0.01 50);
+
+  /* --- Muted --- */
+  --muted: oklch(0.94 0.01 78);
+  --muted-foreground: oklch(0.55 0.01 55);   /* warm mid-tone gray */
+
+  /* --- Accent: 紅色 light tint --- */
+  --accent: oklch(0.96 0.012 20);            /* very light red tint */
+  --accent-foreground: oklch(0.52 0.16 20);  /* 紅色 text on accent */
+
+  /* --- Destructive --- */
+  --destructive: oklch(0.52 0.16 20);        /* 紅色 beni-iro */
+  --destructive-foreground: oklch(0.98 0.005 80);
+
+  /* --- Border / Input / Ring --- */
+  --border: oklch(0.91 0.01 75);             /* #e8e2d9 warm gray */
+  --input: oklch(0.91 0.01 75);
+  --ring: oklch(0.52 0.16 20);               /* 紅色 focus ring */
+
+  /* --- Charts: Japanese traditional palette --- */
+  --chart-1: oklch(0.52 0.16 20);            /* 紅色 beni-iro */
+  --chart-2: oklch(0.42 0.06 160);           /* #3c6255 千歳緑 chitose-midori */
+  --chart-3: oklch(0.58 0.10 60);            /* #b8860b 金茶色 kin-chairo (approx) */
+  --chart-4: oklch(0.50 0.08 240);           /* 藍色 ai-iro indigo */
+  --chart-5: oklch(0.60 0.09 330);           /* 牡丹色 botan-iro rose */
+
+  /* --- Radius: slightly softer --- */
+  --radius: 0.5rem;
+
+  /* --- Sidebar: 墨色 dark sumi background --- */
+  --sidebar: oklch(0.20 0.012 45);           /* deep sumi-iro */
+  --sidebar-foreground: #f5f0e8;              /* warm white text */
+  --sidebar-primary: oklch(0.52 0.16 20);    /* 紅色 active item */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: oklch(0.30 0.02 45);     /* slightly lighter sumi for hover */
+  --sidebar-accent-foreground: #f5f0e8;      /* warm white text */
+  --sidebar-border: oklch(0.30 0.014 40);    /* subtle dark border */
+  --sidebar-ring: oklch(0.52 0.16 20);       /* 紅色 focus ring */
+}
+
+/* ============================================================
+   Font Family Override
+   ============================================================ */
+
+.theme-wamon body,
+.theme-wamon {
+  font-family: 'Zen Kaku Gothic New', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
+               'Yu Gothic', 'Noto Sans JP', sans-serif;
+  font-feature-settings: 'palt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   Warm Paper-Like Background Texture
+   ============================================================ */
+
+.theme-wamon body {
+  background-color: oklch(0.98 0.005 80);
+  /* Subtle noise texture to evoke washi paper feel */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   Warm Ink-Like Shadows
+   ============================================================ */
+
+.theme-wamon .shadow-sm,
+.theme-wamon [class*='shadow-sm'] {
+  box-shadow: 0 1px 3px rgba(45, 41, 38, 0.08), 0 1px 2px rgba(45, 41, 38, 0.05);
+}
+
+.theme-wamon .shadow,
+.theme-wamon [class*='shadow-md'] {
+  box-shadow: 0 4px 12px rgba(45, 41, 38, 0.10), 0 2px 4px rgba(45, 41, 38, 0.06);
+}
+
+.theme-wamon .shadow-lg,
+.theme-wamon [class*='shadow-lg'] {
+  box-shadow: 0 8px 24px rgba(45, 41, 38, 0.12), 0 4px 8px rgba(45, 41, 38, 0.07);
+}
+
+/* ============================================================
+   Card: Warm Border + Subtle Lift
+   ============================================================ */
+
+.theme-wamon [data-slot='card'],
+.theme-wamon .card {
+  border-color: oklch(0.91 0.01 75);
+  box-shadow: 0 2px 8px rgba(45, 41, 38, 0.08);
+  background-color: oklch(0.97 0.006 78);
+}
+
+/* ============================================================
+   Primary Button: 紅色 with Ink Press Effect
+   ============================================================ */
+
+.theme-wamon [data-slot='button'][data-variant='default'],
+.theme-wamon .btn-primary {
+  background-color: oklch(0.52 0.16 20);
+  color: oklch(0.98 0.005 80);
+  border: 1px solid oklch(0.48 0.16 20);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+
+.theme-wamon [data-slot='button'][data-variant='default']:hover,
+.theme-wamon .btn-primary:hover {
+  background-color: oklch(0.48 0.16 20);
+  box-shadow: 0 2px 8px rgba(197, 61, 67, 0.25);
+}
+
+.theme-wamon [data-slot='button'][data-variant='default']:active,
+.theme-wamon .btn-primary:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+/* ============================================================
+   Input: Washi Paper Feel
+   ============================================================ */
+
+.theme-wamon input,
+.theme-wamon textarea,
+.theme-wamon select,
+.theme-wamon [data-slot='input'] {
+  background-color: oklch(0.99 0.003 80);
+  border-color: oklch(0.91 0.01 75);
+  color: oklch(0.25 0.01 50);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.theme-wamon input:focus,
+.theme-wamon textarea:focus,
+.theme-wamon select:focus,
+.theme-wamon [data-slot='input']:focus {
+  border-color: oklch(0.52 0.16 20);
+  box-shadow: 0 0 0 3px rgba(197, 61, 67, 0.12);
+  outline: none;
+}
+
+/* ============================================================
+   Table: Warm Ruled Lines
+   ============================================================ */
+
+.theme-wamon table {
+  border-collapse: collapse;
+}
+
+.theme-wamon th {
+  background-color: oklch(0.96 0.008 80);
+  color: oklch(0.35 0.01 50);
+  font-weight: 500;
+  border-bottom: 2px solid oklch(0.91 0.01 75);
+}
+
+.theme-wamon td {
+  border-bottom: 1px solid oklch(0.93 0.008 77);
+  color: oklch(0.25 0.01 50);
+}
+
+.theme-wamon tr:hover td {
+  background-color: oklch(0.97 0.008 25); /* very subtle red tint on hover */
+}
+
+/* ============================================================
+   Badge / Tag Overrides
+   ============================================================ */
+
+.theme-wamon [data-slot='badge'],
+.theme-wamon .badge {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   Heading Decorative Accent
+   ============================================================ */
+
+.theme-wamon h1,
+.theme-wamon h2 {
+  color: oklch(0.22 0.012 45);
+  letter-spacing: -0.01em;
+}
+
+.theme-wamon h1 {
+  border-bottom: 2px solid oklch(0.52 0.16 20);
+  padding-bottom: 0.4rem;
+  display: inline-block;
+}
+
+/* ============================================================
+   Divider / Separator: Warm Ink Line
+   ============================================================ */
+
+.theme-wamon hr,
+.theme-wamon [data-slot='separator'] {
+  border-color: oklch(0.91 0.01 75);
+}
+
+/* ============================================================
+   Scrollbar: Subtle Washi Style
+   ============================================================ */
+
+.theme-wamon ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.theme-wamon ::-webkit-scrollbar-track {
+  background: oklch(0.96 0.008 80);
+}
+
+.theme-wamon ::-webkit-scrollbar-thumb {
+  background-color: oklch(0.82 0.012 70);
+  border-radius: 3px;
+}
+
+.theme-wamon ::-webkit-scrollbar-thumb:hover {
+  background-color: oklch(0.52 0.16 20); /* 紅色 on hover */
+}
+
+/* ============================================================
+   Focus Ring: 紅色
+   ============================================================ */
+
+.theme-wamon *:focus-visible {
+  outline: 2px solid oklch(0.52 0.16 20);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Selection: Warm Highlight
+   ============================================================ */
+
+.theme-wamon ::selection {
+  background-color: rgba(197, 61, 67, 0.15);
+  color: oklch(0.22 0.012 45);
+}

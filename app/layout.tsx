@@ -8,6 +8,8 @@ import { Sidebar } from "@/components/sidebar"
 import { RouteGuard } from "@/components/route-guard"
 import { Suspense } from "react"
 import { AuthProvider } from "@/lib/auth-context"
+import { DemoModeProvider } from "@/hooks/useDemoMode"
+import { DemoMaskController } from "@/components/features/DemoMaskController"
 import { ClientOnly } from "@/components/client-only"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { GlobalErrorHandler } from "@/components/global-error-handler"
@@ -44,14 +46,17 @@ export default function RootLayout({
         <GlobalErrorHandler />
         <ErrorBoundary>
           <AuthProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              <div className="flex h-screen overflow-hidden">
-                <Sidebar />
-                <main className="flex-1 overflow-auto bg-slate-50 relative">
-                  <RouteGuard>{children}</RouteGuard>
-                </main>
-              </div>
-            </Suspense>
+            <DemoModeProvider>
+              <Suspense fallback={<div>Loading...</div>}>
+                <DemoMaskController />
+                <div className="flex h-screen overflow-hidden">
+                  <Sidebar />
+                  <main className="flex-1 overflow-auto bg-slate-50 relative">
+                    <RouteGuard>{children}</RouteGuard>
+                  </main>
+                </div>
+              </Suspense>
+            </DemoModeProvider>
           </AuthProvider>
         </ErrorBoundary>
         <ClientOnly>

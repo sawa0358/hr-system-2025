@@ -18,6 +18,8 @@ import {
   Calendar,
   LogOut,
   Sparkles,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,7 @@ import { usePermissions } from "@/hooks/use-permissions"
 import { useAuth } from "@/lib/auth-context"
 import { LoginModal } from "@/components/login-modal"
 import { APP_VERSION } from "@/lib/version"
+import { useDemoMode } from "@/hooks/useDemoMode"
 
 const menuItems = [
   { icon: LayoutDashboard, label: "ダッシュボード", href: "/", permission: "viewDashboard" as const },
@@ -62,6 +65,7 @@ export function Sidebar() {
   // フックは通常通り呼び出す（Reactのルールに従う）
   const { role, hasPermission } = usePermissions()
   const { currentUser, isAuthenticated, login, logout } = useAuth()
+  const { isDemoMode, toggleDemoMode } = useDemoMode()
   const sidebarRef = useRef<HTMLElement>(null)
 
   // 人事管理プルダウン内のページかどうかを判定
@@ -700,6 +704,26 @@ export function Sidebar() {
                 <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
               </div>
             </div>
+            {(currentUser.role === 'admin' || currentUser.role === 'hr') && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "w-full justify-start mb-2",
+                  isDemoMode
+                    ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200 hover:text-amber-900"
+                    : "text-slate-700 hover:text-blue-600 hover:border-blue-300 bg-transparent"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleDemoMode()
+                }}
+                data-demo-toggle
+              >
+                {isDemoMode ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                {isDemoMode ? "デモモード ON" : "デモモード"}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

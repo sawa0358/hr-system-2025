@@ -153,3 +153,21 @@ body[data-attendance-dialog-open='true'] [data-slot='input'],
 body[data-attendance-dialog-open='true'] textarea {
   background-color: #ffffff;
 }
+
+/* ============================
+   デモモード - 個人情報ぼかし
+   ============================ */
+
+/* 個別要素のぼかし */
+.demo-blur {
+  filter: blur(5px);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ページ遷移時の全体ぼかし（チラ見え防止） */
+body.demo-page-blur main {
+  filter: blur(8px);
+  pointer-events: none;
+  transition: filter 0.05s ease;
+}

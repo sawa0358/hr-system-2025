@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   description: "Human Resources Management System",
   generator: "Next.js",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
     apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",

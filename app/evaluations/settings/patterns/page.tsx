@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Copy, Trash2, Edit, Save, ArrowLeft, CheckSquare, Camera, MessageCircle, Type, Trophy } from "lucide-react"
+import { Plus, Copy, Trash2, Edit, Save, ArrowLeft, CheckSquare, Camera, MessageCircle, Type, Trophy, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Palette } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 
@@ -173,6 +173,34 @@ export default function PatternSettingsPage() {
     )
 }
 
+// 説明文の色: HSL形式で保存 (例: "210,70" = hue 210, saturation 70)
+// descriptionフィールドに "h,s" 形式で保存。空文字はグレー（デフォルト）
+function parseDescColor(desc: string | undefined): { hue: number; sat: number } {
+    if (!desc) return { hue: 0, sat: 0 }
+    const parts = desc.split(',')
+    if (parts.length === 2) {
+        const h = parseInt(parts[0], 10)
+        const s = parseInt(parts[1], 10)
+        if (!isNaN(h) && !isNaN(s)) return { hue: h, sat: s }
+    }
+    // 旧形式（色名）の互換: 名前→HSL変換
+    const legacyMap: Record<string, { hue: number; sat: number }> = {
+        'blue': { hue: 220, sat: 70 }, 'green': { hue: 160, sat: 60 }, 'amber': { hue: 40, sat: 80 },
+        'red': { hue: 0, sat: 70 }, 'purple': { hue: 280, sat: 60 }, 'indigo': { hue: 240, sat: 70 },
+    }
+    return legacyMap[desc] || { hue: 0, sat: 0 }
+}
+
+function descColorStyle(desc: string | undefined): { bg: string; border: string; text: string } {
+    const { hue, sat } = parseDescColor(desc)
+    if (sat === 0) return { bg: '#f8fafc', border: '#cbd5e1', text: '#475569' } // グレー
+    return {
+        bg: `hsl(${hue}, ${sat}%, 95%)`,
+        border: `hsl(${hue}, ${sat}%, 75%)`,
+        text: `hsl(${hue}, ${Math.min(sat + 10, 100)}%, 30%)`,
+    }
+}
+
 function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: () => void, onCancel: () => void }) {
     const [name, setName] = useState(pattern.name)
     const [description, setDescription] = useState(pattern.description)
@@ -238,6 +266,20 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
 
     const removeItem = (index: number) => {
         setItems(items.filter((_, i) => i !== index))
+    }
+
+    const moveItem = (index: number, direction: 'top' | 'up' | 'down' | 'bottom') => {
+        const newItems = [...items]
+        const [movedItem] = newItems.splice(index, 1)
+        let newIndex: number
+        switch (direction) {
+            case 'top': newIndex = 0; break
+            case 'up': newIndex = Math.max(0, index - 1); break
+            case 'down': newIndex = Math.min(newItems.length, index + 1); break
+            case 'bottom': newIndex = newItems.length; break
+        }
+        newItems.splice(newIndex, 0, movedItem)
+        setItems(newItems)
     }
 
     return (
@@ -327,10 +369,62 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
 
                     <div className="space-y-3">
                         {items.length === 0 && <div className="text-slate-400 p-8 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50">項目がありません。左のパネルから追加してください。</div>}
-                        {items.map((item, index) => (
-                            <Card key={item.id} className="p-4 bg-white border border-slate-200 shadow-none rounded-xl transition-all hover:border-indigo-200 hover:shadow-sm">
+                        {items.map((item, index) => {
+                            const dcs = item.type === 'description' ? descColorStyle(item.description) : null
+                            return (
+                            <Card
+                                key={item.id}
+                                className={`p-4 shadow-none rounded-xl transition-all hover:shadow-sm ${
+                                    item.type === 'description' ? 'border-2' : 'bg-white border border-slate-200 hover:border-indigo-200'
+                                }`}
+                                style={dcs ? { backgroundColor: dcs.bg, borderColor: dcs.border, color: dcs.text } : undefined}
+                            >
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-start gap-4 flex-1">
+                                        {/* 並び替えボタン */}
+                                        <div className="flex flex-col items-center gap-0.5 mt-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                onClick={() => moveItem(index, 'top')}
+                                                disabled={index === 0}
+                                                title="一番上へ"
+                                            >
+                                                <ChevronsUp className="w-3.5 h-3.5" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                onClick={() => moveItem(index, 'up')}
+                                                disabled={index === 0}
+                                                title="上へ"
+                                            >
+                                                <ChevronUp className="w-3.5 h-3.5" />
+                                            </Button>
+                                            <span className="text-[10px] text-slate-300 font-mono leading-none">{index + 1}</span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                onClick={() => moveItem(index, 'down')}
+                                                disabled={index === items.length - 1}
+                                                title="下へ"
+                                            >
+                                                <ChevronDown className="w-3.5 h-3.5" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                                onClick={() => moveItem(index, 'bottom')}
+                                                disabled={index === items.length - 1}
+                                                title="一番下へ"
+                                            >
+                                                <ChevronsDown className="w-3.5 h-3.5" />
+                                            </Button>
+                                        </div>
                                         {/* アイコン */}
                                         <div className="mt-2.5">
                                             {item.type === 'checkbox' && <CheckSquare className="w-5 h-5 text-indigo-500" />}
@@ -346,12 +440,52 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                                                 className="font-bold border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-1 h-auto text-base w-full bg-transparent transition-colors placeholder:text-slate-300"
                                                 placeholder="項目名を入力"
                                             />
-                                            <Input
-                                                value={item.description || ''}
-                                                onChange={e => updateItem(index, { description: e.target.value })}
-                                                className="border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-0.5 h-auto text-xs w-full bg-transparent transition-colors text-slate-500 placeholder:text-slate-300"
-                                                placeholder="補足説明（考課入力時に項目名の横に表示されます）"
-                                            />
+                                            {/* 説明文タイプ: 色スライダー / それ以外: 補足説明 */}
+                                            {item.type === 'description' ? (
+                                                <div className="space-y-2 px-2">
+                                                    {(() => {
+                                                        const { hue, sat } = parseDescColor(item.description)
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center gap-3">
+                                                                    <Palette className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                    <span className="text-[10px] text-slate-500 w-8 shrink-0">色相</span>
+                                                                    <input
+                                                                        type="range" min="0" max="360" value={hue}
+                                                                        onChange={e => updateItem(index, { description: `${e.target.value},${sat}` })}
+                                                                        className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                                                                        style={{ background: 'linear-gradient(to right, hsl(0,80%,70%), hsl(60,80%,70%), hsl(120,80%,70%), hsl(180,80%,70%), hsl(240,80%,70%), hsl(300,80%,70%), hsl(360,80%,70%))' }}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-3.5 shrink-0" />
+                                                                    <span className="text-[10px] text-slate-500 w-8 shrink-0">彩度</span>
+                                                                    <input
+                                                                        type="range" min="0" max="100" value={sat}
+                                                                        onChange={e => updateItem(index, { description: `${hue},${e.target.value}` })}
+                                                                        className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
+                                                                        style={{ background: `linear-gradient(to right, hsl(${hue},0%,85%), hsl(${hue},100%,70%))` }}
+                                                                    />
+                                                                </div>
+                                                                <div className="flex items-center gap-2 ml-7">
+                                                                    <div className="w-8 h-5 rounded border" style={{ backgroundColor: descColorStyle(item.description).bg, borderColor: descColorStyle(item.description).border }} />
+                                                                    <span className="text-[10px] text-slate-400">{sat === 0 ? 'グレー（デフォルト）' : `H:${hue} S:${sat}`}</span>
+                                                                    {sat > 0 && (
+                                                                        <button onClick={() => updateItem(index, { description: '' })} className="text-[10px] text-slate-400 hover:text-red-500 underline">リセット</button>
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        )
+                                                    })()}
+                                                </div>
+                                            ) : (
+                                                <Input
+                                                    value={item.description || ''}
+                                                    onChange={e => updateItem(index, { description: e.target.value })}
+                                                    className="border-transparent hover:border-slate-200 focus:border-indigo-500 px-2 py-0.5 h-auto text-xs w-full bg-transparent transition-colors text-slate-500 placeholder:text-slate-300"
+                                                    placeholder="補足説明（考��入力時に��目名の横に表示されます）"
+                                                />
+                                            )}
 
                                             {/* 獲得pt (Checkbox, Photo, Text) */}
                                             {(item.type === 'checkbox' || item.type === 'photo' || item.type === 'text') && (
@@ -394,7 +528,8 @@ function PatternEditor({ pattern, onSave, onCancel }: { pattern: any, onSave: ()
                                     </div>
                                 </div>
                             </Card>
-                        ))}
+                            )
+                        })}
                     </div>
                 </div>
             </div>

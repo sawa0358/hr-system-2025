@@ -964,15 +964,42 @@ export default function EvaluationEntryPage() {
                                         <div className="p-8 text-center text-slate-400 italic text-sm">評価項目が設定されていません</div>
                                     )}
 
-                                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => (
+                                    {items.filter(i => !['photo', 'thank_you'].includes(i.type)).map((item, index) => {
+                                        // 説明文の色（HSL形式 "h,s" or 旧色名）
+                                        const descStyle = (() => {
+                                            if (item.type !== 'description') return { bg: '', border: '', text: '' }
+                                            const desc = item.description || ''
+                                            let hue = 0, sat = 0
+                                            const parts = desc.split(',')
+                                            if (parts.length === 2) {
+                                                const h = parseInt(parts[0], 10), s = parseInt(parts[1], 10)
+                                                if (!isNaN(h) && !isNaN(s)) { hue = h; sat = s }
+                                            } else {
+                                                const m: Record<string, [number, number]> = {
+                                                    'blue': [220, 70], 'green': [160, 60], 'amber': [40, 80],
+                                                    'red': [0, 70], 'purple': [280, 60], 'indigo': [240, 70],
+                                                }
+                                                if (m[desc]) { hue = m[desc][0]; sat = m[desc][1] }
+                                            }
+                                            if (sat === 0) return { bg: '#f1f5f9', border: '#cbd5e1', text: '#475569' }
+                                            return {
+                                                bg: `hsl(${hue}, ${sat}%, 95%)`,
+                                                border: `hsl(${hue}, ${sat}%, 75%)`,
+                                                text: `hsl(${hue}, ${Math.min(sat + 10, 100)}%, 30%)`,
+                                            }
+                                        })()
+
+                                        return (
                                         <div key={item.id} className={cn(
                                             "group flex items-start px-4 transition-colors",
-                                            item.type === 'description' ? "bg-slate-700 py-2 rounded-md my-1 pointer-events-none" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
-                                        )}>
+                                            item.type === 'description' ? "py-2 rounded-md my-1 pointer-events-none border" : (item.checked ? "bg-blue-50/20 py-3" : "hover:bg-slate-50/50 py-3")
+                                        )}
+                                        style={item.type === 'description' ? { backgroundColor: descStyle.bg, borderColor: descStyle.border, color: descStyle.text } : undefined}
+                                        >
                                             {/* Checkbox / Icon */}
                                             <div className="w-8 mr-3 flex justify-center pt-0.5">
                                                 {item.type === 'description' ? (
-                                                    <AlertCircle className="w-4 h-4 text-slate-300 mt-0.5" />
+                                                    <AlertCircle className="w-4 h-4 mt-0.5" style={{ color: descStyle.text, opacity: 0.6 }} />
                                                 ) : (item.type === 'checkbox' || !item.type) ? (
                                                     <Checkbox
                                                         checked={item.checked}
@@ -998,7 +1025,7 @@ export default function EvaluationEntryPage() {
                                                 >
                                                     <Label className={cn(
                                                         "text-sm font-medium leading-snug break-words",
-                                                        item.type === 'description' ? "text-white" : (item.checked ? "text-slate-400" : "text-slate-700"),
+                                                        item.type === 'description' ? "font-bold" : (item.checked ? "text-slate-400" : "text-slate-700"),
                                                         item.type !== 'description' && "cursor-pointer"
                                                     )}>
                                                         {item.title}
@@ -1020,7 +1047,7 @@ export default function EvaluationEntryPage() {
                                                             disabled={item.type === 'description' || !canEdit} // Explicitly allow 'text' type if canEdit is true
                                                             className={cn(
                                                                 "text-xs min-h-[60px] resize-y w-full leading-relaxed",
-                                                                item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none text-slate-300 resize-none h-auto min-h-0 pointer-events-none" : "bg-white border-slate-200 focus-visible:ring-blue-400"
+                                                                item.type === 'description' ? "bg-transparent border-none px-0 py-0 shadow-none opacity-70 resize-none h-auto min-h-0 pointer-events-none" : "bg-white border-slate-200 focus-visible:ring-blue-400"
                                                             )}
                                                         />
                                                     </div>
@@ -1033,7 +1060,8 @@ export default function EvaluationEntryPage() {
                                                 {item.points > 0 && <span className="text-[10px] font-bold text-slate-400 font-mono">+{parseFloat(item.points.toString()).toLocaleString()}</span>}
                                             </div>
                                         </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </Card>
                         </div>

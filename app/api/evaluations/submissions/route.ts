@@ -430,21 +430,23 @@ export async function POST(request: Request) {
             }
 
             // 4. ポイントログの更新 (Checklist分)
-            // まずこのユーザー・この日・Checklistタイプのログを削除
+            // まずこのユーザー・この日・Checklistタイプのログを削除（日付範囲で確実に削除）
+            const startOfDayForDelete = new Date(targetDate); startOfDayForDelete.setHours(0, 0, 0, 0)
+            const endOfDayForDelete = new Date(targetDate); endOfDayForDelete.setHours(23, 59, 59, 999)
             await tx.personnelEvaluationPointLog.deleteMany({
                 where: {
                     employeeId: targetUserId,
-                    date: targetDate,
+                    date: { gte: startOfDayForDelete, lte: endOfDayForDelete },
                     type: 'checklist'
                 }
             })
 
-            // 新しいポイントでログ作成
+            // 新しいポイントでログ作成（日付はその日の0時に正規化）
             if (totalChecklistPoints > 0) {
                 await tx.personnelEvaluationPointLog.create({
                     data: {
                         employeeId: targetUserId,
-                        date: targetDate,
+                        date: startOfDayForDelete,
                         points: totalChecklistPoints,
                         type: 'checklist',
                         sourceId: submission.id

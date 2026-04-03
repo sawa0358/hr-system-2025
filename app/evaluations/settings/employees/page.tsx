@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Search, Save, ArrowLeft, UserPlus, Users, Calculator, Trash2, Lock, Unlock, Edit2, Loader2 } from "lucide-react"
+import { Search, Save, ArrowLeft, UserPlus, Users, Trash2, Lock, Unlock, Edit2, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -156,21 +155,23 @@ function PasswordCheckDialog({ open, onOpenChange, onSuccess }: { open: boolean,
 
 function IndividualSettings({ isEditing }: { isEditing: boolean }) {
     const [employees, setEmployees] = useState<any[]>([])
+    const [originalEmployees, setOriginalEmployees] = useState<any[]>([])
     const [teams, setTeams] = useState<any[]>([])
     const [patterns, setPatterns] = useState<any[]>([])
     const [searchQuery, setSearchQuery] = useState('')
-
-    // Confirmation Dialog State
-    const [confirmState, setConfirmState] = useState<{ open: boolean, emp: any | null }>({ open: false, emp: null })
+    const [saving, setSaving] = useState(false)
+    const [showConfirm, setShowConfirm] = useState(false)
 
     useEffect(() => {
-        // Fetch All Data
         Promise.all([
             fetch('/api/evaluations/settings/employees').then(res => res.json()),
             fetch('/api/evaluations/settings/teams').then(res => res.json()),
             fetch('/api/evaluations/settings/patterns').then(res => res.json())
         ]).then(([empData, teamData, patternData]) => {
-            if (Array.isArray(empData)) setEmployees(empData)
+            if (Array.isArray(empData)) {
+                setEmployees(empData)
+                setOriginalEmployees(JSON.parse(JSON.stringify(empData)))
+            }
             if (Array.isArray(teamData)) setTeams(teamData)
             if (Array.isArray(patternData)) setPatterns(patternData)
         }).catch(console.error)
@@ -182,36 +183,44 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
         ))
     }
 
-    const onSaveClick = (emp: any) => {
-        setConfirmState({ open: true, emp })
+    // 変更があった社員を検出
+    const isChanged = (emp: any) => {
+        const orig = originalEmployees.find(o => o.id === emp.id)
+        if (!orig) return false
+        return (emp.teamId || null) !== (orig.teamId || null) ||
+               (emp.patternId || null) !== (orig.patternId || null)
     }
 
-    const executeSave = async () => {
-        const emp = confirmState.emp
-        if (!emp) return
+    const changedEmployees = employees.filter(isChanged)
+    const changedCount = changedEmployees.length
 
+    const executeBulkSave = async () => {
+        setSaving(true)
         try {
-            const res = await fetch(`/api/evaluations/settings/employees/${emp.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    teamId: emp.teamId || null,
-                    patternId: emp.patternId || null,
-                    hasGoals: emp.hasGoals,
-                    contractGoal: emp.contractGoal,
-                    completionGoal: emp.completionGoal
-                })
-            })
-            if (res.ok) {
-                // alert(`${emp.name}の設定を保存しました`)
-            } else {
-                alert('保存に失敗しました')
+            const results = await Promise.all(
+                changedEmployees.map(emp =>
+                    fetch(`/api/evaluations/settings/employees/${emp.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            teamId: emp.teamId || null,
+                            patternId: emp.patternId || null
+                        })
+                    })
+                )
+            )
+            const failedCount = results.filter(r => !r.ok).length
+            if (failedCount > 0) {
+                alert(`${changedCount - failedCount}名保存成功、${failedCount}名失敗しました`)
             }
+            // 保存成功後、originalを更新
+            setOriginalEmployees(JSON.parse(JSON.stringify(employees)))
         } catch (e) {
             console.error(e)
             alert('エラーが発生しました')
         } finally {
-            setConfirmState({ open: false, emp: null })
+            setSaving(false)
+            setShowConfirm(false)
         }
     }
 
@@ -224,15 +233,34 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
         <Card>
             <CardHeader>
                 <div className="flex justify-between items-center">
-                    <CardTitle>個人別設定一覧</CardTitle>
-                    <div className="relative w-64">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
-                        <Input
-                            placeholder="社員を検索..."
-                            className="pl-9"
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                        />
+                    <div className="flex items-center gap-4">
+                        <CardTitle>個人別設定一覧</CardTitle>
+                        {isEditing && changedCount > 0 && (
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                {changedCount}名 変更あり
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-64">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                            <Input
+                                placeholder="社員を検索..."
+                                className="pl-9"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        {isEditing && (
+                            <Button
+                                className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                                disabled={changedCount === 0 || saving}
+                                onClick={() => setShowConfirm(true)}
+                            >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                一括保存{changedCount > 0 ? `（${changedCount}名分）` : ''}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </CardHeader>
@@ -243,16 +271,15 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
                             <TableHead className="w-[150px]">社員名</TableHead>
                             <TableHead className="w-[150px]">所属チーム</TableHead>
                             <TableHead className="w-[200px]">評価パターン</TableHead>
-                            <TableHead className="w-[100px]">数字目標</TableHead>
-                            <TableHead className="w-[200px]">契約目標 (月次/千円)</TableHead>
-                            <TableHead className="w-[200px]">完工目標 (月次/千円)</TableHead>
-                            <TableHead></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredEmployees.map(emp => (
-                            <TableRow key={emp.id}>
-                                <TableCell className="font-medium">{emp.name}</TableCell>
+                            <TableRow key={emp.id} className={isChanged(emp) ? "bg-blue-50" : ""}>
+                                <TableCell className="font-medium">
+                                    {emp.name}
+                                    {isChanged(emp) && <span className="ml-2 text-blue-500 text-xs">●</span>}
+                                </TableCell>
                                 <TableCell>
                                     <Select
                                         value={emp.teamId || 'none'}
@@ -287,69 +314,26 @@ function IndividualSettings({ isEditing }: { isEditing: boolean }) {
                                         </SelectContent>
                                     </Select>
                                 </TableCell>
-                                <TableCell>
-                                    <div className="flex justify-center">
-                                        <Switch
-                                            checked={emp.hasGoals}
-                                            onCheckedChange={checked => handleChange(emp.id, 'hasGoals', checked)}
-                                            disabled={!isEditing}
-                                        />
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    {emp.hasGoals ? (
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1.5 text-xs text-slate-400">¥</span>
-                                            <Input
-                                                type="number"
-                                                value={emp.contractGoal}
-                                                onChange={e => handleChange(emp.id, 'contractGoal', e.target.value)}
-                                                className="h-8 pl-6 text-right pr-9"
-                                                disabled={!isEditing}
-                                            />
-                                            <span className="absolute right-1.5 top-2 text-[8px] text-slate-400 font-bold">(千円)</span>
-                                        </div>
-                                    ) : <span className="text-slate-300 text-xs">-</span>}
-                                </TableCell>
-                                <TableCell>
-                                    {emp.hasGoals ? (
-                                        <div className="relative">
-                                            <span className="absolute left-2 top-1.5 text-xs text-slate-400">¥</span>
-                                            <Input
-                                                type="number"
-                                                value={emp.completionGoal}
-                                                onChange={e => handleChange(emp.id, 'completionGoal', e.target.value)}
-                                                className="h-8 pl-6 text-right pr-9"
-                                                disabled={!isEditing}
-                                            />
-                                            <span className="absolute right-1.5 top-2 text-[8px] text-slate-400 font-bold">(千円)</span>
-                                        </div>
-                                    ) : <span className="text-slate-300 text-xs">-</span>}
-                                </TableCell>
-                                <TableCell>
-                                    {isEditing && (
-                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 px-3" onClick={() => onSaveClick(emp)}>
-                                            保存
-                                        </Button>
-                                    )}
-                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </CardContent>
 
-            <AlertDialog open={confirmState.open} onOpenChange={(open) => !open && setConfirmState({ ...confirmState, open: false })}>
+            <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>変更を保存しますか？</AlertDialogTitle>
+                        <AlertDialogTitle>一括保存しますか？</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {confirmState.emp?.name} の設定を変更します。よろしいですか？
+                            {changedCount}名分の変更を保存します。よろしいですか？
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                        <AlertDialogAction onClick={executeSave}>保存</AlertDialogAction>
+                        <AlertDialogCancel disabled={saving}>キャンセル</AlertDialogCancel>
+                        <AlertDialogAction onClick={executeBulkSave} disabled={saving}>
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                            保存
+                        </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

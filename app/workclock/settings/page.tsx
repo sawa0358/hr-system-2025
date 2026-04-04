@@ -112,11 +112,21 @@ export default function SettingsPage() {
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null)
   const [wageLabels, setWageLabels] = useState(getWagePatternLabels())
   const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('workclock_menu_open') === 'true'
+    }
+    return false
+  })
   const isMobile = useIsMobile()
   const pathname = usePathname()
   const isMenuOpenRef = useRef(isMenuOpen)
   isMenuOpenRef.current = isMenuOpen
+
+  // メニュー開閉状態をlocalStorageに同期
+  useEffect(() => {
+    localStorage.setItem('workclock_menu_open', String(isMenuOpen))
+  }, [isMenuOpen])
   const [standardTaxRate, setStandardTaxRate] = useState<string>('10')
   const [isLoadingTax, setIsLoadingTax] = useState(false)
   const [isSavingTax, setIsSavingTax] = useState(false)
@@ -393,8 +403,12 @@ export default function SettingsPage() {
     const handleMouseDown = (e: MouseEvent) => {
       if (!isMenuOpenRef.current) return
       const target = e.target as HTMLElement
-      if (target.closest && target.closest('[data-wc-menu]')) return
-      if (target.closest && target.closest('[data-wc-menu-btn]')) return
+      if (!target.closest) return
+      if (target.closest('[data-wc-menu]')) return
+      if (target.closest('[data-wc-menu-btn]')) return
+      if (target.closest('[data-radix-popper-content-wrapper]')) return
+      if (target.closest('[role="listbox"]')) return
+      if (target.closest('[role="dialog"]')) return
       setIsMenuOpen(false)
     }
     window.addEventListener('mousedown', handleMouseDown, true)

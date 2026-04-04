@@ -162,11 +162,21 @@ const INITIAL_PROMPTS = [
 export default function ChecklistSummaryPage() {
     const { currentUser } = useAuth()
     const [workers, setWorkers] = useState<Worker[]>([])
-    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isMenuOpen, setIsMenuOpen] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('workclock_menu_open') === 'true'
+        }
+        return false
+    })
     const isMobile = useIsMobile()
     const pathname = usePathname()
     const isMenuOpenRef = useRef(isMenuOpen)
     isMenuOpenRef.current = isMenuOpen
+
+    // メニュー開閉状態をlocalStorageに同期
+    useEffect(() => {
+        localStorage.setItem('workclock_menu_open', String(isMenuOpen))
+    }, [isMenuOpen])
 
     useEffect(() => {
         if (currentUser?.id) {
@@ -197,8 +207,12 @@ export default function ChecklistSummaryPage() {
         const handleMouseDown = (e: MouseEvent) => {
             if (!isMenuOpenRef.current) return
             const target = e.target as HTMLElement
-            if (target.closest && target.closest('[data-wc-menu]')) return
-            if (target.closest && target.closest('[data-wc-menu-btn]')) return
+            if (!target.closest) return
+            if (target.closest('[data-wc-menu]')) return
+            if (target.closest('[data-wc-menu-btn]')) return
+            if (target.closest('[data-radix-popper-content-wrapper]')) return
+            if (target.closest('[role="listbox"]')) return
+            if (target.closest('[role="dialog"]')) return
             setIsMenuOpen(false)
         }
         window.addEventListener('mousedown', handleMouseDown, true)

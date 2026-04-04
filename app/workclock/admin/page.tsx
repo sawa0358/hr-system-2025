@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import { getWorkers, getTimeEntries, getRewardsByWorkerAndMonth } from '@/lib/workclock/api-storage'
 import { useAuth } from '@/lib/auth-context'
@@ -23,6 +24,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 
 export default function AdminPage() {
   const { currentUser } = useAuth()
+  const pathname = usePathname()
   const [workers, setWorkers] = useState<Worker[]>([])
   const [allEntries, setAllEntries] = useState<TimeEntry[]>([])
   const [allRewards, setAllRewards] = useState<Reward[]>([])
@@ -43,6 +45,11 @@ export default function AdminPage() {
     }
   }, [currentDate, currentUser])
 
+  const workclockMenuRef = useRef<HTMLDivElement>(null)
+  const workclockMenuBtnRef = useRef<HTMLButtonElement>(null)
+  const isMenuOpenRef = useRef(isMenuOpen)
+  isMenuOpenRef.current = isMenuOpen
+
   // モバイル時のスクロールでメニューを閉じる
   useEffect(() => {
     if (!isMobile || !isMenuOpen) return
@@ -59,6 +66,21 @@ export default function AdminPage() {
       document.removeEventListener('scroll', handleScroll)
     }
   }, [isMobile, isMenuOpen])
+
+  // メニュー外クリックで閉じる（常時リスナー + refで最新状態を参照）
+  // pathnameを依存配列に入れることで、ページ遷移後も確実にリスナーを再登録
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!isMenuOpenRef.current) return
+      const target = e.target as HTMLElement
+      if (target.closest && target.closest('[data-wc-menu]')) return
+      if (target.closest && target.closest('[data-wc-menu-btn]')) return
+      setIsMenuOpen(false)
+    }
+
+    window.addEventListener('mousedown', handleMouseDown, true)
+    return () => window.removeEventListener('mousedown', handleMouseDown, true)
+  }, [pathname])
 
   const loadData = async () => {
     try {
@@ -269,6 +291,8 @@ export default function AdminPage() {
             size="icon"
             className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
             style={{ backgroundColor: '#f5f4cd' }}
+            ref={workclockMenuBtnRef}
+            data-wc-menu-btn
             aria-label="時間管理メニューを開く"
             onClick={() => setIsMenuOpen((open) => !open)}
           >
@@ -289,7 +313,9 @@ export default function AdminPage() {
           )}
         </div>
           <div
-            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${
+            ref={workclockMenuRef}
+            data-wc-menu
+            className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 relative z-40 ${
               isMenuOpen ? 'w-72' : 'w-0'
             }`}
             style={{ backgroundColor: '#add1cd' }}

@@ -417,6 +417,8 @@ export function Sidebar() {
 
       <aside
         ref={sidebarRef}
+        onMouseEnter={() => { if (collapsed) setCollapsed(false) }}
+        onMouseLeave={() => { if (!collapsed) setCollapsed(true) }}
         className={cn(
           "bg-sidebar border-r border-sidebar-border transition-all duration-300 flex flex-col",
           collapsed ? "w-16" : "w-64",

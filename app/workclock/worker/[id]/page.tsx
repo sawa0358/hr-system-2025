@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import { Worker, TimeEntry, Reward } from '@/lib/workclock/types'
 import {
   getWorkerById,
@@ -51,6 +51,9 @@ export default function WorkerPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false)
   const isMobile = useIsMobile()
+  const pathname = usePathname()
+  const isMenuOpenRef = useRef(isMenuOpen)
+  isMenuOpenRef.current = isMenuOpen
 
   // 現在ログイン中ユーザーのWorkClockWorkerレコードとリーダー判定
   const ownWorker = useMemo(
@@ -98,6 +101,19 @@ export default function WorkerPage() {
       document.removeEventListener('scroll', handleScroll)
     }
   }, [isMobile, isMenuOpen])
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!isMenuOpenRef.current) return
+      const target = e.target as HTMLElement
+      if (target.closest && target.closest('[data-wc-menu]')) return
+      if (target.closest && target.closest('[data-wc-menu-btn]')) return
+      setIsMenuOpen(false)
+    }
+    window.addEventListener('mousedown', handleMouseDown, true)
+    return () => window.removeEventListener('mousedown', handleMouseDown, true)
+  }, [pathname])
 
   const loadData = async () => {
     try {
@@ -285,6 +301,7 @@ export default function WorkerPage() {
                 style={{ backgroundColor: '#f5f4cd' }}
                 aria-label="時間管理メニューを開く"
                 onClick={() => setIsMenuOpen((open) => !open)}
+                data-wc-menu-btn
               >
                 <Menu className="h-5 w-5" />
               </Button>
@@ -303,6 +320,7 @@ export default function WorkerPage() {
               )}
             </div>
             <div
+              data-wc-menu
               className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
                 }`}
               style={{ backgroundColor: '#add1cd' }}

@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -114,6 +114,9 @@ export default function SettingsPage() {
   const [countLabels, setCountLabels] = useState({ A: '回数Aパターン', B: '回数Bパターン', C: '回数Cパターン' })
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isMobile = useIsMobile()
+  const pathname = usePathname()
+  const isMenuOpenRef = useRef(isMenuOpen)
+  isMenuOpenRef.current = isMenuOpen
   const [standardTaxRate, setStandardTaxRate] = useState<string>('10')
   const [isLoadingTax, setIsLoadingTax] = useState(false)
   const [isSavingTax, setIsSavingTax] = useState(false)
@@ -384,6 +387,19 @@ export default function SettingsPage() {
       document.removeEventListener('scroll', handleScroll)
     }
   }, [isMobile, isMenuOpen])
+
+  // メニュー外クリックで閉じる
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!isMenuOpenRef.current) return
+      const target = e.target as HTMLElement
+      if (target.closest && target.closest('[data-wc-menu]')) return
+      if (target.closest && target.closest('[data-wc-menu-btn]')) return
+      setIsMenuOpen(false)
+    }
+    window.addEventListener('mousedown', handleMouseDown, true)
+    return () => window.removeEventListener('mousedown', handleMouseDown, true)
+  }, [pathname])
 
   const loadWorkers = async () => {
     try {
@@ -1029,6 +1045,7 @@ export default function SettingsPage() {
               style={{ backgroundColor: '#f5f4cd' }}
               aria-label="時間管理メニューを開く"
               onClick={() => setIsMenuOpen((open) => !open)}
+              data-wc-menu-btn
             >
               <Menu className="h-5 w-5" />
             </Button>
@@ -1047,6 +1064,7 @@ export default function SettingsPage() {
             )}
           </div>
           <div
+            data-wc-menu
             className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
               }`}
             style={{ backgroundColor: '#add1cd' }}

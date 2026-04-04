@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -297,6 +297,7 @@ export function SidebarNav({
   }
 
   const effectiveCollapsed = collapsible ? isCollapsed : false
+  const sidebarNavRef = useRef<HTMLDivElement>(null)
 
   // モバイル時のみスクロールでメニューを閉じる
   useEffect(() => {
@@ -310,8 +311,31 @@ export function SidebarNav({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [isMobile, isMobileMenuOpen])
 
+  // メニュー外クリックで閉じる（collapsible＝展開中のみ）
+  useEffect(() => {
+    if (!collapsible || isCollapsed) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (sidebarNavRef.current && !sidebarNavRef.current.contains(target)) {
+        setIsCollapsed(true)
+      }
+    }
+
+    // 展開ボタンのクリックイベントが先に処理されるよう少し遅延
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside)
+    }, 100)
+
+    return () => {
+      clearTimeout(timeoutId)
+      document.removeEventListener('click', handleClickOutside)
+    }
+  }, [collapsible, isCollapsed])
+
   return (
     <div
+      ref={sidebarNavRef}
       className={cn(
         'relative flex flex-col bg-sidebar',
         collapsible ? (effectiveCollapsed ? 'w-16' : 'w-64') : 'w-full',

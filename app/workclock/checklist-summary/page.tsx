@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { usePathname } from 'next/navigation'
 import { SidebarNav } from '@/components/workclock/sidebar-nav'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -163,6 +164,9 @@ export default function ChecklistSummaryPage() {
     const [workers, setWorkers] = useState<Worker[]>([])
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const isMobile = useIsMobile()
+    const pathname = usePathname()
+    const isMenuOpenRef = useRef(isMenuOpen)
+    isMenuOpenRef.current = isMenuOpen
 
     useEffect(() => {
         if (currentUser?.id) {
@@ -187,6 +191,19 @@ export default function ChecklistSummaryPage() {
             document.removeEventListener('scroll', handleScroll)
         }
     }, [isMobile, isMenuOpen])
+
+    // メニュー外クリックで閉じる
+    useEffect(() => {
+        const handleMouseDown = (e: MouseEvent) => {
+            if (!isMenuOpenRef.current) return
+            const target = e.target as HTMLElement
+            if (target.closest && target.closest('[data-wc-menu]')) return
+            if (target.closest && target.closest('[data-wc-menu-btn]')) return
+            setIsMenuOpen(false)
+        }
+        window.addEventListener('mousedown', handleMouseDown, true)
+        return () => window.removeEventListener('mousedown', handleMouseDown, true)
+    }, [pathname])
 
     const [isSummarizing, setIsSummarizing] = useState(false)
     const [aiReport, setAiReport] = useState<string | null>(null)
@@ -657,11 +674,13 @@ export default function ChecklistSummaryPage() {
                             className="h-10 w-10 bg-sidebar text-sidebar-foreground shadow-md rounded-md"
                             style={{ backgroundColor: '#f5f4cd' }}
                             onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            data-wc-menu-btn
                         >
                             <Menu className="h-5 w-5" />
                         </Button>
                     </div>
                     <div
+                        data-wc-menu
                         className={`h-full overflow-hidden border-r border-slate-200 bg-sidebar transition-all duration-300 ${isMenuOpen ? 'w-72' : 'w-0'
                             }`}
                         style={{ backgroundColor: '#add1cd' }}

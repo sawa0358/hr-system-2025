@@ -106,12 +106,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const text = message || setting.defaultMessage?.trim() || ''
+    const SYSTEM_PREFIX = '【HRシステム - 自動送信】\n'
+    const rawText = message || setting.defaultMessage?.trim() || ''
+    const text = rawText ? `${SYSTEM_PREFIX}${rawText}` : SYSTEM_PREFIX.trim()
     const result = await sendFileToRoom(
       setting.chatworkRoomId,
       fileBuffer,
       file.originalName,
-      text || undefined
+      text
     )
 
     if (!result.success) {

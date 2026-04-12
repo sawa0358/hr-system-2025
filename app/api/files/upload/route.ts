@@ -4,18 +4,51 @@ import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    // クエリパラメータまたはヘッダーからemployeeIdを取得
-    const searchParams = request.nextUrl.searchParams;
-    const employeeId = searchParams.get('employeeId') || request.headers.get('x-employee-id');
-    
-    if (!employeeId) {
+    // ミドルウェアが設定した認証済みユーザーのID
+    const authenticatedUserId = request.headers.get('x-employee-id');
+    const authenticatedUserRole = request.headers.get('x-employee-role');
+
+    if (!authenticatedUserId) {
       return NextResponse.json(
         { error: '認証が必要です' },
         { status: 401 }
       );
     }
 
-    const result = await handleFileUpload(request, employeeId);
+    // FormDataからtargetEmployeeIdを取得（HR/adminが他従業員フォルダにアップロードする場合）
+    // 注: FormDataは一度しか読めないため、cloneしてから読む
+    const clonedRequest = request.clone();
+    let targetEmployeeId = authenticatedUserId;
+    try {
+      const peekFormData = await clonedRequest.formData();
+      const formTargetId = peekFormData.get('targetEmployeeId') as string;
+      if (formTargetId && formTargetId !== authenticatedUserId) {
+        // HR/admin権限チェック
+        const isAdminOrHR = authenticatedUserRole === 'admin' || authenticatedUserRole === 'hr';
+        if (!isAdminOrHR) {
+          return NextResponse.json(
+            { error: '他の従業員のフォルダにアップロードする権限がありません' },
+            { status: 403 }
+          );
+        }
+        // 対象従業員の存在確認
+        const targetEmployee = await prisma.employee.findUnique({
+          where: { id: formTargetId },
+          select: { id: true }
+        });
+        if (!targetEmployee) {
+          return NextResponse.json(
+            { error: '指定された従業員が存在しません' },
+            { status: 404 }
+          );
+        }
+        targetEmployeeId = formTargetId;
+      }
+    } catch {
+      // FormData読み取り失敗時は認証済みユーザーIDを使用
+    }
+
+    const result = await handleFileUpload(request, targetEmployeeId);
 
     if (!result.success || !result.fileId) {
       return NextResponse.json(

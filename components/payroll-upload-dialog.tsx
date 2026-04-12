@@ -360,9 +360,10 @@ export function PayrollUploadDialog({
     formData.append('category', 'payroll')
     const finalFolderKey = isAllEmployeesMode ? `全員分/${folderKey}` : folderKey
     formData.append('folder', finalFolderKey)
+    // 対象従業員IDをFormDataで送信（ミドルウェアがx-employee-idをログインユーザーで上書きするため）
+    formData.append('targetEmployeeId', employeeIdToUse)
     const response = await fetch('/api/files/upload', {
       method: 'POST',
-      headers: { 'x-employee-id': employeeIdToUse },
       body: formData,
     })
     if (!response.ok) {
@@ -1124,12 +1125,10 @@ export function PayrollUploadDialog({
                       formData.append('file', file)
                       formData.append('category', 'payroll')
                       formData.append('folder', folderName)
+                      formData.append('targetEmployeeId', employeeIdToUse)
 
                       const uploadResponse = await fetch('/api/files/upload', {
                         method: 'POST',
-                        headers: {
-                          'x-employee-id': employeeIdToUse,
-                        },
                         body: formData
                       })
 
@@ -1202,12 +1201,10 @@ export function PayrollUploadDialog({
                           formData.append('file', file)
                           formData.append('category', 'payroll')
                           formData.append('folder', folderName)
+                          formData.append('targetEmployeeId', employeeIdToUse)
 
                           const uploadResponse = await fetch('/api/files/upload', {
                             method: 'POST',
-                            headers: {
-                              'x-employee-id': employeeIdToUse,
-                            },
                             body: formData
                           })
 

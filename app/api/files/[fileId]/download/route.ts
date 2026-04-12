@@ -74,12 +74,16 @@ export async function GET(
         );
       }
     } else {
-      // 他のカテゴリのファイルは所有者のみアクセス可能
+      // 他のカテゴリのファイルは所有者またはHR/admin権限者がアクセス可能
       if (file.employeeId !== employeeId) {
-        return NextResponse.json(
-          { error: 'このファイルにアクセスする権限がありません' },
-          { status: 403 }
-        );
+        const employeeRole = request.headers.get('x-employee-role');
+        const isAdminOrHr = employeeRole === 'admin' || employeeRole === 'hr';
+        if (!isAdminOrHr) {
+          return NextResponse.json(
+            { error: 'このファイルにアクセスする権限がありません' },
+            { status: 403 }
+          );
+        }
       }
     }
 

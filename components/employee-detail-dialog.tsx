@@ -1034,12 +1034,11 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
         formData.append('file', file)
         formData.append('category', 'employee')
         formData.append('folder', currentFolder)
+        // 対象従業員IDをFormDataで送信（ミドルウェアがx-employee-idをログインユーザーで上書きするため）
+        formData.append('targetEmployeeId', employeeId)
 
         const response = await fetch('/api/files/upload', {
           method: 'POST',
-          headers: {
-            'x-employee-id': employeeId
-          },
           body: formData
         })
 
@@ -1086,12 +1085,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           formData.append('file', file)
           formData.append('category', 'employee')
           formData.append('folder', currentFolder)
+          formData.append('targetEmployeeId', employee.id)
 
           const response = await fetch('/api/files/upload', {
             method: 'POST',
-            headers: {
-              'x-employee-id': employee.id
-            },
             body: formData
           })
 
@@ -1163,12 +1160,10 @@ export function EmployeeDetailDialog({ open, onOpenChange, employee, onRefresh, 
           formData.append('file', file)
           formData.append('category', 'employee')
           formData.append('folder', currentFolder)
+          formData.append('targetEmployeeId', employee.id)
 
           const response = await fetch('/api/files/upload', {
             method: 'POST',
-            headers: {
-              'x-employee-id': employee.id
-            },
             body: formData
           })
 

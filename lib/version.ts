@@ -2,4 +2,4 @@
  * アプリケーションバージョン
  * デプロイ時に 0.0.1 ずつインクリメントする
  */
-export const APP_VERSION = 'v4.0.6';
+export const APP_VERSION = 'v4.0.7';

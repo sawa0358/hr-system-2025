@@ -17,11 +17,14 @@ export async function POST(request: NextRequest) {
 
     // FormDataからtargetEmployeeIdを取得（HR/adminが他従業員フォルダにアップロードする場合）
     // 注: FormDataは一度しか読めないため、cloneしてから読む
+    // clone() はBodyストリームをメモリに二重バッファリングするため、アップロードファイルが大きい場合はメモリ2倍になる点に注意
     const clonedRequest = request.clone();
     let targetEmployeeId = authenticatedUserId;
     try {
       const peekFormData = await clonedRequest.formData();
-      const formTargetId = peekFormData.get('targetEmployeeId') as string;
+      const formTargetIdRaw = peekFormData.get('targetEmployeeId');
+      // FormData.get() は FormDataEntryValue | null を返す。文字列値のみ受け入れる
+      const formTargetId = typeof formTargetIdRaw === 'string' ? formTargetIdRaw.trim() : '';
       if (formTargetId && formTargetId !== authenticatedUserId) {
         // HR/admin権限チェック
         const isAdminOrHR = authenticatedUserRole === 'admin' || authenticatedUserRole === 'hr';
@@ -44,8 +47,11 @@ export async function POST(request: NextRequest) {
         }
         targetEmployeeId = formTargetId;
       }
-    } catch {
+    } catch (err: unknown) {
       // FormData読み取り失敗時は認証済みユーザーIDを使用
+      // サイレントフォールバックによる不具合検知のため、必ずログを残す
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error('[POST /api/files/upload] targetEmployeeId先読み失敗、認証ユーザーIDにフォールバック:', errMsg);
     }
 
     const result = await handleFileUpload(request, targetEmployeeId);

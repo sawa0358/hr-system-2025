@@ -87,13 +87,22 @@ export async function GET(
       }
     }
 
+    // filePathの存在確認（Prismaスキーマ上はnullable）
+    if (!file.filePath) {
+      return NextResponse.json(
+        { error: 'ファイルのパスが記録されていません' },
+        { status: 500 }
+      );
+    }
+    const filePath: string = file.filePath;
+
     // AWS_S3_BUCKET_NAMEが設定されていればS3から取得（環境に関係なく）
     const isProduction = !!process.env.AWS_S3_BUCKET_NAME;
-    
+
     if (isProduction) {
       try {
         // 本番環境：S3から署名付きURLを取得（1時間有効）
-        const downloadResult = await getSignedDownloadUrl(file.filePath, 3600);
+        const downloadResult = await getSignedDownloadUrl(filePath, 3600);
 
         if (!downloadResult.success || !downloadResult.url) {
           console.error('S3署名付きURL取得エラー:', downloadResult.error);
@@ -108,8 +117,8 @@ export async function GET(
           throw new Error(`S3ファイル取得失敗: ${fileResponse.status}`);
         }
 
-        const fileBuffer = await fileResponse.arrayBuffer();
-        
+        const fileBuffer: ArrayBuffer = await fileResponse.arrayBuffer();
+
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
@@ -117,7 +126,7 @@ export async function GET(
         const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
         headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
         headers.set('Content-Length', fileBuffer.byteLength.toString());
-        
+
         // ファイルを返す
         return new NextResponse(fileBuffer, { headers });
       } catch (s3Error) {
@@ -131,24 +140,25 @@ export async function GET(
       // 開発環境：ローカルファイルシステムから直接ファイルを配信
       try {
         const uploadDir = path.join(process.cwd(), 'uploads');
-        const absolutePath = path.join(uploadDir, file.filePath);
-        
+        const absolutePath = path.join(uploadDir, filePath);
+
         // ファイルの存在確認
         await fs.access(absolutePath);
-        
-        // ファイルを読み込み
+
+        // ファイルを読み込み（BufferをBlobでラップしてBodyInit互換にする）
         const fileBuffer = await fs.readFile(absolutePath);
-        
+        const body = new Blob([new Uint8Array(fileBuffer)], { type: file.mimeType });
+
         // レスポンスヘッダーを設定
         const headers = new Headers();
         headers.set('Content-Type', file.mimeType);
         // 日本語ファイル名を安全に処理（ASCII文字のみ使用）
         const safeFileName = file.originalName.replace(/[^\x00-\x7F]/g, '_');
         headers.set('Content-Disposition', `attachment; filename="${safeFileName}"`);
-        headers.set('Content-Length', fileBuffer.length.toString());
-        
+        headers.set('Content-Length', body.size.toString());
+
         // ファイルを返す
-        return new NextResponse(fileBuffer, { headers });
+        return new NextResponse(body, { headers });
       } catch (error) {
         console.error('ローカルファイル読み込みエラー:', error);
         return NextResponse.json(
